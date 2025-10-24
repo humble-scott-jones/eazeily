@@ -1,37 +1,26 @@
 # Togetherly (dev)
+Run dev server:
+```bash
+source .venv/bin/activate
+PORT=5001 python3 app.py
+```
+Run tests:
+```bash
+source .venv/bin/activate
+PYTHONPATH=. pytest -q
+# or run the helper script
+./run_tests.sh
+```
+Run UI smoke tests (requires server running on port 5001). These are gated so they don't run by default during local development. Set the env var RUN_UI_SMOKE=1 to enable them.
+```bash
+# run unit tests only
+PYTHONPATH=. pytest -q
+
+# run UI smoke tests
+RUN_UI_SMOKE=1 PYTHONPATH=. pytest -q
+# Togetherly — development guide
 
 This document explains how to set up and run Togetherly locally, run tests (including reproducing CI artifact collection), install optional Playwright tooling, and troubleshoot common issues.
-
-## Quickstart
-
-If you just want to boot the dev server and click through the UI, follow these macOS/zsh-friendly steps:
-
-1. Create and activate the virtual environment (only required once per clone):
-
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   .venv/bin/python -m pip install --upgrade pip
-   .venv/bin/python -m pip install -r requirements.txt
-   ```
-
-2. Start the server in the background (writes stdout/stderr to `.dev_server.log` and PID to `.dev_server.pid`):
-
-   ```bash
-   lsof -ti :5001 | xargs -r kill -9 || true
-   PORT=5001 FLASK_ENV=development ALLOW_DEV_DEBUG=1 ./.venv/bin/python app.py > .dev_server.log 2>&1 & echo $! > .dev_server.pid
-   tail -n +1 .dev_server.log | sed -n '1,120p'
-   cat .dev_server.pid
-   ```
-
-3. Sanity-check the dev ping endpoint:
-
-   ```bash
-   curl -i http://127.0.0.1:5001/__dev__/ping
-   # expected: HTTP/1.1 200 OK and body 'pong'
-   ```
-
-Once you are done, stop the server with `kill "$(cat .dev_server.pid)"`.
 
 ## Prerequisites (macOS)
 
@@ -174,43 +163,3 @@ To reproduce, run the commands in sections 1, 3, and 7 in sequence.
 - Tighten flake8 rules in CI and fix remaining lint issues.
 
 If anything in these instructions doesn't work on your machine, paste the failing command and its output and I'll help fix it.
-
-## OpenAI integration: ChatGPT vs API
-
-You don’t need a ChatGPT subscription in the app. Togetherly uses the OpenAI API when configured. If an API key isn’t set, it falls back to the built‑in generator.
-
-- Set OPENAI_API_KEY in your environment to enable API-backed generation.
-- Optionally set OPENAI_MODEL (defaults to "gpt-4o-mini").
-
-Behavior:
-- With OPENAI_API_KEY: The server sends a structured JSON-only request with your industry, tone, goals, platforms, and keywords. The system prompt is tuned for influencer-quality copy with platform nuances, a strong hook/CTA for reels, and natural keyword usage.
-- Without OPENAI_API_KEY: The local generator produces consistent posts without calling the internet.
-
-Troubleshooting:
-- If the OpenAI call fails or returns unusable data, the app automatically falls back to the local generator so you’re never blocked.
-
-## Content pack
-
-The “content pack” is the versioned set of static content used by the wizard:
-
-- static/content/config.json — industries, tones, platforms, industry questions, and pricing copy
-- static/content/flags.json — optional feature flags (e.g., showing the 7‑day button)
-- GET /api/content — returns { version, flags } for surfacing in the UI
-
-You can change industries, suggested keywords, and questions by editing config.json. The UI shows the content pack version in the Settings card.
-
-## Goals are multi-select
-
-In step 2, “Goals” chips allow multi-selection (they’re stored in answers.goals). These are passed into the generator (and the OpenAI payload when enabled) to shape captions and reels toward those outcomes.
-
-## Faster, clearer tests
-
-Tips to keep tests actionable:
-
-- Run unit tests only: `./run_tests.sh`
-- Run UI smoke tests (requires local server on port 5001): `RUN_UI_SMOKE=1 ./run_tests.sh`
-- Capture CI-style artifacts: `.venv/bin/python -m pytest -q --maxfail=1 --junitxml=pytest-report.xml 2>&1 | tee pytest.log`
-- Helpful flags: append `--durations=10` to find slowest tests or use `-k` for targeted subsets.
-
-New coverage:
-- `tests/test_api_generate_payload.py` validates that `/api/generate` forwards tone, platforms, goals, and both keyword sets to the underlying generator.

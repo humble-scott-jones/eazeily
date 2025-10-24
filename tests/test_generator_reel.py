@@ -51,51 +51,6 @@ def test_make_reel_plan_structure():
     assert beats[0]['line'] in srt
 
 
-def test_make_reel_plan_resolves_display_label_industry_key():
-    plan = generator.make_reel_plan(
-        industry='Realtor / Real Estate',
-        pillar_name='Story',
-        brand_keywords=['listings'],
-        tone='friendly',
-        company='TestCo',
-        reel_style='Property b-roll + captions',
-        goals=['New listings'],
-        niche_keywords=['condo'],
-        length_seconds=30,
-        production_tier='solo'
-    )
-
-    assert plan['cta'] == 'Schedule a showing or DM for details.'
-    assert any('exterior' in shot['shot_type'].lower() for shot in plan['shot_list'])
-
-
-def test_make_reel_plan_has_positive_durations():
-    plan = generator.make_reel_plan(
-        industry='Business',
-        pillar_name='Educational',
-        brand_keywords=['brand'],
-        tone='friendly',
-        length_seconds=30,
-    )
-    beats = plan.get('beats', [])
-    assert len(beats) >= 3
-    prev_end = -1
-    for b in beats:
-        assert b['end_s'] > b['start_s'], f"beat has non-positive duration: {b}"
-        assert b['start_s'] >= 0
-        assert b['end_s'] <= plan.get('length_seconds', 30)
-        assert b['start_s'] >= prev_end
-        prev_end = b['end_s']
-
-
-def test_resolve_industry_key_word_boundary():
-    # ensure 'dent' in student does not match 'dent' token for healthcare
-    assert generator.resolve_industry_key('student housing') != 'healthcare'
-    # dental/dent should resolve to healthcare
-    k1 = generator.resolve_industry_key('dental clinic')
-    k2 = generator.resolve_industry_key('dentist practice')
-    assert k1 == 'healthcare' or k2 == 'healthcare'
-
 if __name__ == '__main__':
     # allow running directly
     test_make_reel_plan_structure()

@@ -8,10 +8,3 @@ __pycache__/
 
 .env*
 .envrc
-
-# Local dev artifacts
-cookies.txt
-.dev_server.log
-.dev_server.pid
-tmp/
-tmp/test-outputs/
