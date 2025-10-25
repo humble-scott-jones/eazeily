@@ -163,6 +163,16 @@ def index():
     return render_template("index.html", is_dev=is_dev)
 
 
+@app.get("/landing")
+def landing():
+    return render_template("landing.html")
+
+
+@app.get("/pricing")
+def pricing():
+    return render_template("pricing.html")
+
+
 @app.get('/account')
 def account_page():
     uid = session.get('user_id')

@@ -1,8 +1,12 @@
 :root{
   --brand:#6366F1;
   --brand-600:#5458e8;
+  --brand-700:#4338ca;
   --brand-50:#eef2ff;
   --sand:#fbfbfd;
+  --purple-600:#7c3aed;
+  --purple-700:#6d28d9;
+  --purple-800:#5b21b6;
 }
 .bg-brand-sand{ background: var(--sand); }
 .text-brand{ color: var(--brand); }
@@ -13,11 +17,12 @@
 .card{ background:#fff;border:1px solid #eaeaf0;border-radius:16px;padding:18px;box-shadow:0 4px 14px rgba(15,23,42,.04);}
 .input{ width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none;}
 .input:focus{ border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-50); }
-.btn-primary{ background:var(--brand); color:#fff; border:none; padding:10px 14px; border-radius:10px; font-weight:600; box-shadow:0 8px 22px rgba(99,102,241,.25); }
+.btn-primary{ background:var(--brand); color:#fff; border:none; padding:10px 14px; border-radius:10px; font-weight:600; box-shadow:0 8px 22px rgba(99,102,241,.25); cursor:pointer;}
 .btn-primary:hover{ background:var(--brand-600); }
 .btn-secondary{ background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; padding:10px 14px; border-radius:10px; }
 .btn-ghost{ background:#fff; color:#111827; border:1px solid #e5e7eb; padding:10px 14px; border-radius:10px; }
 .btn-primary:disabled,.btn-secondary:disabled{ opacity:.6; cursor:not-allowed; }
+.btn-sm{ padding:6px 12px; font-size:14px; }
 .steps{ display:flex; align-items:center; gap:8px;}
 .steps .step{ width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border-radius:999px;border:1px solid #dbe1f0;background:#fff;font-weight:600;color:#64748b;}
 .steps .step.active{ background:var(--brand); color:#fff; border-color:var(--brand);}
