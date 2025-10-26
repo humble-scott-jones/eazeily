@@ -187,7 +187,10 @@ def init_db():
 
     # Dev-only: seed a known admin user for local development to simplify testing
     try:
-        if os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1':
+        # When running tests with a per-test DB (TEST_DB_PATH) we should avoid
+        # seeding a global development admin user into the test DB. This keeps
+        # each test DB isolated and deterministic.
+        if (os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1') and not os.getenv('TEST_DB_PATH'):
             dev_email = 'hi.scott.jones@gmail.com'
             dev_pw = os.getenv('DEV_ADMIN_PW') or 'OHsj1984'
             # create or update user with admin flag
