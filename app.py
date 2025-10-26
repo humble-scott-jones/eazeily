@@ -1,6 +1,6 @@
 import os, sqlite3, uuid, json, re
 from datetime import date
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask import Flask, request, jsonify, render_template, g, session
 import threading
 import time
@@ -753,7 +753,110 @@ def admin_page():
     # basic admin interface to trigger reconciliation
     if not is_admin():
         return render_template('admin.html', allowed=False)
+    # Generate CSRF token for admin operations if not already present
+    if 'admin_csrf' not in session:
+        session['admin_csrf'] = str(uuid.uuid4())
     return render_template('admin.html', allowed=True)
+
+
+@app.get('/api/admin/users')
+def api_admin_list_users():
+    """List all users (admin only)."""
+    if not is_admin():
+        return jsonify({'ok': False, 'error': 'Admin required'}), 403
+    db = get_db()
+    users = db.execute('SELECT id, email, is_paid, is_admin, stripe_customer_id, created_at FROM users ORDER BY created_at DESC').fetchall()
+    return jsonify({'ok': True, 'users': [dict(u) for u in users]})
+
+
+@app.post('/api/admin/users/<user_id>/reset-password')
+def api_admin_reset_user_password(user_id):
+    """Admin endpoint to trigger password reset for a specific user."""
+    if not is_admin():
+        return jsonify({'ok': False, 'error': 'Admin required'}), 403
+    # Validate CSRF token
+    token = request.headers.get('X-CSRF-Token')
+    if not token or token != session.get('admin_csrf'):
+        return jsonify({'ok': False, 'error': 'CSRF token required'}), 403
+    db = get_db()
+    user = db.execute('SELECT id, email FROM users WHERE id = ?', (user_id,)).fetchone()
+    if not user:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    # Create password reset token
+    reset_token = str(uuid.uuid4())
+    expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    try:
+        db.execute('INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)', (reset_token, user_id, expires))
+        db.commit()
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    # In production, send email with reset link. For dev, return token.
+    return jsonify({'ok': True, 'token': reset_token, 'email': user['email']})
+
+
+@app.patch('/api/admin/users/<user_id>')
+def api_admin_update_user(user_id):
+    """Admin endpoint to update user information."""
+    if not is_admin():
+        return jsonify({'ok': False, 'error': 'Admin required'}), 403
+    # Validate CSRF token
+    token = request.headers.get('X-CSRF-Token')
+    if not token or token != session.get('admin_csrf'):
+        return jsonify({'ok': False, 'error': 'CSRF token required'}), 403
+    data = request.get_json(force=True)
+    db = get_db()
+    user = db.execute('SELECT id FROM users WHERE id = ?', (user_id,)).fetchone()
+    if not user:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    # Prepare update fields
+    updates = []
+    params = []
+    if 'email' in data:
+        email = (data['email'] or '').strip().lower()
+        if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+            return jsonify({'ok': False, 'error': 'Invalid email'}), 400
+        updates.append('email = ?')
+        params.append(email)
+    if 'is_paid' in data:
+        updates.append('is_paid = ?')
+        params.append(1 if data['is_paid'] else 0)
+    if 'is_admin' in data:
+        updates.append('is_admin = ?')
+        params.append(1 if data['is_admin'] else 0)
+    if not updates:
+        return jsonify({'ok': False, 'error': 'No fields to update'}), 400
+    params.append(user_id)
+    try:
+        db.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
+        db.commit()
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    updated_user = db.execute('SELECT id, email, is_paid, is_admin, created_at FROM users WHERE id = ?', (user_id,)).fetchone()
+    return jsonify({'ok': True, 'user': dict(updated_user)})
+
+
+@app.delete('/api/admin/users/<user_id>')
+def api_admin_delete_user(user_id):
+    """Admin endpoint to delete a user."""
+    if not is_admin():
+        return jsonify({'ok': False, 'error': 'Admin required'}), 403
+    # Validate CSRF token
+    token = request.headers.get('X-CSRF-Token')
+    if not token or token != session.get('admin_csrf'):
+        return jsonify({'ok': False, 'error': 'CSRF token required'}), 403
+    db = get_db()
+    user = db.execute('SELECT id FROM users WHERE id = ?', (user_id,)).fetchone()
+    if not user:
+        return jsonify({'ok': False, 'error': 'User not found'}), 404
+    try:
+        # Delete related data first
+        db.execute('DELETE FROM subscriptions WHERE user_id = ?', (user_id,))
+        db.execute('DELETE FROM password_reset_tokens WHERE user_id = ?', (user_id,))
+        db.execute('DELETE FROM users WHERE id = ?', (user_id,))
+        db.commit()
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+    return jsonify({'ok': True})
 
 
 # Dev debug route to inspect session and current user (only in dev or when ALLOW_DEV_DEBUG=1)

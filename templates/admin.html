@@ -5,21 +5,315 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Admin</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <style>
+      .users-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+      }
+      .users-table th,
+      .users-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      .users-table th {
+        background-color: #f2f2f2;
+        font-weight: bold;
+      }
+      .users-table tr:hover {
+        background-color: #f5f5f5;
+      }
+      .action-btn {
+        margin: 0 4px;
+        padding: 4px 8px;
+        font-size: 0.9em;
+        cursor: pointer;
+      }
+      .danger-btn {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+      }
+      .primary-btn {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+      }
+      .warning-btn {
+        background-color: #ffc107;
+        color: black;
+        border: none;
+        border-radius: 4px;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.4);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        border-radius: 8px;
+        width: 80%;
+        max-width: 500px;
+      }
+      .modal-buttons {
+        margin-top: 1rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .form-group {
+        margin-bottom: 1rem;
+      }
+      .form-group label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: bold;
+      }
+      .form-group input[type="text"],
+      .form-group input[type="email"] {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .form-group input[type="checkbox"] {
+        margin-right: 8px;
+      }
+      .section {
+        margin-bottom: 3rem;
+      }
+    </style>
   </head>
   <body class="p-6">
     <main>
-      <h1>Admin</h1>
+      <h1>Admin Dashboard</h1>
       {% if not allowed %}
         <p>You are not authorized to view this page.</p>
       {% else %}
-        <section aria-labelledby="reconcile-heading">
+        <!-- User Management Section -->
+        <section class="section" aria-labelledby="users-heading">
+          <h2 id="users-heading">User Management</h2>
+          <div id="users-status" aria-live="polite" style="margin-top:1rem"></div>
+          <table class="users-table" id="users-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Created</th>
+                <th>Paid</th>
+                <th>Admin</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="5">Loading users...</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Reconcile Subscriptions Section -->
+        <section class="section" aria-labelledby="reconcile-heading">
           <h2 id="reconcile-heading">Reconcile Subscriptions</h2>
           <p>Click the button below to fetch subscription state from Stripe and update local records.</p>
           <button id="reconcile-btn" data-csrf="{{ session.get('admin_csrf') or '' }}">Run reconciliation</button>
           <div id="status" aria-live="polite" style="margin-top:1rem"></div>
           <pre id="output" style="white-space:pre-wrap;margin-top:1rem;max-height:40vh;overflow:auto;background:#f6f8fa;padding:8px;border-radius:4px"></pre>
         </section>
+
+        <!-- Edit User Modal -->
+        <div id="edit-modal" class="modal">
+          <div class="modal-content">
+            <h3>Edit User</h3>
+            <form id="edit-form">
+              <div class="form-group">
+                <label for="edit-email">Email:</label>
+                <input type="email" id="edit-email" required />
+              </div>
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="edit-is-paid" />
+                  Paid User
+                </label>
+              </div>
+              <div class="form-group">
+                <label>
+                  <input type="checkbox" id="edit-is-admin" />
+                  Admin
+                </label>
+              </div>
+              <div class="modal-buttons">
+                <button type="button" class="action-btn" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="action-btn primary-btn">Save</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
         <script>
+          const csrf = '{{ session.get("admin_csrf") or "" }}';
+          let currentEditUserId = null;
+
+          // Load users on page load
+          async function loadUsers() {
+            const statusEl = document.getElementById('users-status');
+            try {
+              const res = await fetch('/api/admin/users', { credentials: 'include' });
+              if (!res.ok) {
+                statusEl.textContent = 'Error loading users';
+                return;
+              }
+              const data = await res.json();
+              if (data.ok && data.users) {
+                renderUsers(data.users);
+              } else {
+                statusEl.textContent = 'Failed to load users';
+              }
+            } catch (err) {
+              statusEl.textContent = 'Error: ' + err.message;
+            }
+          }
+
+          function renderUsers(users) {
+            const tbody = document.getElementById('users-tbody');
+            if (users.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="5">No users found</td></tr>';
+              return;
+            }
+            tbody.innerHTML = users.map(user => {
+              const createdDate = new Date(user.created_at).toLocaleDateString();
+              const isPaid = user.is_paid ? '✓' : '';
+              const isAdmin = user.is_admin ? '✓' : '';
+              return `
+                <tr>
+                  <td>${escapeHtml(user.email)}</td>
+                  <td>${createdDate}</td>
+                  <td>${isPaid}</td>
+                  <td>${isAdmin}</td>
+                  <td>
+                    <button class="action-btn warning-btn" onclick="editUser('${user.id}', '${escapeHtml(user.email)}', ${user.is_paid}, ${user.is_admin})">Edit</button>
+                    <button class="action-btn primary-btn" onclick="resetPassword('${user.id}')">Reset Password</button>
+                    <button class="action-btn danger-btn" onclick="deleteUser('${user.id}', '${escapeHtml(user.email)}')">Delete</button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          }
+
+          function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+          }
+
+          function editUser(userId, email, isPaid, isAdmin) {
+            currentEditUserId = userId;
+            document.getElementById('edit-email').value = email;
+            document.getElementById('edit-is-paid').checked = isPaid;
+            document.getElementById('edit-is-admin').checked = isAdmin;
+            document.getElementById('edit-modal').style.display = 'block';
+          }
+
+          function closeEditModal() {
+            document.getElementById('edit-modal').style.display = 'none';
+            currentEditUserId = null;
+          }
+
+          document.getElementById('edit-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            if (!currentEditUserId) return;
+
+            const email = document.getElementById('edit-email').value;
+            const isPaid = document.getElementById('edit-is-paid').checked;
+            const isAdmin = document.getElementById('edit-is-admin').checked;
+
+            const statusEl = document.getElementById('users-status');
+            statusEl.textContent = 'Updating user...';
+
+            try {
+              const res = await fetch(`/api/admin/users/${currentEditUserId}`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRF-Token': csrf
+                },
+                credentials: 'include',
+                body: JSON.stringify({ email, is_paid: isPaid, is_admin: isAdmin })
+              });
+
+              const data = await res.json();
+              if (res.ok && data.ok) {
+                statusEl.textContent = 'User updated successfully';
+                closeEditModal();
+                loadUsers();
+              } else {
+                statusEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+              }
+            } catch (err) {
+              statusEl.textContent = 'Error: ' + err.message;
+            }
+          });
+
+          async function resetPassword(userId) {
+            if (!confirm('Generate a password reset token for this user?')) return;
+
+            const statusEl = document.getElementById('users-status');
+            statusEl.textContent = 'Generating reset token...';
+
+            try {
+              const res = await fetch(`/api/admin/users/${userId}/reset-password`, {
+                method: 'POST',
+                headers: { 'X-CSRF-Token': csrf },
+                credentials: 'include'
+              });
+
+              const data = await res.json();
+              if (res.ok && data.ok) {
+                statusEl.textContent = `Reset token generated for ${data.email}. Token: ${data.token}`;
+              } else {
+                statusEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+              }
+            } catch (err) {
+              statusEl.textContent = 'Error: ' + err.message;
+            }
+          }
+
+          async function deleteUser(userId, email) {
+            if (!confirm(`Are you sure you want to delete user ${email}? This action cannot be undone.`)) return;
+
+            const statusEl = document.getElementById('users-status');
+            statusEl.textContent = 'Deleting user...';
+
+            try {
+              const res = await fetch(`/api/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: { 'X-CSRF-Token': csrf },
+                credentials: 'include'
+              });
+
+              const data = await res.json();
+              if (res.ok && data.ok) {
+                statusEl.textContent = 'User deleted successfully';
+                loadUsers();
+              } else {
+                statusEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+              }
+            } catch (err) {
+              statusEl.textContent = 'Error: ' + err.message;
+            }
+          }
+
+          // Reconcile subscriptions functionality
           document.getElementById('reconcile-btn').addEventListener('click', async function () {
             const statusEl = document.getElementById('status');
             const outEl = document.getElementById('output');
@@ -48,6 +342,9 @@
               outEl.textContent = String(err);
             }
           });
+
+          // Load users when page loads
+          loadUsers();
         </script>
       {% endif %}
     </main>
