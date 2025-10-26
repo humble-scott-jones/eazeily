@@ -5,9 +5,13 @@ __pycache__/
 .env
 .DS_Store
 .vscode/
-.coverage
-htmlcov/
-coverage.xml
-.pytest_cache/
-*.log
-*.pid
+
+.env*
+.envrc
+
+# Local dev artifacts
+cookies.txt
+.dev_server.log
+.dev_server.pid
+tmp/
+tmp/test-outputs/

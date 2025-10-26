@@ -1,90 +1,31 @@
-name: E2E Tests
+name: E2E
 
 on:
-  push:
-    branches: [ main, staging ]
-  schedule:
-    # Run E2E tests daily at 2 AM UTC
-    - cron: '0 2 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
-  e2e-tests:
+  playwright-e2e:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      FLASK_ENV: development
-      SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
-      STRIPE_TEST_PRICE_ID: ${{ secrets.STRIPE_TEST_PRICE_ID }}
-      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
-
-      - name: Install dependencies
+          python-version: '3.10'
+      - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-      - name: Start application server
+          pip install -r requirements.txt
+      - name: Install Playwright browsers
         run: |
-          PORT=5001 python app.py &
-          echo $! > server.pid
-          sleep 10
+          python -m playwright install --with-deps
+      - name: Run playwright tests
+        run: python -m pytest tests/e2e -q
         env:
           FLASK_ENV: development
-
-      - name: Wait for server to be ready
-        run: |
-          timeout=30
-          while ! curl -s http://127.0.0.1:5001/health > /dev/null; do
-            sleep 1
-            timeout=$((timeout-1))
-            if [ $timeout -le 0 ]; then
-              echo "Server failed to start"
-              exit 1
-            fi
-          done
-          echo "Server is ready"
-
-      - name: Run E2E tests
-        run: |
-          pytest tests/test_end_to_end.py tests/test_acceptance_api.py -v
-        env:
-          PYTHONWARNINGS: "ignore::DeprecationWarning"
-
-      - name: Run UI smoke tests
-        run: |
-          RUN_UI_SMOKE=1 pytest tests/test_ui_smoke.py -v
-        env:
-          PYTHONWARNINGS: "ignore::DeprecationWarning"
-
-      - name: Stop server
-        if: always()
-        run: |
-          if [ -f server.pid ]; then
-            kill $(cat server.pid) || true
-            rm server.pid
-          fi
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: e2e-test-results
-          path: |
-            pytest-report.xml
-            logs/
+          PORT: 5001
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_TEST_PRICE_ID: ${{ secrets.STRIPE_TEST_PRICE_ID }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
