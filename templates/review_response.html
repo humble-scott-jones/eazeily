@@ -218,7 +218,7 @@
           btn.innerHTML = originalText;
         }, 2000);
       } catch (err) {
-        alert('Failed to copy to clipboard');
+        alert('Failed to copy to clipboard: ' + err.message);
       }
     });
   </script>
