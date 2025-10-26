@@ -112,10 +112,14 @@ def resolve_industry_key(industry: str, details: Optional[dict] = None) -> str:
         from_details = details.get("_industry_key") or details.get("industry_key")
         if isinstance(from_details, str) and from_details.strip():
             return from_details.strip().lower()
+    # normalize and match on word boundaries to avoid accidental substring matches
     slug = (industry or "").lower()
+    tokens_in_slug = re.findall(r"[a-z0-9]+", slug)
     for key, tokens in INDUSTRY_TOKEN_MAP.items():
         for token in tokens:
-            if token in slug:
+            t = token.lower()
+            # match whole token or exact token presence in slug tokens
+            if t in tokens_in_slug or re.search(rf"\b{re.escape(t)}\b", slug):
                 return key
     return "other"
 
@@ -437,7 +441,8 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
     niche_keywords = niche_keywords or []
     details = details or {}
     tone_icon, tone_desc = describe_tone(tone)
-    opening = build_opening(pillar_name, industry, brand_keywords)
+    # prefer niche keywords for the hook if available
+    opening = build_opening(pillar_name, industry, niche_keywords or brand_keywords)
     industry_key = resolve_industry_key(industry, details)
     body_lines = build_body_lines(industry_key, pillar_name, pillar_hint, brand_keywords, niche_keywords, details, goals, company)
     signature_line = build_signature_line(company, brand_keywords, industry)
@@ -568,16 +573,34 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
     hook = ranked_hooks[0]
 
     # script beats: timestamps for the requested length_seconds
-    total = max(10, length_seconds)
+    # use a deterministic allocation that guarantees strictly increasing boundaries
+    total = max(10, int(length_seconds))
     # percentage allocation for Hook, Problem, Tip, Example, CTA
     slots = [0.12, 0.25, 0.35, 0.18, 0.10]
-    bounds = []
+    # compute float cut points then convert to integer seconds while ensuring monotonicity
+    cut_points = []
     acc = 0.0
     for pct in slots:
-        start = int(acc * total)
         acc += pct
-        end = int(acc * total)
+        cut_points.append(acc * total)
+    bounds = []
+    prev = 0
+    for i, cp in enumerate(cut_points):
+        # round cut point but ensure it's at least prev+1 except for the last which is total
+        if i == len(cut_points) - 1:
+            end = total
+        else:
+            end = max(prev + 1, int(round(cp)))
+            # safety: don't let end exceed total - remaining beats
+            remaining = len(cut_points) - 1 - i
+            if end > total - remaining:
+                end = total - remaining
+        start = prev
+        # ensure strictly increasing
+        if end <= start:
+            end = start + 1
         bounds.append((start, end))
+        prev = end
 
     problem_line = "A common pain point your audience has and why it matters."
     if goals:
