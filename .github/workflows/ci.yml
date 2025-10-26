@@ -40,10 +40,78 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install pytest pytest-cov
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Run tests
-        run: pytest -q
+      - name: Run tests with coverage
+        run: pytest --cov=. --cov-report=xml --cov-report=term-missing --cov-fail-under=70
         env:
           PYTHONWARNINGS: "ignore::DeprecationWarning"
-*** End Patch
+
+      - name: Upload coverage to artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: coverage.xml
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety pip-audit
+
+      - name: Run safety check
+        run: |
+          pip install -r requirements.txt
+          safety check --json || true
+        continue-on-error: true
+
+      - name: Run pip-audit
+        run: |
+          pip-audit -r requirements.txt --desc
+        continue-on-error: true
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort
+
+      - name: Run flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        continue-on-error: true
+
+      - name: Check formatting with black
+        run: |
+          black --check . || true
+        continue-on-error: true
+
+      - name: Check import sorting with isort
+        run: |
+          isort --check-only . || true
+        continue-on-error: true

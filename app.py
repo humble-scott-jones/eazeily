@@ -157,6 +157,41 @@ def init_db():
 def ensure_db():
     init_db()
 
+@app.get("/health")
+def health_check():
+    """Health check endpoint for monitoring and load balancers"""
+    health_status = {
+        'status': 'healthy',
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': {}
+    }
+    
+    # Check database connectivity
+    try:
+        db = get_db()
+        db.execute('SELECT 1').fetchone()
+        health_status['checks']['database'] = 'connected'
+    except Exception as e:
+        health_status['checks']['database'] = 'disconnected'
+        health_status['status'] = 'unhealthy'
+    
+    # Check Stripe availability (if configured)
+    if os.getenv('STRIPE_SECRET_KEY') and stripe:
+        health_status['checks']['stripe'] = 'configured'
+    else:
+        health_status['checks']['stripe'] = 'not_configured'
+    
+    # Check OpenAI availability (if configured)
+    if USE_OPENAI:
+        health_status['checks']['openai'] = 'configured'
+    else:
+        health_status['checks']['openai'] = 'not_configured'
+    
+    status_code = 200 if health_status['status'] == 'healthy' else 503
+    return jsonify(health_status), status_code
+
+
 @app.get("/")
 def index():
     is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
