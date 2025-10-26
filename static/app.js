@@ -1,6 +1,70 @@
 let CFG = null;
 let FLAGS = null;
 
+function setCurrentUser(user){
+  if (user && user.id){
+    window.CURRENT_USER = {
+      id: user.id,
+      email: user.email,
+      is_paid: !!user.is_paid,
+      free_sample_used: !!user.free_sample_used
+    };
+  } else {
+    window.CURRENT_USER = null;
+  }
+  renderAuthUi();
+  updateAccessUi();
+}
+
+async function refreshCurrentUser(){
+  try{
+    const res = await fetch('/api/current_user', { credentials: 'include' });
+    if (!res.ok){ setCurrentUser(null); return null; }
+    const data = await res.json().catch(()=>null);
+    if (data && data.id){ setCurrentUser(data); }
+    else { setCurrentUser(null); }
+    return window.CURRENT_USER;
+  }catch(e){ return null; }
+}
+
+function isLoggedIn(){
+  return !!(window.CURRENT_USER && window.CURRENT_USER.id);
+}
+
+function updateAccessUi(){
+  const user = window.CURRENT_USER || {};
+  const isPaid = !!user.is_paid;
+  const sampleUsed = !!user.free_sample_used;
+  const sampleButtons = [document.getElementById('btn-sample'), document.getElementById('modal-generate-1')];
+  sampleButtons.forEach(btn => {
+    if (!btn) return;
+    if (!isPaid && sampleUsed){
+      btn.disabled = true;
+      btn.classList.add('opacity-60');
+      btn.textContent = 'Free sample used';
+    } else {
+      btn.disabled = false;
+      btn.classList.remove('opacity-60');
+      if (btn.id === 'btn-sample' || btn.id === 'modal-generate-1') btn.textContent = 'Generate 1-day sample';
+    }
+  });
+  const gatedButtons = [document.getElementById('btn-30'), document.getElementById('modal-generate-7'), document.getElementById('modal-generate-30'), document.getElementById('modal-generate-reels')];
+  gatedButtons.forEach(btn => {
+    if (!btn) return;
+    if (!isPaid){
+      btn.dataset.requiresPaid = '1';
+      if (btn.id === 'modal-generate-7') btn.textContent = 'Unlock 7-day plan';
+      if (btn.id === 'modal-generate-30' || btn.id === 'btn-30') btn.textContent = 'Unlock 30-day plan';
+      if (btn.id === 'modal-generate-reels') btn.textContent = 'Unlock reels plan';
+    } else {
+      delete btn.dataset.requiresPaid;
+      if (btn.id === 'modal-generate-7') btn.textContent = 'Generate 7-day plan';
+      if (btn.id === 'modal-generate-30' || btn.id === 'btn-30') btn.textContent = 'Generate 30-day plan';
+      if (btn.id === 'modal-generate-reels') btn.textContent = 'Generate 5-reel sample';
+    }
+  });
+}
+
 async function loadFlags(){
   try{
     const r = await fetch('/static/content/flags.json', { cache: 'no-store' });
@@ -15,22 +79,58 @@ async function loadConfig(){
   window.CFG = CFG; // handy for debugging
   window.FLAGS = FLAGS;
 
-  // render using CFG
+  // populate paywall price UI if present
+  try{
+    const priceEl = document.getElementById('paywall-price');
+    const descEl = document.getElementById('paywall-price-desc');
+    if (priceEl && CFG && CFG.pricing && CFG.pricing.monthly_display) priceEl.textContent = CFG.pricing.monthly_display;
+    if (descEl && CFG && CFG.pricing && CFG.pricing.description) descEl.textContent = CFG.pricing.description;
+  }catch(e){/* ignore */}
+  // prefer authoritative price from server (Stripe) when available
+  try{
+    const r2 = await fetch('/api/stripe-price', { credentials: 'include' });
+    if (r2.ok){
+      const j2 = await r2.json().catch(()=>null);
+      const priceEl = document.getElementById('paywall-price');
+      const descEl = document.getElementById('paywall-price-desc');
+      if (j2 && j2.ok && j2.price && j2.price.display){
+        if (priceEl) priceEl.textContent = j2.price.display;
+        // show product name or keep description
+        if (descEl) descEl.textContent = (j2.price.product && j2.price.product.name) ? j2.price.product.name : (CFG && CFG.pricing && CFG.pricing.description) || '';
+        // also update subscribe button copy if present
+        try{
+          const subBtn = document.getElementById('paywall-subscribe');
+          if (subBtn) subBtn.innerHTML = `Subscribe for ${j2.price.display}`;
+        }catch(e){/* ignore */}
+      }
+    }
+  }catch(e){ /* ignore */ }
+
+  // pull saved profile before rendering so selections are in sync
+  try{ await loadSavedProfile(); }catch(e){/* ignore */}
+
   renderIndustryChoices(CFG.industries || []);
   renderToneChoices(CFG.tones || []);
   renderPlatformChoices(CFG.platforms || []);
+  renderSelectedKeywords();
+  updateSuggestedChipsSelection();
   showStep(step);
   updateSummary();
-  // now that config is rendered, try to load any saved profile (so industries map correctly)
-  try{ await loadSavedProfile(); }catch(e){/* ignore */}
 }
 
 let step = 1;
 const answers = {
-  industry: "", tone: "", platforms: ["instagram"],
+  industry: "", industry_key: null,
+  tone: "",
+  platforms: ["instagram"],
   brand_keywords: [], niche_keywords: [], include_images: true,
   company: "",
   goals: [], details: {}
+};
+
+const uiState = {
+  lastIndustryKey: null,
+  lastSuggestedKeywords: []
 };
 
 const prevBtn = document.getElementById("prev");
@@ -56,15 +156,24 @@ async function loadSavedProfile(){
       if (c && !c.value) c.value = p.company;
       answers.company = p.company;
     }
-    if (p.brand_keywords && p.brand_keywords.length){
+    if (Array.isArray(p.brand_keywords) && p.brand_keywords.length){
       // load saved keywords but we'll reconcile with industry suggested keywords when industry is set
-      answers.brand_keywords = p.brand_keywords || [];
+      answers.brand_keywords = normalizeBrandKeywords(p.brand_keywords);
     }
-    if (p.platforms && p.platforms.length) answers.platforms = p.platforms;
+    if (Array.isArray(p.platforms) && p.platforms.length){
+      answers.platforms = Array.from(new Set(p.platforms.map(x => typeof x === 'string' ? x : String(x || '')))).filter(Boolean);
+      if (!answers.platforms.length) answers.platforms = ["instagram"];
+    }
     if (p.industry) answers.industry = p.industry;
+    if (p.industry_key) answers.industry_key = p.industry_key;
     if (p.tone) answers.tone = p.tone;
-    if (p.goals && p.goals.length) answers.goals = p.goals;
-    if (p.details) answers.details = p.details || {};
+    if (Array.isArray(p.goals) && p.goals.length) answers.goals = p.goals;
+    if (p.details && typeof p.details === 'object') answers.details = p.details || {};
+    if (typeof p.include_images === 'boolean'){
+      answers.include_images = p.include_images;
+      const imgToggle = document.getElementById('include_images');
+      if (imgToggle) imgToggle.checked = p.include_images;
+    }
     updateSummary();
   }catch(e){/* ignore */}
 }
@@ -82,12 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(e){/* ignore */}
     // query server for current user
     try{
-  const r2 = await fetch('/api/current_user', { credentials: 'include' });
-      if (r2.ok){
-        const u = await r2.json();
-        if (u && u.id){ window.CURRENT_USER = u; }
-      }
-      renderAuthUi();
+      await refreshCurrentUser();
     }catch(e){/* ignore */}
   })();
   // normalize company on blur
@@ -108,10 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
       try{
         const r = await fetch('/__dev__/create_user', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw, is_paid: isPaid }) });
         const j = await r.json().catch(()=>null);
-        if (!r.ok){ alert((j && j.error) || 'Could not create dev user'); return; }
-        window.CURRENT_USER = j;
-        renderAuthUi();
-        showToast('Dev user created and signed in');
+  if (!r.ok){ alert((j && j.error) || 'Could not create dev user'); return; }
+  setCurrentUser(j);
+  showToast('Dev user created and signed in');
       }catch(e){ alert('Dev create failed'); }
       finally{ setButtonLoading(btn, false); }
     });
@@ -179,6 +282,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('reset-back')?.addEventListener('click', () => openAuthModal('login'));
   document.getElementById('confirm-back')?.addEventListener('click', () => openAuthModal('login'));
 
+  // paywall sign-in link (for users who already have an account)
+  const paywallSigninLink = document.getElementById('paywall-signin-link');
+  if (paywallSigninLink){
+    paywallSigninLink.addEventListener('click', () => { openAuthModal('login'); });
+  }
+
   // login submit
   document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -190,7 +299,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const r = await fetch('/api/login', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw }) });
       const j = await r.json().catch(()=>null);
       if (!r.ok){ showAuthMessage((j && j.error) || 'Sign in failed'); setButtonLoading(null,false); return; }
-      window.CURRENT_USER = j; renderAuthUi(); closeAuthModal(); showToast('Signed in');
+  setCurrentUser(j); closeAuthModal(); showToast('Signed in');
+      // If the paywall modal is open, continue to the subscribe flow automatically
+      try{
+        const payModal = document.getElementById('paywall-modal');
+        if (payModal && !payModal.classList.contains('hidden')){
+          const subBtn = document.getElementById('paywall-subscribe');
+          if (subBtn) subBtn.click();
+        }
+      }catch(e){}
     }catch(err){ showAuthMessage('Sign in failed'); }
     finally{ setButtonLoading(null,false); }
   });
@@ -205,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const r = await fetch('/api/signup', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw }) });
       const j = await r.json().catch(()=>null);
       if (!r.ok){ showAuthMessage((j && j.error) || 'Sign up failed'); return; }
-      window.CURRENT_USER = j; renderAuthUi(); closeAuthModal(); showToast('Account created');
+  setCurrentUser(j); closeAuthModal(); showToast('Account created');
     }catch(err){ showAuthMessage('Sign up failed'); }
     finally{ setButtonLoading(null,false); }
   });
@@ -249,6 +366,17 @@ function showAuthMessage(msg){ const el = document.getElementById('auth-message'
 function clearAuthMessage(){ const el = document.getElementById('auth-message'); if (el){ el.textContent=''; el.classList.add('hidden'); } }
 function showPaywallMessage(msg){ const el = document.getElementById('paywall-message'); if (el){ el.textContent = msg; el.classList.remove('hidden'); } }
 function clearPaywallMessage(){ const el = document.getElementById('paywall-message'); if (el){ el.textContent=''; el.classList.add('hidden'); } }
+function showPaywall(message){
+  const payModal = document.getElementById('paywall-modal');
+  if (!payModal){
+    alert(message || 'Paid subscription required');
+    return;
+  }
+  if (message){ showPaywallMessage(message); }
+  else clearPaywallMessage();
+  payModal.classList.remove('hidden');
+  try{ ensureStripeElementsInitialized().catch(()=>{}); }catch(e){}
+}
 function showToast(msg){ const t = document.createElement('div'); t.className='fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.classList.add('opacity-0'), 2200); setTimeout(()=>t.remove(), 2800); }
 
 function setButtonLoading(btn, loading){
@@ -282,127 +410,271 @@ function validateCompany(name){
   return '';
 }
 
-function renderIndustryChoices(list){
-  const wrap = document.getElementById("industries");
-  wrap.innerHTML = "";
-  list.forEach(opt => {
-    const div = document.createElement("button");
-    div.className = "choice"; div.setAttribute("data-key", opt.key);
-    div.innerHTML = `<div class="emoji">${opt.icon}</div><div class="title">${opt.label}</div>`;
-    div.addEventListener("click", () => {
-      wrap.querySelectorAll(".choice").forEach(c=>c.classList.remove("selected"));
-      div.classList.add("selected");
-      // store both key and label for reliable lookups
-      answers.industry = opt.label;
-      answers.industry_key = opt.key;
-      renderIndustryQuestions(opt.key);
-      // set suggested keywords and note placeholder for this industry
-      try{
-        const noteInput = document.getElementById('note');
-        const meta = (CFG && CFG.industries || []).find(i => i.key === opt.key) || {};
-        // render suggested keywords as chips
-        const sk = document.getElementById('suggested-keywords');
-        if (sk){
-          sk.innerHTML = '';
-          const kws = meta.suggested_keywords || [];
-          kws.forEach(k => {
-            const btn = document.createElement('button');
-            btn.className = 'choice text-sm'; btn.textContent = k;
-            btn.addEventListener('click', () => {
-              toggleKeyword(k);
-              btn.classList.toggle('selected');
-            });
-            sk.appendChild(btn);
-          });
-        }
-        if (noteInput){
-          noteInput.placeholder = meta.note_placeholder || noteInput.placeholder;
-        }
-        // set answers.brand_keywords to the canonical suggested keywords for this industry
-        // but don't overwrite any existing saved keywords
-        if (!answers.brand_keywords || answers.brand_keywords.length === 0) {
-          answers.brand_keywords = (meta.suggested_keywords || []).slice(0,4);
-        }
-        // mark selected state on the rendered chips
-        try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
-      }catch(e){/* ignore */}
-  if (nextBtn && typeof nextBtn.focus === 'function') nextBtn.focus();
+function normalizeBrandKeywords(list){
+  return Array.from(new Set((list || []).map(k => (typeof k === 'string' ? k.trim() : '')).filter(Boolean)));
+}
+
+function getSuggestedKeywordsForCurrentIndustry(){
+  try{
+    const meta = (CFG?.industries || []).find(i => i.key === answers.industry_key) || {};
+    return (meta.suggested_keywords || []).slice(0, 8);
+  }catch(e){ return []; }
+}
+
+function updateSuggestedChipsSelection(){
+  try{
+    const set = new Set(normalizeBrandKeywords(answers.brand_keywords || []));
+    const wrap = document.getElementById('suggested-keywords');
+    if (!wrap) return;
+    wrap.querySelectorAll('.choice').forEach(chip => {
+      const text = chip.textContent || '';
+      if (set.has(text)) chip.classList.add('selected'); else chip.classList.remove('selected');
+    });
+  }catch(e){/* ignore */}
+}
+
+function renderSelectedKeywords(){
+  const wrap = document.getElementById('active-keywords');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const items = normalizeBrandKeywords(answers.brand_keywords || []);
+  if (!items.length){
+    const hint = document.createElement('div');
+    hint.className = 'text-xs text-slate-500';
+    hint.textContent = 'No keywords selected yet';
+    wrap.appendChild(hint);
+    return;
+  }
+  items.forEach(k => {
+    const chip = document.createElement('button');
+    chip.className = 'choice text-sm selected';
+    chip.title = 'Remove keyword';
+    chip.textContent = k;
+    chip.addEventListener('click', () => {
+      // remove from answers and update UIs
+      answers.brand_keywords = normalizeBrandKeywords((answers.brand_keywords || []).filter(x => x !== k));
+      renderSelectedKeywords();
+      updateSuggestedChipsSelection();
       updateSummary();
     });
-    // if this industry matches the already-selected industry, mark it as selected
-    if ((answers.industry_key && answers.industry_key === opt.key) || (!answers.industry_key && answers.industry === opt.label)){
-      div.classList.add('selected');
-      // ensure questions and placeholders render for the preselected industry
-      try{ renderIndustryQuestions(opt.key); const kwInput = document.getElementById('keywords'); const meta = (CFG && CFG.industries || []).find(i => i.key === opt.key) || {}; if (kwInput && !kwInput.value && meta.suggested_keywords) kwInput.value = meta.suggested_keywords.slice(0,4).join(', '); }catch(e){}
-    }
-    wrap.appendChild(div);
+    wrap.appendChild(chip);
   });
 }
 
-// keyword helpers
+function renderIndustryChoices(list){
+  const wrap = document.getElementById('industries');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  list.forEach(opt => {
+    const div = document.createElement('button');
+    div.className = 'choice';
+    div.setAttribute('data-key', opt.key);
+    div.innerHTML = `<div class="emoji">${opt.icon}</div><div class="title">${opt.label}</div>`;
+
+    const selectIndustry = () => {
+      const previousSuggested = Array.isArray(uiState.lastSuggestedKeywords) ? uiState.lastSuggestedKeywords : [];
+      const previousCustom = (answers.brand_keywords || []).filter(k => !previousSuggested.includes(k));
+      const prevKey = uiState.lastIndustryKey;
+      const prevLabel = answers.industry;
+      const switching = (prevKey && prevKey !== opt.key) || (!prevKey && prevLabel && prevLabel !== opt.label);
+
+      wrap.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+      div.classList.add('selected');
+
+      if (switching){
+        answers.goals = [];
+        answers.details = {};
+      }
+      answers.industry = opt.label;
+      answers.industry_key = opt.key;
+
+      renderIndustryQuestions(opt.key);
+
+      try{
+        const meta = (CFG?.industries || []).find(i => i.key === opt.key) || {};
+        const noteInput = document.getElementById('note');
+        if (noteInput){
+          const defaultPlaceholder = noteInput.getAttribute('data-default-placeholder') || noteInput.placeholder;
+          if (!noteInput.getAttribute('data-default-placeholder')) noteInput.setAttribute('data-default-placeholder', defaultPlaceholder);
+          noteInput.placeholder = meta.note_placeholder || defaultPlaceholder || noteInput.placeholder;
+        }
+
+        const chipWrap = document.getElementById('suggested-keywords');
+        if (chipWrap){
+          chipWrap.innerHTML = '';
+          const suggestions = (meta.suggested_keywords || []).slice(0, 8);
+          let nextKeywords = answers.brand_keywords || [];
+          if (switching){
+            const custom = normalizeBrandKeywords(previousCustom);
+            nextKeywords = normalizeBrandKeywords(suggestions.concat(custom));
+          } else if (!nextKeywords || nextKeywords.length === 0){
+            nextKeywords = normalizeBrandKeywords(suggestions);
+          } else {
+            nextKeywords = normalizeBrandKeywords(nextKeywords);
+          }
+          answers.brand_keywords = nextKeywords;
+          uiState.lastSuggestedKeywords = suggestions.slice();
+
+          suggestions.forEach(k => {
+            const chip = document.createElement('button');
+            chip.className = 'choice text-sm';
+            chip.textContent = k;
+            if (nextKeywords.includes(k)) chip.classList.add('selected');
+            chip.addEventListener('click', () => {
+              toggleKeyword(k);
+              chip.classList.toggle('selected');
+              renderSelectedKeywords();
+            });
+            chipWrap.appendChild(chip);
+          });
+          // ensure the selected list reflects the new state
+          renderSelectedKeywords();
+        } else {
+          uiState.lastSuggestedKeywords = [];
+          if (switching){
+            answers.brand_keywords = normalizeBrandKeywords(previousCustom);
+          }
+        }
+      }catch(e){/* ignore */}
+
+      uiState.lastIndustryKey = opt.key;
+      if (nextBtn && typeof nextBtn.focus === 'function') nextBtn.focus();
+      updateSummary();
+    };
+
+    div.addEventListener('click', selectIndustry);
+    wrap.appendChild(div);
+
+    if ((answers.industry_key && answers.industry_key === opt.key) || (!answers.industry_key && answers.industry === opt.label)){
+      selectIndustry();
+    }
+  });
+}
+
 function toggleKeyword(k){
-  answers.brand_keywords = answers.brand_keywords || [];
-  const idx = answers.brand_keywords.indexOf(k);
-  if (idx === -1) answers.brand_keywords.push(k);
-  else answers.brand_keywords.splice(idx,1);
+  const current = normalizeBrandKeywords(answers.brand_keywords || []);
+  const idx = current.indexOf(k);
+  if (idx === -1) current.push(k);
+  else current.splice(idx, 1);
+  answers.brand_keywords = normalizeBrandKeywords(current);
+  renderSelectedKeywords();
+  updateSuggestedChipsSelection();
   updateSummary();
 }
 
-// handle extra keywords input (comma-separated or Enter)
 document.addEventListener('DOMContentLoaded', () => {
   const extra = document.getElementById('extra-keywords');
   if (extra){
+    const commitParts = () => {
+      const parts = extra.value.split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length){
+        answers.brand_keywords = normalizeBrandKeywords((answers.brand_keywords || []).concat(parts));
+        extra.value = '';
+        renderSelectedKeywords();
+        updateSuggestedChipsSelection();
+        updateSummary();
+      }
+    };
     extra.addEventListener('keydown', (e) => {
       if (e.key === 'Enter'){
         e.preventDefault();
-        const parts = extra.value.split(',').map(s=>s.trim()).filter(Boolean);
-        answers.brand_keywords = (answers.brand_keywords||[]).concat(parts);
-        extra.value = '';
-        updateSummary();
+        commitParts();
       }
     });
-    extra.addEventListener('blur', () => {
-      const parts = extra.value.split(',').map(s=>s.trim()).filter(Boolean);
-      if (parts.length){ answers.brand_keywords = (answers.brand_keywords||[]).concat(parts); extra.value = ''; updateSummary(); }
-    });
+    extra.addEventListener('blur', commitParts);
   }
 });
 
 function renderToneChoices(list){
-  const wrap = document.getElementById("tones");
-  wrap.innerHTML = "";
+  const wrap = document.getElementById('tones');
+  if (!wrap) return;
+  wrap.innerHTML = '';
   list.forEach(opt => {
-    const div = document.createElement("button");
-    div.className = "choice"; div.setAttribute("data-key", opt.key);
+    const div = document.createElement('button');
+    div.className = 'choice';
+    div.setAttribute('data-key', opt.key);
     div.innerHTML = `<div class="title">${opt.label}</div>`;
-    div.addEventListener("click", () => {
-      wrap.querySelectorAll(".choice").forEach(c=>c.classList.remove("selected"));
-      div.classList.add("selected");
+    div.addEventListener('click', () => {
+      wrap.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+      div.classList.add('selected');
       answers.tone = opt.key;
       updateSummary();
     });
+    if (answers.tone === opt.key) div.classList.add('selected');
     wrap.appendChild(div);
   });
 }
 
 function renderPlatformChoices(list){
-  const wrap = document.getElementById("platforms");
-  wrap.innerHTML = "";
+  const wrap = document.getElementById('platforms');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  let current = Array.isArray(answers.platforms) ? answers.platforms.map(p => String(p)) : [];
+  if (!current.length) current = ['instagram'];
+  answers.platforms = Array.from(new Set(current)).filter(Boolean);
+
   list.forEach(opt => {
-    const div = document.createElement("button");
-    div.className = "choice"; div.setAttribute("data-key", opt.key);
+    const div = document.createElement('button');
+    div.className = 'choice';
+    div.setAttribute('data-key', opt.key);
     div.innerHTML = `<div class="title">${opt.label}</div>`;
-    div.addEventListener("click", () => {
-      const k = opt.key;
-      const idx = answers.platforms.indexOf(k);
-      if (idx === -1) { answers.platforms.push(k); div.classList.add("selected"); }
-      else { answers.platforms.splice(idx,1); div.classList.remove("selected"); }
-      if (answers.platforms.length === 0) answers.platforms = ["instagram"];
+    if (answers.platforms.includes(opt.key)) div.classList.add('selected');
+
+    div.addEventListener('click', () => {
+      const set = new Set(answers.platforms || []);
+      if (set.has(opt.key)){
+        set.delete(opt.key);
+        div.classList.remove('selected');
+      } else {
+        set.add(opt.key);
+        div.classList.add('selected');
+      }
+
+      let next = Array.from(set);
+      if (next.length === 0){
+        next = ['instagram'];
+        const fallbackBtn = wrap.querySelector('[data-key="instagram"]');
+        if (fallbackBtn) fallbackBtn.classList.add('selected');
+      }
+      answers.platforms = next;
       updateSummary();
     });
-    if (answers.platforms.includes(opt.key)) div.classList.add("selected");
+
     wrap.appendChild(div);
   });
+}
+
+// Initialize Stripe Elements if publishable key is available. Safe to call multiple times.
+async function ensureStripeElementsInitialized(){
+  try{
+    if (window.STRIPE && window.__card) return true;
+    const r = await fetch('/api/stripe-publishable-key');
+    if (!r.ok) return false;
+    const j = await r.json().catch(()=>null);
+    if (!j || !j.ok || !j.publishableKey) return false;
+    const pk = j.publishableKey;
+    if (!window.STRIPE){
+      const script = document.createElement('script');
+      script.src = 'https://js.stripe.com/v3/';
+      document.head.appendChild(script);
+      await new Promise(res => { script.onload = res; script.onerror = () => res(); });
+      window.STRIPE = Stripe(pk);
+    }
+    const elements = window.STRIPE.elements();
+    if (!window.__card){
+      window.__card = elements.create('card');
+      const wrap = document.getElementById('stripe-elements-wrap');
+      if (wrap) wrap.classList.remove('hidden');
+      window.__card.mount('#card-element');
+      window.__card.on('change', (ev) => {
+        const ce = document.getElementById('card-errors');
+        if (!ev.complete && ev.error){ ce.textContent = ev.error.message; ce.classList.remove('hidden'); }
+        else { if (ce){ ce.textContent = ''; ce.classList.add('hidden'); } }
+      });
+    }
+    return true;
+  }catch(e){ console.error('ensureStripeElementsInitialized failed', e); return false; }
 }
 
 function renderIndustryQuestions(key){
@@ -535,6 +807,7 @@ async function saveProfile(){
 
   const resp = await fetch("/api/profile?content_version=" + encodeURIComponent(version), {
     method: "POST",
+    credentials: 'include',
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify(answers)
   });
@@ -624,13 +897,24 @@ function clearFormError(){
   if (el){ el.textContent = ''; el.classList.add('hidden'); }
 }
 
-if (btnSample) btnSample.addEventListener("click", async ()=>{
-  await maybeSaveDefaults();
-  renderPosts(await generate(1));
+if (btnSample) btnSample.addEventListener("click", async () =>{
+  if (!isLoggedIn()){ openAuthModal('signup'); return; }
+  try{
+    await maybeSaveDefaults();
+    const data = await generate(1);
+    renderPosts(data);
+    await refreshCurrentUser();
+  }catch(err){ if (err && err.message) console.debug(err.message); }
 });
-if (btn30) btn30.addEventListener("click", async ()=>{
-  await maybeSaveDefaults();
-  renderPosts(await generate(30));
+if (btn30) btn30.addEventListener("click", async () =>{
+  if (!isLoggedIn()){ openAuthModal('signup'); return; }
+  if (!window.CURRENT_USER || !window.CURRENT_USER.is_paid){ showPaywall('Subscribe to unlock multi-day plans.'); return; }
+  try{
+    await maybeSaveDefaults();
+    const data = await generate(30);
+    renderPosts(data);
+    await refreshCurrentUser();
+  }catch(err){ if (err && err.message) console.debug(err.message); }
 });
 
 async function maybeSaveDefaults(){
@@ -641,13 +925,64 @@ async function maybeSaveDefaults(){
 }
 
 async function generate(days){
-  const res = await fetch("/api/generate", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ ...answers, days })
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  // allow an optional override for platforms or other opts by passing
+  // generate(days, { platforms: ['short_video'] })
+  const opts = arguments[1] || {};
+  const payload = Object.assign({}, answers, { days }, opts);
+  let res;
+  try{
+    res = await fetch("/api/generate", {
+      method: "POST",
+      credentials: 'include',
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+  }catch(e){
+    // network-level error (server down, CORS, connection refused)
+    const msg = 'Network error: could not reach the server. Ensure the dev server is running and your browser can reach http://localhost:'+ (window.location.port || '5001') +'.';
+    showFormError(msg);
+    console.error('generate() network error', e);
+    throw new Error(msg);
+  }
+
+  // handle auth/paywall responses gracefully in the UI
+  if (res.status === 401){
+    // not authenticated -> open auth modal
+    openAuthModal('login');
+    throw new Error('Authentication required');
+  }
+  if (res.status === 403){
+    let msg = 'Paid subscription required';
+    try{
+      const payload = await res.json().catch(()=>null);
+      if (payload && payload.error) msg = payload.error;
+    }catch(e){}
+    showPaywall(msg);
+    throw new Error(msg);
+  }
+
+  if (!res.ok){
+    // try to parse JSON error body for a helpful message
+    try{
+      const body = await res.json().catch(()=>null);
+      const msg = (body && body.error) ? body.error : `Server error: HTTP ${res.status}`;
+      showFormError(msg);
+      throw new Error(msg);
+    }catch(e){
+      const msg = `Server error: HTTP ${res.status}`;
+      showFormError(msg);
+      throw new Error(msg);
+    }
+  }
+
+  try{
+    return await res.json();
+  }catch(e){
+    const msg = 'Received invalid response from server.';
+    showFormError(msg);
+    console.error('generate() invalid json', e);
+    throw new Error(msg);
+  }
 }
 
 function renderPosts(data){
@@ -671,24 +1006,62 @@ function renderPosts(data){
 function renderCard(post){
   const card = document.createElement("div");
   card.className = "border rounded-lg p-3 mt-2";
+  // normalize reel object to the legacy view shape so older UI keeps working
+  function normalizeReel(r){
+    if (!r) return null;
+    const out = {};
+    out.hook = r.hook || r.hooks || (Array.isArray(r.ranked_hooks) ? r.ranked_hooks[0] : '');
+    out.script_beats = r.script_beats || r.scriptBeats || r.script || [];
+    // normalize shot_list items to {type, description}
+    out.shot_list = [];
+    const rawShots = r.shot_list || r.shots || [];
+    rawShots.forEach(s => {
+      if (!s) return;
+      if (typeof s === 'string'){
+        out.shot_list.push({ type: s, description: '' });
+      } else if (s.type && s.description){
+        out.shot_list.push({ type: s.type, description: s.description });
+      } else if (s.shot_type){
+        out.shot_list.push({ type: s.shot_type, description: s.notes || '' });
+      } else if (s.type){
+        out.shot_list.push({ type: s.type, description: s.notes || '' });
+      } else {
+        // fallback stringify
+        out.shot_list.push({ type: JSON.stringify(s), description: '' });
+      }
+    });
+    out.on_screen_text = r.on_screen_text || r.onScreenText || r.onScreen || [];
+    // hashtags: support both array and {primary, optional}
+    if (Array.isArray(r.hashtags)) out.hashtags = r.hashtags;
+    else if (r.hashtags && (r.hashtags.primary || r.hashtags.optional)) out.hashtags = [(r.hashtags.primary||[]).join(' '), (r.hashtags.optional||[]).join(' ')].filter(Boolean).join(' ').split(' ').filter(Boolean);
+    else out.hashtags = [];
+    out.cta = r.cta || '';
+    out.thumbnail_prompt = r.thumbnail_prompt || r.thumbnail || r.thumbnailPrompt || '';
+    out.srt_prompt = r.srt_prompt || r.srt || r.srtText || '';
+    out.ranked_hooks = r.ranked_hooks || [];
+    return out;
+  }
+
+  const r = normalizeReel(post.reel);
+
   card.innerHTML = `
     <div class="text-sm font-medium mb-1">${capitalize(post.platform)} • ${post.pillar}</div>
     ${post.image_url ? `<img class="w-full h-40 object-cover rounded mb-2" src="${post.image_url}" alt="Suggested image" />` : ""}
     <div class="text-xs text-slate-500 mb-2"><strong>Image prompt:</strong> ${escapeHtml(post.image_prompt)}</div>
     <pre class="caption text-sm">${escapeHtml(post.caption)}</pre>
-    ${post.reel ? `
+    ${r ? `
       <div class="mt-3 p-3 bg-slate-50 rounded">
         <div class="text-sm font-medium mb-1">Reel plan</div>
-        <div class="text-sm mb-2"><strong>Hook:</strong> ${escapeHtml(post.reel.hook)}</div>
+        <div class="text-sm mb-2"><strong>Hook:</strong> ${escapeHtml(r.hook)}</div>
         <div class="text-sm mb-2"><strong>Script beats:</strong>
-          <ol class="list-decimal ml-5 text-sm text-slate-700">${(post.reel.script_beats||[]).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ol>
+          <ol class="list-decimal ml-5 text-sm text-slate-700">${(r.script_beats||[]).map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ol>
         </div>
         <div class="text-sm mb-2"><strong>Shot list:</strong>
-          <ul class="list-disc ml-5 text-sm text-slate-700">${(post.reel.shot_list||[]).map(s => `<li>${escapeHtml(s.type + ': ' + s.description)}</li>`).join('')}</ul>
+          <ul class="list-disc ml-5 text-sm text-slate-700">${(r.shot_list||[]).map(s => `<li>${escapeHtml((s.type||'') + (s.description ? ': ' + s.description : ''))}</li>`).join('')}</ul>
         </div>
-        <div class="text-sm mb-2"><strong>On-screen text:</strong> ${escapeHtml((post.reel.on_screen_text||[]).join(' • '))}</div>
-        <div class="text-sm mb-2"><strong>Hashtags:</strong> ${escapeHtml((post.reel.hashtags||[]).join(' '))}</div>
-        <div class="text-sm mb-2"><strong>CTA:</strong> ${escapeHtml(post.reel.cta || '')}</div>
+        <div class="text-sm mb-2"><strong>On-screen text:</strong> ${escapeHtml((r.on_screen_text||[]).join(' • '))}</div>
+        <div class="text-sm mb-2"><strong>Hashtags:</strong> ${escapeHtml((r.hashtags||[]).join(' '))}</div>
+        <div class="text-sm mb-2"><strong>CTA:</strong> ${escapeHtml(r.cta || '')}</div>
         <div class="flex gap-2 mt-2">
           <button class="btn-ghost text-xs" data-copy-reel-script>Copy Reel Script</button>
           <button class="btn-ghost text-xs" data-copy-srt>Copy SRT Prompt</button>
@@ -710,18 +1083,30 @@ function renderCard(post){
   });
   // reel copy buttons
   if (post.reel){
+    // use normalized reel if present
+    const reelNode = (function(){
+      // try to find the normalized block we rendered above
+      const container = card.querySelector('.mt-3.p-3');
+      return container ? (post.reel && (post.reel._normalized || null)) : null;
+    })();
+    // fallback to constructing values from post.reel
+    const hook = (post.reel && (post.reel.hook || (post.reel.ranked_hooks && post.reel.ranked_hooks[0]) || ''));
+    const scriptArr = (post.reel && (post.reel.script_beats || post.reel.scriptBeats || post.reel.script || []));
+    const scriptText = `${hook}\n\n${(scriptArr||[]).join('\n')}`;
+    const srtText = (post.reel && (post.reel.srt_prompt || post.reel.srt || ''));
+    const thumbText = (post.reel && (post.reel.thumbnail_prompt || post.reel.thumbnail || ''));
+
     const btnScript = card.querySelector('[data-copy-reel-script]');
     const btnSrt = card.querySelector('[data-copy-srt]');
     const btnThumb = card.querySelector('[data-copy-thumb]');
-    const scriptText = `${post.reel.hook}\n\n${(post.reel.script_beats||[]).join('\n')}`;
     btnScript?.addEventListener('click', async (ev) => {
       try{ await navigator.clipboard.writeText(scriptText); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy Reel Script',1200);}catch(e){console.error(e)}
     });
     btnSrt?.addEventListener('click', async (ev) => {
-      try{ await navigator.clipboard.writeText(post.reel.srt_prompt || ''); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy SRT Prompt',1200);}catch(e){console.error(e)}
+      try{ await navigator.clipboard.writeText(srtText || ''); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy SRT Prompt',1200);}catch(e){console.error(e)}
     });
     btnThumb?.addEventListener('click', async (ev) => {
-      try{ await navigator.clipboard.writeText(post.reel.thumbnail_prompt || ''); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy Thumbnail Prompt',1200);}catch(e){console.error(e)}
+      try{ await navigator.clipboard.writeText(thumbText || ''); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy Thumbnail Prompt',1200);}catch(e){console.error(e)}
     });
   }
   card.querySelectorAll("[data-like]").forEach(btn => {
@@ -820,39 +1205,72 @@ document.addEventListener('DOMContentLoaded', () => {
   xBtn?.addEventListener('click', () => { if (inline) inline.classList.add('hidden'); if (modal) modal.classList.add('hidden'); });
 
   gen1Btn?.addEventListener('click', async () => {
+    if (!isLoggedIn()){ openAuthModal('signup'); return; }
+    if (!window.CURRENT_USER?.is_paid && window.CURRENT_USER?.free_sample_used){ showPaywall('You already used your free sample. Subscribe to keep going.'); return; }
     if (inline) inline.classList.add('hidden');
     if (modal) modal.classList.add('hidden');
     try{
       await maybeSaveDefaults();
       const data = await generate(1);
       renderPosts(data);
-    }catch(err){ console.error('generate(1) failed', err); }
+      await refreshCurrentUser();
+    }catch(err){ if (err && err.message) console.debug(err.message); }
   });
   genReelsBtn?.addEventListener('click', async () => {
-    // generate a short reels-only sample (5 reels)
+    if (!isLoggedIn()){ openAuthModal('signup'); return; }
+    if (!window.CURRENT_USER?.is_paid){ showPaywall('Subscribe to unlock reels.'); return; }
     if (inline) inline.classList.add('hidden');
     if (modal) modal.classList.add('hidden');
     try{
       clearFormError();
       await maybeSaveDefaults();
-      // call generate endpoint requesting only short_video platform
-      const res = await fetch('/api/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ ...answers, days: 5, platforms: ['short_video'] }) });
-      if (!res.ok){ const j = await res.json().catch(()=>null); throw new Error((j && j.error) || ('HTTP ' + res.status)); }
-      const data = await res.json();
+      const data = await generate(5, { platforms: ['short_video'] });
       renderPosts(data);
-    }catch(err){ console.error('generate(reels) failed', err); }
+      await refreshCurrentUser();
+    }catch(err){ if (err && err.message) console.debug(err.message); }
   });
+
+  // dev helper: reset selections but keep industry
+  const resetBtn = document.getElementById('reset-selections');
+  if (resetBtn){
+    resetBtn.addEventListener('click', () => {
+      if (!confirm('Clear all selections except the selected industry?')) return;
+      const keptIndustryKey = answers.industry_key || answers.industry || null;
+      // clear selection state except industry
+      answers.goals = [];
+      answers.details = {};
+      answers.tone = "";
+      answers.platforms = ["instagram"];
+      answers.brand_keywords = [];
+      answers.niche_keywords = [];
+      // clear freeform inputs
+      const extra = document.getElementById('extra-keywords'); if (extra) extra.value = '';
+      const note = document.getElementById('note'); if (note) note.value = '';
+      const company = document.getElementById('company'); if (company) company.value = '';
+
+      // remove selected state from all chips/choices then reapply industry
+      document.querySelectorAll('.choice.selected').forEach(el => el.classList.remove('selected'));
+      if (keptIndustryKey){
+        const el = document.querySelector(`#industries [data-key="${keptIndustryKey}"]`);
+        if (el) el.classList.add('selected');
+        try{ renderIndustryQuestions(keptIndustryKey); }catch(e){}
+        // rebuild suggested keywords for industry
+        try{ renderIndustryChoices(CFG.industries || []); }catch(e){}
+      } else {
+        try{ renderIndustryChoices(CFG.industries || []); }catch(e){}
+      }
+
+      // update tones/platform UI and platform buttons
+      try{ renderToneChoices(CFG.tones || []); }catch(e){}
+      try{ renderPlatformChoices(CFG.platforms || []); }catch(e){}
+
+      updateSummary();
+      try{ showToast('Selections cleared (industry preserved)'); }catch(e){}
+    });
+  }
   gen7Btn?.addEventListener('click', async () => {
-    // gate to paid users if the flag is set
-    const gate = (window.FLAGS && window.FLAGS.gate7DayToPaid) ? true : false;
-    const userPaid = window.CURRENT_USER && window.CURRENT_USER.is_paid;
-    if (gate && !userPaid){
-      // open paywall modal instead of inline error
-      const modal = document.getElementById('paywall-modal');
-      if (modal) modal.classList.remove('hidden');
-      return;
-    }
-    // proceed
+    if (!isLoggedIn()){ openAuthModal('signup'); return; }
+    if (!window.CURRENT_USER?.is_paid){ showPaywall('Subscribe to unlock multi-day plans.'); return; }
     if (inline) inline.classList.add('hidden');
     if (modal) modal.classList.add('hidden');
     try{
@@ -860,17 +1278,21 @@ document.addEventListener('DOMContentLoaded', () => {
       await maybeSaveDefaults();
       const data = await generate(7);
       renderPosts(data);
-    }catch(err){ console.error('generate(7) failed', err); }
+      await refreshCurrentUser();
+    }catch(err){ if (err && err.message) console.debug(err.message); }
   });
 
   gen30Btn?.addEventListener('click', async () => {
+    if (!isLoggedIn()){ openAuthModal('signup'); return; }
+    if (!window.CURRENT_USER?.is_paid){ showPaywall('Subscribe to unlock multi-day plans.'); return; }
     if (inline) inline.classList.add('hidden');
     if (modal) modal.classList.add('hidden');
     try{
       await maybeSaveDefaults();
       const data = await generate(30);
       renderPosts(data);
-    }catch(err){ console.error('generate(30) failed', err); }
+      await refreshCurrentUser();
+    }catch(err){ if (err && err.message) console.debug(err.message); }
   });
   // show 7-day button based on flags
   try{ if (window.FLAGS && window.FLAGS.show7Day){ gen7Btn?.classList.remove('hidden'); } }catch(e){}
@@ -880,55 +1302,97 @@ document.addEventListener('DOMContentLoaded', () => {
   const paySubscribe = document.getElementById('paywall-subscribe');
   payCancel?.addEventListener('click', () => { if (payModal) payModal.classList.add('hidden'); });
   paySubscribe?.addEventListener('click', async () => {
-    // show card input area and initialize Stripe Elements if needed
-    const wrap = document.getElementById('stripe-elements-wrap');
-    if (wrap) wrap.classList.remove('hidden');
-    // ensure publishable key is loaded and Stripe is initialized
-    try{
-      if (!window.STRIPE){
-        const r = await fetch('/api/stripe-publishable-key');
-        if (!r.ok) throw new Error('Could not fetch publishable key');
-        const j = await r.json();
-        if (!j.ok) throw new Error(j.error || 'No publishable key');
-        const pk = j.publishableKey;
-        const script = document.createElement('script');
-        script.src = 'https://js.stripe.com/v3/';
-        document.head.appendChild(script);
-        await new Promise(res => { script.onload = res; script.onerror = () => res(); });
-        window.STRIPE = Stripe(pk);
-        const elements = window.STRIPE.elements();
-        window.__card = elements.create('card');
-        window.__card.mount('#card-element');
-        window.__card.on('change', (ev) => {
-          const ce = document.getElementById('card-errors');
-          if (!ev.complete && ev.error){ ce.textContent = ev.error.message; ce.classList.remove('hidden'); }
-          else { ce.textContent = ''; ce.classList.add('hidden'); }
-        });
-      }
-      // create a PaymentMethod via Stripe.js using the card element
-      setButtonLoading(paySubscribe, true);
-      // choose price id from env/config if available
-      const priceId = (window.CFG && window.CFG.stripe_price_id) ? window.CFG.stripe_price_id : null;
-      const pmRes = await window.STRIPE.createPaymentMethod({ type: 'card', card: window.__card });
-      if (pmRes.error){ const ce = document.getElementById('card-errors'); if (ce){ ce.textContent = pmRes.error.message; ce.classList.remove('hidden'); } setButtonLoading(paySubscribe,false); return; }
-      const payment_method = pmRes.paymentMethod.id;
-      // call server to create subscription
-      const r2 = await fetch('/api/create-subscription', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ price_id: priceId, payment_method }) });
-      const j2 = await r2.json().catch(()=>null);
-      if (!r2.ok || !j2 || !j2.ok){ alert((j2 && j2.error) || 'Subscription creation failed'); setButtonLoading(paySubscribe,false); return; }
-      // if server returned a client_secret, confirm payment on the client
-      if (j2.client_secret){
-        const ci = await window.STRIPE.confirmCardPayment(j2.client_secret, { payment_method: payment_method });
-        if (ci.error){ alert(ci.error.message || 'Payment confirmation failed'); setButtonLoading(paySubscribe,false); return; }
-      }
-      // success: mark current user as paid in UI and close modal
-      window.CURRENT_USER = window.CURRENT_USER || {};
-      window.CURRENT_USER.is_paid = true;
-      renderAuthUi();
-      showToast('Subscription active');
-      const modal = document.getElementById('paywall-modal'); if (modal) modal.classList.add('hidden');
-    }catch(e){ console.error(e); alert('Subscription failed: ' + (e && e.message)); }
-    finally{ setButtonLoading(paySubscribe,false); }
+      // One-step signup + subscribe flow.
+      // If user isn't signed in, create account first using the paywall inputs, then proceed to initialize Elements and create subscription.
+      const wrap = document.getElementById('stripe-elements-wrap');
+      const emailInput = document.getElementById('paywall-email');
+      const passInput = document.getElementById('paywall-password');
+      const signupError = document.getElementById('paywall-signup-error');
+      clearPaywallMessage(); if (signupError) signupError.classList.add('hidden');
+
+      // helper to fallback to Checkout redirect
+      const checkoutFallback = async () => {
+        try{
+          setButtonLoading(paySubscribe, true);
+          const priceId = null;
+          const r2 = await fetch('/api/create-checkout-session', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ price_id: priceId, success_url: window.location.href, cancel_url: window.location.href }) });
+          const j = await r2.json().catch(()=>null);
+          if (r2.ok && j && j.url){ window.location.href = j.url; return true; }
+        }catch(e){ console.error('checkout redirect failed', e); }
+        finally{ setButtonLoading(paySubscribe, false); }
+        return false;
+      };
+
+      try{
+        // If user not signed in, attempt to sign them up first using supplied email/password.
+        if (!window.CURRENT_USER || !window.CURRENT_USER.id){
+          const email = emailInput ? emailInput.value.trim() : '';
+          const pw = passInput ? passInput.value : '';
+          if (!email || !pw){
+            if (signupError){ signupError.textContent = 'Please provide an email and password to create an account.'; signupError.classList.remove('hidden'); }
+            else showPaywallMessage('Please sign up to continue');
+            return;
+          }
+          setButtonLoading(paySubscribe, true);
+          const r = await fetch('/api/signup', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw }) });
+          const j = await r.json().catch(()=>null);
+      if (!r.ok){
+                const msg = (j && j.error) ? j.error : 'Sign up failed';
+                // if server returned structured field errors, prioritize those
+                if (j && j.errors){
+                  const vals = Object.values(j.errors).filter(Boolean);
+                  if (vals.length) signupError.textContent = vals.join(' — ');
+                  else signupError.textContent = msg;
+                } else {
+                  if (signupError) signupError.textContent = msg;
+                }
+                if (signupError) signupError.classList.remove('hidden');
+            else showPaywallMessage(msg);
+            setButtonLoading(paySubscribe, false);
+            return;
+          }
+          // success — server should set session cookie; update client state
+          setCurrentUser(j); showToast('Account created');
+              // disable signup inputs to prevent duplicate submissions
+              try{ if (emailInput) { emailInput.disabled = true; emailInput.classList.add('opacity-50'); } if (passInput) { passInput.disabled = true; passInput.classList.add('opacity-50'); } }catch(e){}
+              setButtonLoading(paySubscribe, false);
+        }
+
+        // Initialize Elements (prefer embedded flow)
+        const elementsReady = await ensureStripeElementsInitialized();
+        if (!elementsReady){
+          // fallback to Checkout redirect
+          await checkoutFallback();
+          return;
+        }
+
+        // create payment method with card element
+        setButtonLoading(paySubscribe, true);
+        const pmRes = await window.STRIPE.createPaymentMethod({ type: 'card', card: window.__card });
+        if (pmRes.error){ const ce = document.getElementById('card-errors'); if (ce){ ce.textContent = pmRes.error.message; ce.classList.remove('hidden'); } setButtonLoading(paySubscribe,false); return; }
+        const payment_method = pmRes.paymentMethod.id;
+
+        // create subscription server-side (server will use its configured STRIPE_TEST_PRICE_ID when price_id null)
+        const r2 = await fetch('/api/create-subscription', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ price_id: null, payment_method }) });
+        const j2 = await r2.json().catch(()=>null);
+        if (!r2.ok || !j2 || !j2.ok){
+          const msg = (j2 && j2.error) ? j2.error : 'Subscription creation failed';
+          showPaywallMessage(msg);
+          setButtonLoading(paySubscribe,false);
+          return;
+        }
+        // if SCA required, confirm payment
+        if (j2.client_secret){
+          const ci = await window.STRIPE.confirmCardPayment(j2.client_secret, { payment_method: payment_method });
+          if (ci.error){ showPaywallMessage(ci.error.message || 'Payment confirmation failed'); setButtonLoading(paySubscribe,false); return; }
+        }
+
+        // success
+  await refreshCurrentUser();
+  showToast('Subscription active');
+        const pm = document.getElementById('paywall-modal'); if (pm) pm.classList.add('hidden');
+      }catch(e){ console.error(e); showPaywallMessage('Subscription failed — check console'); }
+      finally{ setButtonLoading(paySubscribe, false); }
   });
   // Manage subscription: attach to header account link via context menu (right-click)
   const headerLink = document.querySelector('header a[href="#"]');
@@ -936,7 +1400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     // try to open portal
     try{
-      const r = await fetch('/api/create-portal-session', { method: 'POST' });
+  const r = await fetch('/api/create-portal-session', { method: 'POST', credentials: 'include' });
       if (!r.ok){ const j = await r.json().catch(()=>null); alert((j && j.error) || 'Could not open billing portal'); return; }
       const j = await r.json(); if (j && j.url) window.location.href = j.url;
     }catch(err){ console.error(err); alert('Could not open billing portal'); }
