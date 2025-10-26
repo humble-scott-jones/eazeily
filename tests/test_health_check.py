@@ -28,13 +28,12 @@ def test_health_check_does_not_leak_secrets(client):
     # Should not contain any secret-like strings
     assert 'secret' not in response_str
     assert 'password' not in response_str
-    # Check that 'key' is not present unless it's part of allowed fields
-    # like 'secret_key' which shouldn't be in the response anyway
-    if 'key' in response_str:
-        # Allow only in benign contexts, fail if suspicious
-        assert response_str.count('key') == 0 or all(
-            word not in response_str 
-            for word in ['secret_key', 'api_key', 'stripe']
-        )
-    assert 'sk_' not in response_str
-    assert 'pk_' not in response_str
+    assert 'stripe' not in response_str
+    assert 'sk_' not in response_str  # Stripe secret key prefix
+    assert 'pk_' not in response_str  # Stripe publishable key prefix
+    assert 'whsec_' not in response_str  # Webhook secret prefix
+    
+    # Should not contain secret-related keys
+    assert 'api_key' not in response_str
+    assert 'secret_key' not in response_str
+    assert 'token' not in response_str or 'timestamp' in response_str  # Allow 'timestamp' but not 'token' alone
