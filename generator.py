@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from typing import Optional
 
@@ -11,23 +12,130 @@ PILLARS_BY_DEFAULT = [
 ]
 
 PLATFORM_HINTS = {
-    "instagram": "Keep it visual, 1–2 short paragraphs, 8–12 niche hashtags.",
-    "facebook": "Conversational tone, 2–3 short paragraphs. Invite replies.",
-    "linkedin": "Value-forward, concise, 1–2 actionable insights, 3–6 hashtags.",
-    "tiktok": "Hook in first sentence, keep lines punchy, suggest a shot list.",
-    "twitter": "Short & punchy. 1–2 tweets per post; avoid walls of text.",
+    "instagram": "Keep it scroll-friendly with punchy line breaks and a touch of emoji.",
+    "facebook": "Invite conversation with two short, friendly paragraphs.",
+    "linkedin": "Lead with insight, keep it tight, and state the value upfront.",
+    "tiktok": "High energy lines that read like captions for a quick reel.",
+    "twitter": "Punchy and direct. No fluff.",
 }
 
+GOAL_CTA_HINTS = {
+    "Drive sales": "Ready to treat yourself? Tap the link in bio to order.",
+    "Engagement": "Tell me your take in the comments 👇",
+    "Build authority": "Save this for later and share it with a friend who needs it.",
+    "Grow community": "Tag someone who would vibe with this.",
+    "Promote": "Want first dibs? DM me and I’ll hook you up.",
+    "Lead generation": "Slide into the DMs for the full breakdown.",
+    # industry-specific goal chips
+    "New listings": "Want first dibs? DM me \"LIST\" and I’ll send you the walkthrough.",
+    "Local lifestyle": "Need more neighborhood picks? Save this and follow along.",
+    "Market tips": "Need the full market breakdown? Message me \"MARKET\" and I’ll share the report.",
+    "Testimonials": "Curious how we work? DM and I’ll share the full story.",
+    "Menu items": "Reserve your table through the link — seats go fast.",
+    "Seasonal specials": "Craving it? Tap the link to order or book a table.",
+    "Events": "Grab your spot now via the link in bio.",
+    "Team": "Come say hi — book a table or swing by tonight.",
+    "Content emphasis": "Share this with someone who needs the inspo.",
+    "New arrivals": "Snag yours — DM your size and we’ll hold it.",
+    "How-to style": "Try it and tag us in your look.",
+    "Promotions": "Use the link in bio to shop the drop.",
+    "Community": "Know someone who’d love this? Share it with them.",
+    "Motivation": "Share this with your workout buddy and let’s go.",
+    "Education": "Save this drill for your next session.",
+    "Member stories": "Want a plan like this? DM \"COACH\" and we’ll map it out.",
+    "Process": "Follow for more behind-the-scenes moments.",
+    "Products": "Want one? DM \"RESERVE\" and we’ll set it aside.",
+    "Story": "Send this to someone who’ll feel the glow-up.",
+    "Impact": "Help fuel the work — donate via the link.",
+    "Volunteers": "Raise your hand in the DMs to volunteer.",
+    "Donations": "Give today and tell a friend who cares.",
+    "Before/after": "Want a transformation like this? Book a consult.",
+    "Tips": "Save this checklist for the next time you tackle it.",
+    "Seasonal reminders": "Need a reminder? DM us and we’ll send the list.",
+    "Reviews": "Ready for your own 5-star fix? Message us.",
+    "Patient resources": "Need the full guide? Send us a DM and we’ll share it.",
+    "Mindset": "Share this with someone who needs the reminder.",
+}
+
+INDUSTRY_TOKEN_MAP = {
+    "realtor": ["realtor", "real estate", "broker", "property"],
+    "restaurant": ["restaurant", "cafe", "café", "bar", "eatery", "kitchen"],
+    "retail": ["retail", "boutique", "shop"],
+    "fitness": ["fitness", "gym", "studio", "wellness", "yoga", "pilates"],
+    "artisan": ["artisan", "maker", "handmade", "studio", "craft"],
+    "coach": ["coach", "coaching", "consult", "consultant", "mentor"],
+    "nonprofit": ["nonprofit", "charity", "community", "foundation"],
+    "home_services": ["home service", "hvac", "plumbing", "electric", "roof", "contractor"],
+    "healthcare": ["health", "clinic", "medical", "dent", "therapy"],
+}
+
+INDUSTRY_HASHTAG_HINTS = {
+    "realtor": ["#RealEstateTips", "#HomeTour", "#HouseHunting"],
+    "restaurant": ["#EatLocal", "#ChefSpecial", "#Foodie"],
+    "retail": ["#ShopLocal", "#StyleInspo", "#NewArrivals"],
+    "fitness": ["#Wellness", "#WorkoutMotivation", "#MoveWithUs"],
+    "artisan": ["#Handmade", "#StudioLife", "#SlowMade"],
+    "coach": ["#Leadership", "#MindsetShift", "#BusinessTips"],
+    "nonprofit": ["#GiveBack", "#CommunityLove", "#Impact"],
+    "home_services": ["#HomeCare", "#BeforeAfter", "#FixerUpper"],
+    "healthcare": ["#HealthyHabits", "#PatientCare", "#WellnessTips"],
+}
+
+
+def _clean_tag(text: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9]", "", str(text))
+    return cleaned[:18]
+
+
+def _format_list(items: list[str]) -> str:
+    filtered = [str(i).strip() for i in items if isinstance(i, str) and i.strip()]
+    if not filtered:
+        return ""
+    if len(filtered) == 1:
+        return filtered[0]
+    if len(filtered) == 2:
+        return f"{filtered[0]} and {filtered[1]}"
+    return ", ".join(filtered[:-1]) + f", and {filtered[-1]}"
+
+
+def _first_value(items: Optional[list[str]]) -> str:
+    if not items:
+        return ""
+    for item in items:
+        if isinstance(item, str) and item.strip():
+            return item.strip()
+    return ""
+
+
+def resolve_industry_key(industry: str, details: Optional[dict] = None) -> str:
+    if isinstance(details, dict):
+        from_details = details.get("_industry_key") or details.get("industry_key")
+        if isinstance(from_details, str) and from_details.strip():
+            return from_details.strip().lower()
+    slug = (industry or "").lower()
+    for key, tokens in INDUSTRY_TOKEN_MAP.items():
+        for token in tokens:
+            if token in slug:
+                return key
+    return "other"
+
+
 def default_hashtags(industry: str, niche_keywords: list[str]):
-    base = [f"#{industry.replace(' ', '')[:18]}", "#SmallBusiness", "#LocalBiz", "#BehindTheScenes", "#Tips"]
-    extra = [f"#{k.strip().replace(' ', '')[:18]}" for k in niche_keywords if k.strip()]
-    seen = set()
+    industry_key = resolve_industry_key(industry)
+    base_tag = _clean_tag(industry or "Business")
+    base = [f"#{base_tag}" if base_tag else "#Brand"]
+    base.extend(["#SmallBusiness", "#LocalBiz", "#BehindTheScenes", "#Tips"])
+    industry_specific = INDUSTRY_HASHTAG_HINTS.get(industry_key, [])
+    extra = [f"#{_clean_tag(k)}" for k in niche_keywords if isinstance(k, str) and k.strip()]
     tags = []
-    for t in base + extra:
-        t_low = t.lower()
-        if t_low not in seen:
+    seen = set()
+    for t in base + industry_specific + extra:
+        if not t:
+            continue
+        lowered = t.lower()
+        if lowered not in seen:
             tags.append(t)
-            seen.add(t_low)
+            seen.add(lowered)
     return tags[:12]
 
 def to_sentence_case(s: str):
@@ -35,32 +143,317 @@ def to_sentence_case(s: str):
         return s
     return s[0].upper() + s[1:]
 
+def choose_goal_cta(goals: list[str], details: Optional[dict] = None):
+    combined = list(goals or [])
+    if isinstance(details, dict):
+        extra_goals = details.get("goals")
+        if isinstance(extra_goals, list):
+            combined.extend([g for g in extra_goals if isinstance(g, str)])
+    for goal in combined:
+        hint = GOAL_CTA_HINTS.get(goal)
+        if hint:
+            return hint
+    if combined:
+        return "Let me know if you want details — my DMs are open."
+    return "Drop a comment if this hit home 👇"
+
+
+def describe_tone(tone: str):
+    return {
+        "friendly": ("😊", "Warm and encouraging"),
+        "professional": ("💼", "Clear and confident"),
+        "playful": ("✨", "Upbeat with a wink"),
+        "inspirational": ("🌱", "Uplifting and mission-minded"),
+    }.get((tone or "").lower(), ("💡", "Helpful and human"))
+
+
+def build_opening(pillar_name: str, industry: str, keywords: list[str]):
+    key_phrase = ", ".join(keywords[:2]) if keywords else industry
+    hook_templates = {
+        "Educational": f"Quick {industry} tip incoming ➡️",
+        "Behind-the-Scenes": f"Step inside {key_phrase} with me ✨",
+        "Testimonial/Social Proof": f"Proof it works: {key_phrase} wins",
+        "Product/Offer": f"New drop for {industry} lovers",
+        "Engagement": f"Real talk: {industry} edition",
+        "Story": f"A {industry} moment you’ll feel",
+    }
+    return hook_templates.get(pillar_name, f"Let’s talk {industry}")
+
+
+def platform_flair(platform: str):
+    return PLATFORM_HINTS.get((platform or "").lower(), "Keep it short and memorable.")
+
+
+def _realtor_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                        niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    area = ""
+    if isinstance(details, dict):
+        area = details.get("area", "") or details.get("note", "")
+    if not area:
+        area = _first_value(niche_keywords)
+    area_phrase = area or "our market"
+    audience = _first_value(niche_keywords) or "buyers"
+    signature = _format_list(brand_keywords[:3]) or "smart staging and local insight"
+    goal = _first_value(goals) or (isinstance(details, dict) and _first_value(details.get("goals")) or "")
+    focus_phrase = f"Focus: {goal.lower()}" if goal else pillar_hint
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+
+    lines = [
+        f"📍 {to_sentence_case(audience)} are watching {area_phrase} inventory — here’s how we get them ready before tour day.",
+        f"🗝️ {focus_phrase}. We lead with {signature} so every showing feels curated, not rushed.",
+    ]
+    if note:
+        lines.append(f"🏡 Next up: {note.rstrip('.')} — message me for the walkthrough.")
+    else:
+        lines.append("🏡 Want the private tour? DM me and I’ll send the details.")
+    return lines
+
+
+def _restaurant_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                           niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    cuisine = ""
+    if isinstance(details, dict):
+        cuisine = details.get("cuisine", "")
+    cuisine = cuisine or _first_value(niche_keywords) or "seasonal plates"
+    spotlight = _format_list(brand_keywords[:3]) or "the chef’s latest drop"
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    source = _format_list(niche_keywords[:2] or []) or "local producers"
+    lines = [
+        f"🍽️ Tonight’s {cuisine.lower()} spotlight: {spotlight} fresh out of the kitchen.",
+        f"🌿 We source from {source} so every bite tastes like the neighborhood.",
+    ]
+    if note:
+        lines.append(f"📅 {note.rstrip('.')} — reserve your table while there’s room.")
+    else:
+        lines.append("📅 Seats go fast — tap the link to book or order pickup.")
+    return lines
+
+
+def _retail_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                       niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    drop = _format_list(brand_keywords[:3]) or "fresh finds"
+    styling = _format_list(niche_keywords[:2]) or "your everyday favorites"
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    lines = [
+        f"🛍️ Drop alert: {drop} just landed in-store and online.",
+        f"✨ Style it with {styling} for an effortless look.",
+    ]
+    if note:
+        lines.append(f"📦 {note.rstrip('.')} — DM your size and we’ll hold it.")
+    else:
+        lines.append("📦 Want first access? DM ‘LIST’ and we’ll set one aside.")
+    return lines
+
+
+def _fitness_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                        niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    focus = _format_list(brand_keywords[:3]) or "our go-to circuit"
+    audience = _first_value(niche_keywords) or "members"
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    lines = [
+        f"💥 {to_sentence_case(audience)} keep asking for something that actually fits the schedule — here’s our fix.",
+        f"🔥 Breakdown: {focus} with smart pacing so you can feel wins fast.",
+    ]
+    if note:
+        lines.append(f"📆 {note.rstrip('.')} — join us and tag your workout buddy.")
+    else:
+        lines.append("📆 Ready to move? DM ‘GO’ and we’ll send the schedule.")
+    return lines
+
+
+def _coach_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                      niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    challenge = _first_value(niche_keywords) or "founders"
+    framework = _format_list(brand_keywords[:3]) or "our 3-part framework"
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    lines = [
+        f"🧠 {to_sentence_case(challenge)} keep running into the same wall — here’s the small shift that opens it up.",
+        f"🛠️ Framework: {framework}. Screenshot it for the next planning sprint.",
+    ]
+    if note:
+        lines.append(f"📩 {note.rstrip('.')} — DM ‘WIN’ and I’ll send the worksheet.")
+    else:
+        lines.append("📩 Want the worksheet? DM ‘WIN’ and I’ll send it.")
+    return lines
+
+
+def _nonprofit_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                          niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    initiative = _format_list((details.get("goals") if isinstance(details, dict) else []) or goals or [])
+    if not initiative:
+        initiative = pillar_hint
+    audience = _format_list(niche_keywords[:2]) or "neighbors"
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    lines = [
+        f"🤝 Impact focus: {initiative}.",
+        f"📊 Because {audience} deserve support without the wait.",
+    ]
+    if note:
+        lines.append(f"📆 {note.rstrip('.')} — raise your hand if you can join us.")
+    else:
+        lines.append("📆 Volunteer link in bio — bring a friend with you.")
+    return lines
+
+
+def _home_services_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                              niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    area = ""
+    if isinstance(details, dict):
+        area = details.get("area", "") or details.get("note", "")
+    feature = _format_list(brand_keywords[:3]) or "a fresh transformation"
+    tip = _format_list(niche_keywords[:2]) or "seasonal maintenance"
+    lines = [
+        f"🛠️ Before/after spotlight: {feature} in {area or 'the neighborhood'}.",
+        f"🔍 Pro tip: keep up with {tip} so the fixes stay small.",
+    ]
+    lines.append("📞 Need a quote? DM your project and we’ll send options.")
+    return lines
+
+
+def _healthcare_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                           niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    question = _first_value(niche_keywords) or "patients"
+    resource = _format_list(brand_keywords[:3]) or "our care checklist"
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    lines = [
+        f"🩺 Question of the week from {question}: here’s the short version.",
+        f"✅ We walk you through {resource} so it’s easy to act.",
+    ]
+    if note:
+        lines.append(f"📅 {note.rstrip('.')} — book through the link when you’re ready.")
+    else:
+        lines.append("📅 Need support? Book through the link and we’ll take it from there.")
+    return lines
+
+
+def _artisan_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                        niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    process = _format_list(brand_keywords[:3]) or "slow-made pieces"
+    audience = _format_list(niche_keywords[:2]) or "people who love intentional pieces"
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    lines = [
+        f"🎨 Studio moment: {process} coming to life on the bench.",
+        f"👐 Crafted for {audience} who want something that lasts.",
+    ]
+    if note:
+        lines.append(f"📦 {note.rstrip('.')} — DM to claim yours before the batch is gone.")
+    else:
+        lines.append("📦 Limited batch — DM ‘RESERVE’ and I’ll hold one for you.")
+    return lines
+
+
+def _generic_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                        niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    differentiator = _format_list(brand_keywords[:3]) or "what makes us different"
+    audience = _format_list(niche_keywords[:2]) or "your people"
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    lines = [
+        f"📌 Focus: {pillar_hint}",
+        f"✨ We lean on {differentiator} so {audience} get the win fast.",
+    ]
+    if note:
+        lines.append(f"📬 {note.rstrip('.')} — reply if you want more.")
+    else:
+        lines.append("📬 Curious? Drop a comment and I’ll share more.")
+    return lines
+
+
+BODY_BUILDERS = {
+    "realtor": _realtor_body_lines,
+    "restaurant": _restaurant_body_lines,
+    "retail": _retail_body_lines,
+    "fitness": _fitness_body_lines,
+    "coach": _coach_body_lines,
+    "nonprofit": _nonprofit_body_lines,
+    "home_services": _home_services_body_lines,
+    "healthcare": _healthcare_body_lines,
+    "artisan": _artisan_body_lines,
+}
+
+
+def build_body_lines(industry_key: str, pillar_name: str, pillar_hint: str, brand_keywords: list[str],
+                     niche_keywords: list[str], details: Optional[dict], goals: list[str], company: str) -> list[str]:
+    builder = BODY_BUILDERS.get(industry_key, _generic_body_lines)
+    lines = builder(pillar_name, pillar_hint, brand_keywords, niche_keywords, details, goals, company)
+    return [line.strip() for line in lines if line and line.strip()]
+
+
+def build_signature_line(company: str, brand_keywords: list[str], industry: str) -> str:
+    keywords_line = _format_list(brand_keywords[:3])
+    # Prefer a short "From Company." signature to match tests that expect that phrasing.
+    if company and keywords_line:
+        return f"From {company}. • {keywords_line}"
+    if company:
+        return f"From {company}."
+    if keywords_line:
+        return keywords_line
+    return industry
+
+
+def build_industry_context(industry: str, brand_keywords: list[str], niche_keywords: list[str],
+                           details: Optional[dict], goals: list[str], company: str = "") -> dict:
+    industry_key = resolve_industry_key(industry, details)
+    primary_goal = _first_value(goals) or (isinstance(details, dict) and _first_value(details.get("goals")) or "")
+    focus = _format_list(brand_keywords[:3])
+    audience = _format_list(niche_keywords[:2])
+    note = ""
+    if isinstance(details, dict):
+        note = details.get("note", "")
+    context = {
+        "industry_key": industry_key,
+        "focus": focus,
+        "audience": audience,
+        "primary_goal": primary_goal,
+        "company": company,
+    }
+    if isinstance(details, dict):
+        context.update({k: v for k, v in details.items() if k not in {"industry_key", "_industry_key"}})
+    if note:
+        context["highlight"] = note
+    return {k: v for k, v in context.items() if v}
+
+
 def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = ""):
-    tone_blurb = {
-        "friendly": "Warm, encouraging, and conversational.",
-        "professional": "Clear, confident, and value-focused.",
-        "playful": "Upbeat, witty, and a bit cheeky.",
-        "inspirational": "Uplifting, thoughtful, and mission-driven."
-    }.get(tone.lower(), "Conversational and helpful.")
+                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "",
+                 niche_keywords: Optional[list[str]] = None, details: Optional[dict] = None):
+    niche_keywords = niche_keywords or []
+    details = details or {}
+    tone_icon, tone_desc = describe_tone(tone)
+    opening = build_opening(pillar_name, industry, brand_keywords)
+    industry_key = resolve_industry_key(industry, details)
+    body_lines = build_body_lines(industry_key, pillar_name, pillar_hint, brand_keywords, niche_keywords, details, goals, company)
+    signature_line = build_signature_line(company, brand_keywords, industry)
+    flair = platform_flair(platform)
+    cta_line = choose_goal_cta(goals, details)
 
-    platform_hint = PLATFORM_HINTS.get(platform.lower(), "Make it concise and useful.")
-    brand_line = f" ({', '.join(brand_keywords)})" if brand_keywords else ""
-    goal_line = f"Focus: {', '.join(goals)}." if goals else ""
+    lines = [f"{tone_icon} {opening}"]
+    lines.extend(body_lines)
+    if signature_line:
+        lines.append(signature_line)
+    lines.append(f"{tone_desc} • {flair}")
+    lines.append(cta_line)
 
-    company_line = f"From {company}." if company else ""
-    body = (
-        f"{pillar_name} • {industry}{brand_line}\n"
-        f"{pillar_hint}\n\n"
-        f"{company_line}\n"
-        f"{goal_line}\n"
-        f"Tone: {tone_blurb}\n"
-        f"Platform tip: {platform_hint}\n\n"
-        f"CTA: Tell us what you think below 👇"
-    )
-
+    caption = "\n\n".join(line for line in lines if line and line.strip())
     tags = " ".join(hashtags)
-    return f"{body}\n\n{tags}"
+    return f"{caption}\n\n{tags}"
 
 def image_prompt(industry: str, pillar_name: str, brand_keywords: list[str], company: str = ""):
     kw = ", ".join(brand_keywords) if brand_keywords else "on-brand colors"
@@ -68,7 +461,7 @@ def image_prompt(industry: str, pillar_name: str, brand_keywords: list[str], com
     return (f"High-quality photo for social post. {company_part}Industry: {industry}. "
             f"Content pillar: {pillar_name}. Style: natural light, minimal background, {kw}.")
 
-def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], tone: str, company: str = "", reel_style: Optional[str] = None, goals: Optional[list[str]] = None, niche_keywords: Optional[list[str]] = None, length_seconds: int = 30, production_tier: str = "solo"):
+def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], tone: str, company: str = "", reel_style: Optional[str] = None, goals: Optional[list[str]] = None, niche_keywords: Optional[list[str]] = None, length_seconds: int = 30, production_tier: str = "solo", details: Optional[dict] = None):
     # structured reel plan; tailor suggestions by industry and an optional `reel_style` preference
     style = (reel_style or "Face-camera tips")
     goals = goals or []
@@ -76,7 +469,7 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
     length_seconds = int(length_seconds or 30)
 
     # industry-specific modifiers to make outputs more relevant to the professional
-    industry_key = (industry or "").lower()
+    industry_key = resolve_industry_key(industry, details)
     industry_mods = {
         "realtor": {
             "cta": "Schedule a showing or DM for details.",
@@ -341,7 +734,9 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                 brand_keywords=brand_keywords,
                 hashtags=hashtags,
                 goals=goals,
-                company=company
+                company=company,
+                niche_keywords=niche_keywords,
+                details=details,
             )
             iprompt = image_prompt(industry, pillar_name, brand_keywords, company)
             img_url = unsplash_link(industry, pillar_name) if include_images else None
@@ -363,7 +758,19 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                     production_tier = (details or {}).get('production_tier') or 'solo'
                 except Exception:
                     production_tier = 'solo'
-                reel_obj = make_reel_plan(industry, pillar_name, brand_keywords, tone, company, reel_style, goals=goals, niche_keywords=niche_keywords, length_seconds=reel_length, production_tier=production_tier)
+                reel_obj = make_reel_plan(
+                    industry,
+                    pillar_name,
+                    brand_keywords,
+                    tone,
+                    company,
+                    reel_style,
+                    goals=goals,
+                    niche_keywords=niche_keywords,
+                    length_seconds=reel_length,
+                    production_tier=production_tier,
+                    details=details,
+                )
 
             posts.append({
                 "date": day.isoformat(),

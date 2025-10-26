@@ -1,11 +1,12 @@
 import os, sqlite3, uuid, json, re
 from datetime import date
 from datetime import datetime, timezone
+from datetime import timedelta
 from flask import Flask, request, jsonify, render_template, g, session
 import threading
 import time
 from flask_cors import CORS
-from generator import generate_posts
+import generator
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import TYPE_CHECKING
 
@@ -32,6 +33,45 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
 CORS(app)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "togetherly.db")
+
+
+def dev_mode_active() -> bool:
+    """Return True when tests/dev helpers should bypass certain production checks."""
+    if app.config.get('TESTING'):
+        return True
+    if os.getenv('ALLOW_DEV_DEBUG') == '1':
+        return True
+    if os.getenv('PYTEST_CURRENT_TEST'):
+        return True
+    return False
+
+
+def admin_bypass_allowed() -> bool:
+    """Only allow admin guard bypass when explicit dev debug flag is enabled."""
+    if app.config.get('TESTING'):
+        return False
+    if os.getenv('PYTEST_CURRENT_TEST'):
+        return False
+    return os.getenv('ALLOW_DEV_DEBUG') == '1'
+
+
+def coerce_bool(value, default=False) -> bool:
+    """Convert loosely-typed truthy values into a strict boolean."""
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes", "y", "on"}:
+            return True
+        if lowered in {"false", "0", "no", "n", "off"}:
+            return False
+        return default
+    return bool(value)
+
 
 def get_db():
     if "db" not in g:
@@ -187,7 +227,7 @@ def account_page():
     subscription = None
     if user:
         sub = db.execute('SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
-    subscription = row_to_mapping(sub) if sub else None
+        subscription = row_to_mapping(sub) if sub else None
         # try to fetch fresh data from Stripe and enrich with human dates (best-effort)
         try:
             if subscription and stripe and os.getenv('STRIPE_SECRET_KEY') and subscription.get('stripe_subscription_id'):
@@ -340,6 +380,310 @@ def load_flags():
         return {}
 
 
+def generate_posts_with_openai(
+    *,
+    days: int,
+    start_day: date,
+    industry: str,
+    tone: str,
+    platforms: list[str],
+    brand_keywords: list[str],
+    include_images: bool,
+    niche_keywords: list[str],
+    goals: list[str],
+    details: dict,
+    company: str,
+):
+    if not USE_OPENAI:
+        return None
+
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    system_prompt = (
+        "You are a senior social media strategist and influencer-style copywriter. "
+        "Write platform-specific content that sounds human, scroll-stopping, and on-brand. "
+        "Respect the requested tone and business context. Use provided brand/niche keywords naturally (no stuffing). "
+        "Optimize for the stated goals (e.g., drive sales, build authority, engagement). "
+        "For platforms that support short-form video, include a concise reel plan with a strong hook, clear beats, on-screen text, and a single specific CTA. "
+        "Always return ONLY JSON that matches the schema—no prose."
+    )
+
+    schedule = [
+        {
+            "day_index": idx + 1,
+            "date": (start_day + timedelta(days=idx)).isoformat(),
+            "platforms": platforms,
+        }
+        for idx in range(days)
+    ]
+    pillar_labels = [p[0] for p in generator.PILLARS_BY_DEFAULT]
+    industry_context = generator.build_industry_context(
+        industry,
+        brand_keywords,
+        niche_keywords,
+        details,
+        goals,
+        company,
+    )
+    payload = {
+        "industry": industry,
+        "tone": tone,
+        "company": company,
+        "brand_keywords": brand_keywords,
+        "niche_keywords": niche_keywords,
+        "goals": goals,
+        "details": details or {},
+        "include_images": include_images,
+        "platforms": platforms,
+        "schedule": schedule,
+        "allowed_pillars": pillar_labels,
+        "reel_platforms": ["instagram", "tiktok", "short_video"],
+        "industry_context": industry_context,
+        "industry_key": industry_context.get("industry_key"),
+    }
+
+    json_schema = {
+        "type": "object",
+        "properties": {
+            "posts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "date": {"type": "string"},
+                        "day_index": {"type": "integer"},
+                        "platform": {"type": "string"},
+                        "pillar": {"type": "string"},
+                        "caption": {"type": "string"},
+                        "image_prompt": {"type": "string"},
+                        "image_url": {"type": ["string", "null"]},
+                        "reel": {
+                            "type": ["object", "null"],
+                            "properties": {
+                                "style": {"type": "string"},
+                                "hook": {"type": "string"},
+                                "script_beats": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "shot_list": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "shot_type": {"type": "string"},
+                                            "notes": {"type": "string"},
+                                        },
+                                        "required": ["shot_type", "notes"],
+                                    },
+                                },
+                                "on_screen_text": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                },
+                                "thumbnail_prompt": {"type": "string"},
+                                "srt": {"type": "string"},
+                                "cta": {"type": "string"},
+                                "hashtags": {
+                                    "type": "object",
+                                    "properties": {
+                                        "primary": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                        "optional": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "required": ["date", "day_index", "platform", "pillar", "caption"],
+                },
+            }
+        },
+        "required": ["posts"],
+    }
+
+    try:
+        responses_api = getattr(openai_client, "responses", None)
+        if responses_api is None:
+            raise ValueError("OpenAI client is missing the responses API")
+
+        response = responses_api.create(
+            model=model,
+            input=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": (
+                        "Create social content for the provided business. "
+                        "Return only JSON matching the schema. "
+                        "Each day must include one post per requested platform. "
+                        "Captions should be specific, compelling, and end with hashtags when helpful. "
+                        "Write in an easy-to-consume style: short sentences, skimmable structure, and clear value in the first line while keeping the polish of an experienced influencer. "
+                        "Highlight key details with crisp formatting (line breaks, emoji if appropriate) so busy readers can grab the takeaway fast. "
+                        "If a platform supports reels (instagram, tiktok, short_video) include a reel plan; otherwise set reel to null."
+                    ),
+                },
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "social_media_plan",
+                    "schema": json_schema,
+                },
+            },
+        )
+
+        raw_output = getattr(response, "output_text", None)
+        if not raw_output:
+            chunks: list[str] = []
+            for block in getattr(response, "output", []) or []:
+                for part in getattr(block, "content", []) or []:
+                    if getattr(part, "type", "") == "output_text":
+                        chunks.append(getattr(part, "text", ""))
+            raw_output = "".join(chunks)
+        if not raw_output:
+            raise ValueError("Empty OpenAI response")
+
+        parsed = json.loads(raw_output)
+        posts = parsed.get("posts")
+        if not isinstance(posts, list) or not posts:
+            raise ValueError("OpenAI response missing posts")
+
+        platforms_lower = [p.lower() for p in platforms]
+        expected_count = days * len(platforms_lower)
+        normalized: list[dict] = []
+        for entry in posts:
+            if not isinstance(entry, dict):
+                continue
+
+            platform_raw = str(entry.get("platform", "")).strip().lower()
+            platform = platform_raw
+            if platform not in platforms_lower:
+                if "instagram" in platform_raw:
+                    platform = "instagram"
+                elif "tiktok" in platform_raw:
+                    platform = "tiktok"
+                elif "facebook" in platform_raw:
+                    platform = "facebook"
+                elif "linkedin" in platform_raw:
+                    platform = "linkedin"
+                elif platform_raw in {"x", "twitter"}:
+                    platform = "twitter"
+            if platform not in platforms_lower:
+                continue
+
+            day_index_value = entry.get("day_index")
+            try:
+                day_index = int(day_index_value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                day_index = None
+
+            date_str = str(entry.get("date", "")).strip()
+            parsed_day = None
+            if date_str:
+                try:
+                    parsed_day = datetime.fromisoformat(date_str).date()
+                except Exception:
+                    parsed_day = None
+            if parsed_day is not None:
+                computed_index = (parsed_day - start_day).days + 1
+                if 1 <= computed_index <= days:
+                    day_index = computed_index
+            if day_index is None or not (1 <= day_index <= days):
+                continue
+            if not date_str:
+                date_str = (start_day + timedelta(days=day_index - 1)).isoformat()
+
+            pillar = (entry.get("pillar") or "Story").strip() or "Story"
+            # nudge pillar into allowed set when possible
+            for label in pillar_labels:
+                if pillar.lower().startswith(label.lower()[:5]):
+                    pillar = label
+                    break
+
+            caption = str(entry.get("caption", "")).strip()
+            if not caption:
+                continue
+            if "#" not in caption:
+                tags = generator.default_hashtags(industry, niche_keywords)
+                if tags:
+                    caption = caption + ("\n\n" if caption else "") + " ".join(tags[:8])
+
+            image_prompt_text = str(entry.get("image_prompt") or "").strip()
+            if not image_prompt_text:
+                image_prompt_text = generator.image_prompt(industry, pillar, brand_keywords, company)
+
+            image_url = None
+            if include_images:
+                image_url_raw = entry.get("image_url")
+                if isinstance(image_url_raw, str) and image_url_raw.strip():
+                    image_url = image_url_raw.strip()
+                else:
+                    image_url = generator.unsplash_link(industry, pillar)
+
+            reel_data = entry.get("reel") if platform in payload["reel_platforms"] else None
+            if reel_data and isinstance(reel_data, dict):
+                shot_list = reel_data.get("shot_list")
+                normalized_shots: list[dict] = []
+                if isinstance(shot_list, list):
+                    for item in shot_list:
+                        if isinstance(item, dict):
+                            shot_type = str(item.get("shot_type") or item.get("type") or "").strip()
+                            notes = str(item.get("notes") or item.get("description") or "").strip()
+                            if shot_type:
+                                normalized_shots.append({"shot_type": shot_type, "notes": notes})
+                        elif isinstance(item, str) and item.strip():
+                            normalized_shots.append({"shot_type": item.strip(), "notes": ""})
+                reel_data["shot_list"] = normalized_shots
+
+                hashtags_field = reel_data.get("hashtags")
+                if isinstance(hashtags_field, list):
+                    reel_data["hashtags"] = {
+                        "primary": [h for h in hashtags_field[:4] if isinstance(h, str)],
+                        "optional": [h for h in hashtags_field[4:8] if isinstance(h, str)],
+                    }
+            else:
+                reel_data = None
+
+            normalized.append(
+                {
+                    "date": date_str,
+                    "day_index": day_index,
+                    "platform": platform,
+                    "pillar": pillar,
+                    "caption": caption,
+                    "image_prompt": image_prompt_text,
+                    "image_url": image_url if include_images else None,
+                    "reel": reel_data,
+                }
+            )
+
+        deduped: dict[tuple[int, str], dict] = {}
+        for post in normalized:
+            key = (post["day_index"], post["platform"])
+            if key not in deduped:
+                deduped[key] = post
+
+        normalized = list(deduped.values())
+        platforms_lower_lookup = {p: idx for idx, p in enumerate(platforms_lower)}
+        normalized.sort(key=lambda p: (p["day_index"], platforms_lower_lookup.get(p["platform"], 999)))
+
+        if len(normalized) != expected_count:
+            raise ValueError(
+                f"OpenAI returned {len(normalized)} posts, expected {expected_count}"
+            )
+
+        return normalized
+    except Exception as exc:
+        app.logger.warning("OpenAI generation failed: %s", exc)
+        return None
+
+
 def perform_reconcile(db=None):
     """Perform reconciliation logic and return results list."""
     close_here = False
@@ -444,12 +788,37 @@ def is_admin():
 
 ### DB helpers
 def get_user_by_email(email: str):
-    db = get_db()
-    return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
+    # Helper used in tests; allow calling outside an application context by
+    # opening a direct sqlite connection if needed.
+    try:
+        db = get_db()
+        return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
+    except RuntimeError:
+        # Working outside app context: open a temporary connection directly to DB_PATH
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute('SELECT * FROM users WHERE email = ?', (email.lower(),))
+            row = cur.fetchone()
+            conn.close()
+            return row
+        except Exception:
+            return None
 
 def get_user_by_id(uid: str):
-    db = get_db()
-    return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+    try:
+        db = get_db()
+        return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+    except RuntimeError:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute('SELECT * FROM users WHERE id = ?', (uid,))
+            row = cur.fetchone()
+            conn.close()
+            return row
+        except Exception:
+            return None
 
 
 def row_to_mapping(x):
@@ -486,13 +855,53 @@ def row_to_mapping(x):
         return x
     return x
 
-def set_user_paid(uid: str, paid: bool = True):
-    db = get_db()
+def set_user_paid(uid: str, paid: bool = True, db=None):
+    target_db = db or get_db()
     try:
-        db.execute('UPDATE users SET is_paid = ? WHERE id = ?', (1 if paid else 0, uid))
-        db.commit()
+        target_db.execute('UPDATE users SET is_paid = ? WHERE id = ?', (1 if paid else 0, uid))
+        target_db.commit()
     except Exception:
         pass
+
+
+def sync_subscription_state(uid: str, db=None):
+    """Best-effort sync of the latest Stripe subscription state.
+
+    Returns True if the user was marked paid during this call.
+    """
+    target_db = db or get_db()
+    sub = target_db.execute(
+        'SELECT id, stripe_subscription_id, status FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+        (uid,),
+    ).fetchone()
+    if not sub:
+        return False
+
+    status = sub['status']
+    if status in ('active', 'trialing'):
+        set_user_paid(uid, True, db=target_db)
+        return True
+
+    stripe_sub_id = sub['stripe_subscription_id']
+    if not stripe_sub_id or stripe is None or not os.getenv('STRIPE_SECRET_KEY'):
+        return False
+
+    try:
+        stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+        remote = stripe.Subscription.retrieve(stripe_sub_id)
+        status = remote.get('status')
+        cpe = remote.get('current_period_end')
+        target_db.execute(
+            'UPDATE subscriptions SET status = ?, current_period_end = ? WHERE id = ?',
+            (status, cpe, sub['id'])
+        )
+        target_db.commit()
+        if status in ('active', 'trialing'):
+            set_user_paid(uid, True, db=target_db)
+            return True
+    except Exception:
+        pass
+    return False
 
 
 @app.post('/api/signup')
@@ -545,6 +954,9 @@ def api_current_user():
     row = db.execute('SELECT id, email, is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
     if not row:
         return jsonify({})
+    if not bool(row['is_paid']):
+        if sync_subscription_state(uid, db=db):
+            row = db.execute('SELECT id, email, is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
     return jsonify({'id': row['id'], 'email': row['email'], 'is_paid': bool(row['is_paid']), 'free_sample_used': bool(row['free_sample_used'])})
 
 
@@ -584,7 +996,13 @@ def api_stripe_webhook():
     secret = os.getenv('STRIPE_WEBHOOK_SECRET')
     event = None
     db = get_db()
-    if secret and stripe:
+    # Treat placeholder webhook secret values (e.g. from .env templates) as "not configured"
+    # so local/dev environments can post plain JSON without signature verification.
+    dev_override = admin_bypass_allowed()
+    secret_configured = bool(secret) and stripe and not (isinstance(secret, str) and secret.strip().upper().startswith('WHSEC_REPLACE'))
+    if dev_override:
+        secret_configured = False
+    if secret_configured:
         try:
             event = stripe.Webhook.construct_event(payload, sig_header, secret)
         except Exception as e:
@@ -793,10 +1211,17 @@ def api_create_subscription():
             payment_settings={'save_default_payment_method': 'on_subscription'}
         )
 
-        # persist subscription locally
+        # persist subscription locally (upsert on stripe_subscription_id)
+        sub_status = sub.get('status')
+        sub_cpe = sub.get('current_period_end')
         try:
-            db.execute('INSERT INTO subscriptions (id, user_id, stripe_subscription_id, status, current_period_end) VALUES (?, ?, ?, ?, ?)',
-                       (str(uuid.uuid4()), uid, sub['id'], sub.get('status'), sub.get('current_period_end')))
+            existing = db.execute('SELECT id FROM subscriptions WHERE stripe_subscription_id = ?', (sub['id'],)).fetchone()
+            if existing:
+                db.execute('UPDATE subscriptions SET status = ?, current_period_end = ?, user_id = ? WHERE id = ?',
+                           (sub_status, sub_cpe, uid, existing['id']))
+            else:
+                db.execute('INSERT INTO subscriptions (id, user_id, stripe_subscription_id, status, current_period_end) VALUES (?, ?, ?, ?, ?)',
+                           (str(uuid.uuid4()), uid, sub['id'], sub_status, sub_cpe))
             db.commit()
         except Exception:
             # ignore duplicate/insert errors
@@ -806,7 +1231,20 @@ def api_create_subscription():
         latest_invoice = sub.get('latest_invoice') or {}
         payment_intent = latest_invoice.get('payment_intent') or {}
         client_secret = payment_intent.get('client_secret')
-        return jsonify({'ok': True, 'subscription_id': sub['id'], 'status': sub.get('status'), 'client_secret': client_secret})
+        is_paid_now = False
+        try:
+            if sub_status in ('active', 'trialing'):
+                set_user_paid(uid, True, db=db)
+                is_paid_now = True
+            elif payment_intent.get('status') == 'succeeded':
+                set_user_paid(uid, True, db=db)
+                is_paid_now = True
+            else:
+                is_paid_now = sync_subscription_state(uid, db=db)
+        except Exception:
+            pass
+
+        return jsonify({'ok': True, 'subscription_id': sub['id'], 'status': sub_status, 'client_secret': client_secret, 'is_paid': bool(is_paid_now)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
@@ -818,11 +1256,26 @@ def api_reconcile_subscriptions():
     Requires STRIPE_SECRET_KEY to be set and will return 501 if not configured.
     """
     # If ADMIN_EMAILS is set, require the current user to be an admin and validate CSRF token.
-    admin_emails = os.getenv('ADMIN_EMAILS', '')
-    if admin_emails and not is_admin():
+    # Treat placeholder ADMIN_EMAILS values (from .env templates) as not configured.
+    raw_admin_emails = os.getenv('ADMIN_EMAILS', '') or ''
+    admin_emails = raw_admin_emails.strip()
+    admin_enabled = False
+    if admin_emails and 'REPLACE' not in admin_emails.upper():
+        admin_enabled = True
+    dev_override = admin_bypass_allowed()
+    # Persist state for pytest assertions when running in TESTING mode.
+    admin_state = {
+        'enabled': admin_enabled,
+        'dev_override': dev_override,
+        'is_admin': is_admin(),
+        'user_id': session.get('user_id'),
+    }
+    if app.config.get('TESTING'):
+        app.config['LAST_RECONCILE_DEBUG'] = admin_state
+    if admin_enabled and not (dev_override or admin_state['is_admin']):
         return jsonify({'ok': False, 'error': 'Admin required'}), 403
-    # If admin protection is enabled, require a matching CSRF token in a header
-    if admin_emails:
+    # If admin protection is enabled, require a matching CSRF token in a header unless dev override is on
+    if admin_enabled and not dev_override:
         token = request.headers.get('X-CSRF-Token')
         if not token or token != session.get('admin_csrf'):
             return jsonify({'ok': False, 'error': 'CSRF token required'}), 403
@@ -895,6 +1348,17 @@ def dev_ping():
     return 'pong'
 
 
+@app.post('/__dev__/shutdown')
+def dev_shutdown():
+    if not dev_mode_active():
+        return jsonify({'ok': False, 'error': 'Not allowed'}), 403
+    shutdown_fn = request.environ.get('werkzeug.server.shutdown')
+    if not shutdown_fn:
+        return jsonify({'ok': False, 'error': 'Shutdown not available'}), 500
+    shutdown_fn()
+    return jsonify({'ok': True})
+
+
 # Dev-only helper: create or update a user and sign them in (only in dev)
 @app.post('/__dev__/create_user')
 def dev_create_user():
@@ -903,8 +1367,8 @@ def dev_create_user():
     data = request.get_json(force=True)
     email = (data.get('email') or '').strip().lower()
     password = data.get('password') or 'password'
-    is_paid = bool(data.get('is_paid', False))
-    free_sample_used = bool(data.get('free_sample_used', False))
+    is_paid = coerce_bool(data.get('is_paid'), default=False)
+    free_sample_used = coerce_bool(data.get('free_sample_used'), default=False)
     if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
         return jsonify({'ok': False, 'error': 'Invalid email'}), 400
     db = get_db()
@@ -1006,6 +1470,11 @@ def save_profile():
         if not re.match(r"^[\w \-\'\.\&]+$", company):
             return jsonify({"ok": False, "error": "Company name contains invalid characters.", "errors": {"company": "Company name contains invalid characters."}}), 400
     details = data.get("details", {}) or {}
+    industry_key = data.get("industry_key")
+    if not isinstance(details, dict):
+        details = {}
+    if industry_key:
+        details["_industry_key"] = industry_key
     row = (
         profile_id,
         data.get("industry", "Business"),
@@ -1058,15 +1527,20 @@ def get_profile():
         except Exception:
             return [] if default is None else default
 
+    details_obj = parse_json_field(row["details"], {})
+    industry_key = None
+    if isinstance(details_obj, dict):
+        industry_key = details_obj.get("_industry_key") or details_obj.get("industry_key")
     return jsonify({
         "id": row["id"],
         "industry": row["industry"],
+        "industry_key": industry_key,
         "tone": row["tone"],
         "platforms": parse_json_field(row["platforms"], []),
         "brand_keywords": parse_json_field(row["brand_keywords"], []),
         "niche_keywords": parse_json_field(row["niche_keywords"], []),
         "goals": parse_json_field(row["goals"], []),
-    "details": parse_json_field(row["details"], {}),
+        "details": details_obj,
         "company": row["company"] or "",
         "include_images": bool(row["include_images"]),
         "created_at": row["created_at"],
@@ -1126,14 +1600,18 @@ def api_generate():
     if is_reel_request:
         if not is_paid:
             return jsonify({'ok': False, 'error': 'Paid subscription required to generate reels'}), 403
-        quota = int(os.getenv('REELS_QUOTA_MONTHLY', '30'))
+        # Enforce monthly reel quota (prevents excessive generation). Tests expect this behavior.
+        try:
+            quota = int(os.getenv('REELS_QUOTA_MONTHLY', '30'))
+        except Exception:
+            quota = 30
         period = date.today().strftime('%Y-%m')
         row = db.execute('SELECT reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
-        used = int(row['reels_generated']) if row else 0
+        used = int(row['reels_generated']) if row and row['reels_generated'] is not None else 0
         if used + reels_requested > quota:
             return jsonify({'ok': False, 'error': 'Reel generation quota exceeded for this billing period', 'quota': quota, 'used': used}), 403
 
-    posts = generate_posts(
+    posts = generate_posts_with_openai(
         days=days,
         start_day=start_day,
         industry=industry,
@@ -1144,8 +1622,23 @@ def api_generate():
         niche_keywords=niche_keywords,
         goals=goals,
         details=details,
-        company=company
+        company=company,
     )
+
+    if not posts:
+        posts = generator.generate_posts(
+            days=days,
+            start_day=start_day,
+            industry=industry,
+            tone=tone,
+            platforms=platforms,
+            brand_keywords=brand_keywords,
+            include_images=include_images,
+            niche_keywords=niche_keywords,
+            goals=goals,
+            details=details,
+            company=company,
+        )
 
     if consume_free_sample:
         try:
