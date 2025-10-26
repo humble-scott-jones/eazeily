@@ -128,10 +128,12 @@ def fallback_format(feedback: str, user_email: str) -> dict:
     if len(first_line) > 80:
         title += "..."
     
-    # Ensure title starts with capital and doesn't end with period
+    # Ensure title starts with capital
     if title and not title[0].isupper():
         title = title[0].upper() + title[1:]
-    if title.endswith('.'):
+    
+    # Remove trailing period unless it's part of ellipsis
+    if title.endswith('.') and not title.endswith('...'):
         title = title[:-1]
     
     # If title is too short or generic, prefix it

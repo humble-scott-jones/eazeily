@@ -73,17 +73,28 @@ jobs:
       - name: Determine labels
         id: labels
         run: |
-          CONFIG_FILE=".github/config/feedback-automation.yml"
-          if [ -f "$CONFIG_FILE" ]; then
-            REQUIRE_REVIEW=$(yq eval '.require_review' "$CONFIG_FILE")
-            if [ "$REQUIRE_REVIEW" = "true" ]; then
-              echo "labels=feedback,triage,needs-review" >> $GITHUB_OUTPUT
-            else
-              echo "labels=feedback,triage" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "labels=feedback,triage,needs-review" >> $GITHUB_OUTPUT
-          fi
+          python3 << 'PYEOF'
+          import yaml
+          import os
+          
+          try:
+              with open('.github/config/feedback-automation.yml') as f:
+                  config = yaml.safe_load(f)
+              
+              labels = config.get('labels', ['feedback', 'triage'])
+              if config.get('require_review', False):
+                  if 'needs-review' not in labels:
+                      labels.append('needs-review')
+              
+              labels_str = ','.join(labels)
+              
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f'labels={labels_str}\n')
+          except Exception as e:
+              # Fallback to default labels
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write('labels=feedback,triage,needs-review\n')
+          PYEOF
       
       - name: Create GitHub issue
         env:
