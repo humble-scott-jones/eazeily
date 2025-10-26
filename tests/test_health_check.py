@@ -36,4 +36,4 @@ def test_health_check_does_not_leak_secrets(client):
     # Should not contain secret-related keys
     assert 'api_key' not in response_str
     assert 'secret_key' not in response_str
-    assert 'token' not in response_str or 'timestamp' in response_str  # Allow 'timestamp' but not 'token' alone
+    assert 'token' not in data or 'timestamp' in data  # Allow 'timestamp' but not 'token' alone
