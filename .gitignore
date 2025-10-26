@@ -7,5 +7,14 @@ __pycache__/
 .DS_Store
 .vscode/
 
+.env*
+.envrc
+
+# Local dev artifacts
+cookies.txt
+.dev_server.log
+.dev_server.pid
+tmp/
+tmp/test-outputs/
 # Feedback automation audit logs (committed separately by automation)
 .github/audit-logs/*.json
