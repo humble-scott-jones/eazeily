@@ -1,0 +1,106 @@
+name: Feedback Automation
+
+on:
+  repository_dispatch:
+    types: [user_feedback]
+
+jobs:
+  process-feedback:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install openai PyYAML requests
+      
+      - name: Process feedback with LLM
+        id: format-feedback
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python .github/scripts/format_feedback.py \
+            --feedback "${{ github.event.client_payload.feedback }}" \
+            --user-email "${{ github.event.client_payload.user_email }}" \
+            --output /tmp/formatted_feedback.json
+      
+      - name: Load formatted feedback
+        id: load-feedback
+        run: |
+          if [ -f /tmp/formatted_feedback.json ]; then
+            TITLE=$(jq -r '.title' /tmp/formatted_feedback.json)
+            BODY=$(jq -r '.body' /tmp/formatted_feedback.json)
+            echo "title=$TITLE" >> $GITHUB_OUTPUT
+            # Use multiline syntax for body
+            echo "body<<EOF" >> $GITHUB_OUTPUT
+            echo "$BODY" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "Error: formatted feedback file not found"
+            exit 1
+          fi
+      
+      - name: Create audit log
+        run: |
+          mkdir -p .github/audit-logs
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          LOG_FILE=".github/audit-logs/feedback_${TIMESTAMP}.json"
+          
+          cat > "$LOG_FILE" << 'EOF'
+          {
+            "timestamp": "${{ github.event.client_payload.timestamp }}",
+            "original_feedback": "${{ github.event.client_payload.feedback }}",
+            "user_email": "${{ github.event.client_payload.user_email }}",
+            "formatted_title": "${{ steps.load-feedback.outputs.title }}",
+            "formatted_body": ${{ toJSON(steps.load-feedback.outputs.body) }},
+            "workflow_run_id": "${{ github.run_id }}",
+            "workflow_run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+          
+          echo "Created audit log: $LOG_FILE"
+      
+      - name: Determine labels
+        id: labels
+        run: |
+          CONFIG_FILE=".github/config/feedback-automation.yml"
+          if [ -f "$CONFIG_FILE" ]; then
+            REQUIRE_REVIEW=$(yq eval '.require_review' "$CONFIG_FILE")
+            if [ "$REQUIRE_REVIEW" = "true" ]; then
+              echo "labels=feedback,triage,needs-review" >> $GITHUB_OUTPUT
+            else
+              echo "labels=feedback,triage" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "labels=feedback,triage,needs-review" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create GitHub issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Create issue with formatted content
+          gh issue create \
+            --title "${{ steps.load-feedback.outputs.title }}" \
+            --body "${{ steps.load-feedback.outputs.body }}" \
+            --label "${{ steps.labels.outputs.labels }}" \
+            --assignee "copilot"
+      
+      - name: Commit audit log
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/audit-logs/
+          git commit -m "Add audit log for feedback processing [skip ci]" || echo "No changes to commit"
+          git push || echo "No changes to push"
