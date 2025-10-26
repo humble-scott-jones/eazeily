@@ -423,10 +423,10 @@ def is_admin():
         pass
     # Fallback to ADMIN_EMAILS env var if configured
     admin_emails = os.getenv('ADMIN_EMAILS', '')
-    if not admin_emails:
-        return False
-    allowed = [e.strip().lower() for e in admin_emails.split(',') if e.strip()]
-    return row['email'].lower() in allowed
+    if admin_emails:
+        allowed = [e.strip().lower() for e in admin_emails.split(',') if e.strip()]
+        return row['email'].lower() in allowed
+    return False
 
 
 ### DB helpers
