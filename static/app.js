@@ -1,6 +1,9 @@
 let CFG = null;
 let FLAGS = null;
 
+// Constants
+const COPY_FEEDBACK_DURATION = 1200; // milliseconds to show "Copied!" feedback
+
 async function loadFlags(){
   try{
     const r = await fetch('/static/content/flags.json', { cache: 'no-store' });
@@ -253,9 +256,12 @@ function showToast(msg){ const t = document.createElement('div'); t.className='f
 
 // Analytics helper: log events (can be configured for different services)
 function trackEvent(eventName, data){ 
-  // For now, just console.log in dev; replace with actual analytics service in production
-  if (typeof console !== 'undefined') console.log(eventName, data); 
-  // Future: window.gtag?.('event', eventName, data) or similar
+  // Check if we're in development mode (can be enhanced with proper env detection)
+  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (isDev && typeof console !== 'undefined') {
+    console.log('Analytics:', eventName, data);
+  }
+  // Future: window.gtag?.('event', eventName, data) or window.analytics?.track(eventName, data)
 }
 
 // Helper to update UI after copying text
@@ -263,7 +269,7 @@ function updateCopyUI(captionDisplay, text, button, platform) {
   if (captionDisplay) captionDisplay.textContent = text;
   const origText = button.textContent;
   button.textContent = 'Copied!';
-  setTimeout(() => button.textContent = origText, 1200);
+  setTimeout(() => button.textContent = origText, COPY_FEEDBACK_DURATION);
   showToast(`${capitalize(platform)} content copied`);
 }
 
@@ -774,7 +780,7 @@ function renderCard(post){
     const txt = ev.currentTarget.getAttribute("data-copy") || "";
     await navigator.clipboard.writeText(txt);
     ev.currentTarget.textContent = "Copied!";
-    setTimeout(() => (ev.currentTarget.textContent = "Copy"), 1200);
+    setTimeout(() => (ev.currentTarget.textContent = "Copy"), COPY_FEEDBACK_DURATION);
   });
   
   // reel copy buttons
@@ -784,13 +790,13 @@ function renderCard(post){
     const btnThumb = card.querySelector('[data-copy-thumb]');
     const scriptText = `${post.reel.hook}\n\n${(post.reel.script_beats||[]).join('\n')}`;
     btnScript?.addEventListener('click', async (ev) => {
-      try{ await navigator.clipboard.writeText(scriptText); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy Reel Script',1200);}catch(e){console.error(e)}
+      try{ await navigator.clipboard.writeText(scriptText); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy Reel Script',COPY_FEEDBACK_DURATION);}catch(e){console.error(e)}
     });
     btnSrt?.addEventListener('click', async (ev) => {
-      try{ await navigator.clipboard.writeText(post.reel.srt_prompt || ''); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy SRT Prompt',1200);}catch(e){console.error(e)}
+      try{ await navigator.clipboard.writeText(post.reel.srt_prompt || ''); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy SRT Prompt',COPY_FEEDBACK_DURATION);}catch(e){console.error(e)}
     });
     btnThumb?.addEventListener('click', async (ev) => {
-      try{ await navigator.clipboard.writeText(post.reel.thumbnail_prompt || ''); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy Thumbnail Prompt',1200);}catch(e){console.error(e)}
+      try{ await navigator.clipboard.writeText(post.reel.thumbnail_prompt || ''); ev.currentTarget.textContent = 'Copied!'; setTimeout(()=>ev.currentTarget.textContent='Copy Thumbnail Prompt',COPY_FEEDBACK_DURATION);}catch(e){console.error(e)}
     });
   }
   card.querySelectorAll("[data-like]").forEach(btn => {
