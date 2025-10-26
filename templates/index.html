@@ -30,6 +30,20 @@
       </form>
     </div>
   </div>
+  <div class="max-w-6xl mx-auto px-6 pb-4">
+    <div class="bg-slate-50 border rounded p-3 text-sm text-slate-800">
+      <div class="flex items-center gap-3 mb-2">
+        <strong>Dev Trends</strong>
+        <span class="text-xs text-slate-500">Inspect or refresh cached trend context</span>
+      </div>
+      <div class="flex gap-2 items-center">
+        <input id="dev-trend-industry" class="input text-sm" placeholder="industry (e.g., restaurant)" value="general" />
+        <button id="dev-load-trends" class="btn-ghost btn-sm">Load cached</button>
+        <button id="dev-force-trends" class="btn-ghost btn-sm">Force refresh</button>
+      </div>
+      <pre id="dev-trends-output" class="mt-3 text-xs max-h-48 overflow-auto bg-white p-2 border rounded"></pre>
+    </div>
+  </div>
   {% endif %}
 
   <main class="max-w-6xl mx-auto p-6 grid lg:grid-cols-[1fr,360px] gap-6">

@@ -32,8 +32,15 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
 CORS(app)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "togetherly.db")
-
+# Allow tests or dev runs to override the DB path via environment (e.g. TEST_DB_PATH)
+# This enables deterministic e2e tests by pointing the subprocess at a temporary sqlite file.
+DB_PATH = os.getenv('TEST_DB_PATH') or os.getenv('DB_PATH') or os.path.join(os.path.dirname(__file__), "togetherly.db")
+try:
+    if os.getenv('TEST_DB_PATH'):
+        # best-effort info log to make CI/test runs explicit about DB usage
+        app.logger.info("TEST_DB_PATH set; using test database at %s", os.getenv('TEST_DB_PATH'))
+except Exception:
+    pass
 
 def dev_mode_active() -> bool:
     """Return True when tests/dev helpers should bypass certain production checks."""
@@ -185,7 +192,10 @@ def init_db():
 
     # Dev-only: seed a known admin user for local development to simplify testing
     try:
-        if os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1':
+        # When running tests with a per-test DB (TEST_DB_PATH) we should avoid
+        # seeding a global development admin user into the test DB. This keeps
+        # each test DB isolated and deterministic.
+        if (os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1') and not os.getenv('TEST_DB_PATH'):
             dev_email = 'hi.scott.jones@gmail.com'
             dev_pw = os.getenv('DEV_ADMIN_PW') or 'OHsj1984'
             # create or update user with admin flag
@@ -393,6 +403,7 @@ def generate_posts_with_openai(
     goals: list[str],
     details: dict,
     company: str,
+    include_trends: bool = False,
 ):
     if not USE_OPENAI:
         return None
@@ -424,6 +435,11 @@ def generate_posts_with_openai(
         goals,
         company,
     )
+    # optionally include an LLM-seeded trend context to help the model be topical
+    try:
+        trends = generator.fetch_trend_context(industry) if include_trends else []
+    except Exception:
+        trends = []
     payload = {
         "industry": industry,
         "tone": tone,
@@ -439,6 +455,7 @@ def generate_posts_with_openai(
         "reel_platforms": ["instagram", "tiktok", "short_video"],
         "industry_context": industry_context,
         "industry_key": industry_context.get("industry_key"),
+        "trend_context": trends,
     }
 
     json_schema = {
@@ -1340,6 +1357,82 @@ def dev_list_routes():
     return jsonify({'ok': True, 'routes': rules})
 
 
+@app.get('/__dev__/db-info')
+def dev_db_info():
+    """Dev-only endpoint to report which database path the server is using.
+
+    This is useful in CI to confirm TEST_DB_PATH was applied to the subprocess.
+    """
+    # Require explicit dev-mode or ALLOW_DEV_DEBUG to avoid leaking env in prod
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1' or dev_mode_active()):
+        return jsonify({'ok': False, 'error': 'Not allowed'}), 403
+    return jsonify({'ok': True, 'db_path': DB_PATH, 'using_test_db': bool(os.getenv('TEST_DB_PATH'))})
+
+
+@app.get('/__dev__/trends')
+def dev_trends():
+    """Return cached trend context for an industry for debugging/telemetry.
+
+    Query params:
+    - industry: optional (default: 'general')
+
+    This endpoint will NOT call OpenAI. It reads the cached file written by
+    generator.fetch_trend_context (if present) and returns metadata and parsed list.
+    """
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1' or dev_mode_active()):
+        return jsonify({'ok': False, 'error': 'Not allowed'}), 403
+    industry = (request.args.get('industry') or 'general')
+    cache_path = generator._trend_cache_path(industry)
+    out = {'ok': True, 'industry': industry, 'cached': False, 'trends': [], 'cache_path': cache_path}
+    # support optional force refresh: calls the LLM path (dev-only) but rate-limited
+    force = coerce_bool(request.args.get('force'), False)
+    MIN_FORCE_INTERVAL = int(os.getenv('DEV_TRENDS_MIN_REFRESH_S', '300'))
+    try:
+        # if force requested, ensure dev mode and OpenAI is enabled
+        if force and (os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1' or dev_mode_active()):
+            if not USE_OPENAI:
+                out['error'] = 'OpenAI not configured on server';
+            else:
+                last_map = app.config.setdefault('__trend_last_force', {})
+                last_t = last_map.get(industry, 0)
+                now = time.time()
+                if now - last_t < MIN_FORCE_INTERVAL:
+                    out['error'] = f'Force refresh rate-limited (try again in {int(MIN_FORCE_INTERVAL - (now-last_t))}s)'
+                else:
+                    # perform forced fetch (ttl=0 to bypass cache)
+                    try:
+                        trends = generator.fetch_trend_context(industry, ttl_hours=0)
+                        last_map[industry] = now
+                        out['trends'] = trends or []
+                        out['cached'] = False
+                        # write mtime if cache exists
+                        try:
+                            if os.path.exists(cache_path):
+                                out['mtime'] = os.path.getmtime(cache_path)
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        out['error'] = str(e)
+            return jsonify(out)
+
+        # default: read cache only
+        try:
+            if os.path.exists(cache_path):
+                out['cached'] = True
+                out['mtime'] = os.path.getmtime(cache_path)
+                try:
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        out['trends'] = data if isinstance(data, list) else []
+                except Exception:
+                    out['trends'] = []
+        except Exception:
+            pass
+    except Exception:
+        pass
+    return jsonify(out)
+
+
 # Dev helper: simple ping
 @app.get('/__dev__/ping')
 def dev_ping():
@@ -1575,6 +1668,7 @@ def api_generate():
     details = data.get("details", {})
     include_images = bool(data.get("include_images", True))
     company = data.get("company", "")
+    include_trends = coerce_bool(data.get("include_trends", False))
     details = data.get("details", {}) or {}
 
     reel_platforms = set(['tiktok', 'short_video'])
@@ -1623,6 +1717,7 @@ def api_generate():
         goals=goals,
         details=details,
         company=company,
+        include_trends=include_trends,
     )
 
     if not posts:

@@ -219,6 +219,37 @@ document.addEventListener('DOMContentLoaded', () => {
       finally{ setButtonLoading(btn, false); }
     });
   }
+    // Dev trends UI
+    const devLoadBtn = document.getElementById('dev-load-trends');
+    const devForceBtn = document.getElementById('dev-force-trends');
+    const devIndustryInput = document.getElementById('dev-trend-industry');
+    const devOutput = document.getElementById('dev-trends-output');
+    if (devLoadBtn && devIndustryInput && devOutput){
+      devLoadBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const ind = (devIndustryInput.value || 'general').trim();
+        devOutput.textContent = 'Loading cached trends...';
+        try{
+          const r = await fetch(`/__dev__/trends?industry=${encodeURIComponent(ind)}`, { credentials: 'include' });
+          const j = await r.json().catch(()=>null);
+          if (!r.ok){ devOutput.textContent = `Error: ${j && j.error ? j.error : r.status}`; return; }
+          devOutput.textContent = JSON.stringify(j, null, 2);
+        }catch(err){ devOutput.textContent = 'Failed to load trends: ' + String(err); }
+      });
+    }
+    if (devForceBtn && devIndustryInput && devOutput){
+      devForceBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const ind = (devIndustryInput.value || 'general').trim();
+        devOutput.textContent = 'Forcing refresh (may be rate-limited)...';
+        try{
+          const r = await fetch(`/__dev__/trends?industry=${encodeURIComponent(ind)}&force=1`, { credentials: 'include' });
+          const j = await r.json().catch(()=>null);
+          if (!r.ok){ devOutput.textContent = `Error: ${j && j.error ? j.error : r.status}`; return; }
+          devOutput.textContent = JSON.stringify(j, null, 2);
+        }catch(err){ devOutput.textContent = 'Failed to force refresh: ' + String(err); }
+      });
+    }
   // localize next-billing display on account page if present
   try{
     const nb = document.getElementById('next-billing');

@@ -1,6 +1,25 @@
 import re
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Optional
+import os
+import random
+import json
+import time
+
+# caching TTL for trend context (hours)
+DEFAULT_TREND_TTL_HOURS = int(os.getenv('TRENDS_TTL_HOURS', '6'))
+
+# Optional OpenAI integration for enhanced post generation
+USE_OPENAI_FOR_POSTS = bool(os.getenv("OPENAI_API_KEY")) and os.getenv("USE_OPENAI_FOR_POSTS", "0") == "1"
+if USE_OPENAI_FOR_POSTS:
+    try:
+        from openai import OpenAI
+        _openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    except Exception:
+        USE_OPENAI_FOR_POSTS = False
+        _openai_client = None
+else:
+    _openai_client = None
 
 PILLARS_BY_DEFAULT = [
     ("Educational", "Share a quick tip that solves a common problem for your audience."),
@@ -17,6 +36,143 @@ PLATFORM_HINTS = {
     "linkedin": "Lead with insight, keep it tight, and state the value upfront.",
     "tiktok": "High energy lines that read like captions for a quick reel.",
     "twitter": "Punchy and direct. No fluff.",
+}
+
+# Natural language templates for different content pillars
+# Natural language templates for different content pillars
+NATURAL_TEMPLATES = {
+    "Educational": {
+        "friendly": [
+            "Hey friends! 👋 Quick tip for you: {hint}",
+            "Here's something we've learned: {hint}",
+            "Pro tip alert! 🎯 {hint}",
+        ],
+        "professional": [
+            "{hint}",
+            "Industry insight: {hint}",
+            "Best practice: {hint}",
+        ],
+        "playful": [
+            "Psst... want to know a secret? 🤫 {hint}",
+            "Plot twist! {hint}",
+            "Hot take: {hint}",
+        ],
+        "inspirational": [
+            "Here's something powerful: {hint}",
+            "Let's talk growth: {hint}",
+            "Wisdom worth sharing: {hint}",
+        ],
+    },
+    "Behind-the-Scenes": {
+        "friendly": [
+            "Pulling back the curtain today! 🎬 {hint}",
+            "Ever wondered how we do it? {hint}",
+            "Sneak peek time! {hint}",
+        ],
+        "professional": [
+            "Transparency is key to trust. {hint}",
+            "Our process matters. {hint}",
+            "Inside look at our operations: {hint}",
+        ],
+        "playful": [
+            "Ready for a backstage pass? 🎭 {hint}",
+            "Shhh, we're letting you in on our secrets! {hint}",
+            "BTS magic happening here! ✨ {hint}",
+        ],
+        "inspirational": [
+            "The journey matters as much as the destination. {hint}",
+            "Real work, real passion. {hint}",
+            "Behind every result is a story. {hint}",
+        ],
+    },
+    "Testimonial/Social Proof": {
+        "friendly": [
+            "Love hearing success stories! 💙 {hint}",
+            "This made our day! {hint}",
+            "When our customers shine, we all shine! ⭐ {hint}",
+        ],
+        "professional": [
+            "Client success spotlight: {hint}",
+            "Proven outcomes: {hint}",
+            "Case study highlight: {hint}",
+        ],
+        "playful": [
+            "Bragging rights incoming! 🏆 {hint}",
+            "Plot twist: We have the coolest customers! {hint}",
+            "Mic drop moment! 🎤 {hint}",
+        ],
+        "inspirational": [
+            "Nothing inspires us more than your success. {hint}",
+            "Your story, our pride. {hint}",
+            "Success leaves clues. {hint}",
+        ],
+    },
+    "Product/Offer": {
+        "friendly": [
+            "Excited to share this with you! {hint}",
+            "Something special for you! ✨ {hint}",
+            "We've been working on something great! {hint}",
+        ],
+        "professional": [
+            "Introducing a solution designed with you in mind. {hint}",
+            "New offering available: {hint}",
+            "Enhance your results with: {hint}",
+        ],
+        "playful": [
+            "Ta-da! 🎉 {hint}",
+            "We made a thing! {hint}",
+            "New drop alert! 🚨 {hint}",
+        ],
+        "inspirational": [
+            "Created to empower you. {hint}",
+            "Every solution starts with understanding your needs. {hint}",
+            "Innovation meets purpose. {hint}",
+        ],
+    },
+    "Engagement": {
+        "friendly": [
+            "We want to hear from YOU! {hint}",
+            "Let's chat! {hint}",
+            "Quick question for you! {hint}",
+        ],
+        "professional": [
+            "Your input shapes our direction. {hint}",
+            "Industry discussion: {hint}",
+            "We value your expertise. {hint}",
+        ],
+        "playful": [
+            "Okay, settle a debate! {hint}",
+            "Pop quiz! 📝 {hint}",
+            "Spill the tea! ☕ {hint}",
+        ],
+        "inspirational": [
+            "Your voice creates change. {hint}",
+            "Together we learn, together we grow. {hint}",
+            "Every perspective adds value. {hint}",
+        ],
+    },
+    "Story": {
+        "friendly": [
+            "Story time! 📖 {hint}",
+            "Let us tell you about something that happened... {hint}",
+            "Here's a little story from us: {hint}",
+        ],
+        "professional": [
+            "Case in point: {hint}",
+            "Learning from experience: {hint}",
+            "Real-world application: {hint}",
+        ],
+        "playful": [
+            "Buckle up for this one! 🎢 {hint}",
+            "No joke, this actually happened! {hint}",
+            "Storytime with a twist! {hint}",
+        ],
+        "inspirational": [
+            "Every setback is a setup for a comeback. {hint}",
+            "From challenge to triumph: {hint}",
+            "The journey taught us everything. {hint}",
+        ],
+    },
 }
 
 GOAL_CTA_HINTS = {
@@ -112,12 +268,17 @@ def resolve_industry_key(industry: str, details: Optional[dict] = None) -> str:
         from_details = details.get("_industry_key") or details.get("industry_key")
         if isinstance(from_details, str) and from_details.strip():
             return from_details.strip().lower()
+    # normalize and match on word boundaries to avoid accidental substring matches
     slug = (industry or "").lower()
+    tokens_in_slug = re.findall(r"[a-z0-9]+", slug)
     for key, tokens in INDUSTRY_TOKEN_MAP.items():
         for token in tokens:
-            if token in slug:
+            t = token.lower()
+            # match whole token or exact token presence in slug tokens
+            if t in tokens_in_slug or re.search(rf"\b{re.escape(t)}\b", slug):
                 return key
     return "other"
+
 
 
 def default_hashtags(industry: str, niche_keywords: list[str]):
@@ -142,6 +303,203 @@ def to_sentence_case(s: str):
     if not s:
         return s
     return s[0].upper() + s[1:]
+def naturalize_hint(hint: str, industry: str, brand_keywords: list[str]) -> str:
+    """Convert a generic hint into a more natural, industry-specific suggestion."""
+    hint = (hint or "").strip()
+    # Create more natural conversational phrases
+    if "Share a quick tip" in hint or "solves a common problem" in hint:
+        options = [
+            f"did you know this trick can really transform your {industry.lower()} game?",
+            f"here's something that's been a total game-changer for our {industry.lower()} work!",
+            f"this simple hack makes such a difference!",
+            f"we discovered this recently and had to share!",
+        ]
+        return random.choice(options)
+
+    if "candid look" in hint or "process, team" in hint:
+        options = [
+            "we're pulling back the curtain and showing you exactly how we do what we do!",
+            "ever wondered what goes on behind the scenes? Here's a peek!",
+            "this is what a typical day looks like for us!",
+            "the real magic happens when you're not looking – check this out!",
+        ]
+        return random.choice(options)
+
+    if "customer quote" in hint or "outcome they achieved" in hint:
+        options = [
+            "one of our amazing customers shared this and we just had to tell you!",
+            "seeing results like this never gets old – here's what happened!",
+            "this testimonial made our whole week!",
+            "when our customers win, we ALL win!",
+        ]
+        return random.choice(options)
+
+    if "Highlight one offering" in hint or "benefits, price" in hint:
+        options = [
+            "we're excited to share something special with you!",
+            "this is one of our favorites and we think you're going to love it too!",
+            "ready for something amazing?",
+            "let us introduce you to something we've been working on!",
+        ]
+        return random.choice(options)
+
+    if "question" in hint or "poll" in hint or "spark comments" in hint:
+        options = [
+            "we have a question for you and we're really curious to hear what you think!",
+            "let's settle this once and for all – we need your opinion!",
+            "we're polling our community – what's YOUR take?",
+            "your input would be super valuable here!",
+        ]
+        return random.choice(options)
+
+    if "story" in hint or "challenge" in hint or "action → result" in hint:
+        options = [
+            "let us tell you about something that happened recently!",
+            "so this happened and we learned something important!",
+            "here's a quick story we think you'll relate to!",
+            "we faced a challenge recently – here's what we learned!",
+        ]
+        return random.choice(options)
+
+    # Fallback: make it more conversational
+    return f"we wanted to share something about {industry.lower()} with you!"
+
+
+def generate_cta(pillar_name: str, tone: str, platform: str) -> str:
+    """Generate a natural call-to-action based on pillar and tone."""
+    ctas = {
+        "Educational": {
+            "friendly": ["Try this and let us know how it works!", "Have you tried something similar?",
+                         "Share your tips below!", "What's worked for you?"],
+            "professional": ["What strategies have you implemented?", "Share your insights below.",
+                             "Connect with us to discuss further.", "What are your thoughts?"],
+            "playful": ["Give it a shot! 🚀", "Your turn – what do you think?",
+                        "Tag someone who needs this!", "Try it and report back! 😄"],
+            "inspirational": ["What will you try today?", "Share your journey below.",
+                               "Let's grow together.", "What's your next step?"],
+        },
+        "Behind-the-Scenes": {
+            "friendly": ["What would you like to see next?", "Want more behind-the-scenes content?",
+                         "Drop a 👋 if you enjoyed this peek!", "Questions? We're here!"],
+            "professional": ["Want to learn more about our process?", "Connect with our team for details.",
+                             "Follow us for more insights.", "Reach out with questions."],
+            "playful": ["Cool, right?! 😎", "Mind. Blown. 🤯", "More of this? Say yes!",
+                        "Bet you didn't know that! 🎉"],
+            "inspirational": ["This is the work that matters.", "Behind every success is dedication.",
+                               "What's your behind-the-scenes story?", "The process is beautiful."],
+        },
+        "Testimonial/Social Proof": {
+            "friendly": ["What's your success story?", "Share your experience below!",
+                         "We'd love to celebrate your wins too!", "Tell us how it went!"],
+            "professional": ["Ready for similar results?", "Connect with us to get started.",
+                             "Schedule your consultation.", "Learn how we can help you."],
+            "playful": ["Your turn to shine! ⭐", "Drop your success story!", "Brag a little – we won't judge! 😉",
+                        "You could be next! 🎯"],
+            "inspirational": ["Your success inspires others.", "Share your story, inspire someone.",
+                               "What did you overcome?", "Every journey matters."],
+        },
+        "Product/Offer": {
+            "friendly": ["Interested? DM us!", "Check it out at the link in bio!",
+                         "Want to learn more? Just ask!", "Questions? Drop them below!"],
+            "professional": ["Contact us for details.", "Schedule a consultation today.",
+                             "Learn more at [link].", "Reach out to discuss pricing."],
+            "playful": ["Grab yours now! 🔥", "Don't sleep on this! ⚡", "You know you want it! 😄",
+                        "Link in bio – go go go! 🏃"],
+            "inspirational": ["Ready to transform your results?", "Take the next step today.",
+                               "Your success starts here.", "Invest in yourself."],
+        },
+        "Engagement": {
+            "friendly": ["Tell us in the comments!", "We're curious – what do YOU think?",
+                         "Comment below! 👇", "Let's discuss!"],
+            "professional": ["Share your perspective.", "Join the discussion.",
+                             "We value your input.", "What's your take?"],
+            "playful": ["Spill! We're waiting! ☕", "Comment or forever hold your peace! 😄",
+                        "Don't be shy – speak up! 💬", "All answers welcome! 🎉"],
+            "inspirational": ["Your voice matters.", "Contribute to the conversation.",
+                               "Share your wisdom.", "Let's learn together."],
+        },
+        "Story": {
+            "friendly": ["Have a similar story?", "Can you relate?",
+                         "What happened in your situation?", "Share your story!"],
+            "professional": ["What lessons have you learned?", "Share your experience.",
+                             "How have you handled similar situations?", "Your insights welcome."],
+            "playful": ["Top that! 😄", "Your turn – story time! 📖",
+                        "What's YOUR wild story?", "Beat this! 🎭"],
+            "inspirational": ["What challenge did you overcome?", "Share your transformation.",
+                               "Your journey inspires.", "What did you learn?"],
+        },
+    }
+
+    pillar_ctas = ctas.get(pillar_name, {})
+    tone_ctas = pillar_ctas.get(tone, pillar_ctas.get("friendly", ["Let us know what you think!"]))
+    return random.choice(tone_ctas)
+
+
+def enhance_caption_with_ai(caption_draft: str, industry: str, tone: str, platform: str, company: str = "") -> str:
+    """
+    Optionally enhance a caption using OpenAI for more sophisticated, natural language.
+    Falls back to the original caption if OpenAI is not available or fails.
+    """
+    if not USE_OPENAI_FOR_POSTS or not _openai_client:
+        return caption_draft
+
+    try:
+        system_prompt = f"""You are an expert social media copywriter specializing in {platform} content.
+Your task is to enhance social media captions to be more engaging, natural, and effective while maintaining the core message.
+Keep the tone {tone} and preserve any hashtags provided."""
+
+        company_context = f" for {company}" if company else ""
+        user_prompt = f"""Enhance this {industry} social media caption{company_context}:
+
+{caption_draft}
+
+Requirements:
+- Keep it natural and engaging
+- Maintain the {tone} tone
+- Keep it appropriate for {platform}
+- Preserve all hashtags at the end
+- Keep the length similar (don't make it much longer)
+- Make it feel more human and less template-like
+
+Enhanced caption:"""
+
+        response = _openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=300,
+            temperature=0.7
+        )
+
+        # handle different client response shapes safely
+        text = ""
+        try:
+            text = response.choices[0].message.content
+        except Exception:
+            try:
+                text = getattr(response, 'choices', [])[0].message.content if getattr(response, 'choices', None) else ""
+            except Exception:
+                text = ""
+        enhanced = (text or "").strip()
+        has_hashtags = '#' in enhanced
+        reasonable_length = 20 < len(enhanced) < 1000
+        has_content = bool(enhanced and not enhanced.isspace())
+
+        original_hashtags = [tag for tag in caption_draft.split() if tag.startswith('#')]
+        if has_hashtags and reasonable_length and has_content:
+            enhanced_has_tags = any(tag in enhanced for tag in original_hashtags[:3])
+            if enhanced_has_tags or len(original_hashtags) == 0:
+                return enhanced
+
+        return caption_draft
+
+    except Exception as e:
+        if os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1':
+            print(f"[AI Enhancement] Failed to enhance caption: {type(e).__name__}: {str(e)}")
+        return caption_draft
+
 
 def choose_goal_cta(goals: list[str], details: Optional[dict] = None):
     combined = list(goals or [])
@@ -182,6 +540,7 @@ def build_opening(pillar_name: str, industry: str, keywords: list[str]):
 
 def platform_flair(platform: str):
     return PLATFORM_HINTS.get((platform or "").lower(), "Keep it short and memorable.")
+
 
 
 def _realtor_body_lines(pillar_name: str, pillar_hint: str, brand_keywords: list[str],
@@ -437,9 +796,15 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
     niche_keywords = niche_keywords or []
     details = details or {}
     tone_icon, tone_desc = describe_tone(tone)
-    opening = build_opening(pillar_name, industry, brand_keywords)
+    # prefer niche keywords for the hook if available
+    opening = build_opening(pillar_name, industry, niche_keywords or brand_keywords)
     industry_key = resolve_industry_key(industry, details)
-    body_lines = build_body_lines(industry_key, pillar_name, pillar_hint, brand_keywords, niche_keywords, details, goals, company)
+    # Naturalize the pillar hint so builders get conversational language
+    natural_hint = naturalize_hint(pillar_hint or "", industry, brand_keywords)
+    # Capitalize first letter of natural hint if needed
+    if natural_hint and natural_hint[0].islower():
+        natural_hint = natural_hint[0].upper() + natural_hint[1:]
+    body_lines = build_body_lines(industry_key, pillar_name, natural_hint, brand_keywords, niche_keywords, details, goals, company)
     signature_line = build_signature_line(company, brand_keywords, industry)
     flair = platform_flair(platform)
     cta_line = choose_goal_cta(goals, details)
@@ -452,8 +817,95 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
     lines.append(cta_line)
 
     caption = "\n\n".join(line for line in lines if line and line.strip())
-    tags = " ".join(hashtags)
+    # platform-specific hashtag limits
+    p = (platform or "").lower()
+    if p == "twitter":
+        tags = " ".join(hashtags[:3])
+    elif p == "linkedin":
+        tags = " ".join(hashtags[:5])
+    elif p == "instagram":
+        tags = " ".join(hashtags[:12])
+    elif p == "facebook":
+        tags = " ".join(hashtags[:8])
+    else:
+        tags = " ".join(hashtags[:8])
+
     return f"{caption}\n\n{tags}"
+
+
+def make_full_post(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                   platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "",
+                   niche_keywords: Optional[list[str]] = None, details: Optional[dict] = None, theme: Optional[str] = None):
+    """Create a cohesive, natural-language post for a full social post.
+
+    This wraps `make_caption` and nudges the generated sections to reference
+    a single `theme` where provided to avoid the 'stacked' feeling and
+    improve coherence across hook, body, and CTA.
+
+    Returns a dict: {"caption": str, "theme": Optional[str]}.
+    """
+    niche_keywords = niche_keywords or []
+    details = details or {}
+
+    caption = make_caption(
+        industry=industry,
+        tone=tone,
+        pillar_name=pillar_name,
+        pillar_hint=pillar_hint,
+        platform=platform,
+        brand_keywords=brand_keywords,
+        hashtags=hashtags,
+        goals=goals,
+        company=company,
+        niche_keywords=niche_keywords,
+        details=details,
+    )
+
+    if not theme:
+        return {"caption": caption, "theme": None}
+
+    t = (theme or "").strip()
+    if not t:
+        return {"caption": caption, "theme": None}
+
+    # Enforce theme presence in opening and encourage at least two mentions across the body
+    parts = [p for p in caption.split("\n\n") if p is not None]
+    # parts format: opening, body lines..., tags (last element likely contains hashtags)
+    # Ensure opening mentions the theme
+    if parts:
+        opening = parts[0]
+        if t.lower() not in opening.lower():
+            parts[0] = f"{t.capitalize()} — {opening}"
+
+    # Ensure theme appears in at least two body lines (or appended to first body line)
+    # Find index of tags (last element with '#')
+    tag_idx = None
+    for i in range(len(parts) - 1, -1, -1):
+        if "#" in parts[i]:
+            tag_idx = i
+            break
+    body_range = range(1, tag_idx) if tag_idx and tag_idx > 1 else range(1, len(parts))
+    mentions = sum(1 for i in body_range if t.lower() in parts[i].lower())
+    if mentions < 2:
+        # Append theme to first available body line(s)
+        appended = 0
+        for i in body_range:
+            if appended >= 2 - mentions:
+                break
+            if i < len(parts):
+                parts[i] = parts[i].strip()
+                if t.lower() not in parts[i].lower():
+                    parts[i] = f"{parts[i]} — about {t}"
+                    appended += 1
+
+    # Ensure CTA mentions the theme where possible (CTA is often second last before tags)
+    if tag_idx:
+        cta_idx = tag_idx - 1
+        if cta_idx >= 0 and t.lower() not in parts[cta_idx].lower():
+            parts[cta_idx] = f"{parts[cta_idx].strip()} • {t.capitalize()}"
+
+    new_caption = "\n\n".join(parts).strip()
+    return {"caption": new_caption, "theme": t}
 
 def image_prompt(industry: str, pillar_name: str, brand_keywords: list[str], company: str = ""):
     kw = ", ".join(brand_keywords) if brand_keywords else "on-brand colors"
@@ -568,16 +1020,34 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
     hook = ranked_hooks[0]
 
     # script beats: timestamps for the requested length_seconds
-    total = max(10, length_seconds)
+    # use a deterministic allocation that guarantees strictly increasing boundaries
+    total = max(10, int(length_seconds))
     # percentage allocation for Hook, Problem, Tip, Example, CTA
     slots = [0.12, 0.25, 0.35, 0.18, 0.10]
-    bounds = []
+    # compute float cut points then convert to integer seconds while ensuring monotonicity
+    cut_points = []
     acc = 0.0
     for pct in slots:
-        start = int(acc * total)
         acc += pct
-        end = int(acc * total)
+        cut_points.append(acc * total)
+    bounds = []
+    prev = 0
+    for i, cp in enumerate(cut_points):
+        # round cut point but ensure it's at least prev+1 except for the last which is total
+        if i == len(cut_points) - 1:
+            end = total
+        else:
+            end = max(prev + 1, int(round(cp)))
+            # safety: don't let end exceed total - remaining beats
+            remaining = len(cut_points) - 1 - i
+            if end > total - remaining:
+                end = total - remaining
+        start = prev
+        # ensure strictly increasing
+        if end <= start:
+            end = start + 1
         bounds.append((start, end))
+        prev = end
 
     problem_line = "A common pain point your audience has and why it matters."
     if goals:
@@ -783,3 +1253,121 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                 "reel": reel_obj
             })
     return posts
+
+
+def _slugify(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (text or "").strip().lower()).strip("-") or "general"
+
+
+def _trend_cache_path(industry: str) -> str:
+    base = os.path.join(os.path.dirname(__file__), "static", "content")
+    try:
+        os.makedirs(base, exist_ok=True)
+    except Exception:
+        pass
+    return os.path.join(base, f"trends-{_slugify(industry)}.json")
+
+
+def fetch_trend_context(industry: str, locale: str = "global", ttl_hours: Optional[int] = None) -> list:
+    """Return a small list of trending topics for the given industry.
+
+    Implementation:
+    - If a cached file exists and is younger than ttl_hours, return cached.
+    - If OpenAI client is available (USE_OPENAI_FOR_POSTS and _openai_client), call the model
+      with a concise prompt to return JSON. Cache and return parsed JSON list.
+    - On any failure, return an empty list.
+
+    The function is intentionally conservative: it never raises and keeps cached copies
+    in `static/content/trends-{industry}.json`.
+    """
+    ttl = int(ttl_hours) if ttl_hours is not None else DEFAULT_TREND_TTL_HOURS
+    cache_path = _trend_cache_path(industry or "general")
+    # check cache freshness
+    try:
+        if os.path.exists(cache_path):
+            mtime = os.path.getmtime(cache_path)
+            age_hours = (time.time() - mtime) / 3600.0
+            if age_hours <= ttl:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return data
+    except Exception:
+        # if cache read fails, continue to attempt generation
+        pass
+
+    # If OpenAI client isn't configured, return empty list
+    if not (USE_OPENAI_FOR_POSTS and _openai_client):
+        return []
+
+    # Build a conservative prompt that asks for JSON only
+    system = (
+        "You are a concise industry trends analyst. Today is " + datetime.utcnow().date().isoformat() + ".\n"
+        "Given the industry and locale, return a JSON array (max 6) of objects with keys: topic, rationale, confidence.\n"
+        "Confidence must be one of: high, medium, low. If you are not sure, mark confidence as low.\n"
+        "Return only valid JSON. Do not include any extra prose."
+    )
+    user = json.dumps({"industry": industry or "general", "locale": locale, "date": datetime.utcnow().isoformat()})
+
+    try:
+        resp = _openai_client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            max_tokens=400,
+            temperature=0.3,
+        )
+        text = ""
+        try:
+            text = resp.choices[0].message.content
+        except Exception:
+            # older client shapes
+            text = getattr(resp, 'choices', [])[0].message.content if getattr(resp, 'choices', None) else ""
+        if not text:
+            return []
+        # Parse and validate the model output conservatively
+        parsed_raw = None
+        try:
+            parsed_raw = json.loads(text)
+        except Exception:
+            # If the model included extraneous text, try to extract a JSON substring
+            m = re.search(r"\[\s*\{.*\}\s*\]", text, re.S)
+            if m:
+                try:
+                    parsed_raw = json.loads(m.group(0))
+                except Exception:
+                    parsed_raw = None
+        if not isinstance(parsed_raw, list):
+            return []
+
+        validated: list[dict] = []
+        for item in parsed_raw:
+            if not isinstance(item, dict):
+                continue
+            topic = (item.get("topic") or item.get("title") or "").strip() if isinstance(item.get("topic") if item.get("topic") is not None else item.get("title"), str) or isinstance(item.get("title"), str) else ""
+            if not topic:
+                continue
+            rationale = (item.get("rationale") or item.get("reason") or "").strip() if isinstance(item.get("rationale") if item.get("rationale") is not None else item.get("reason"), str) or isinstance(item.get("reason"), str) else ""
+            confidence = (str(item.get("confidence") or "").strip().lower() or "low")
+            # normalize confidence to allowed buckets
+            if confidence.startswith("h"):
+                confidence = "high"
+            elif confidence.startswith("m"):
+                confidence = "medium"
+            else:
+                confidence = "low"
+            validated.append({"topic": topic, "rationale": rationale, "confidence": confidence})
+
+        # keep at most 6 trends and ensure non-empty
+        if not validated:
+            return []
+        validated = validated[:6]
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(validated, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+        return validated
+    except Exception:
+        # best-effort only
+        return []
+    return []
