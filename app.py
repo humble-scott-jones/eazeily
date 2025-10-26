@@ -32,7 +32,9 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
 CORS(app)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "togetherly.db")
+# Allow tests or dev runs to override the DB path via environment (e.g. TEST_DB_PATH)
+# This enables deterministic e2e tests by pointing the subprocess at a temporary sqlite file.
+DB_PATH = os.getenv('TEST_DB_PATH') or os.getenv('DB_PATH') or os.path.join(os.path.dirname(__file__), "togetherly.db")
 
 
 def dev_mode_active() -> bool:

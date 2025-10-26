@@ -14,12 +14,18 @@ PORT = int(os.getenv("PORT", "5001"))
 BASE = f"http://127.0.0.1:{PORT}"
 
 
-def start_server() -> subprocess.Popen:
-    """Start the Flask dev server with dev overrides enabled."""
+def start_server(test_db_path: Optional[str] = None) -> subprocess.Popen:
+    """Start the Flask dev server with dev overrides enabled.
+
+    If `test_db_path` is provided, the subprocess will have TEST_DB_PATH set to
+    that path so the server uses a fresh sqlite DB for deterministic tests.
+    """
     py = "./.venv/bin/python" if (ROOT / ".venv" / "bin" / "python").exists() else "python3"
     env = os.environ.copy()
     env.setdefault("ALLOW_DEV_DEBUG", "1")
     env.setdefault("FLASK_ENV", "development")
+    if test_db_path:
+        env["TEST_DB_PATH"] = str(test_db_path)
 
     try:
         requests.post(f"{BASE}/__dev__/shutdown", timeout=1)
@@ -73,7 +79,9 @@ def set_generation_usage(user_id: str, used: int, period: Optional[str] = None) 
 
 
 def test_playwright_full_flow(tmp_path):
-    proc = start_server()
+    # Use a fresh temporary DB file for this test run to make the flow deterministic
+    tmp_db = tmp_path / "togetherly-test.db"
+    proc = start_server(str(tmp_db))
     session = requests.Session()
     gen_response = None
     webhook_response = None
