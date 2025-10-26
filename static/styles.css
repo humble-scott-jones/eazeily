@@ -17,7 +17,16 @@
 .card{ background:#fff;border:1px solid #eaeaf0;border-radius:16px;padding:18px;box-shadow:0 4px 14px rgba(15,23,42,.04);}
 .input{ width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none;}
 .input:focus{ border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-50); }
-.btn-primary{ background:var(--brand); color:#fff; border:none; padding:10px 14px; border-radius:10px; font-weight:600; box-shadow:0 8px 22px rgba(99,102,241,.25); cursor:pointer;}
+.btn-primary{
+  background: var(--brand);
+  color: #fff;
+  border: none;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 8px 22px rgba(99,102,241,.25);
+  cursor: pointer;
+}
 .btn-primary:hover{ background:var(--brand-600); }
 .btn-secondary{ background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; padding:10px 14px; border-radius:10px; }
 .btn-ghost{ background:#fff; color:#111827; border:1px solid #e5e7eb; padding:10px 14px; border-radius:10px; }
