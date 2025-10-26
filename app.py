@@ -813,8 +813,8 @@ def api_admin_update_user(user_id):
     params = []
     if 'email' in data:
         email = (data['email'] or '').strip().lower()
-        # Simple email validation without complex regex to avoid ReDoS
-        if not email or '@' not in email or '.' not in email.split('@')[-1]:
+        # Improved email validation: at least one char before @, one between @ and ., one after .
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
             return jsonify({'ok': False, 'error': 'Invalid email'}), 400
         updates.append('email = ?')
         params.append(email)
