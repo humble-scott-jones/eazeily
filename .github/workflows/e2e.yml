@@ -8,9 +8,14 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       FLASK_ENV: development
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
