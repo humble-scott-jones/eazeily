@@ -770,27 +770,6 @@ def api_admin_users():
     
     db = get_db()
     # Fetch users with profile data joined
-    query = """
-        SELECT 
-            u.id, 
-            u.email, 
-            u.is_paid,
-            u.stripe_customer_id,
-            u.created_at as user_created_at,
-            p.industry,
-            p.tone,
-            p.platforms,
-            p.brand_keywords,
-            p.niche_keywords,
-            p.goals,
-            p.company,
-            p.created_at as profile_created_at,
-            (SELECT COUNT(*) FROM feedback f WHERE f.profile_id = p.id) as feedback_count
-        FROM users u
-        LEFT JOIN profiles p ON u.id = (SELECT user_id FROM subscriptions WHERE user_id = u.id LIMIT 1)
-        ORDER BY u.created_at DESC
-    """
-    
     # Note: The above query has a limitation - it doesn't properly link users to profiles
     # because profiles are session-based, not user-based. Let's use a simpler approach:
     query = """
