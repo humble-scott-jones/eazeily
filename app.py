@@ -2,7 +2,7 @@ import os, sqlite3, uuid, json, re
 from datetime import date
 from datetime import datetime, timezone
 from datetime import timedelta
-from flask import Flask, request, jsonify, render_template, g, session
+from flask import Flask, request, jsonify, render_template, g, session, redirect
 import threading
 import time
 from flask_cors import CORS
@@ -155,6 +155,12 @@ def init_db():
             reels_generated INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS waitlist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            confirmed INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
     # Backfill for upgrades
@@ -184,6 +190,14 @@ def init_db():
         if "free_sample_used" not in ucols:
             try:
                 db.execute("ALTER TABLE users ADD COLUMN free_sample_used INTEGER DEFAULT 0;")
+            except Exception:
+                pass
+        gcols = [r[1] for r in db.execute("PRAGMA table_info(generation_usage)").fetchall()]
+        if "created_at" not in gcols:
+            try:
+                db.execute(
+                    "ALTER TABLE generation_usage ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;"
+                )
             except Exception:
                 pass
     except Exception:
@@ -221,9 +235,25 @@ def ensure_db():
     init_db()
 
 @app.get("/")
+def landing():
+    """Landing page with marketing content, pricing, and waitlist signup."""
+    if session.get('user_id'):
+        # Logged-in users should drop directly into the app experience
+        return redirect("/app")
+    return render_template("landing.html")
+
+
+@app.get("/app")
 def index():
+    """Main application page for authenticated users."""
     is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
     return render_template("index.html", is_dev=is_dev)
+
+
+@app.get('/review-response')
+def review_response_page():
+    """Render review response helper page for customer feedback replies."""
+    return render_template('review_response.html')
 
 
 @app.get('/account')
@@ -358,6 +388,152 @@ def api_cancel_subscription():
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.post('/api/generate-review-response')
+def api_generate_review_response():
+    """Generate a professional response to a customer review or rating."""
+    payload = request.get_json(force=True)
+    review_text = (payload.get('review_text') or '').strip()
+    response_tone = (payload.get('tone') or 'professional').strip().lower()
+    company_name = (payload.get('company_name') or '').strip()
+
+    if not review_text:
+        return jsonify({'ok': False, 'error': 'Review text is required'}), 400
+
+    tone_templates = {
+        'professional': {
+            'positive': 'Thank you for your {rating} review{company}. We\'re pleased to hear that {summary}. We appreciate your business and look forward to serving you again.',
+            'negative': 'Thank you for your feedback{company}. We apologize that {summary}. We take all feedback seriously and will use this to improve our service. Please contact us directly so we can make this right.',
+            'neutral': 'Thank you for taking the time to share your feedback{company}. We appreciate your comments about {summary} and will continue working to improve.',
+        },
+        'grateful': {
+            'positive': "We're so grateful for your wonderful {rating} review{company}! It means the world to us to hear that {summary}. Thank you for choosing us!",
+            'negative': "Thank you for sharing your experience{company}. We're truly sorry that {summary}. Your feedback helps us grow, and we'd love the chance to make things right.",
+            'neutral': "We really appreciate you taking the time to leave feedback{company}. Your thoughts on {summary} are valuable to us. Thank you!",
+        },
+        'apologetic': {
+            'positive': "Thank you so much for your {rating} review{company}! We're thrilled that {summary}. We truly appreciate your support.",
+            'negative': "We sincerely apologize for your experience{company}. We're very sorry that {summary}. This doesn't meet our standards, and we'd like to make it right. Please reach out to us directly.",
+            'neutral': "Thank you for your feedback{company}. We appreciate you letting us know about {summary}. We're always working to improve.",
+        },
+        'friendly': {
+            'positive': "Wow, thank you for the amazing {rating} review{company}! We're so happy to hear that {summary}. You made our day!",
+            'negative': "Thanks for letting us know about your experience{company}. We're really sorry that {summary}. We'd love to chat and see how we can fix this. Please get in touch!",
+            'neutral': "Hey, thanks for the feedback{company}! We appreciate your thoughts on {summary}. We're always listening and improving!",
+        },
+    }
+
+    if response_tone not in tone_templates:
+        response_tone = 'professional'
+
+    if USE_OPENAI:
+        try:
+            company_context = f' for {company_name}' if company_name else ''
+            prompt = f"""Generate a professional response to this customer review{company_context}.
+The tone should be {response_tone}.
+
+Customer Review:
+{review_text}
+
+Generate a thoughtful, personalized response that:
+1. Acknowledges their feedback
+2. Matches the {response_tone} tone
+3. Is concise (2-3 sentences)
+4. Sounds genuine and human
+5. For positive reviews: thank them and show appreciation
+6. For negative reviews: apologize and offer to make it right
+7. For neutral reviews: thank them and acknowledge their feedback
+
+Response:"""
+
+            response = openai_client.chat.completions.create(
+                model='gpt-3.5-turbo',
+                messages=[
+                    {
+                        'role': 'system',
+                        'content': 'You are a helpful assistant that generates professional, empathetic responses to customer reviews.',
+                    },
+                    {'role': 'user', 'content': prompt},
+                ],
+                max_tokens=200,
+                temperature=0.7,
+            )
+
+            generated = response.choices[0].message.content.strip()
+            return jsonify({'ok': True, 'response': generated, 'method': 'ai'})
+        except Exception:
+            # Fall back to template approach when OpenAI call fails
+            pass
+
+    review_lower = review_text.lower()
+    positive_words = [
+        'great',
+        'excellent',
+        'amazing',
+        'wonderful',
+        'fantastic',
+        'love',
+        'best',
+        'perfect',
+        'awesome',
+    ]
+    negative_words = [
+        'bad',
+        'poor',
+        'terrible',
+        'awful',
+        'worst',
+        'horrible',
+        'disappointed',
+        'never',
+        'rude',
+    ]
+
+    positive_count = sum(1 for word in positive_words if word in review_lower)
+    negative_count = sum(1 for word in negative_words if word in review_lower)
+
+    if positive_count > negative_count:
+        sentiment = 'positive'
+        rating = 'positive'
+    elif negative_count > positive_count:
+        sentiment = 'negative'
+        rating = ''
+    else:
+        sentiment = 'neutral'
+        rating = ''
+
+    if '.' in review_text:
+        summary = review_text.split('.', 1)[0].strip().lower()
+        if not summary.endswith('.'):
+            summary += '...'
+    else:
+        truncated = review_text[:80]
+        if len(review_text) > 80:
+            last_space = truncated.rfind(' ')
+            if last_space > 0:
+                truncated = truncated[:last_space]
+            summary = truncated.strip().lower() + '...'
+        else:
+            summary = truncated.strip().lower()
+
+    template = tone_templates[response_tone][sentiment]
+    company_part = f' at {company_name}' if company_name else ''
+
+    response_text = template.format(rating=rating, company=company_part, summary=summary)
+
+    return jsonify(
+        {
+            'ok': True,
+            'response': response_text,
+            'method': 'template',
+            'detected_sentiment': sentiment,
+        }
+    )
+
+
+
+
 
 
 @app.get("/api/content")
@@ -1328,6 +1504,85 @@ def admin_page():
     return render_template('admin.html', allowed=True)
 
 
+@app.get('/api/admin/users')
+def api_admin_users():
+    """Return admin-friendly overview of users, subscriptions, and profile mix."""
+    if not is_admin():
+        return jsonify({'ok': False, 'error': 'Admin required'}), 403
+
+    db = get_db()
+    user_rows = db.execute(
+        """
+        SELECT id, email, is_paid, stripe_customer_id, created_at AS user_created_at, is_admin
+        FROM users
+        ORDER BY created_at DESC
+        """
+    ).fetchall()
+
+    profile_rows = db.execute(
+        """
+        SELECT id, industry, tone, platforms, brand_keywords, niche_keywords, company, created_at
+        FROM profiles
+        ORDER BY created_at DESC
+        """
+    ).fetchall()
+
+    def parse_json_field(val):
+        try:
+            if not val:
+                return []
+            return json.loads(val)
+        except Exception:
+            return []
+
+    users_out: list[dict] = []
+    for row in user_rows:
+        user = dict(row)
+        sub_row = db.execute(
+            'SELECT status, current_period_end FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+            (user.get('id'),),
+        ).fetchone()
+        sub = dict(sub_row) if sub_row else {}
+        users_out.append(
+            {
+                'id': user.get('id'),
+                'email': user.get('email'),
+                'is_paid': bool(user.get('is_paid')),
+                'is_admin': bool(user.get('is_admin')),
+                'has_stripe': bool(user.get('stripe_customer_id')),
+                'created_at': user.get('user_created_at'),
+                'subscription_status': sub.get('status'),
+                'subscription_end': sub.get('current_period_end'),
+            }
+        )
+
+    stats = {
+        'total_users': len(users_out),
+        'paid_users': sum(1 for u in users_out if u['is_paid']),
+        'free_users': sum(1 for u in users_out if not u['is_paid']),
+        'profile_stats': {
+            'total_profiles': len(profile_rows),
+            'industries': {},
+            'platforms': {},
+        },
+    }
+
+    for prow in profile_rows:
+        profile = dict(prow)
+        industry = profile.get('industry')
+        if industry:
+            stats['profile_stats']['industries'][industry] = (
+                stats['profile_stats']['industries'].get(industry, 0) + 1
+            )
+
+        for platform in parse_json_field(profile.get('platforms')):
+            stats['profile_stats']['platforms'][platform] = (
+                stats['profile_stats']['platforms'].get(platform, 0) + 1
+            )
+
+    return jsonify({'ok': True, 'users': users_out, 'stats': stats})
+
+
 # Dev debug route to inspect session and current user (only in dev or when ALLOW_DEV_DEBUG=1)
 @app.get('/__debug__/session')
 def debug_session():
@@ -1540,6 +1795,30 @@ def api_confirm_password_reset():
         return jsonify({'ok': False, 'error': 'Could not reset password'}), 500
     return jsonify({'ok': True})
 
+
+
+@app.post('/api/waitlist')
+def api_waitlist():
+    """Add email to waitlist for landing page signups."""
+    data = request.get_json(force=True)
+    email = (data.get('email') or '').strip().lower()
+
+    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
+
+    db = get_db()
+    try:
+        db.execute('INSERT INTO waitlist (email) VALUES (?)', (email,))
+        db.commit()
+
+        # In production, send confirmation email here
+        # For now, just return success
+        return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
+    except Exception as e:
+        # Email already exists or other error
+        if 'UNIQUE constraint' in str(e):
+            return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
+        return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
 
 
 @app.post("/api/profile")
