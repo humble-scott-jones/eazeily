@@ -35,7 +35,12 @@ CORS(app)
 # Allow tests or dev runs to override the DB path via environment (e.g. TEST_DB_PATH)
 # This enables deterministic e2e tests by pointing the subprocess at a temporary sqlite file.
 DB_PATH = os.getenv('TEST_DB_PATH') or os.getenv('DB_PATH') or os.path.join(os.path.dirname(__file__), "togetherly.db")
-
+try:
+    if os.getenv('TEST_DB_PATH'):
+        # best-effort info log to make CI/test runs explicit about DB usage
+        app.logger.info("TEST_DB_PATH set; using test database at %s", os.getenv('TEST_DB_PATH'))
+except Exception:
+    pass
 
 def dev_mode_active() -> bool:
     """Return True when tests/dev helpers should bypass certain production checks."""
