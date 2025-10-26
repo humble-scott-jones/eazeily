@@ -6,3 +6,6 @@ __pycache__/
 .env
 .DS_Store
 .vscode/
+
+# Feedback automation audit logs (committed separately by automation)
+.github/audit-logs/*.json
