@@ -1,7 +1,22 @@
 # Togetherly (dev)
 
+## 🔒 Security & Secrets Management
+
+**IMPORTANT**: Before deploying to production, review our security documentation:
+- [Secrets Management Guide](docs/SECRETS_MANAGEMENT.md) - How to securely store and access secrets
+- [Secrets Rotation Runbook](docs/SECRETS_ROTATION_RUNBOOK.md) - Procedures for rotating and revoking secrets
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - Production deployment with Google Cloud Secret Manager
+
+⚠️ **Never commit secrets to version control!** Use `.env` for local development only (already gitignored).
+
+## Local Development Setup
+
 Run dev server:
 ```bash
+# Copy example environment file
+cp .env.example .env
+# Edit .env with your test credentials (use test keys only!)
+
 source .venv/bin/activate
 PORT=5001 python3 app.py
 ```

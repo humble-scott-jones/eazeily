@@ -163,6 +163,19 @@ def index():
     return render_template("index.html", is_dev=is_dev)
 
 
+@app.get('/_health')
+def health_check():
+    """
+    Health check endpoint for monitoring and load balancers.
+    Returns 200 OK if the application is running.
+    """
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'environment': os.getenv('FLASK_ENV', 'unknown')
+    }), 200
+
+
 @app.get('/account')
 def account_page():
     uid = session.get('user_id')

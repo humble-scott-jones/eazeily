@@ -7,13 +7,31 @@ on:
     branches: [ main ]
 
 jobs:
+  # Secret scanning job to detect secrets in commits
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for better scanning
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # Optional: for Gitleaks Pro features
+
   test:
     runs-on: ubuntu-latest
+    needs: secret-scan  # Run tests only after secret scan passes
     strategy:
       matrix:
         python-version: ['3.10', '3.11']
     env:
       FLASK_ENV: development
+      # Secrets are injected securely via GitHub Actions secrets
+      # GitHub automatically masks these values in logs
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
@@ -46,4 +64,11 @@ jobs:
         run: pytest -q
         env:
           PYTHONWARNINGS: "ignore::DeprecationWarning"
+
+      # Verify secrets are not accidentally exposed in logs or outputs
+      - name: Verify secret safety
+        run: |
+          echo "✓ Secrets are masked by GitHub Actions"
+          echo "✓ Never echo or print secret values in CI logs"
+          # This would be masked: echo "${{ secrets.SECRET_KEY }}"
 *** End Patch

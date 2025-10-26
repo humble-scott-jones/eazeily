@@ -1,0 +1,106 @@
+# Example GitHub Actions workflow for deploying to Google Cloud Run with Secret Manager
+# 
+# To use this workflow:
+# 1. Rename to deploy-production.yml
+# 2. Set up GitHub environments (Settings > Environments > New environment)
+# 3. Add required secrets to the 'production' environment:
+#    - GCP_PROJECT_ID: Your Google Cloud project ID
+#    - GCP_SA_KEY: Service account key JSON (see docs/DEPLOYMENT_GUIDE.md)
+# 4. Configure environment protection rules (require reviewers for production)
+# 5. Uncomment the workflow trigger
+
+name: Deploy to Production
+
+# Uncomment to enable this workflow:
+# on:
+#   push:
+#     branches: [ main ]
+#   workflow_dispatch:  # Allow manual triggering
+
+on: workflow_dispatch  # Only manual trigger by default
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    environment: production  # Requires manual approval if configured
+    
+    permissions:
+      contents: read
+      id-token: write  # For Workload Identity Federation (alternative to key file)
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          # Alternative: Use Workload Identity Federation (more secure, no keys!)
+          # workload_identity_provider: 'projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID'
+          # service_account: 'SERVICE_ACCOUNT_EMAIL'
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+      
+      - name: Configure Docker for GCR
+        run: |
+          gcloud auth configure-docker
+      
+      - name: Build Docker image
+        run: |
+          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/togetherly:${{ github.sha }} .
+          docker tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/togetherly:${{ github.sha }} \
+            gcr.io/${{ secrets.GCP_PROJECT_ID }}/togetherly:latest
+      
+      - name: Push Docker image to GCR
+        run: |
+          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/togetherly:${{ github.sha }}
+          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/togetherly:latest
+      
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy togetherly \
+            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/togetherly:${{ github.sha }} \
+            --platform managed \
+            --region us-central1 \
+            --allow-unauthenticated \
+            --set-env-vars FLASK_ENV=production \
+            --set-env-vars GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
+            --set-env-vars USE_SECRET_MANAGER=1 \
+            --set-secrets=SECRET_KEY=flask-secret-key:latest \
+            --set-secrets=STRIPE_SECRET_KEY=stripe-secret-key:latest \
+            --set-secrets=STRIPE_PUBLISHABLE_KEY=stripe-publishable-key:latest \
+            --set-secrets=STRIPE_WEBHOOK_SECRET=stripe-webhook-secret:latest \
+            --set-secrets=STRIPE_TEST_PRICE_ID=stripe-price-id:latest \
+            --set-secrets=OPENAI_API_KEY=openai-api-key:latest \
+            --set-secrets=ADMIN_EMAILS=admin-emails:latest \
+            --memory 512Mi \
+            --cpu 1 \
+            --max-instances 10 \
+            --min-instances 0 \
+            --timeout 60s
+      
+      - name: Get service URL
+        id: service-url
+        run: |
+          SERVICE_URL=$(gcloud run services describe togetherly \
+            --platform managed \
+            --region us-central1 \
+            --format 'value(status.url)')
+          echo "url=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "Deployed to: $SERVICE_URL"
+      
+      - name: Run health check
+        run: |
+          sleep 10  # Wait for service to be ready
+          curl -f ${{ steps.service-url.outputs.url }}/_health || exit 1
+          echo "✓ Health check passed"
+      
+      - name: Deployment summary
+        run: |
+          echo "🚀 Deployment successful!"
+          echo "URL: ${{ steps.service-url.outputs.url }}"
+          echo "Image: gcr.io/${{ secrets.GCP_PROJECT_ID }}/togetherly:${{ github.sha }}"
+          echo "Region: us-central1"
