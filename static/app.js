@@ -671,11 +671,31 @@ function renderPosts(data){
 function renderCard(post){
   const card = document.createElement("div");
   card.className = "border rounded-lg p-3 mt-2";
+  
+  // Build platform copy buttons if variants exist
+  let platformCopyButtons = '';
+  if (post.variants && Object.keys(post.variants).length > 1) {
+    const platforms = Object.keys(post.variants);
+    platformCopyButtons = `
+      <div class="flex flex-wrap gap-2 mb-3" role="group" aria-label="Copy platform-specific content">
+        ${platforms.map(p => `
+          <button class="btn-ghost text-xs" 
+                  data-copy-platform="${escapeAttr(p)}" 
+                  data-platform-text="${escapeAttr(post.variants[p])}"
+                  aria-label="Copy ${capitalize(p)} text for Day ${post.day_index} ${post.pillar}">
+            Copy ${capitalize(p)}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+  
   card.innerHTML = `
     <div class="text-sm font-medium mb-1">${capitalize(post.platform)} • ${post.pillar}</div>
     ${post.image_url ? `<img class="w-full h-40 object-cover rounded mb-2" src="${post.image_url}" alt="Suggested image" />` : ""}
     <div class="text-xs text-slate-500 mb-2"><strong>Image prompt:</strong> ${escapeHtml(post.image_prompt)}</div>
-    <pre class="caption text-sm">${escapeHtml(post.caption)}</pre>
+    ${platformCopyButtons}
+    <pre class="caption text-sm" data-caption-display role="region" aria-live="polite">${escapeHtml(post.caption)}</pre>
     ${post.reel ? `
       <div class="mt-3 p-3 bg-slate-50 rounded">
         <div class="text-sm font-medium mb-1">Reel plan</div>
@@ -697,17 +717,62 @@ function renderCard(post){
       </div>
     ` : ''}
     <div class="mt-3 flex items-center gap-2">
-      <button class="btn-ghost text-xs" data-copy="${escapeAttr(post.caption)}">Copy</button>
+      ${!post.variants || Object.keys(post.variants).length <= 1 ? `<button class="btn-ghost text-xs" data-copy="${escapeAttr(post.caption)}">Copy</button>` : ''}
       <button class="btn-ghost text-xs" data-like="1" data-day="${post.day_index}" data-platform="${post.platform}">👍</button>
       <button class="btn-ghost text-xs" data-like="-1" data-day="${post.day_index}" data-platform="${post.platform}">👎</button>
     </div>
   `;
+  
+  // Platform-specific copy buttons
+  const captionDisplay = card.querySelector('[data-caption-display]');
+  card.querySelectorAll('[data-copy-platform]').forEach(btn => {
+    btn.addEventListener('click', async (ev) => {
+      const platform = ev.currentTarget.getAttribute('data-copy-platform');
+      const text = ev.currentTarget.getAttribute('data-platform-text');
+      try {
+        await navigator.clipboard.writeText(text);
+        // Update displayed content
+        if (captionDisplay) captionDisplay.textContent = text;
+        // Visual feedback
+        const origText = ev.currentTarget.textContent;
+        ev.currentTarget.textContent = 'Copied!';
+        setTimeout(() => ev.currentTarget.textContent = origText, 1200);
+        // Toast notification
+        showToast(`${capitalize(platform)} content copied`);
+        // Analytics event
+        console.log('content_copied', { platform, day: post.day_index, post_id: `${post.day_index}-${post.platform}` });
+      } catch(e) {
+        console.error('Copy failed', e);
+        // Fallback for older browsers
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (captionDisplay) captionDisplay.textContent = text;
+          const origText = ev.currentTarget.textContent;
+          ev.currentTarget.textContent = 'Copied!';
+          setTimeout(() => ev.currentTarget.textContent = origText, 1200);
+          showToast(`${capitalize(platform)} content copied`);
+        } catch(fallbackErr) {
+          console.error('Fallback copy failed', fallbackErr);
+        }
+      }
+    });
+  });
+  
+  // Legacy single copy button (when no variants)
   card.querySelector("[data-copy]")?.addEventListener("click", async (ev) => {
     const txt = ev.currentTarget.getAttribute("data-copy") || "";
     await navigator.clipboard.writeText(txt);
     ev.currentTarget.textContent = "Copied!";
     setTimeout(() => (ev.currentTarget.textContent = "Copy"), 1200);
   });
+  
   // reel copy buttons
   if (post.reel){
     const btnScript = card.querySelector('[data-copy-reel-script]');
