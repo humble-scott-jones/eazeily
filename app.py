@@ -403,6 +403,7 @@ def generate_posts_with_openai(
     goals: list[str],
     details: dict,
     company: str,
+    include_trends: bool = False,
 ):
     if not USE_OPENAI:
         return None
@@ -434,6 +435,11 @@ def generate_posts_with_openai(
         goals,
         company,
     )
+    # optionally include an LLM-seeded trend context to help the model be topical
+    try:
+        trends = generator.fetch_trend_context(industry) if include_trends else []
+    except Exception:
+        trends = []
     payload = {
         "industry": industry,
         "tone": tone,
@@ -449,6 +455,7 @@ def generate_posts_with_openai(
         "reel_platforms": ["instagram", "tiktok", "short_video"],
         "industry_context": industry_context,
         "industry_key": industry_context.get("industry_key"),
+        "trend_context": trends,
     }
 
     json_schema = {
@@ -1350,6 +1357,48 @@ def dev_list_routes():
     return jsonify({'ok': True, 'routes': rules})
 
 
+@app.get('/__dev__/db-info')
+def dev_db_info():
+    """Dev-only endpoint to report which database path the server is using.
+
+    This is useful in CI to confirm TEST_DB_PATH was applied to the subprocess.
+    """
+    # Require explicit dev-mode or ALLOW_DEV_DEBUG to avoid leaking env in prod
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1' or dev_mode_active()):
+        return jsonify({'ok': False, 'error': 'Not allowed'}), 403
+    return jsonify({'ok': True, 'db_path': DB_PATH, 'using_test_db': bool(os.getenv('TEST_DB_PATH'))})
+
+
+@app.get('/__dev__/trends')
+def dev_trends():
+    """Return cached trend context for an industry for debugging/telemetry.
+
+    Query params:
+    - industry: optional (default: 'general')
+
+    This endpoint will NOT call OpenAI. It reads the cached file written by
+    generator.fetch_trend_context (if present) and returns metadata and parsed list.
+    """
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1' or dev_mode_active()):
+        return jsonify({'ok': False, 'error': 'Not allowed'}), 403
+    industry = (request.args.get('industry') or 'general')
+    cache_path = generator._trend_cache_path(industry)
+    out = {'ok': True, 'industry': industry, 'cached': False, 'trends': [], 'cache_path': cache_path}
+    try:
+        if os.path.exists(cache_path):
+            out['cached'] = True
+            out['mtime'] = os.path.getmtime(cache_path)
+            try:
+                with open(cache_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    out['trends'] = data if isinstance(data, list) else []
+            except Exception:
+                out['trends'] = []
+    except Exception:
+        pass
+    return jsonify(out)
+
+
 # Dev helper: simple ping
 @app.get('/__dev__/ping')
 def dev_ping():
@@ -1585,6 +1634,7 @@ def api_generate():
     details = data.get("details", {})
     include_images = bool(data.get("include_images", True))
     company = data.get("company", "")
+    include_trends = coerce_bool(data.get("include_trends", False))
     details = data.get("details", {}) or {}
 
     reel_platforms = set(['tiktok', 'short_video'])
@@ -1633,6 +1683,7 @@ def api_generate():
         goals=goals,
         details=details,
         company=company,
+        include_trends=include_trends,
     )
 
     if not posts:

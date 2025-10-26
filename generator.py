@@ -1,8 +1,13 @@
 import re
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Optional
 import os
 import random
+import json
+import time
+
+# caching TTL for trend context (hours)
+DEFAULT_TREND_TTL_HOURS = int(os.getenv('TRENDS_TTL_HOURS', '6'))
 
 # Optional OpenAI integration for enhanced post generation
 USE_OPENAI_FOR_POSTS = bool(os.getenv("OPENAI_API_KEY")) and os.getenv("USE_OPENAI_FOR_POSTS", "0") == "1"
@@ -468,10 +473,19 @@ Enhanced caption:"""
             temperature=0.7
         )
 
-        enhanced = response.choices[0].message.content.strip()
+        # handle different client response shapes safely
+        text = ""
+        try:
+            text = response.choices[0].message.content
+        except Exception:
+            try:
+                text = getattr(response, 'choices', [])[0].message.content if getattr(response, 'choices', None) else ""
+            except Exception:
+                text = ""
+        enhanced = (text or "").strip()
         has_hashtags = '#' in enhanced
         reasonable_length = 20 < len(enhanced) < 1000
-        has_content = enhanced and not enhanced.isspace()
+        has_content = bool(enhanced and not enhanced.isspace())
 
         original_hashtags = [tag for tag in caption_draft.split() if tag.startswith('#')]
         if has_hashtags and reasonable_length and has_content:
@@ -817,6 +831,81 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
         tags = " ".join(hashtags[:8])
 
     return f"{caption}\n\n{tags}"
+
+
+def make_full_post(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                   platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "",
+                   niche_keywords: Optional[list[str]] = None, details: Optional[dict] = None, theme: Optional[str] = None):
+    """Create a cohesive, natural-language post for a full social post.
+
+    This wraps `make_caption` and nudges the generated sections to reference
+    a single `theme` where provided to avoid the 'stacked' feeling and
+    improve coherence across hook, body, and CTA.
+
+    Returns a dict: {"caption": str, "theme": Optional[str]}.
+    """
+    niche_keywords = niche_keywords or []
+    details = details or {}
+
+    caption = make_caption(
+        industry=industry,
+        tone=tone,
+        pillar_name=pillar_name,
+        pillar_hint=pillar_hint,
+        platform=platform,
+        brand_keywords=brand_keywords,
+        hashtags=hashtags,
+        goals=goals,
+        company=company,
+        niche_keywords=niche_keywords,
+        details=details,
+    )
+
+    if not theme:
+        return {"caption": caption, "theme": None}
+
+    t = (theme or "").strip()
+    if not t:
+        return {"caption": caption, "theme": None}
+
+    # Enforce theme presence in opening and encourage at least two mentions across the body
+    parts = [p for p in caption.split("\n\n") if p is not None]
+    # parts format: opening, body lines..., tags (last element likely contains hashtags)
+    # Ensure opening mentions the theme
+    if parts:
+        opening = parts[0]
+        if t.lower() not in opening.lower():
+            parts[0] = f"{t.capitalize()} — {opening}"
+
+    # Ensure theme appears in at least two body lines (or appended to first body line)
+    # Find index of tags (last element with '#')
+    tag_idx = None
+    for i in range(len(parts) - 1, -1, -1):
+        if "#" in parts[i]:
+            tag_idx = i
+            break
+    body_range = range(1, tag_idx) if tag_idx and tag_idx > 1 else range(1, len(parts))
+    mentions = sum(1 for i in body_range if t.lower() in parts[i].lower())
+    if mentions < 2:
+        # Append theme to first available body line(s)
+        appended = 0
+        for i in body_range:
+            if appended >= 2 - mentions:
+                break
+            if i < len(parts):
+                parts[i] = parts[i].strip()
+                if t.lower() not in parts[i].lower():
+                    parts[i] = f"{parts[i]} — about {t}"
+                    appended += 1
+
+    # Ensure CTA mentions the theme where possible (CTA is often second last before tags)
+    if tag_idx:
+        cta_idx = tag_idx - 1
+        if cta_idx >= 0 and t.lower() not in parts[cta_idx].lower():
+            parts[cta_idx] = f"{parts[cta_idx].strip()} • {t.capitalize()}"
+
+    new_caption = "\n\n".join(parts).strip()
+    return {"caption": new_caption, "theme": t}
 
 def image_prompt(industry: str, pillar_name: str, brand_keywords: list[str], company: str = ""):
     kw = ", ".join(brand_keywords) if brand_keywords else "on-brand colors"
@@ -1164,3 +1253,121 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                 "reel": reel_obj
             })
     return posts
+
+
+def _slugify(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (text or "").strip().lower()).strip("-") or "general"
+
+
+def _trend_cache_path(industry: str) -> str:
+    base = os.path.join(os.path.dirname(__file__), "static", "content")
+    try:
+        os.makedirs(base, exist_ok=True)
+    except Exception:
+        pass
+    return os.path.join(base, f"trends-{_slugify(industry)}.json")
+
+
+def fetch_trend_context(industry: str, locale: str = "global", ttl_hours: Optional[int] = None) -> list:
+    """Return a small list of trending topics for the given industry.
+
+    Implementation:
+    - If a cached file exists and is younger than ttl_hours, return cached.
+    - If OpenAI client is available (USE_OPENAI_FOR_POSTS and _openai_client), call the model
+      with a concise prompt to return JSON. Cache and return parsed JSON list.
+    - On any failure, return an empty list.
+
+    The function is intentionally conservative: it never raises and keeps cached copies
+    in `static/content/trends-{industry}.json`.
+    """
+    ttl = int(ttl_hours) if ttl_hours is not None else DEFAULT_TREND_TTL_HOURS
+    cache_path = _trend_cache_path(industry or "general")
+    # check cache freshness
+    try:
+        if os.path.exists(cache_path):
+            mtime = os.path.getmtime(cache_path)
+            age_hours = (time.time() - mtime) / 3600.0
+            if age_hours <= ttl:
+                with open(cache_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return data
+    except Exception:
+        # if cache read fails, continue to attempt generation
+        pass
+
+    # If OpenAI client isn't configured, return empty list
+    if not (USE_OPENAI_FOR_POSTS and _openai_client):
+        return []
+
+    # Build a conservative prompt that asks for JSON only
+    system = (
+        "You are a concise industry trends analyst. Today is " + datetime.utcnow().date().isoformat() + ".\n"
+        "Given the industry and locale, return a JSON array (max 6) of objects with keys: topic, rationale, confidence.\n"
+        "Confidence must be one of: high, medium, low. If you are not sure, mark confidence as low.\n"
+        "Return only valid JSON. Do not include any extra prose."
+    )
+    user = json.dumps({"industry": industry or "general", "locale": locale, "date": datetime.utcnow().isoformat()})
+
+    try:
+        resp = _openai_client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-3.5-turbo"),
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            max_tokens=400,
+            temperature=0.3,
+        )
+        text = ""
+        try:
+            text = resp.choices[0].message.content
+        except Exception:
+            # older client shapes
+            text = getattr(resp, 'choices', [])[0].message.content if getattr(resp, 'choices', None) else ""
+        if not text:
+            return []
+        # Parse and validate the model output conservatively
+        parsed_raw = None
+        try:
+            parsed_raw = json.loads(text)
+        except Exception:
+            # If the model included extraneous text, try to extract a JSON substring
+            m = re.search(r"\[\s*\{.*\}\s*\]", text, re.S)
+            if m:
+                try:
+                    parsed_raw = json.loads(m.group(0))
+                except Exception:
+                    parsed_raw = None
+        if not isinstance(parsed_raw, list):
+            return []
+
+        validated: list[dict] = []
+        for item in parsed_raw:
+            if not isinstance(item, dict):
+                continue
+            topic = (item.get("topic") or item.get("title") or "").strip() if isinstance(item.get("topic") if item.get("topic") is not None else item.get("title"), str) or isinstance(item.get("title"), str) else ""
+            if not topic:
+                continue
+            rationale = (item.get("rationale") or item.get("reason") or "").strip() if isinstance(item.get("rationale") if item.get("rationale") is not None else item.get("reason"), str) or isinstance(item.get("reason"), str) else ""
+            confidence = (str(item.get("confidence") or "").strip().lower() or "low")
+            # normalize confidence to allowed buckets
+            if confidence.startswith("h"):
+                confidence = "high"
+            elif confidence.startswith("m"):
+                confidence = "medium"
+            else:
+                confidence = "low"
+            validated.append({"topic": topic, "rationale": rationale, "confidence": confidence})
+
+        # keep at most 6 trends and ensure non-empty
+        if not validated:
+            return []
+        validated = validated[:6]
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(validated, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+        return validated
+    except Exception:
+        # best-effort only
+        return []
+    return []
