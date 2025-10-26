@@ -1212,10 +1212,22 @@ Response:"""
         sentiment = "neutral"
         rating = ""
     
-    # Extract key phrases (simplified - just take first sentence or first 50 chars)
-    summary = review_text.split('.')[0][:80].lower()
-    if not summary.endswith('.'):
-        summary += "..."
+    # Extract key phrases (word-boundary-aware truncation)
+    if '.' in review_text:
+        summary = review_text.split('.', 1)[0].strip().lower()
+        if not summary.endswith('.'):
+            summary += "..."
+    else:
+        # Truncate to 80 chars at word boundary
+        truncated = review_text[:80]
+        if len(review_text) > 80:
+            # Avoid cutting off mid-word
+            last_space = truncated.rfind(' ')
+            if last_space > 0:
+                truncated = truncated[:last_space]
+            summary = truncated.strip().lower() + "..."
+        else:
+            summary = truncated.strip().lower()
     
     # Build response from template
     template = tone_templates.get(response_tone, tone_templates["professional"])[sentiment]
