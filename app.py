@@ -1384,16 +1384,50 @@ def dev_trends():
     industry = (request.args.get('industry') or 'general')
     cache_path = generator._trend_cache_path(industry)
     out = {'ok': True, 'industry': industry, 'cached': False, 'trends': [], 'cache_path': cache_path}
+    # support optional force refresh: calls the LLM path (dev-only) but rate-limited
+    force = coerce_bool(request.args.get('force'), False)
+    MIN_FORCE_INTERVAL = int(os.getenv('DEV_TRENDS_MIN_REFRESH_S', '300'))
     try:
-        if os.path.exists(cache_path):
-            out['cached'] = True
-            out['mtime'] = os.path.getmtime(cache_path)
-            try:
-                with open(cache_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    out['trends'] = data if isinstance(data, list) else []
-            except Exception:
-                out['trends'] = []
+        # if force requested, ensure dev mode and OpenAI is enabled
+        if force and (os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1' or dev_mode_active()):
+            if not USE_OPENAI:
+                out['error'] = 'OpenAI not configured on server';
+            else:
+                last_map = app.config.setdefault('__trend_last_force', {})
+                last_t = last_map.get(industry, 0)
+                now = time.time()
+                if now - last_t < MIN_FORCE_INTERVAL:
+                    out['error'] = f'Force refresh rate-limited (try again in {int(MIN_FORCE_INTERVAL - (now-last_t))}s)'
+                else:
+                    # perform forced fetch (ttl=0 to bypass cache)
+                    try:
+                        trends = generator.fetch_trend_context(industry, ttl_hours=0)
+                        last_map[industry] = now
+                        out['trends'] = trends or []
+                        out['cached'] = False
+                        # write mtime if cache exists
+                        try:
+                            if os.path.exists(cache_path):
+                                out['mtime'] = os.path.getmtime(cache_path)
+                        except Exception:
+                            pass
+                    except Exception as e:
+                        out['error'] = str(e)
+            return jsonify(out)
+
+        # default: read cache only
+        try:
+            if os.path.exists(cache_path):
+                out['cached'] = True
+                out['mtime'] = os.path.getmtime(cache_path)
+                try:
+                    with open(cache_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        out['trends'] = data if isinstance(data, list) else []
+                except Exception:
+                    out['trends'] = []
+        except Exception:
+            pass
     except Exception:
         pass
     return jsonify(out)
