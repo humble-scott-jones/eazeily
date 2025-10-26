@@ -47,6 +47,25 @@ Each industry includes:
 
 Industry configurations are located in `/static/content/config.json`.
 
+## Production Launch Checklist
+
+Togetherly includes a comprehensive production launch checklist with prioritized, actionable items and GitHub issue templates.
+
+📋 **[View the Launch Checklist](LAUNCH_CHECKLIST.md)**
+
+The checklist includes:
+- **17 must-have items** for safe production launch (security, monitoring, deployment, etc.)
+- **13 nice-to-have items** for post-launch enhancement
+- Ready-to-use GitHub issue templates for each item
+- Sprint planning guidance and burn-down strategy
+- Clear acceptance criteria and implementation tasks
+
+To create launch tracking issues:
+1. Go to **Issues → New Issue**
+2. Select the appropriate launch template
+3. Fill in any additional context
+4. Add to your project board
+
 ## Automated Feedback Processing
 
 Togetherly includes an automated system for processing user feedback into GitHub issues. When users submit feedback through the application, it can be automatically:
