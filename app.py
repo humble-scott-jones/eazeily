@@ -788,8 +788,8 @@ def api_admin_reset_user_password(user_id):
     try:
         db.execute('INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)', (reset_token, user_id, expires))
         db.commit()
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    except Exception:
+        return jsonify({'ok': False, 'error': 'Failed to create reset token'}), 500
     # In production, send email with reset link. For dev, return token.
     return jsonify({'ok': True, 'token': reset_token, 'email': user['email']})
 
@@ -813,7 +813,8 @@ def api_admin_update_user(user_id):
     params = []
     if 'email' in data:
         email = (data['email'] or '').strip().lower()
-        if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        # Simple email validation without complex regex to avoid ReDoS
+        if not email or '@' not in email or '.' not in email.split('@')[-1]:
             return jsonify({'ok': False, 'error': 'Invalid email'}), 400
         updates.append('email = ?')
         params.append(email)
@@ -829,8 +830,8 @@ def api_admin_update_user(user_id):
     try:
         db.execute(f"UPDATE users SET {', '.join(updates)} WHERE id = ?", params)
         db.commit()
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    except Exception:
+        return jsonify({'ok': False, 'error': 'Failed to update user'}), 500
     updated_user = db.execute('SELECT id, email, is_paid, is_admin, created_at FROM users WHERE id = ?', (user_id,)).fetchone()
     return jsonify({'ok': True, 'user': dict(updated_user)})
 
@@ -854,8 +855,8 @@ def api_admin_delete_user(user_id):
         db.execute('DELETE FROM password_reset_tokens WHERE user_id = ?', (user_id,))
         db.execute('DELETE FROM users WHERE id = ?', (user_id,))
         db.commit()
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    except Exception:
+        return jsonify({'ok': False, 'error': 'Failed to delete user'}), 500
     return jsonify({'ok': True})
 
 
