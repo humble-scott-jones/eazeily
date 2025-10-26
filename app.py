@@ -816,9 +816,6 @@ def api_admin_users():
             'subscription_status': sub['status'] if sub else None,
             'subscription_end': sub['current_period_end'] if sub else None,
             # Profile data will be aggregated from all profiles (simplified for now)
-            'industries': [],
-            'keywords': [],
-            'platforms': []
         }
         user_data.append(user_info)
     
