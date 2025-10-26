@@ -251,6 +251,22 @@ function showPaywallMessage(msg){ const el = document.getElementById('paywall-me
 function clearPaywallMessage(){ const el = document.getElementById('paywall-message'); if (el){ el.textContent=''; el.classList.add('hidden'); } }
 function showToast(msg){ const t = document.createElement('div'); t.className='fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.classList.add('opacity-0'), 2200); setTimeout(()=>t.remove(), 2800); }
 
+// Analytics helper: log events (can be configured for different services)
+function trackEvent(eventName, data){ 
+  // For now, just console.log in dev; replace with actual analytics service in production
+  if (typeof console !== 'undefined') console.log(eventName, data); 
+  // Future: window.gtag?.('event', eventName, data) or similar
+}
+
+// Helper to update UI after copying text
+function updateCopyUI(captionDisplay, text, button, platform) {
+  if (captionDisplay) captionDisplay.textContent = text;
+  const origText = button.textContent;
+  button.textContent = 'Copied!';
+  setTimeout(() => button.textContent = origText, 1200);
+  showToast(`${capitalize(platform)} content copied`);
+}
+
 function setButtonLoading(btn, loading){
   if (!btn) return; 
   if (loading){ btn.dataset.orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = btn.dataset.loadingText || 'Loading…'; }
@@ -731,16 +747,8 @@ function renderCard(post){
       const text = ev.currentTarget.getAttribute('data-platform-text');
       try {
         await navigator.clipboard.writeText(text);
-        // Update displayed content
-        if (captionDisplay) captionDisplay.textContent = text;
-        // Visual feedback
-        const origText = ev.currentTarget.textContent;
-        ev.currentTarget.textContent = 'Copied!';
-        setTimeout(() => ev.currentTarget.textContent = origText, 1200);
-        // Toast notification
-        showToast(`${capitalize(platform)} content copied`);
-        // Analytics event
-        console.log('content_copied', { platform, day: post.day_index, post_id: `${post.day_index}-${post.platform}` });
+        updateCopyUI(captionDisplay, text, ev.currentTarget, platform);
+        trackEvent('content_copied', { platform, day: post.day_index, post_id: `${post.day_index}-${post.platform}` });
       } catch(e) {
         console.error('Copy failed', e);
         // Fallback for older browsers
@@ -753,11 +761,7 @@ function renderCard(post){
           textarea.select();
           document.execCommand('copy');
           document.body.removeChild(textarea);
-          if (captionDisplay) captionDisplay.textContent = text;
-          const origText = ev.currentTarget.textContent;
-          ev.currentTarget.textContent = 'Copied!';
-          setTimeout(() => ev.currentTarget.textContent = origText, 1200);
-          showToast(`${capitalize(platform)} content copied`);
+          updateCopyUI(captionDisplay, text, ev.currentTarget, platform);
         } catch(fallbackErr) {
           console.error('Fallback copy failed', fallbackErr);
         }
