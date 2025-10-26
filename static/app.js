@@ -112,6 +112,8 @@ async function loadConfig(){
   renderIndustryChoices(CFG.industries || []);
   renderToneChoices(CFG.tones || []);
   renderPlatformChoices(CFG.platforms || []);
+  renderSelectedKeywords();
+  updateSuggestedChipsSelection();
   showStep(step);
   updateSummary();
 }
@@ -163,6 +165,7 @@ async function loadSavedProfile(){
       if (!answers.platforms.length) answers.platforms = ["instagram"];
     }
     if (p.industry) answers.industry = p.industry;
+    if (p.industry_key) answers.industry_key = p.industry_key;
     if (p.tone) answers.tone = p.tone;
     if (Array.isArray(p.goals) && p.goals.length) answers.goals = p.goals;
     if (p.details && typeof p.details === 'object') answers.details = p.details || {};
@@ -411,6 +414,53 @@ function normalizeBrandKeywords(list){
   return Array.from(new Set((list || []).map(k => (typeof k === 'string' ? k.trim() : '')).filter(Boolean)));
 }
 
+function getSuggestedKeywordsForCurrentIndustry(){
+  try{
+    const meta = (CFG?.industries || []).find(i => i.key === answers.industry_key) || {};
+    return (meta.suggested_keywords || []).slice(0, 8);
+  }catch(e){ return []; }
+}
+
+function updateSuggestedChipsSelection(){
+  try{
+    const set = new Set(normalizeBrandKeywords(answers.brand_keywords || []));
+    const wrap = document.getElementById('suggested-keywords');
+    if (!wrap) return;
+    wrap.querySelectorAll('.choice').forEach(chip => {
+      const text = chip.textContent || '';
+      if (set.has(text)) chip.classList.add('selected'); else chip.classList.remove('selected');
+    });
+  }catch(e){/* ignore */}
+}
+
+function renderSelectedKeywords(){
+  const wrap = document.getElementById('active-keywords');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const items = normalizeBrandKeywords(answers.brand_keywords || []);
+  if (!items.length){
+    const hint = document.createElement('div');
+    hint.className = 'text-xs text-slate-500';
+    hint.textContent = 'No keywords selected yet';
+    wrap.appendChild(hint);
+    return;
+  }
+  items.forEach(k => {
+    const chip = document.createElement('button');
+    chip.className = 'choice text-sm selected';
+    chip.title = 'Remove keyword';
+    chip.textContent = k;
+    chip.addEventListener('click', () => {
+      // remove from answers and update UIs
+      answers.brand_keywords = normalizeBrandKeywords((answers.brand_keywords || []).filter(x => x !== k));
+      renderSelectedKeywords();
+      updateSuggestedChipsSelection();
+      updateSummary();
+    });
+    wrap.appendChild(chip);
+  });
+}
+
 function renderIndustryChoices(list){
   const wrap = document.getElementById('industries');
   if (!wrap) return;
@@ -473,9 +523,12 @@ function renderIndustryChoices(list){
             chip.addEventListener('click', () => {
               toggleKeyword(k);
               chip.classList.toggle('selected');
+              renderSelectedKeywords();
             });
             chipWrap.appendChild(chip);
           });
+          // ensure the selected list reflects the new state
+          renderSelectedKeywords();
         } else {
           uiState.lastSuggestedKeywords = [];
           if (switching){
@@ -504,6 +557,8 @@ function toggleKeyword(k){
   if (idx === -1) current.push(k);
   else current.splice(idx, 1);
   answers.brand_keywords = normalizeBrandKeywords(current);
+  renderSelectedKeywords();
+  updateSuggestedChipsSelection();
   updateSummary();
 }
 
@@ -515,6 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (parts.length){
         answers.brand_keywords = normalizeBrandKeywords((answers.brand_keywords || []).concat(parts));
         extra.value = '';
+        renderSelectedKeywords();
+        updateSuggestedChipsSelection();
         updateSummary();
       }
     };

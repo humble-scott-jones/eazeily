@@ -51,6 +51,23 @@ def test_make_reel_plan_structure():
     assert beats[0]['line'] in srt
 
 
+def test_make_reel_plan_resolves_display_label_industry_key():
+    plan = generator.make_reel_plan(
+        industry='Realtor / Real Estate',
+        pillar_name='Story',
+        brand_keywords=['listings'],
+        tone='friendly',
+        company='TestCo',
+        reel_style='Property b-roll + captions',
+        goals=['New listings'],
+        niche_keywords=['condo'],
+        length_seconds=30,
+        production_tier='solo'
+    )
+
+    assert plan['cta'] == 'Schedule a showing or DM for details.'
+    assert any('exterior' in shot['shot_type'].lower() for shot in plan['shot_list'])
+
 if __name__ == '__main__':
     # allow running directly
     test_make_reel_plan_structure()
