@@ -153,6 +153,10 @@ def init_db():
             user_id TEXT,
             period TEXT,
             reels_generated INTEGER DEFAULT 0,
+        CREATE TABLE IF NOT EXISTS waitlist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            confirmed INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -221,7 +225,13 @@ def ensure_db():
     init_db()
 
 @app.get("/")
+def landing():
+    """Landing page with marketing content, pricing, and waitlist signup."""
+    return render_template("landing.html")
+
+@app.get("/app")
 def index():
+    """Main application page for authenticated users."""
     is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
     return render_template("index.html", is_dev=is_dev)
 
@@ -1540,6 +1550,29 @@ def api_confirm_password_reset():
         return jsonify({'ok': False, 'error': 'Could not reset password'}), 500
     return jsonify({'ok': True})
 
+
+@app.post('/api/waitlist')
+def api_waitlist():
+    """Add email to waitlist for landing page signups."""
+    data = request.get_json(force=True)
+    email = (data.get('email') or '').strip().lower()
+    
+    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
+    
+    db = get_db()
+    try:
+        db.execute('INSERT INTO waitlist (email) VALUES (?)', (email,))
+        db.commit()
+        
+        # In production, send confirmation email here
+        # For now, just return success
+        return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
+    except Exception as e:
+        # Email already exists or other error
+        if 'UNIQUE constraint' in str(e):
+            return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
+        return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
 
 
 @app.post("/api/profile")

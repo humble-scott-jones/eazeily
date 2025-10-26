@@ -1,4 +1,5 @@
 /.venv/
+test_venv/
 togetherly.db
 *.pyc
 __pycache__/
@@ -15,3 +16,5 @@ cookies.txt
 .dev_server.pid
 tmp/
 tmp/test-outputs/
+# Feedback automation audit logs (committed separately by automation)
+.github/audit-logs/*.json
