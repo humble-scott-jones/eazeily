@@ -12,7 +12,15 @@ BASE = f'http://127.0.0.1:{PORT}'
 
 def start_server():
     py = './.venv/bin/python' if (ROOT / '.venv' / 'bin' / 'python').exists() else 'python3'
-    p = subprocess.Popen([py, 'app.py'], cwd=str(ROOT), env=os.environ.copy())
+    env = os.environ.copy()
+    env.setdefault('ALLOW_DEV_DEBUG', '1')
+    env.setdefault('FLASK_ENV', 'development')
+    try:
+        requests.post(f'{BASE}/__dev__/shutdown', timeout=1)
+        time.sleep(0.5)
+    except Exception:
+        pass
+    p = subprocess.Popen([py, 'app.py'], cwd=str(ROOT), env=env)
     for _ in range(30):
         try:
             r = requests.get(f'{BASE}/__dev__/ping', timeout=1)
