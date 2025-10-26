@@ -788,7 +788,7 @@ def api_admin_reset_user_password(user_id):
     try:
         db.execute('INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)', (reset_token, user_id, expires))
         db.commit()
-    except Exception:
+    except sqlite3.Error:
         return jsonify({'ok': False, 'error': 'Failed to create reset token'}), 500
     # In production, send email with reset link. For dev, return token.
     return jsonify({'ok': True, 'token': reset_token, 'email': user['email']})
