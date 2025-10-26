@@ -143,7 +143,6 @@ def test_secret_not_logged():
     # Capture logs
     log_capture = StringIO()
     handler = logging.StreamHandler(log_capture)
-    handler.setLevel(logging.INFO)
     
     logger = logging.getLogger('secrets_util')
     logger.addHandler(handler)

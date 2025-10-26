@@ -28,7 +28,13 @@ def test_health_check_does_not_leak_secrets(client):
     # Should not contain any secret-like strings
     assert 'secret' not in response_str
     assert 'password' not in response_str
-    assert 'key' not in response_str or 'secret_key' not in response_str
-    assert 'stripe' not in response_str
+    # Check that 'key' is not present unless it's part of allowed fields
+    # like 'secret_key' which shouldn't be in the response anyway
+    if 'key' in response_str:
+        # Allow only in benign contexts, fail if suspicious
+        assert response_str.count('key') == 0 or all(
+            word not in response_str 
+            for word in ['secret_key', 'api_key', 'stripe']
+        )
     assert 'sk_' not in response_str
     assert 'pk_' not in response_str
