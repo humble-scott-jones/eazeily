@@ -201,13 +201,48 @@
                   <td>${isPaid}</td>
                   <td>${isAdmin}</td>
                   <td>
-                    <button class="action-btn warning-btn" onclick="editUser('${user.id}', '${escapeHtml(user.email)}', ${user.is_paid}, ${user.is_admin})">Edit</button>
-                    <button class="action-btn primary-btn" onclick="resetPassword('${user.id}')">Reset Password</button>
-                    <button class="action-btn danger-btn" onclick="deleteUser('${user.id}', '${escapeHtml(user.email)}')">Delete</button>
+                    <button class="action-btn warning-btn"
+                      data-action="edit"
+                      data-user-id="${escapeHtml(user.id)}"
+                      data-user-email="${escapeHtml(user.email)}"
+                      data-user-is-paid="${user.is_paid}"
+                      data-user-is-admin="${user.is_admin}">Edit</button>
+                    <button class="action-btn primary-btn"
+                      data-action="reset"
+                      data-user-id="${escapeHtml(user.id)}">Reset Password</button>
+                    <button class="action-btn danger-btn"
+                      data-action="delete"
+                      data-user-id="${escapeHtml(user.id)}"
+                      data-user-email="${escapeHtml(user.email)}">Delete</button>
                   </td>
                 </tr>
               `;
             }).join('');
+
+            // Attach event listeners after rendering
+            tbody.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+              btn.addEventListener('click', function() {
+                editUser(
+                  btn.getAttribute('data-user-id'),
+                  btn.getAttribute('data-user-email'),
+                  btn.getAttribute('data-user-is-paid') === "true",
+                  btn.getAttribute('data-user-is-admin') === "true"
+                );
+              });
+            });
+            tbody.querySelectorAll('button[data-action="reset"]').forEach(btn => {
+              btn.addEventListener('click', function() {
+                resetPassword(btn.getAttribute('data-user-id'));
+              });
+            });
+            tbody.querySelectorAll('button[data-action="delete"]').forEach(btn => {
+              btn.addEventListener('click', function() {
+                deleteUser(
+                  btn.getAttribute('data-user-id'),
+                  btn.getAttribute('data-user-email')
+                );
+              });
+            });
           }
 
           function escapeHtml(text) {
