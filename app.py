@@ -233,8 +233,12 @@ def health_check():
     # Check database connectivity
     try:
         db = get_db()
-        db.execute('SELECT 1').fetchone()
-        health_status['checks']['database'] = 'connected'
+        result = db.execute('SELECT 1').fetchone()
+        if result is not None:
+            health_status['checks']['database'] = 'connected'
+        else:
+            health_status['checks']['database'] = 'disconnected'
+            health_status['status'] = 'unhealthy'
     except Exception as e:
         health_status['checks']['database'] = 'disconnected'
         health_status['status'] = 'unhealthy'
