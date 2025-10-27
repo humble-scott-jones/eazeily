@@ -1,0 +1,20 @@
+# Feedback Automation Configuration
+
+# Set to true to require manual review before issues are added to general triage
+# When true, issues will be labeled with "needs-review"
+require_review: false
+
+# Labels to apply to automatically created issues
+labels:
+  - feedback
+  - triage
+  - enhancement
+
+# Default assignee for feedback issues (use "copilot" for GitHub Copilot)
+default_assignee: copilot
+
+# Rate limiting settings (optional - for future implementation)
+rate_limit:
+  enabled: false
+  max_per_hour: 10
+  max_per_day: 50

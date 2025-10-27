@@ -1840,6 +1840,29 @@ def api_confirm_password_reset():
     return jsonify({'ok': True})
 
 
+@app.post('/api/waitlist')
+def api_waitlist():
+    """Add email to waitlist for landing page signups."""
+    data = request.get_json(force=True)
+    email = (data.get('email') or '').strip().lower()
+    
+    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
+    
+    db = get_db()
+    try:
+        db.execute('INSERT INTO waitlist (email) VALUES (?)', (email,))
+        db.commit()
+        
+        # In production, send confirmation email here
+        # For now, just return success
+        return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
+    except Exception as e:
+        # Email already exists or other error
+        if 'UNIQUE constraint' in str(e):
+            return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
+        return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
+
 
 @app.post('/api/waitlist')
 def api_waitlist():

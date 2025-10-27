@@ -15,7 +15,7 @@
         <h1 class="text-xl font-semibold tracking-tight">Togetherly</h1>
       </div>
       <div class="flex items-center gap-4">
-        <a class="text-sm text-brand hover:underline" href="/">Home</a>
+        <a class="text-sm text-brand hover:underline" href="/app">Go to App</a>
         {% if is_admin %}
           <a class="text-sm text-red-600 hover:underline" href="/admin">Admin</a>
         {% endif %}
@@ -28,7 +28,7 @@
       <h2 class="text-lg font-semibold">Account</h2>
       <div class="mt-4">
         {% if not user %}
-          <p class="text-sm text-slate-600">You are not signed in. <a href="/" class="text-brand">Sign in</a> to manage your subscription.</p>
+          <p class="text-sm text-slate-600">You are not signed in. <a href="/" class="text-brand">Go to home page</a> to get started.</p>
         {% else %}
           <div class="grid grid-cols-2 gap-4">
             <div>

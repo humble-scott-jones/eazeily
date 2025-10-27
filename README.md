@@ -212,5 +212,59 @@ Tips to keep tests actionable:
 - Capture CI-style artifacts: `.venv/bin/python -m pytest -q --maxfail=1 --junitxml=pytest-report.xml 2>&1 | tee pytest.log`
 - Helpful flags: append `--durations=10` to find slowest tests or use `-k` for targeted subsets.
 
+Industry configurations are located in `/static/content/config.json`.
+
+## Production Launch Checklist
+
+Togetherly includes a comprehensive production launch checklist with prioritized, actionable items and GitHub issue templates.
+
+📋 **[View the Launch Checklist](LAUNCH_CHECKLIST.md)**
+
+The checklist includes:
+- **17 must-have items** for safe production launch (security, monitoring, deployment, etc.)
+- **13 nice-to-have items** for post-launch enhancement
+- Ready-to-use GitHub issue templates for each item
+- Sprint planning guidance and burn-down strategy
+- Clear acceptance criteria and implementation tasks
+
+To create launch tracking issues:
+1. Go to **Issues → New Issue**
+2. Select the appropriate launch template
+3. Fill in any additional context
+4. Add to your project board
+
+## Automated Feedback Processing
+
+Togetherly includes an automated system for processing user feedback into GitHub issues. When users submit feedback through the application, it can be automatically:
+- Formatted into clear, structured GitHub issues using AI
+- Tagged with appropriate labels
+- Assigned to the team
+- Logged for audit purposes
+
+See [.github/README.md](.github/README.md) for complete documentation on the feedback automation system.
+
+### Quick Start
+
+To send feedback programmatically:
+
+```python
+import requests
+from datetime import datetime
+
+url = "https://api.github.com/repos/humble-scott-jones/togetherly/dispatches"
+payload = {
+    "event_type": "user_feedback",
+    "client_payload": {
+        "feedback": "User feedback text here...",
+        "user_email": "user@example.com",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+}
+headers = {
+    "Authorization": f"token {GITHUB_TOKEN}",
+    "Accept": "application/vnd.github.v3+json"
+}
+requests.post(url, json=payload, headers=headers)
+```
 New coverage:
 - `tests/test_api_generate_payload.py` validates that `/api/generate` forwards tone, platforms, goals, and both keyword sets to the underlying generator.
