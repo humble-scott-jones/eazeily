@@ -1,9 +1,13 @@
+import os
 import subprocess
 import json
 import pathlib
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TMP = ROOT / 'tmp'
+
+pytestmark = pytest.mark.skipif(os.getenv('RUN_UI_SMOKE') != '1', reason='UI smoke script disabled (set RUN_UI_SMOKE=1)')
 
 
 def test_e2e_script_runs_and_generates():
