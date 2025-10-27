@@ -29,7 +29,10 @@ if USE_OPENAI:
         USE_OPENAI = False
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
+_secret = os.getenv("SECRET_KEY")
+if not _secret:
+    _secret = "dev-secret-change-me"
+app.secret_key = _secret
 CORS(app)
 
 # Allow tests or dev runs to override the DB path via environment (e.g. TEST_DB_PATH)
@@ -388,7 +391,6 @@ def api_cancel_subscription():
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
-
 
 @app.post('/api/generate-review-response')
 def api_generate_review_response():
@@ -1358,8 +1360,6 @@ def api_create_subscription():
     payment_method = data.get('payment_method')
     if not price_id:
         return jsonify({'ok': False, 'error': 'price_id required'}), 400
-    if not payment_method:
-        return jsonify({'ok': False, 'error': 'payment_method required'}), 400
 
     stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
     db = get_db()
@@ -1383,17 +1383,18 @@ def api_create_subscription():
             except Exception:
                 pass
 
-        # attach payment method to customer
-        try:
-            stripe.PaymentMethod.attach(payment_method, customer=customer_id)
-        except Exception:
-            # ignore if already attached or other recoverable error
-            pass
-        # set as default payment method for invoices
-        try:
-            stripe.Customer.modify(customer_id, invoice_settings={'default_payment_method': payment_method})
-        except Exception:
-            pass
+        # attach payment method to customer if provided
+        if payment_method:
+            try:
+                stripe.PaymentMethod.attach(payment_method, customer=customer_id)
+            except Exception:
+                # ignore if already attached or other recoverable error
+                pass
+            # set as default payment method for invoices
+            try:
+                stripe.Customer.modify(customer_id, invoice_settings={'default_payment_method': payment_method})
+            except Exception:
+                pass
 
         # create subscription in incomplete state so we can handle SCA if needed
         sub = stripe.Subscription.create(
@@ -1819,8 +1820,7 @@ def api_waitlist():
         if 'UNIQUE constraint' in str(e):
             return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
         return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
-
-
+ 
 @app.post("/api/profile")
 def save_profile():
     data = request.get_json(force=True)
