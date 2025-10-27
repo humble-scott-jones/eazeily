@@ -96,16 +96,42 @@ jobs:
                   f.write('labels=feedback,triage,needs-review\n')
           PYEOF
       
+      - name: Determine assignee
+        id: assignee
+        run: |
+          python3 << 'PYEOF'
+          import yaml
+          import os
+          try:
+              with open('.github/feedback-config.yml', 'r') as f:
+                  config = yaml.safe_load(f)
+              assignee = config.get('default_assignee', '')
+              # Validate: only set if non-empty
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+                  out.write(f"assignee={assignee}\n")
+          except Exception as e:
+              # No assignee set
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+                  out.write("assignee=\n")
+          PYEOF
+      
       - name: Create GitHub issue
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Create issue with formatted content
-          gh issue create \
-            --title "${{ steps.load-feedback.outputs.title }}" \
-            --body "${{ steps.load-feedback.outputs.body }}" \
-            --label "${{ steps.labels.outputs.labels }}" \
-            --assignee "copilot"
+          if [ -n "${{ steps.assignee.outputs.assignee }}" ]; then
+            gh issue create \
+              --title "${{ steps.load-feedback.outputs.title }}" \
+              --body "${{ steps.load-feedback.outputs.body }}" \
+              --label "${{ steps.labels.outputs.labels }}" \
+              --assignee "${{ steps.assignee.outputs.assignee }}"
+          else
+            gh issue create \
+              --title "${{ steps.load-feedback.outputs.title }}" \
+              --body "${{ steps.load-feedback.outputs.body }}" \
+              --label "${{ steps.labels.outputs.labels }}"
+          fi
       
       - name: Commit audit log
         if: success()
