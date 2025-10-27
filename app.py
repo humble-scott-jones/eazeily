@@ -2,7 +2,7 @@ import os, sqlite3, uuid, json, re
 from datetime import date
 from datetime import datetime, timezone
 from datetime import timedelta
-from flask import Flask, request, jsonify, render_template, g, session, redirect
+from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context
 import threading
 import time
 from flask_cors import CORS
@@ -983,37 +983,41 @@ def is_admin():
 
 ### DB helpers
 def get_user_by_email(email: str):
-    # Helper used in tests; allow calling outside an application context by
-    # opening a direct sqlite connection if needed.
+    # Helper used in tests; prefer using the app context DB when available.
+    # If not in an application context, open a direct sqlite connection to DB_PATH
     try:
-        db = get_db()
-        return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
-    except RuntimeError:
-        # Working outside app context: open a temporary connection directly to DB_PATH
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            cur = conn.execute('SELECT * FROM users WHERE email = ?', (email.lower(),))
-            row = cur.fetchone()
-            conn.close()
-            return row
-        except Exception:
-            return None
+        if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
+    except Exception:
+        # fall through to file-based DB lookup
+        pass
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute('SELECT * FROM users WHERE email = ?', (email.lower(),))
+        row = cur.fetchone()
+        conn.close()
+        return row
+    except Exception:
+        return None
 
 def get_user_by_id(uid: str):
     try:
-        db = get_db()
-        return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
-    except RuntimeError:
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            cur = conn.execute('SELECT * FROM users WHERE id = ?', (uid,))
-            row = cur.fetchone()
-            conn.close()
-            return row
-        except Exception:
-            return None
+        if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+    except Exception:
+        pass
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute('SELECT * FROM users WHERE id = ?', (uid,))
+        row = cur.fetchone()
+        conn.close()
+        return row
+    except Exception:
+        return None
 
 
 def row_to_mapping(x):
