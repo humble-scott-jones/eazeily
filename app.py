@@ -2,7 +2,7 @@ import os, sqlite3, uuid, json, re
 from datetime import date
 from datetime import datetime, timezone
 from datetime import timedelta
-from flask import Flask, request, jsonify, render_template, g, session, redirect
+from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context
 import threading
 import time
 from flask_cors import CORS
@@ -29,7 +29,10 @@ if USE_OPENAI:
         USE_OPENAI = False
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
+_secret = os.getenv("SECRET_KEY")
+if not _secret:
+    _secret = "dev-secret-change-me"
+app.secret_key = _secret
 CORS(app)
 
 # Allow tests or dev runs to override the DB path via environment (e.g. TEST_DB_PATH)
@@ -388,7 +391,6 @@ def api_cancel_subscription():
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
-
 
 @app.post('/api/generate-review-response')
 def api_generate_review_response():
@@ -981,37 +983,41 @@ def is_admin():
 
 ### DB helpers
 def get_user_by_email(email: str):
-    # Helper used in tests; allow calling outside an application context by
-    # opening a direct sqlite connection if needed.
+    # Helper used in tests; prefer using the app context DB when available.
+    # If not in an application context, open a direct sqlite connection to DB_PATH
     try:
-        db = get_db()
-        return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
-    except RuntimeError:
-        # Working outside app context: open a temporary connection directly to DB_PATH
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            cur = conn.execute('SELECT * FROM users WHERE email = ?', (email.lower(),))
-            row = cur.fetchone()
-            conn.close()
-            return row
-        except Exception:
-            return None
+        if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
+    except Exception:
+        # fall through to file-based DB lookup
+        pass
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute('SELECT * FROM users WHERE email = ?', (email.lower(),))
+        row = cur.fetchone()
+        conn.close()
+        return row
+    except Exception:
+        return None
 
 def get_user_by_id(uid: str):
     try:
-        db = get_db()
-        return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
-    except RuntimeError:
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            cur = conn.execute('SELECT * FROM users WHERE id = ?', (uid,))
-            row = cur.fetchone()
-            conn.close()
-            return row
-        except Exception:
-            return None
+        if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+    except Exception:
+        pass
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute('SELECT * FROM users WHERE id = ?', (uid,))
+        row = cur.fetchone()
+        conn.close()
+        return row
+    except Exception:
+        return None
 
 
 def row_to_mapping(x):
@@ -1358,8 +1364,6 @@ def api_create_subscription():
     payment_method = data.get('payment_method')
     if not price_id:
         return jsonify({'ok': False, 'error': 'price_id required'}), 400
-    if not payment_method:
-        return jsonify({'ok': False, 'error': 'payment_method required'}), 400
 
     stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
     db = get_db()
@@ -1383,17 +1387,18 @@ def api_create_subscription():
             except Exception:
                 pass
 
-        # attach payment method to customer
-        try:
-            stripe.PaymentMethod.attach(payment_method, customer=customer_id)
-        except Exception:
-            # ignore if already attached or other recoverable error
-            pass
-        # set as default payment method for invoices
-        try:
-            stripe.Customer.modify(customer_id, invoice_settings={'default_payment_method': payment_method})
-        except Exception:
-            pass
+        # attach payment method to customer if provided
+        if payment_method:
+            try:
+                stripe.PaymentMethod.attach(payment_method, customer=customer_id)
+            except Exception:
+                # ignore if already attached or other recoverable error
+                pass
+            # set as default payment method for invoices
+            try:
+                stripe.Customer.modify(customer_id, invoice_settings={'default_payment_method': payment_method})
+            except Exception:
+                pass
 
         # create subscription in incomplete state so we can handle SCA if needed
         sub = stripe.Subscription.create(
@@ -1819,8 +1824,7 @@ def api_waitlist():
         if 'UNIQUE constraint' in str(e):
             return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
         return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
-
-
+ 
 @app.post("/api/profile")
 def save_profile():
     data = request.get_json(force=True)

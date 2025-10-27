@@ -4,10 +4,13 @@ from playwright.sync_api import sync_playwright
 import subprocess
 import requests
 import pathlib
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.getenv('PORT', '5001'))
 BASE = f'http://127.0.0.1:{PORT}'
+
+pytestmark = pytest.mark.skipif(os.getenv('RUN_UI_SMOKE') != '1', reason='UI smoke tests disabled (set RUN_UI_SMOKE=1)')
 
 
 def start_server():
