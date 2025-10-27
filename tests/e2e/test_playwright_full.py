@@ -89,7 +89,7 @@ def test_playwright_full_flow():
 
                 # Call API generate and expect 401/403 for unpaid user
                 gen_r = s.post(f'{BASE}/api/generate', json={'platforms': ['short_video'], 'days': 1}, timeout=10)
-                assert gen_r.status_code in (401, 403)
+                assert gen_r.status_code == 403
 
                 # Simulate checkout.webhook to mark user paid
                 payload = {
