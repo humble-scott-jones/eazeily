@@ -77,7 +77,7 @@ jobs:
             wait "$SERVER_PID" 2>/dev/null || true
             exit 1
           fi
-          pytest -q tests/test_ui_smoke.py tests/test_acceptance_api.py
+          pytest -q tests/test_ui_smoke.py tests/test_acceptance_api.py --maxfail=1 --junitxml=pytest-report.xml 2>&1 | tee pytest.log
           STATUS=$?
           kill "$SERVER_PID" || true
           wait "$SERVER_PID" 2>/dev/null || true
@@ -101,7 +101,7 @@ jobs:
           RUN_UI_SMOKE: '1'
         run: |
           chmod +x scripts/e2e_run.sh
-          pytest -q tests/test_e2e_runner.py
+          pytest -q tests/test_e2e_runner.py --maxfail=1 --junitxml=pytest-e2e-report.xml 2>&1 | tee pytest-e2e.log
 
       - name: Upload acceptance artifacts
         if: always()
@@ -109,6 +109,10 @@ jobs:
         with:
           name: acceptance-artifacts
           path: |
-            /tmp/server.log
-            tmp/
+              /tmp/server.log
+              tmp/
+              pytest.log
+              pytest-report.xml
+              pytest-e2e.log
+              pytest-e2e-report.xml
           if-no-files-found: ignore

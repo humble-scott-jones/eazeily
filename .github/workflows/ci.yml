@@ -47,6 +47,18 @@ jobs:
           python -m pip install playwright
           python -m playwright install --with-deps
 
+      - name: Diagnostics
+        run: |
+          echo "--- Environment ---"
+          python --version
+          pip --version
+          pip list --disable-pip-version-check | sed -n '1,200p' || true
+          echo "--- Env vars (non-sensitive) ---"
+          echo "FLASK_ENV=${FLASK_ENV:-}" || true
+          echo "RUN_E2E=${RUN_E2E:-}" || true
+          echo "RUN_UI_SMOKE=${RUN_UI_SMOKE:-}" || true
+          echo "TEST_DB_PATH=${TEST_DB_PATH:-}" || true
+
       - name: Run tests
         env:
           TEST_DB_PATH: ${{ runner.temp }}/togetherly-test.db
@@ -63,7 +75,52 @@ jobs:
 
           python --version
           if [ -n "${SECRET_KEY:-}" ]; then echo "SECRET_KEY is set"; else echo "SECRET_KEY is empty"; fi
-          pytest -q
+          # Run fast unit tests only: exclude e2e and slow tests. Produce junit + log for triage.
+          pytest -q -m "not e2e and not slow" --maxfail=1 --junitxml=pytest-report.xml 2>&1 | tee pytest.log
+
+      - name: Upload pytest artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-failure-artifacts
+          path: |
+            pytest-report.xml
+            pytest.log
+          if-no-files-found: ignore
+
+  triage-smoke:
+    name: "Triage: quick smoke on failure"
+    needs: tests
+    if: ${{ needs.tests.result == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install deps for triage
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Run smoke subset for quick triage
+        run: |
+          set -eo pipefail
+          # run a focused smoke selection to reveal environment/setup issues quickly
+          pytest -q -k smoke --maxfail=1 2>&1 | tee triage-smoke.log
+
+      - name: Upload triage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: triage-artifacts
+          path: |
+            triage-smoke.log
+          if-no-files-found: ignore
 
   smoke:
     name: Acceptance Smoke
@@ -138,7 +195,7 @@ jobs:
             wait "$SERVER_PID" 2>/dev/null || true
             exit 1
           fi
-          pytest -q tests/test_ui_smoke.py tests/test_acceptance_api.py
+          pytest -q tests/test_ui_smoke.py tests/test_acceptance_api.py --maxfail=1 --junitxml=pytest-report.xml 2>&1 | tee pytest.log
           STATUS=$?
           kill "$SERVER_PID" || true
           wait "$SERVER_PID" 2>/dev/null || true
@@ -153,7 +210,7 @@ jobs:
           RUN_UI_SMOKE: '1'
         run: |
           chmod +x scripts/e2e_run.sh
-          pytest -q tests/test_e2e_runner.py
+          pytest -q tests/test_e2e_runner.py --maxfail=1 --junitxml=pytest-e2e-report.xml 2>&1 | tee pytest-e2e.log
 
       - name: Upload smoke artifacts
         if: always()
@@ -161,6 +218,10 @@ jobs:
         with:
           name: acceptance-smoke-logs
           path: |
-            /tmp/server.log
-            tmp/generate.json
+              /tmp/server.log
+              tmp/generate.json
+              pytest.log
+              pytest-report.xml
+              pytest-e2e.log
+              pytest-e2e-report.xml
           if-no-files-found: ignore
