@@ -1,73 +1,12 @@
-name: CI
+name: Acceptance
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * *'
 
 jobs:
-  tests:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.10', '3.11']
-    env:
-      FLASK_ENV: development
-      RUN_E2E: '0'
-      RUN_UI_SMOKE: '0'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-      - name: Install Playwright (optional)
-        if: env.RUN_E2E == '1'
-        run: |
-          python -m pip install playwright
-          python -m playwright install --with-deps
-
-      - name: Run tests
-        env:
-          TEST_DB_PATH: ${{ runner.temp }}/togetherly-test.db
-          HEADLESS: '1'
-        run: |
-          set -eo pipefail
-          export SECRET_KEY="${SECRET_KEY:-ci-default-secret}"
-          export STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY:-sk_test_dummy}"
-          export STRIPE_PUBLISHABLE_KEY="${STRIPE_PUBLISHABLE_KEY:-pk_test_dummy}"
-          export STRIPE_PRICE_ID="${STRIPE_PRICE_ID:-price_test_dummy}"
-          export STRIPE_TEST_PRICE_ID="${STRIPE_TEST_PRICE_ID:-price_test_dummy}"
-          export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-whsec_test_dummy}"
-          export ADMIN_EMAILS="${ADMIN_EMAILS:-admin@example.com}"
-
-          python --version
-          if [ -n "${SECRET_KEY:-}" ]; then echo "SECRET_KEY is set"; else echo "SECRET_KEY is empty"; fi
-          pytest -q
-
-  smoke:
-    name: Acceptance Smoke
-    needs: tests
+  acceptance:
     runs-on: ubuntu-latest
     env:
       FLASK_ENV: development
@@ -112,7 +51,7 @@ jobs:
           TEST_DB_PATH=${RUNNER_TEMP}/togetherly-acceptance.db
           EOF
 
-      - name: Run API smoke acceptance tests
+      - name: Run acceptance API and UI smoke tests
         env:
           RUN_UI_SMOKE: '1'
           TEST_BASE_URL: http://127.0.0.1:5001
@@ -148,6 +87,15 @@ jobs:
           fi
           exit "$STATUS"
 
+      - name: Run integration acceptance suite
+        run: |
+          set -eo pipefail
+          set -a
+          . ./.env
+          set +a
+          export TEST_DB_PATH="${RUNNER_TEMP}/acceptance-suite.db"
+          pytest -q tests/test_end_to_end.py tests/test_generate_gate.py tests/test_generate_gating.py tests/test_signup_subscribe.py tests/test_cancel_subscription.py
+
       - name: Run e2e smoke script via pytest
         env:
           RUN_UI_SMOKE: '1'
@@ -155,12 +103,12 @@ jobs:
           chmod +x scripts/e2e_run.sh
           pytest -q tests/test_e2e_runner.py
 
-      - name: Upload smoke artifacts
+      - name: Upload acceptance artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: acceptance-smoke-logs
+          name: acceptance-artifacts
           path: |
             /tmp/server.log
-            tmp/generate.json
+            tmp/
           if-no-files-found: ignore
