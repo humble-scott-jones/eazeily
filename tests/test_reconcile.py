@@ -2,7 +2,6 @@ import json
 
 
 def test_reconcile_subscriptions_updates_db(client, monkeypatch):
-    monkeypatch.delenv('ADMIN_EMAILS', raising=False)
     # create two users and subscription rows
     client.post('/api/signup', json={'email': 'r1@example.com', 'password': 'pw12345'})
     r = client.post('/api/login', json={'email': 'r1@example.com', 'password': 'pw12345'})
@@ -48,7 +47,6 @@ def test_reconcile_subscriptions_updates_db(client, monkeypatch):
 
 
 def test_reconcile_requires_stripe_configured(client, monkeypatch):
-    monkeypatch.delenv('ADMIN_EMAILS', raising=False)
     # ensure endpoint returns 501 when stripe not configured
     # ensure stripe is None in app
     monkeypatch.setattr('app.stripe', None, raising=False)

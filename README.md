@@ -1,37 +1,26 @@
 # Togetherly (dev)
+Run dev server:
+```bash
+source .venv/bin/activate
+PORT=5001 python3 app.py
+```
+Run tests:
+```bash
+source .venv/bin/activate
+PYTHONPATH=. pytest -q
+# or run the helper script
+./run_tests.sh
+```
+Run UI smoke tests (requires server running on port 5001). These are gated so they don't run by default during local development. Set the env var RUN_UI_SMOKE=1 to enable them.
+```bash
+# run unit tests only
+PYTHONPATH=. pytest -q
+
+# run UI smoke tests
+RUN_UI_SMOKE=1 PYTHONPATH=. pytest -q
+# Togetherly — development guide
 
 This document explains how to set up and run Togetherly locally, run tests (including reproducing CI artifact collection), install optional Playwright tooling, and troubleshoot common issues.
-
-## Quickstart
-
-If you just want to boot the dev server and click through the UI, follow these macOS/zsh-friendly steps:
-
-1. Create and activate the virtual environment (only required once per clone):
-
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   .venv/bin/python -m pip install --upgrade pip
-   .venv/bin/python -m pip install -r requirements.txt
-   ```
-
-2. Start the server in the background (writes stdout/stderr to `.dev_server.log` and PID to `.dev_server.pid`):
-
-   ```bash
-   lsof -ti :5001 | xargs -r kill -9 || true
-   PORT=5001 FLASK_ENV=development ALLOW_DEV_DEBUG=1 ./.venv/bin/python app.py > .dev_server.log 2>&1 & echo $! > .dev_server.pid
-   tail -n +1 .dev_server.log | sed -n '1,120p'
-   cat .dev_server.pid
-   ```
-
-3. Sanity-check the dev ping endpoint:
-
-   ```bash
-   curl -i http://127.0.0.1:5001/__dev__/ping
-   # expected: HTTP/1.1 200 OK and body 'pong'
-   ```
-
-Once you are done, stop the server with `kill "$(cat .dev_server.pid)"`.
 
 ## Prerequisites (macOS)
 
