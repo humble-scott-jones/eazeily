@@ -1,7 +1,8 @@
 import os, sqlite3, uuid, json, re
 from datetime import date
 from datetime import datetime, timezone
-from flask import Flask, request, jsonify, render_template, g, session
+from datetime import timedelta
+from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context
 import threading
 import time
 from flask_cors import CORS
@@ -28,7 +29,10 @@ if USE_OPENAI:
         USE_OPENAI = False
 
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
+_secret = os.getenv("SECRET_KEY")
+if not _secret:
+    _secret = "dev-secret-change-me"
+app.secret_key = _secret
 CORS(app)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "togetherly.db")
@@ -170,6 +174,45 @@ def init_db():
 def ensure_db():
     init_db()
 
+@app.get("/health")
+def health_check():
+    """Health check endpoint for monitoring and load balancers"""
+    health_status = {
+        'status': 'healthy',
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': {}
+    }
+    
+    # Check database connectivity
+    try:
+        db = get_db()
+        result = db.execute('SELECT 1').fetchone()
+        if result is not None:
+            health_status['checks']['database'] = 'connected'
+        else:
+            health_status['checks']['database'] = 'disconnected'
+            health_status['status'] = 'unhealthy'
+    except Exception as e:
+        health_status['checks']['database'] = 'disconnected'
+        health_status['status'] = 'unhealthy'
+    
+    # Check Stripe availability (if configured)
+    if os.getenv('STRIPE_SECRET_KEY') and stripe:
+        health_status['checks']['stripe'] = 'configured'
+    else:
+        health_status['checks']['stripe'] = 'not_configured'
+    
+    # Check OpenAI availability (if configured)
+    if USE_OPENAI:
+        health_status['checks']['openai'] = 'configured'
+    else:
+        health_status['checks']['openai'] = 'not_configured'
+    
+    status_code = 200 if health_status['status'] == 'healthy' else 503
+    return jsonify(health_status), status_code
+
+
 @app.get("/")
 def index():
     is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
@@ -309,6 +352,151 @@ def api_cancel_subscription():
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
+@app.post('/api/generate-review-response')
+def api_generate_review_response():
+    """Generate a professional response to a customer review or rating."""
+    payload = request.get_json(force=True)
+    review_text = (payload.get('review_text') or '').strip()
+    response_tone = (payload.get('tone') or 'professional').strip().lower()
+    company_name = (payload.get('company_name') or '').strip()
+
+    if not review_text:
+        return jsonify({'ok': False, 'error': 'Review text is required'}), 400
+
+    tone_templates = {
+        'professional': {
+            'positive': 'Thank you for your {rating} review{company}. We\'re pleased to hear that {summary}. We appreciate your business and look forward to serving you again.',
+            'negative': 'Thank you for your feedback{company}. We apologize that {summary}. We take all feedback seriously and will use this to improve our service. Please contact us directly so we can make this right.',
+            'neutral': 'Thank you for taking the time to share your feedback{company}. We appreciate your comments about {summary} and will continue working to improve.',
+        },
+        'grateful': {
+            'positive': "We're so grateful for your wonderful {rating} review{company}! It means the world to us to hear that {summary}. Thank you for choosing us!",
+            'negative': "Thank you for sharing your experience{company}. We're truly sorry that {summary}. Your feedback helps us grow, and we'd love the chance to make things right.",
+            'neutral': "We really appreciate you taking the time to leave feedback{company}. Your thoughts on {summary} are valuable to us. Thank you!",
+        },
+        'apologetic': {
+            'positive': "Thank you so much for your {rating} review{company}! We're thrilled that {summary}. We truly appreciate your support.",
+            'negative': "We sincerely apologize for your experience{company}. We're very sorry that {summary}. This doesn't meet our standards, and we'd like to make it right. Please reach out to us directly.",
+            'neutral': "Thank you for your feedback{company}. We appreciate you letting us know about {summary}. We're always working to improve.",
+        },
+        'friendly': {
+            'positive': "Wow, thank you for the amazing {rating} review{company}! We're so happy to hear that {summary}. You made our day!",
+            'negative': "Thanks for letting us know about your experience{company}. We're really sorry that {summary}. We'd love to chat and see how we can fix this. Please get in touch!",
+            'neutral': "Hey, thanks for the feedback{company}! We appreciate your thoughts on {summary}. We're always listening and improving!",
+        },
+    }
+
+    if response_tone not in tone_templates:
+        response_tone = 'professional'
+
+    if USE_OPENAI:
+        try:
+            company_context = f' for {company_name}' if company_name else ''
+            prompt = f"""Generate a professional response to this customer review{company_context}.
+The tone should be {response_tone}.
+
+Customer Review:
+{review_text}
+
+Generate a thoughtful, personalized response that:
+1. Acknowledges their feedback
+2. Matches the {response_tone} tone
+3. Is concise (2-3 sentences)
+4. Sounds genuine and human
+5. For positive reviews: thank them and show appreciation
+6. For negative reviews: apologize and offer to make it right
+7. For neutral reviews: thank them and acknowledge their feedback
+
+Response:"""
+
+            response = openai_client.chat.completions.create(
+                model='gpt-3.5-turbo',
+                messages=[
+                    {
+                        'role': 'system',
+                        'content': 'You are a helpful assistant that generates professional, empathetic responses to customer reviews.',
+                    },
+                    {'role': 'user', 'content': prompt},
+                ],
+                max_tokens=200,
+                temperature=0.7,
+            )
+
+            generated = response.choices[0].message.content.strip()
+            return jsonify({'ok': True, 'response': generated, 'method': 'ai'})
+        except Exception:
+            # Fall back to template approach when OpenAI call fails
+            pass
+
+    review_lower = review_text.lower()
+    positive_words = [
+        'great',
+        'excellent',
+        'amazing',
+        'wonderful',
+        'fantastic',
+        'love',
+        'best',
+        'perfect',
+        'awesome',
+    ]
+    negative_words = [
+        'bad',
+        'poor',
+        'terrible',
+        'awful',
+        'worst',
+        'horrible',
+        'disappointed',
+        'never',
+        'rude',
+    ]
+
+    positive_count = sum(1 for word in positive_words if word in review_lower)
+    negative_count = sum(1 for word in negative_words if word in review_lower)
+
+    if positive_count > negative_count:
+        sentiment = 'positive'
+        rating = 'positive'
+    elif negative_count > positive_count:
+        sentiment = 'negative'
+        rating = ''
+    else:
+        sentiment = 'neutral'
+        rating = ''
+
+    if '.' in review_text:
+        summary = review_text.split('.', 1)[0].strip().lower()
+        if not summary.endswith('.'):
+            summary += '...'
+    else:
+        truncated = review_text[:80]
+        if len(review_text) > 80:
+            last_space = truncated.rfind(' ')
+            if last_space > 0:
+                truncated = truncated[:last_space]
+            summary = truncated.strip().lower() + '...'
+        else:
+            summary = truncated.strip().lower()
+
+    template = tone_templates[response_tone][sentiment]
+    company_part = f' at {company_name}' if company_name else ''
+
+    response_text = template.format(rating=rating, company=company_part, summary=summary)
+
+    return jsonify(
+        {
+            'ok': True,
+            'response': response_text,
+            'method': 'template',
+            'detected_sentiment': sentiment,
+        }
+    )
+
+
+
+
+
 
 @app.get("/api/content")
 def api_content():
@@ -444,12 +632,41 @@ def is_admin():
 
 ### DB helpers
 def get_user_by_email(email: str):
-    db = get_db()
-    return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
+    # Helper used in tests; prefer using the app context DB when available.
+    # If not in an application context, open a direct sqlite connection to DB_PATH
+    try:
+        if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
+    except Exception:
+        # fall through to file-based DB lookup
+        pass
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute('SELECT * FROM users WHERE email = ?', (email.lower(),))
+        row = cur.fetchone()
+        conn.close()
+        return row
+    except Exception:
+        return None
 
 def get_user_by_id(uid: str):
-    db = get_db()
-    return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+    try:
+        if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+    except Exception:
+        pass
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute('SELECT * FROM users WHERE id = ?', (uid,))
+        row = cur.fetchone()
+        conn.close()
+        return row
+    except Exception:
+        return None
 
 
 def row_to_mapping(x):
@@ -747,8 +964,6 @@ def api_create_subscription():
     payment_method = data.get('payment_method')
     if not price_id:
         return jsonify({'ok': False, 'error': 'price_id required'}), 400
-    if not payment_method:
-        return jsonify({'ok': False, 'error': 'payment_method required'}), 400
 
     stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
     db = get_db()
@@ -772,17 +987,18 @@ def api_create_subscription():
             except Exception:
                 pass
 
-        # attach payment method to customer
-        try:
-            stripe.PaymentMethod.attach(payment_method, customer=customer_id)
-        except Exception:
-            # ignore if already attached or other recoverable error
-            pass
-        # set as default payment method for invoices
-        try:
-            stripe.Customer.modify(customer_id, invoice_settings={'default_payment_method': payment_method})
-        except Exception:
-            pass
+        # attach payment method to customer if provided
+        if payment_method:
+            try:
+                stripe.PaymentMethod.attach(payment_method, customer=customer_id)
+            except Exception:
+                # ignore if already attached or other recoverable error
+                pass
+            # set as default payment method for invoices
+            try:
+                stripe.Customer.modify(customer_id, invoice_settings={'default_payment_method': payment_method})
+            except Exception:
+                pass
 
         # create subscription in incomplete state so we can handle SCA if needed
         sub = stripe.Subscription.create(
@@ -984,7 +1200,53 @@ def api_confirm_password_reset():
     return jsonify({'ok': True})
 
 
+@app.post('/api/waitlist')
+def api_waitlist():
+    """Add email to waitlist for landing page signups."""
+    data = request.get_json(force=True)
+    email = (data.get('email') or '').strip().lower()
+    
+    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
+    
+    db = get_db()
+    try:
+        db.execute('INSERT INTO waitlist (email) VALUES (?)', (email,))
+        db.commit()
+        
+        # In production, send confirmation email here
+        # For now, just return success
+        return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
+    except Exception as e:
+        # Email already exists or other error
+        if 'UNIQUE constraint' in str(e):
+            return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
+        return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
 
+
+@app.post('/api/waitlist')
+def api_waitlist():
+    """Add email to waitlist for landing page signups."""
+    data = request.get_json(force=True)
+    email = (data.get('email') or '').strip().lower()
+
+    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
+
+    db = get_db()
+    try:
+        db.execute('INSERT INTO waitlist (email) VALUES (?)', (email,))
+        db.commit()
+
+        # In production, send confirmation email here
+        # For now, just return success
+        return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
+    except Exception as e:
+        # Email already exists or other error
+        if 'UNIQUE constraint' in str(e):
+            return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
+        return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
+ 
 @app.post("/api/profile")
 def save_profile():
     data = request.get_json(force=True)
