@@ -1194,6 +1194,9 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
     for i in range(days):
         day = start_day + timedelta(days=i)
         pillar_name, pillar_hint = next(pillar_stream)
+        
+        # Generate platform-specific variants for this day
+        variants = {}
         for p in platforms:
             caption = make_caption(
                 industry=to_sentence_case(industry.strip() or "Business"),
@@ -1208,6 +1211,11 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                 niche_keywords=niche_keywords,
                 details=details,
             )
+            variants[p] = caption
+        
+        # Create one post per platform (maintains backward compatibility)
+        for p in platforms:
+            caption = variants[p]
             iprompt = image_prompt(industry, pillar_name, brand_keywords, company)
             img_url = unsplash_link(industry, pillar_name) if include_images else None
 
@@ -1250,7 +1258,8 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                 "caption": caption,
                 "image_prompt": iprompt,
                 "image_url": img_url,
-                "reel": reel_obj
+                "reel": reel_obj,
+                "variants": variants if len(platforms) > 1 else None
             })
     return posts
 
