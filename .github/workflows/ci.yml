@@ -18,6 +18,7 @@ jobs:
       FLASK_ENV: development
       RUN_E2E: '0'
       RUN_UI_SMOKE: '0'
+      PORT: '5001'
 
     steps:
       - name: Checkout
@@ -61,16 +62,21 @@ jobs:
 
       - name: Run tests
         env:
-          TEST_DB_PATH: ${{ runner.temp }}/togetherly-test.db
+              # Note: avoid setting TEST_DB_PATH for the main unit test run so
+              # init_db() seeding (dev admin) runs as expected. Tests that need
+              # an isolated DB should set TEST_DB_PATH in their specific job.
           HEADLESS: '1'
         run: |
           set -eo pipefail
-          export SECRET_KEY="${SECRET_KEY:-ci-default-secret}"
+              export SECRET_KEY="${SECRET_KEY:-ci-default-secret}"
           export STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY:-sk_test_dummy}"
           export STRIPE_PUBLISHABLE_KEY="${STRIPE_PUBLISHABLE_KEY:-pk_test_dummy}"
           export STRIPE_PRICE_ID="${STRIPE_PRICE_ID:-price_test_dummy}"
           export STRIPE_TEST_PRICE_ID="${STRIPE_TEST_PRICE_ID:-price_test_dummy}"
-          export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-whsec_test_dummy}"
+              # Do NOT enable webhook signature verification for unit tests by
+              # leaving STRIPE_WEBHOOK_SECRET empty; this allows tests to post
+              # plain JSON payloads without Stripe signatures.
+              export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-}"
           export ADMIN_EMAILS="${ADMIN_EMAILS:-admin@example.com}"
 
           python --version
