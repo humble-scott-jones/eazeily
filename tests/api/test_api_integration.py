@@ -14,13 +14,6 @@ def start_server():
     # start the app in background using project's python if available
     py = './.venv/bin/python' if (ROOT / '.venv' / 'bin' / 'python').exists() else 'python3'
     env = os.environ.copy()
-    env.setdefault('ALLOW_DEV_DEBUG', '1')
-    env.setdefault('FLASK_ENV', 'development')
-    try:
-        requests.post(f'{BASE}/__dev__/shutdown', timeout=1)
-        time.sleep(0.5)
-    except Exception:
-        pass
     # ensure .env is loaded by earlier code in app.py
     p = subprocess.Popen([py, 'app.py'], cwd=str(ROOT), env=env)
     # wait for health

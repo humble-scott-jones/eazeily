@@ -1,5 +1,4 @@
 """Tests for review response generator API."""
-import json
 
 
 def test_review_response_requires_text(client):
@@ -31,7 +30,6 @@ def test_review_response_positive_review(client):
     assert j['ok'] is True
     assert 'response' in j
     assert len(j['response']) > 0
-    # Should use template method unless OpenAI is configured
     assert 'method' in j
 
 
@@ -47,7 +45,6 @@ def test_review_response_negative_review(client):
     assert j['ok'] is True
     assert 'response' in j
     assert len(j['response']) > 0
-    # Response should contain apology
     assert 'sorry' in j['response'].lower() or 'apolog' in j['response'].lower()
 
 
@@ -77,7 +74,6 @@ def test_review_response_with_company_name(client):
     j = r.get_json()
     assert j['ok'] is True
     assert 'response' in j
-    # Company name should appear in template-based response
     if j.get('method') == 'template':
         assert 'Acme Corp' in j['response']
 
@@ -85,10 +81,10 @@ def test_review_response_with_company_name(client):
 def test_review_response_different_tones(client):
     """Test that different tones produce different responses."""
     review = "Nice experience overall."
-    
+
     tones = ['professional', 'grateful', 'apologetic', 'friendly']
     responses = []
-    
+
     for tone in tones:
         r = client.post('/api/generate-review-response', json={
             'review_text': review,
@@ -98,17 +94,16 @@ def test_review_response_different_tones(client):
         j = r.get_json()
         assert j['ok'] is True
         responses.append(j['response'])
-    
-    # Responses should be different for different tones (at least some variation)
+
     unique_responses = set(responses)
-    assert len(unique_responses) >= 2  # At least 2 different responses
+    assert len(unique_responses) >= 2
 
 
 def test_review_response_sentiment_detection(client):
     """Test sentiment detection in template-based responses."""
     positive_review = "Amazing service! Love it!"
     negative_review = "Worst experience ever. Terrible!"
-    
+
     r1 = client.post('/api/generate-review-response', json={
         'review_text': positive_review,
         'tone': 'professional'
@@ -117,19 +112,17 @@ def test_review_response_sentiment_detection(client):
         'review_text': negative_review,
         'tone': 'professional'
     })
-    
+
     j1 = r1.get_json()
     j2 = r2.get_json()
-    
-    # Both should succeed
+
     assert j1['ok'] is True
     assert j2['ok'] is True
-    
-    # If using template method, check sentiment detection
+
     if j1.get('method') == 'template':
         assert 'detected_sentiment' in j1
         assert j1['detected_sentiment'] == 'positive'
-    
+
     if j2.get('method') == 'template':
         assert 'detected_sentiment' in j2
         assert j2['detected_sentiment'] == 'negative'

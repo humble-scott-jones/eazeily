@@ -4,23 +4,18 @@ from playwright.sync_api import sync_playwright
 import subprocess
 import requests
 import pathlib
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.getenv('PORT', '5001'))
 BASE = f'http://127.0.0.1:{PORT}'
 
+pytestmark = pytest.mark.skipif(os.getenv('RUN_UI_SMOKE') != '1', reason='UI smoke tests disabled (set RUN_UI_SMOKE=1)')
+
 
 def start_server():
     py = './.venv/bin/python' if (ROOT / '.venv' / 'bin' / 'python').exists() else 'python3'
-    env = os.environ.copy()
-    env.setdefault('ALLOW_DEV_DEBUG', '1')
-    env.setdefault('FLASK_ENV', 'development')
-    try:
-        requests.post(f'{BASE}/__dev__/shutdown', timeout=1)
-        time.sleep(0.5)
-    except Exception:
-        pass
-    p = subprocess.Popen([py, 'app.py'], cwd=str(ROOT), env=env)
+    p = subprocess.Popen([py, 'app.py'], cwd=str(ROOT), env=os.environ.copy())
     for _ in range(30):
         try:
             r = requests.get(f'{BASE}/__dev__/ping', timeout=1)

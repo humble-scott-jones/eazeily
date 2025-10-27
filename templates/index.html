@@ -37,20 +37,6 @@
       </form>
     </div>
   </div>
-  <div class="max-w-6xl mx-auto px-6 pb-4">
-    <div class="bg-slate-50 border rounded p-3 text-sm text-slate-800">
-      <div class="flex items-center gap-3 mb-2">
-        <strong>Dev Trends</strong>
-        <span class="text-xs text-slate-500">Inspect or refresh cached trend context</span>
-      </div>
-      <div class="flex gap-2 items-center">
-        <input id="dev-trend-industry" class="input text-sm" placeholder="industry (e.g., restaurant)" value="general" />
-        <button id="dev-load-trends" class="btn-ghost btn-sm">Load cached</button>
-        <button id="dev-force-trends" class="btn-ghost btn-sm">Force refresh</button>
-      </div>
-      <pre id="dev-trends-output" class="mt-3 text-xs max-h-48 overflow-auto bg-white p-2 border rounded"></pre>
-    </div>
-  </div>
   {% endif %}
 
   <main class="max-w-6xl mx-auto p-6 grid lg:grid-cols-[1fr,360px] gap-6">
@@ -89,8 +75,7 @@
               <div id="tones" class="grid grid-cols-2 gap-2"></div>
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">Platforms</label>
-              <p class="text-xs text-slate-500 mb-2">Choose every channel you post to and we'll shape the plan for each one.</p>
+              <label class="block text-sm font-medium mb-2">Platforms</label>
               <div id="platforms" class="grid grid-cols-2 gap-2"></div>
             </div>
           </div>
@@ -101,8 +86,6 @@
             <div>
               <label class="block text-sm font-medium mb-1">Suggested keywords</label>
               <div id="suggested-keywords" class="flex flex-wrap gap-2 mb-2"></div>
-              <label class="block text-sm font-medium mb-1">All selected keywords</label>
-              <div id="active-keywords" class="flex flex-wrap gap-2 mb-2"></div>
               <label class="block text-sm font-medium mb-1">Add more keywords (optional)</label>
               <input id="extra-keywords" class="w-full input" placeholder="Type and press Enter or separate with commas" />
               <div class="text-xs text-slate-500 mt-1">Select suggested keywords or type your own. We'll include them in your plan.</div>
@@ -133,8 +116,8 @@
 
     <!-- Inline summary & generate controls (moved from modal back into the page to avoid modal-only failures) -->
     <aside id="setup-summary-inline" class="card">
-      <h4 class="text-sm font-medium mb-2">Settings</h4>
-      <p class="text-sm text-slate-600 mb-3">Your selections auto-save in this browser. Click any section to edit it quickly.</p>
+      <h4 class="text-sm font-medium mb-2">Setup progress</h4>
+      <p class="text-sm text-slate-600 mb-3">Click any section to jump back and edit it.</p>
       <div class="mb-3">
         <ul id="modal-summary" class="text-sm text-slate-700 space-y-2 mb-3"></ul>
         <div class="text-xs text-slate-500">Content pack: <span id="modal-content-version">loading…</span></div>
@@ -142,12 +125,9 @@
       <div class="flex gap-2">
         <button id="modal-generate-1" class="btn-ghost w-full">Generate 1-day sample</button>
         <button id="modal-generate-reels" class="btn-ghost w-full">Generate 5-reel sample</button>
-        <button id="modal-generate-7" class="btn-primary w-full">Generate 7-day plan (paid)</button>
+        <button id="modal-generate-7" class="btn-primary w-full hidden">Generate 7-day plan (paid)</button>
       </div>
-      <div class="mt-2">
-        <button id="reset-selections" class="btn-ghost w-full text-sm">Reset selections (keep industry)</button>
-      </div>
-  <p class="text-xs text-slate-500 mt-3">Each account includes one free 1-day sample after signup. Paid plans unlock full weekly drops tailored to your voice.</p>
+      <p class="text-xs text-slate-500 mt-3">Each account includes one free 1-day sample after signup.</p>
     </aside>
     <!-- Paywall modal (hidden by default) -->
     <div id="paywall-modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
@@ -160,7 +140,6 @@
           <div class="text-2xl font-bold" id="paywall-price">loading…</div>
           <div class="text-xs text-slate-500" id="paywall-price-desc"></div>
         </div>
-        <div id="paywall-account-note" class="text-sm text-slate-600 mb-3 hidden"></div>
         <div id="paywall-signup-area" class="mb-4">
           <div class="text-sm font-medium mb-1">Create an account to start your membership</div>
           <input id="paywall-email" class="w-full input mb-2" type="email" placeholder="Email address" />
