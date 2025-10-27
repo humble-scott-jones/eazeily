@@ -37,7 +37,7 @@
 .caption{ white-space:pre-wrap; }
 
 /* Landing Page Styles */
-.hero-visual { 
+.hero-visual {
   background: linear-gradient(135deg, var(--brand-50) 0%, #ffffff 100%);
   aspect-ratio: 16/9;
 }
