@@ -110,6 +110,10 @@ def init_db():
             user_id TEXT,
             period TEXT,
             reels_generated INTEGER DEFAULT 0,
+        CREATE TABLE IF NOT EXISTS waitlist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE,
+            confirmed INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         """
@@ -214,9 +218,21 @@ def health_check():
 
 
 @app.get("/")
+def landing():
+    """Landing page with marketing content, pricing, and waitlist signup."""
+    return render_template("landing.html")
+
+@app.get("/app")
 def index():
+    """Main application page for authenticated users."""
     is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
     return render_template("index.html", is_dev=is_dev)
+
+
+@app.get('/review-response')
+def review_response_page():
+    """Page for generating responses to customer reviews."""
+    return render_template("review_response.html")
 
 
 @app.get('/account')
@@ -1074,6 +1090,91 @@ def admin_page():
     return render_template('admin.html', allowed=True)
 
 
+@app.get('/api/admin/users')
+def api_admin_users():
+    """Admin endpoint to fetch users with their profiles and activity data."""
+    if not is_admin():
+        return jsonify({'ok': False, 'error': 'Admin required'}), 403
+    
+    db = get_db()
+    # Fetch users with profile data joined
+    # Note: The above query has a limitation - it doesn't properly link users to profiles
+    # because profiles are session-based, not user-based. Let's use a simpler approach:
+    query = """
+        SELECT 
+            u.id, 
+            u.email, 
+            u.is_paid,
+            u.stripe_customer_id,
+            u.created_at as user_created_at,
+            u.is_admin
+        FROM users u
+        ORDER BY u.created_at DESC
+    """
+    
+    users = db.execute(query).fetchall()
+    
+    # Get all profiles to find most recent activity
+    profiles_query = "SELECT id, industry, tone, platforms, brand_keywords, niche_keywords, company, created_at FROM profiles ORDER BY created_at DESC"
+    profiles = db.execute(profiles_query).fetchall()
+    
+    # Parse JSON fields helper function
+    def parse_json_field(val):
+        try:
+            if not val:
+                return []
+            return json.loads(val)
+        except Exception:
+            return []
+    
+    # Build user data list
+    user_data = []
+    for user in users:
+        # Get feedback count and subscription info
+        sub_query = "SELECT status, current_period_end FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1"
+        sub = db.execute(sub_query, (user['id'],)).fetchone()
+        
+        user_info = {
+            'id': user['id'],
+            'email': user['email'],
+            'is_paid': bool(user['is_paid']),
+            'is_admin': bool(user.get('is_admin', 0)),
+            'has_stripe': bool(user['stripe_customer_id']),
+            'created_at': user['user_created_at'],
+            'subscription_status': sub['status'] if sub else None,
+            'subscription_end': sub['current_period_end'] if sub else None,
+            # Profile data will be aggregated from all profiles (simplified for now)
+        }
+        user_data.append(user_info)
+    
+    # Aggregate profile data for overview
+    profile_stats = {
+        'total_profiles': len(profiles),
+        'industries': {},
+        'platforms': {}
+    }
+    
+    for profile in profiles:
+        industry = profile['industry']
+        if industry:
+            profile_stats['industries'][industry] = profile_stats['industries'].get(industry, 0) + 1
+        
+        platforms = parse_json_field(profile['platforms'])
+        for platform in platforms:
+            profile_stats['platforms'][platform] = profile_stats['platforms'].get(platform, 0) + 1
+    
+    return jsonify({
+        'ok': True, 
+        'users': user_data,
+        'stats': {
+            'total_users': len(user_data),
+            'paid_users': sum(1 for u in user_data if u['is_paid']),
+            'free_users': sum(1 for u in user_data if not u['is_paid']),
+            'profile_stats': profile_stats
+        }
+    })
+
+
 # Dev debug route to inspect session and current user (only in dev or when ALLOW_DEV_DEBUG=1)
 @app.get('/__debug__/session')
 def debug_session():
@@ -1450,6 +1551,137 @@ def api_feedback():
     )
     db.commit()
     return jsonify({"ok": True})
+
+
+@app.post("/api/generate-review-response")
+def api_generate_review_response():
+    """Generate a professional response to a customer review or rating."""
+    data = request.get_json(force=True)
+    review_text = data.get("review_text", "").strip()
+    response_tone = data.get("tone", "professional")  # professional, grateful, apologetic, friendly
+    company_name = data.get("company_name", "").strip()
+    
+    if not review_text:
+        return jsonify({"ok": False, "error": "Review text is required"}), 400
+    
+    # Tone templates for different response types
+    tone_templates = {
+        "professional": {
+            "positive": "Thank you for your {rating} review{company}. We're pleased to hear that {summary}. We appreciate your business and look forward to serving you again.",
+            "negative": "Thank you for your feedback{company}. We apologize that {summary}. We take all feedback seriously and will use this to improve our service. Please contact us directly so we can make this right.",
+            "neutral": "Thank you for taking the time to share your feedback{company}. We appreciate your comments about {summary} and will continue working to improve."
+        },
+        "grateful": {
+            "positive": "We're so grateful for your wonderful {rating} review{company}! It means the world to us to hear that {summary}. Thank you for choosing us!",
+            "negative": "Thank you for sharing your experience{company}. We're truly sorry that {summary}. Your feedback helps us grow, and we'd love the chance to make things right.",
+            "neutral": "We really appreciate you taking the time to leave feedback{company}. Your thoughts on {summary} are valuable to us. Thank you!"
+        },
+        "apologetic": {
+            "positive": "Thank you so much for your {rating} review{company}! We're thrilled that {summary}. We truly appreciate your support.",
+            "negative": "We sincerely apologize for your experience{company}. We're very sorry that {summary}. This doesn't meet our standards, and we'd like to make it right. Please reach out to us directly.",
+            "neutral": "Thank you for your feedback{company}. We appreciate you letting us know about {summary}. We're always working to improve."
+        },
+        "friendly": {
+            "positive": "Wow, thank you for the amazing {rating} review{company}! 🎉 We're so happy to hear that {summary}. You made our day!",
+            "negative": "Thanks for letting us know about your experience{company}. We're really sorry that {summary}. We'd love to chat and see how we can fix this. Please get in touch!",
+            "neutral": "Hey, thanks for the feedback{company}! We appreciate your thoughts on {summary}. We're always listening and improving!"
+        }
+    }
+    
+    # Use OpenAI if available for better responses
+    if USE_OPENAI:
+        try:
+            company_context = f" for {company_name}" if company_name else ""
+            prompt = f"""Generate a professional response to this customer review{company_context}. 
+The tone should be {response_tone}.
+
+Customer Review:
+{review_text}
+
+Generate a thoughtful, personalized response that:
+1. Acknowledges their feedback
+2. Matches the {response_tone} tone
+3. Is concise (2-3 sentences)
+4. Sounds genuine and human
+5. For positive reviews: thank them and show appreciation
+6. For negative reviews: apologize and offer to make it right
+7. For neutral reviews: thank them and acknowledge their feedback
+
+Response:"""
+            
+            response = openai_client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant that generates professional, empathetic responses to customer reviews."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=200,
+                temperature=0.7
+            )
+            
+            generated_response = response.choices[0].message.content.strip()
+            return jsonify({
+                "ok": True, 
+                "response": generated_response,
+                "method": "ai"
+            })
+        except Exception as e:
+            # Fall through to template-based approach if OpenAI fails
+            pass
+    
+    # Template-based fallback
+    # Analyze sentiment (simple keyword-based)
+    review_lower = review_text.lower()
+    positive_words = ["great", "excellent", "amazing", "wonderful", "fantastic", "love", "best", "perfect", "awesome"]
+    negative_words = ["bad", "poor", "terrible", "awful", "worst", "horrible", "disappointed", "never", "rude"]
+    
+    positive_count = sum(1 for word in positive_words if word in review_lower)
+    negative_count = sum(1 for word in negative_words if word in review_lower)
+    
+    if positive_count > negative_count:
+        sentiment = "positive"
+        rating = "positive"
+    elif negative_count > positive_count:
+        sentiment = "negative"
+        rating = ""
+    else:
+        sentiment = "neutral"
+        rating = ""
+    
+    # Extract key phrases (word-boundary-aware truncation)
+    if '.' in review_text:
+        summary = review_text.split('.', 1)[0].strip().lower()
+        if not summary.endswith('.'):
+            summary += "..."
+    else:
+        # Truncate to 80 chars at word boundary
+        truncated = review_text[:80]
+        if len(review_text) > 80:
+            # Avoid cutting off mid-word
+            last_space = truncated.rfind(' ')
+            if last_space > 0:
+                truncated = truncated[:last_space]
+            summary = truncated.strip().lower() + "..."
+        else:
+            summary = truncated.strip().lower()
+    
+    # Build response from template
+    template = tone_templates.get(response_tone, tone_templates["professional"])[sentiment]
+    company_part = f" at {company_name}" if company_name else ""
+    
+    response_text = template.format(
+        rating=rating,
+        company=company_part,
+        summary=summary
+    )
+    
+    return jsonify({
+        "ok": True, 
+        "response": response_text,
+        "method": "template",
+        "detected_sentiment": sentiment
+    })
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
