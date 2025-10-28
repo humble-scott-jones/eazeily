@@ -1,3 +1,7 @@
+import os
+import json
+import time
+from pathlib import Path
 from datetime import timedelta
 from typing import Optional
 
@@ -67,6 +71,50 @@ def image_prompt(industry: str, pillar_name: str, brand_keywords: list[str], com
     company_part = f"Company: {company}. " if company else ""
     return (f"High-quality photo for social post. {company_part}Industry: {industry}. "
             f"Content pillar: {pillar_name}. Style: natural light, minimal background, {kw}.")
+
+def make_full_post(
+    industry: str,
+    tone: str,
+    pillar_name: str,
+    pillar_hint: str,
+    platform: str,
+    brand_keywords: list[str],
+    hashtags: list[str],
+    goals: list[str],
+    company: str = "",
+    theme: Optional[str] = None,
+):
+    """Compatibility wrapper used by tests to build a single full post object.
+
+    Returns a dict with at least:
+    - caption: str (includes hashtags and optionally theme)
+    - theme: Optional[str]
+    """
+    # Ensure theme is weaved into the caption content if provided
+    phint = pillar_hint
+    if theme:
+        theme_text = str(theme).strip()
+        if theme_text:
+            # Nudge the hint to include the theme context so the caption reflects it
+            phint = f"{pillar_hint} Theme: {theme_text}."
+
+    cap = make_caption(
+        industry=industry,
+        tone=tone,
+        pillar_name=pillar_name,
+        pillar_hint=phint,
+        platform=platform,
+        brand_keywords=brand_keywords,
+        hashtags=hashtags,
+        goals=goals,
+        company=company,
+    )
+    iprompt = image_prompt(industry, pillar_name, brand_keywords, company)
+    return {
+        "caption": cap,
+        "image_prompt": iprompt,
+        "theme": theme if theme else None,
+    }
 
 def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], tone: str, company: str = "", reel_style: Optional[str] = None, goals: Optional[list[str]] = None, niche_keywords: Optional[list[str]] = None, length_seconds: int = 30, production_tier: str = "solo"):
     # structured reel plan; tailor suggestions by industry and an optional `reel_style` preference
@@ -385,3 +433,78 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                 "variants": variants if len(platforms) > 1 else None
             })
     return posts
+
+# --- Trend context helpers (used by tests) ---
+
+# Flag to enable OpenAI-powered trends; env var can be "1", "true", or "yes"
+USE_OPENAI_FOR_POSTS = os.getenv('USE_OPENAI_FOR_POSTS', '').lower() in ('1', 'true', 'yes')
+
+# Injectable OpenAI-like client for tests (provides .chat.completions.create)
+_openai_client = None  # monkeypatched in tests
+
+def _trend_cache_path(industry: str) -> str:
+    """Return a writable cache path for the given industry."""
+    root = Path(__file__).resolve().parent
+    cache_dir = root / 'tmp' / 'trends'
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    safe = (industry or 'general').lower().replace(' ', '-').replace('/', '-')
+    return str(cache_dir / f'trends-{safe}.json')
+
+def fetch_trend_context(industry: str, ttl_hours: int = 24):
+    """Fetch trend context for an industry.
+
+    - Uses a simple JSON cache with TTL.
+    - If OpenAI usage is disabled or no client is provided, returns an empty list.
+    - If OpenAI returns non-JSON, returns an empty list safely.
+    """
+    path = _trend_cache_path(industry)
+    # Serve from cache if fresh
+    try:
+        if ttl_hours >= 0 and os.path.exists(path):
+            age_h = (time.time() - os.path.getmtime(path)) / 3600.0
+            if ttl_hours == 0 or age_h <= ttl_hours:
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data if isinstance(data, list) else []
+    except Exception:
+        # Ignore cache read errors
+        pass
+
+    # If OpenAI disabled or no client, return safe default
+    if not USE_OPENAI_FOR_POSTS or _openai_client is None:
+        return []
+
+    # Build a minimal prompt and call the client
+    prompt = (
+        "List 3-5 current social media content trends for the {industry} industry as a JSON array of objects with keys: "
+        "topic, rationale, confidence (high|medium|low)."
+    ).format(industry=industry or 'general')
+    try:
+        resp = _openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Return only JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=400,
+            temperature=0.5,
+        )
+        text = getattr(getattr(resp.choices[0], 'message'), 'content', '') or ''
+        content = text.strip()
+        # If wrapped with prose, attempt to extract JSON array
+        if not content.startswith('['):
+            start = content.find('[')
+            end = content.rfind(']')
+            if start != -1 and end != -1 and end > start:
+                content = content[start:end+1]
+        out = json.loads(content)
+        if isinstance(out, list):
+            try:
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(out, f, indent=2)
+            except Exception:
+                pass
+            return out
+        return []
+    except Exception:
+        return []
