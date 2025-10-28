@@ -12,6 +12,11 @@ import json
 import argparse
 from pathlib import Path
 
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
+
 
 def load_prompt_template():
     """Load the LLM prompt template from the repository."""
@@ -57,12 +62,9 @@ def format_feedback_with_llm(feedback: str, user_email: str, api_key: str) -> di
     Returns:
         Dictionary with 'title' and 'body' keys
     """
-    try:
-        from openai import OpenAI
-    except ImportError:
+    if OpenAI is None:
         print("Error: openai package not installed", file=sys.stderr)
         sys.exit(1)
-    
     client = OpenAI(api_key=api_key)
     
     # Load and format the prompt template
@@ -72,6 +74,7 @@ def format_feedback_with_llm(feedback: str, user_email: str, api_key: str) -> di
         user_email=user_email or "Anonymous"
     )
     
+    content = None
     try:
         # Call OpenAI API
         response = client.chat.completions.create(
@@ -83,27 +86,27 @@ def format_feedback_with_llm(feedback: str, user_email: str, api_key: str) -> di
             temperature=0.7,
             max_tokens=1000
         )
-        
+
         # Extract and parse the response
         content = response.choices[0].message.content.strip()
-        
+
         # Try to extract JSON if wrapped in markdown code blocks
         if content.startswith("```"):
             # Remove markdown code block markers
             lines = content.split('\n')
             content = '\n'.join(lines[1:-1]) if len(lines) > 2 else content
-        
+
         result = json.loads(content)
-        
+
         # Validate required fields
         if 'title' not in result or 'body' not in result:
             raise ValueError("Response missing required fields: title and/or body")
-        
+
         return result
-        
+
     except json.JSONDecodeError as e:
         print(f"Error parsing LLM response as JSON: {e}", file=sys.stderr)
-        print(f"Response content: {content}", file=sys.stderr)
+        print(f"Response content: {content or '<no content returned>'}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"Error calling OpenAI API: {e}", file=sys.stderr)
