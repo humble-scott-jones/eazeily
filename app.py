@@ -35,7 +35,21 @@ if not _secret:
 app.secret_key = _secret
 CORS(app)
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "swelly.db")
+# Determine DB_PATH with a short compatibility window:
+# - If DB_PATH environment variable is set, respect it.
+# - Prefer the new `swelly.db` when present.
+# - Fallback to the legacy `togetherly.db` if it exists (so CI/runners keep working during transition).
+_default_db = os.path.join(os.path.dirname(__file__), "swelly.db")
+_legacy_db = os.path.join(os.path.dirname(__file__), "togetherly.db")
+if os.getenv('DB_PATH'):
+    DB_PATH = os.getenv('DB_PATH')
+else:
+    if os.path.exists(_default_db):
+        DB_PATH = _default_db
+    elif os.path.exists(_legacy_db):
+        DB_PATH = _legacy_db
+    else:
+        DB_PATH = _default_db
 
 def get_db():
     if "db" not in g:
