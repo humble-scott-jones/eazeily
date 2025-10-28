@@ -5,8 +5,9 @@ from datetime import timedelta
 from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context
 import threading
 import time
+import math
 from flask_cors import CORS
-from generator import generate_posts
+import generator as gen_mod
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import TYPE_CHECKING
 
@@ -50,6 +51,106 @@ elif os.path.exists(_legacy_db):
     DB_PATH = _legacy_db
 else:
     DB_PATH = _default_db
+
+# Simple in-memory token-bucket rate limiter for low-volume dev/prod protection.
+# For production, prefer a distributed store (Redis) and a proper rate-limiting middleware.
+RATE_LIMIT_STORE = {}
+RATE_LIMIT_LOCK = threading.Lock()
+
+def _check_rate_limit(key: str, capacity: int = 30, refill_seconds: int = 60):
+    """Return (allowed: bool, retry_after_seconds: int)
+
+    capacity: tokens available per `refill_seconds` window.
+    Each call consumes 1 token.
+    """
+    now = time.time()
+    with RATE_LIMIT_LOCK:
+        entry = RATE_LIMIT_STORE.get(key)
+        if not entry:
+            # tokens, last_ts
+            RATE_LIMIT_STORE[key] = [float(capacity - 1), now]
+            return True, 0
+        tokens, last = entry
+        # refill proportionally
+        elapsed = now - last
+        if elapsed > 0:
+            refill = (elapsed / float(refill_seconds)) * capacity
+            tokens = min(float(capacity), tokens + refill)
+            last = now
+        if tokens >= 1.0:
+            tokens -= 1.0
+            RATE_LIMIT_STORE[key] = [tokens, last]
+            return True, 0
+        # not enough tokens
+        RATE_LIMIT_STORE[key] = [tokens, last]
+        # estimate retry after seconds until at least 1 token
+        needed = 1.0 - tokens
+        # time per token = refill_seconds / capacity
+        t_per_token = float(refill_seconds) / float(capacity)
+        retry_after = math.ceil(needed * t_per_token)
+        return False, retry_after
+
+
+    def _extract_choice_content(response_or_choice):
+        """Safely extract textual content from an OpenAI SDK response or a single choice.
+
+        Handles both dict-like responses and SDK objects where content may live at
+        response.choices[0].message.content or response.choices[0].get('message')['content']
+        or choice.text.
+        Returns a string or None.
+        """
+        try:
+            # dict-like top-level response
+            if isinstance(response_or_choice, dict):
+                choices = response_or_choice.get('choices') or []
+                if not choices:
+                    return None
+                first = choices[0]
+                # message may be a dict
+                if isinstance(first, dict):
+                    msg = first.get('message') or {}
+                    if isinstance(msg, dict):
+                        content = msg.get('content')
+                        if content:
+                            return str(content)
+                    # fallback to text field
+                    text = first.get('text')
+                    return str(text) if text is not None else None
+
+            # SDK-style response or a single choice object
+            # If it's a full response object, grab the first choice
+            choices = getattr(response_or_choice, 'choices', None)
+            if choices:
+                ch = choices[0]
+            else:
+                # maybe the input is already a single choice
+                ch = response_or_choice
+
+            # try choice.message.content
+            msg = getattr(ch, 'message', None)
+            if msg is not None:
+                content = getattr(msg, 'content', None)
+                if content:
+                    return str(content)
+
+            # try dict-like access
+            try:
+                if hasattr(ch, 'get'):
+                    m = (ch.get('message') or {})
+                    if isinstance(m, dict) and m.get('content'):
+                        return str(m.get('content'))
+                    if ch.get('text'):
+                        return str(ch.get('text'))
+            except Exception:
+                pass
+
+            # fallback to text attribute
+            text = getattr(ch, 'text', None)
+            if text:
+                return str(text)
+        except Exception:
+            return None
+        return None
 
 def get_db():
     if "db" not in g:
@@ -123,7 +224,8 @@ def init_db():
             id TEXT PRIMARY KEY,
             user_id TEXT,
             period TEXT,
-            reels_generated INTEGER DEFAULT 0,
+            reels_generated INTEGER DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS waitlist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE,
@@ -231,6 +333,7 @@ def health_check():
     return jsonify(health_status), status_code
 
 
+
 @app.get("/")
 def landing():
     """Landing page with marketing content, pricing, and waitlist signup."""
@@ -255,46 +358,46 @@ def account_page():
     if not uid:
         return render_template('account.html', user=None)
     db = get_db()
-    user = db.execute('SELECT id, email, is_paid, stripe_customer_id FROM users WHERE id = ?', (uid,)).fetchone()
+    user = db.execute('SELECT id, is_paid, stripe_customer_id FROM users WHERE id = ?', (uid,)).fetchone()
     sub = None
     subscription = None
     if user:
         sub = db.execute('SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
     subscription = row_to_mapping(sub) if sub else None
-        # try to fetch fresh data from Stripe and enrich with human dates (best-effort)
+    # try to fetch fresh data from Stripe and enrich with human dates (best-effort)
+    try:
+        if subscription and stripe and os.getenv('STRIPE_SECRET_KEY') and subscription.get('stripe_subscription_id'):
+            stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+            remote = stripe.Subscription.retrieve(subscription['stripe_subscription_id'])
+            subscription['status'] = remote.get('status')
+            subscription['current_period_end'] = remote.get('current_period_end')
+    except Exception:
+        pass
+    # enrich human-friendly date similar to /api/account
+    if subscription and subscription.get('current_period_end'):
         try:
-            if subscription and stripe and os.getenv('STRIPE_SECRET_KEY') and subscription.get('stripe_subscription_id'):
-                stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-                remote = stripe.Subscription.retrieve(subscription['stripe_subscription_id'])
-                subscription['status'] = remote.get('status')
-                subscription['current_period_end'] = remote.get('current_period_end')
+            cpe = subscription.get('current_period_end')
+            dt = None
+            if isinstance(cpe, (int, float)):
+                dt = datetime.fromtimestamp(int(cpe), tz=timezone.utc)
+            else:
+                try:
+                    dt = datetime.fromtimestamp(int(str(cpe)), tz=timezone.utc)
+                except Exception:
+                    try:
+                        dt = datetime.fromisoformat(str(cpe))
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                    except Exception:
+                        dt = None
+            if dt:
+                subscription['current_period_end_iso'] = dt.astimezone(timezone.utc).isoformat()
+                subscription['current_period_end_human'] = dt.strftime('%Y-%m-%d %H:%M UTC')
+                now = datetime.now(tz=timezone.utc)
+                delta = dt - now
+                subscription['days_until_renewal'] = max(0, delta.days)
         except Exception:
             pass
-        # enrich human-friendly date similar to /api/account
-        if subscription and subscription.get('current_period_end'):
-            try:
-                cpe = subscription.get('current_period_end')
-                dt = None
-                if isinstance(cpe, (int, float)):
-                    dt = datetime.fromtimestamp(int(cpe), tz=timezone.utc)
-                else:
-                    try:
-                        dt = datetime.fromtimestamp(int(str(cpe)), tz=timezone.utc)
-                    except Exception:
-                        try:
-                            dt = datetime.fromisoformat(str(cpe))
-                            if dt.tzinfo is None:
-                                dt = dt.replace(tzinfo=timezone.utc)
-                        except Exception:
-                            dt = None
-                if dt:
-                    subscription['current_period_end_iso'] = dt.astimezone(timezone.utc).isoformat()
-                    subscription['current_period_end_human'] = dt.strftime('%Y-%m-%d %H:%M UTC')
-                    now = datetime.now(tz=timezone.utc)
-                    delta = dt - now
-                    subscription['days_until_renewal'] = max(0, delta.days)
-            except Exception:
-                pass
     # pass is_admin flag to template for rendering admin controls
     return render_template('account.html', user=user, subscription=subscription, is_admin=is_admin())
 
@@ -382,147 +485,6 @@ def api_cancel_subscription():
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
 
-@app.post('/api/generate-review-response')
-def api_generate_review_response():
-    """Generate a professional response to a customer review or rating."""
-    payload = request.get_json(force=True)
-    review_text = (payload.get('review_text') or '').strip()
-    response_tone = (payload.get('tone') or 'professional').strip().lower()
-    company_name = (payload.get('company_name') or '').strip()
-
-    if not review_text:
-        return jsonify({'ok': False, 'error': 'Review text is required'}), 400
-
-    tone_templates = {
-        'professional': {
-            'positive': 'Thank you for your {rating} review{company}. We\'re pleased to hear that {summary}. We appreciate your business and look forward to serving you again.',
-            'negative': 'Thank you for your feedback{company}. We apologize that {summary}. We take all feedback seriously and will use this to improve our service. Please contact us directly so we can make this right.',
-            'neutral': 'Thank you for taking the time to share your feedback{company}. We appreciate your comments about {summary} and will continue working to improve.',
-        },
-        'grateful': {
-            'positive': "We're so grateful for your wonderful {rating} review{company}! It means the world to us to hear that {summary}. Thank you for choosing us!",
-            'negative': "Thank you for sharing your experience{company}. We're truly sorry that {summary}. Your feedback helps us grow, and we'd love the chance to make things right.",
-            'neutral': "We really appreciate you taking the time to leave feedback{company}. Your thoughts on {summary} are valuable to us. Thank you!",
-        },
-        'apologetic': {
-            'positive': "Thank you so much for your {rating} review{company}! We're thrilled that {summary}. We truly appreciate your support.",
-            'negative': "We sincerely apologize for your experience{company}. We're very sorry that {summary}. This doesn't meet our standards, and we'd like to make it right. Please reach out to us directly.",
-            'neutral': "Thank you for your feedback{company}. We appreciate you letting us know about {summary}. We're always working to improve.",
-        },
-        'friendly': {
-            'positive': "Wow, thank you for the amazing {rating} review{company}! We're so happy to hear that {summary}. You made our day!",
-            'negative': "Thanks for letting us know about your experience{company}. We're really sorry that {summary}. We'd love to chat and see how we can fix this. Please get in touch!",
-            'neutral': "Hey, thanks for the feedback{company}! We appreciate your thoughts on {summary}. We're always listening and improving!",
-        },
-    }
-
-    if response_tone not in tone_templates:
-        response_tone = 'professional'
-
-    if USE_OPENAI:
-        try:
-            company_context = f' for {company_name}' if company_name else ''
-            prompt = f"""Generate a professional response to this customer review{company_context}.
-The tone should be {response_tone}.
-
-Customer Review:
-{review_text}
-
-Generate a thoughtful, personalized response that:
-1. Acknowledges their feedback
-2. Matches the {response_tone} tone
-3. Is concise (2-3 sentences)
-4. Sounds genuine and human
-5. For positive reviews: thank them and show appreciation
-6. For negative reviews: apologize and offer to make it right
-7. For neutral reviews: thank them and acknowledge their feedback
-
-Response:"""
-
-            response = openai_client.chat.completions.create(
-                model='gpt-3.5-turbo',
-                messages=[
-                    {
-                        'role': 'system',
-                        'content': 'You are a helpful assistant that generates professional, empathetic responses to customer reviews.',
-                    },
-                    {'role': 'user', 'content': prompt},
-                ],
-                max_tokens=200,
-                temperature=0.7,
-            )
-
-            generated = response.choices[0].message.content.strip()
-            return jsonify({'ok': True, 'response': generated, 'method': 'ai'})
-        except Exception:
-            # Fall back to template approach when OpenAI call fails
-            pass
-
-    review_lower = review_text.lower()
-    positive_words = [
-        'great',
-        'excellent',
-        'amazing',
-        'wonderful',
-        'fantastic',
-        'love',
-        'best',
-        'perfect',
-        'awesome',
-    ]
-    negative_words = [
-        'bad',
-        'poor',
-        'terrible',
-        'awful',
-        'worst',
-        'horrible',
-        'disappointed',
-        'never',
-        'rude',
-    ]
-
-    positive_count = sum(1 for word in positive_words if word in review_lower)
-    negative_count = sum(1 for word in negative_words if word in review_lower)
-
-    if positive_count > negative_count:
-        sentiment = 'positive'
-        rating = 'positive'
-    elif negative_count > positive_count:
-        sentiment = 'negative'
-        rating = ''
-    else:
-        sentiment = 'neutral'
-        rating = ''
-
-    if '.' in review_text:
-        summary = review_text.split('.', 1)[0].strip().lower()
-        if not summary.endswith('.'):
-            summary += '...'
-    else:
-        truncated = review_text[:80]
-        if len(review_text) > 80:
-            last_space = truncated.rfind(' ')
-            if last_space > 0:
-                truncated = truncated[:last_space]
-            summary = truncated.strip().lower() + '...'
-        else:
-            summary = truncated.strip().lower()
-
-    template = tone_templates[response_tone][sentiment]
-    company_part = f' at {company_name}' if company_name else ''
-
-    response_text = template.format(rating=rating, company=company_part, summary=summary)
-
-    return jsonify(
-        {
-            'ok': True,
-            'response': response_text,
-            'method': 'template',
-            'detected_sentiment': sentiment,
-        }
-    )
-
 
 
 
@@ -556,7 +518,6 @@ def load_flags():
             return json.load(f)
     except Exception:
         return {}
-
 
 def perform_reconcile(db=None):
     """Perform reconciliation logic and return results list."""
@@ -762,944 +723,4 @@ def api_signup():
     session['user_id'] = uid
     return jsonify({'ok': True, 'id': uid, 'email': email, 'is_paid': False, 'free_sample_used': False})
 
-
-@app.post('/api/login')
-def api_login():
-    data = request.get_json(force=True)
-    email = (data.get('email') or '').strip().lower()
-    password = data.get('password') or ''
-    db = get_db()
-    row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    if not row or not check_password_hash(row['password_hash'] or '', password):
-        return jsonify({'ok': False, 'error': 'Invalid credentials'}), 401
-    session['user_id'] = row['id']
-    free_sample_used = bool(row['free_sample_used']) if 'free_sample_used' in row.keys() else False
-    return jsonify({'ok': True, 'id': row['id'], 'email': row['email'], 'is_paid': bool(row['is_paid']), 'free_sample_used': free_sample_used})
-
-
-@app.post('/api/logout')
-def api_logout():
-    session.pop('user_id', None)
-    return jsonify({'ok': True})
-
-
-@app.get('/api/current_user')
-def api_current_user():
-    uid = session.get('user_id')
-    if not uid:
-        return jsonify({})
-    db = get_db()
-    row = db.execute('SELECT id, email, is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
-    if not row:
-        return jsonify({})
-    return jsonify({'id': row['id'], 'email': row['email'], 'is_paid': bool(row['is_paid']), 'free_sample_used': bool(row['free_sample_used'])})
-
-
-@app.post('/api/create-checkout-session')
-def api_create_checkout():
-    # creates a Stripe Checkout Session for the current user; requires STRIPE_SECRET_KEY
-    if stripe is None or not os.getenv('STRIPE_SECRET_KEY'):
-        return jsonify({'ok': False, 'error': 'Stripe not configured. Set STRIPE_SECRET_KEY in env for test mode.'}), 501
-    uid = session.get('user_id')
-    if not uid:
-        return jsonify({'ok': False, 'error': 'Authentication required'}), 401
-    data = request.get_json(force=True)
-    # prefer STRIPE_PRICE_ID (canonical) but fall back to legacy STRIPE_TEST_PRICE_ID
-    price_id = data.get('price_id') or os.getenv('STRIPE_PRICE_ID') or os.getenv('STRIPE_TEST_PRICE_ID')
-    if not price_id:
-        return jsonify({'ok': False, 'error': 'No price configured. Set STRIPE_TEST_PRICE_ID or pass price_id.'}), 400
-    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-    try:
-        # in test mode create a session and return the URL
-        sess = stripe.checkout.Session.create(
-            mode='subscription',
-            payment_method_types=['card'],
-            line_items=[{'price': price_id, 'quantity': 1}],
-            success_url=os.getenv('STRIPE_SUCCESS_URL', 'http://localhost:5001/'),
-            cancel_url=os.getenv('STRIPE_CANCEL_URL', 'http://localhost:5001/'),
-            client_reference_id=uid
-        )
-        return jsonify({'ok': True, 'url': sess.url})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-
-@app.post('/api/stripe-webhook')
-def api_stripe_webhook():
-    payload = request.data
-    sig_header = request.headers.get('Stripe-Signature')
-    secret = os.getenv('STRIPE_WEBHOOK_SECRET')
-    event = None
-    db = get_db()
-    if secret and stripe:
-        try:
-            event = stripe.Webhook.construct_event(payload, sig_header, secret)
-        except Exception as e:
-            # invalid signature
-            return jsonify({'ok': False, 'error': 'invalid signature'}), 400
-    else:
-        # fallback: try to parse JSON without verification (local dev)
-        try:
-            event = json.loads(payload)
-        except Exception:
-            return jsonify({'ok': False}), 400
-
-    typ = event.get('type')
-    data = event.get('data', {}).get('object', {})
-
-    # Handle checkout.session.completed: mark user paid and store subscription id
-    if typ == 'checkout.session.completed':
-        client_ref = data.get('client_reference_id')
-        customer = data.get('customer')
-        subscription_id = data.get('subscription')
-        if client_ref:
-            try:
-                db.execute('UPDATE users SET stripe_customer_id = ?, is_paid = 1 WHERE id = ?', (customer, client_ref))
-                # create subscription row if subscription_id present
-                if subscription_id:
-                    sub_id = str(uuid.uuid4())
-                    db.execute('INSERT OR REPLACE INTO subscriptions (id, user_id, stripe_subscription_id, status) VALUES (?, ?, ?, ?)',
-                               (sub_id, client_ref, subscription_id, 'active'))
-                db.commit()
-            except Exception:
-                pass
-
-    # Handle subscription lifecycle events to update status
-    if typ in ('customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'):
-        sub = data
-        stripe_sub_id = sub.get('id')
-        status = sub.get('status')
-        customer = sub.get('customer')
-        # try to find user by stripe_customer_id
-        user_row = db.execute('SELECT id FROM users WHERE stripe_customer_id = ?', (customer,)).fetchone()
-        if user_row:
-            uid = user_row['id']
-            # upsert subscription
-            try:
-                # find existing
-                existing = db.execute('SELECT id FROM subscriptions WHERE stripe_subscription_id = ?', (stripe_sub_id,)).fetchone()
-                if existing:
-                    db.execute('UPDATE subscriptions SET status = ?, current_period_end = ? WHERE id = ?', (status, sub.get('current_period_end'), existing['id']))
-                else:
-                    db.execute('INSERT INTO subscriptions (id, user_id, stripe_subscription_id, status, current_period_end) VALUES (?, ?, ?, ?, ?)',
-                               (str(uuid.uuid4()), uid, stripe_sub_id, status, sub.get('current_period_end')))
-                # set user paid flag based on status
-                is_paid = 1 if status in ('active', 'trialing') else 0
-                db.execute('UPDATE users SET is_paid = ? WHERE id = ?', (is_paid, uid))
-                db.commit()
-            except Exception:
-                pass
-
-    # invoice payment succeeded -> ensure user is marked paid
-    if typ == 'invoice.payment_succeeded':
-        inv = data
-        customer = inv.get('customer')
-        user_row = db.execute('SELECT id FROM users WHERE stripe_customer_id = ?', (customer,)).fetchone()
-        if user_row:
-            try:
-                db.execute('UPDATE users SET is_paid = 1 WHERE id = ?', (user_row['id'],))
-                db.commit()
-            except Exception:
-                pass
-
-    return jsonify({'ok': True})
-
-
-@app.post('/api/create-portal-session')
-def api_create_portal():
-    if stripe is None or not os.getenv('STRIPE_SECRET_KEY'):
-        return jsonify({'ok': False, 'error': 'Stripe not configured'}), 501
-    uid = session.get('user_id')
-    if not uid:
-        return jsonify({'ok': False, 'error': 'Authentication required'}), 401
-    db = get_db()
-    user = db.execute('SELECT stripe_customer_id FROM users WHERE id = ?', (uid,)).fetchone()
-    if not user or not user['stripe_customer_id']:
-        return jsonify({'ok': False, 'error': 'No stripe customer for user'}), 400
-    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-    try:
-        sess = stripe.billing_portal.Session.create(customer=user['stripe_customer_id'], return_url=os.getenv('STRIPE_MANAGE_URL', 'http://localhost:5001/'))
-        return jsonify({'ok': True, 'url': sess.url})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-
-@app.get('/api/stripe-publishable-key')
-def api_stripe_publishable_key():
-    """Return the Stripe publishable key for client-side Stripe.js initialization."""
-    if not os.getenv('STRIPE_PUBLISHABLE_KEY'):
-        return jsonify({'ok': False, 'error': 'Publishable key not configured'}), 501
-    return jsonify({'ok': True, 'publishableKey': os.getenv('STRIPE_PUBLISHABLE_KEY')})
-
-
-@app.get('/api/stripe-price')
-def api_stripe_price():
-    """Return a small JSON object describing the configured Stripe Price (amount/currency/interval, product name).
-
-    Uses STRIPE_TEST_PRICE_ID if no price_id query param is provided. Returns 501 if Stripe isn't configured.
-    """
-    if stripe is None or not os.getenv('STRIPE_SECRET_KEY'):
-        return jsonify({'ok': False, 'error': 'Stripe not configured'}), 501
-    # prefer STRIPE_PRICE_ID (canonical) but fall back to legacy STRIPE_TEST_PRICE_ID
-    price_id = request.args.get('price_id') or os.getenv('STRIPE_PRICE_ID') or os.getenv('STRIPE_TEST_PRICE_ID')
-    if not price_id:
-        return jsonify({'ok': False, 'error': 'No price_id configured'}), 400
-    try:
-        stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-        price = stripe.Price.retrieve(price_id)
-        # amount is typically in cents (unit_amount)
-        unit = price.get('unit_amount') or price.get('unit_amount_decimal')
-        currency = price.get('currency') or 'usd'
-        recurring = price.get('recurring') or {}
-        interval = recurring.get('interval') if recurring else None
-        # nice display string (e.g. "$9 / month")
-        display = None
-        try:
-            if unit is not None:
-                amt = int(unit) / 100.0
-                # show as integer dollars when whole dollars
-                display = f"${amt:.0f}" if (amt).is_integer() else f"${amt:.2f}"
-                if interval:
-                    display = f"{display} / {interval}"
-        except Exception:
-            display = None
-        product_obj = None
-        product_id = price.get('product')
-        if product_id:
-            try:
-                prod = stripe.Product.retrieve(product_id)
-                product_obj = {'id': prod.get('id'), 'name': prod.get('name')}
-            except Exception:
-                product_obj = None
-        return jsonify({'ok': True, 'price': {'id': price.get('id'), 'unit_amount': unit, 'currency': currency, 'interval': interval, 'display': display, 'product': product_obj}})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-
-@app.post('/api/create-subscription')
-def api_create_subscription():
-    """Create or update Stripe Customer, attach payment method, and create a subscription.
-
-    Expects JSON: { price_id, payment_method }
-    Returns: { ok: True, client_secret?, subscription_id, status }
-    """
-    if stripe is None or not os.getenv('STRIPE_SECRET_KEY'):
-        return jsonify({'ok': False, 'error': 'Stripe not configured'}), 501
-    uid = session.get('user_id')
-    if not uid:
-        return jsonify({'ok': False, 'error': 'Authentication required'}), 401
-    data = request.get_json(force=True)
-    # prefer STRIPE_PRICE_ID (canonical) but fall back to legacy STRIPE_TEST_PRICE_ID
-    price_id = data.get('price_id') or os.getenv('STRIPE_PRICE_ID') or os.getenv('STRIPE_TEST_PRICE_ID')
-    payment_method = data.get('payment_method')
-    if not price_id:
-        return jsonify({'ok': False, 'error': 'price_id required'}), 400
-
-    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-    db = get_db()
-    user = db.execute('SELECT id, email, stripe_customer_id FROM users WHERE id = ?', (uid,)).fetchone()
-    try:
-        # sqlite3.Row doesn't implement .get(); convert to mapping-style access
-        customer_id = user['stripe_customer_id'] if user and 'stripe_customer_id' in user.keys() else None
-        if not customer_id:
-            # create customer (pass email only if available)
-            cust_kwargs = {}
-            try:
-                if user and 'email' in user.keys() and user['email']:
-                    cust_kwargs['email'] = user['email']
-            except Exception:
-                pass
-            cust = stripe.Customer.create(**cust_kwargs)
-            customer_id = cust['id']
-            try:
-                db.execute('UPDATE users SET stripe_customer_id = ? WHERE id = ?', (customer_id, uid))
-                db.commit()
-            except Exception:
-                pass
-
-        # attach payment method to customer if provided
-        if payment_method:
-            try:
-                stripe.PaymentMethod.attach(payment_method, customer=customer_id)
-            except Exception:
-                # ignore if already attached or other recoverable error
-                pass
-            # set as default payment method for invoices
-            try:
-                stripe.Customer.modify(customer_id, invoice_settings={'default_payment_method': payment_method})
-            except Exception:
-                pass
-
-        # create subscription in incomplete state so we can handle SCA if needed
-        sub = stripe.Subscription.create(
-            customer=customer_id,
-            items=[{'price': price_id}],
-            payment_behavior='default_incomplete',
-            expand=['latest_invoice.payment_intent'],
-            payment_settings={'save_default_payment_method': 'on_subscription'}
-        )
-
-        # persist subscription locally
-        try:
-            db.execute('INSERT INTO subscriptions (id, user_id, stripe_subscription_id, status, current_period_end) VALUES (?, ?, ?, ?, ?)',
-                       (str(uuid.uuid4()), uid, sub['id'], sub.get('status'), sub.get('current_period_end')))
-            db.commit()
-        except Exception:
-            # ignore duplicate/insert errors
-            pass
-
-        client_secret = None
-        latest_invoice = sub.get('latest_invoice') or {}
-        payment_intent = latest_invoice.get('payment_intent') or {}
-        client_secret = payment_intent.get('client_secret')
-        return jsonify({'ok': True, 'subscription_id': sub['id'], 'status': sub.get('status'), 'client_secret': client_secret})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
-
-@app.post('/api/reconcile-subscriptions')
-def api_reconcile_subscriptions():
-    """Admin/dev endpoint: fetch subscription state from Stripe for all local subscription rows
-    that have a stripe_subscription_id and upsert the latest status/current_period_end into DB.
-    Requires STRIPE_SECRET_KEY to be set and will return 501 if not configured.
-    """
-    # If ADMIN_EMAILS is set, require the current user to be an admin and validate CSRF token.
-    admin_emails = os.getenv('ADMIN_EMAILS', '')
-    if admin_emails and not is_admin():
-        return jsonify({'ok': False, 'error': 'Admin required'}), 403
-    # If admin protection is enabled, require a matching CSRF token in a header
-    if admin_emails:
-        token = request.headers.get('X-CSRF-Token')
-        if not token or token != session.get('admin_csrf'):
-            return jsonify({'ok': False, 'error': 'CSRF token required'}), 403
-    if stripe is None or not os.getenv('STRIPE_SECRET_KEY'):
-        return jsonify({'ok': False, 'error': 'Stripe not configured'}), 501
-    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-    db = get_db()
-    rows = db.execute('SELECT id, user_id, stripe_subscription_id FROM subscriptions WHERE stripe_subscription_id IS NOT NULL').fetchall()
-    results = []
-    for r in rows:
-        sid = r['stripe_subscription_id']
-        try:
-            remote = stripe.Subscription.retrieve(sid)
-            status = remote.get('status')
-            cpe = remote.get('current_period_end')
-            # upsert the values into subscriptions table
-            db.execute('UPDATE subscriptions SET status = ?, current_period_end = ? WHERE id = ?', (status, cpe, r['id']))
-            # update user is_paid based on status
-            is_paid = 1 if status in ('active', 'trialing') else 0
-            db.execute('UPDATE users SET is_paid = ? WHERE id = ?', (is_paid, r['user_id']))
-            results.append({'id': r['id'], 'stripe_subscription_id': sid, 'status': status})
-        except Exception as e:
-            results.append({'id': r['id'], 'stripe_subscription_id': sid, 'error': str(e)})
-    db.commit()
-    return jsonify({'ok': True, 'results': results})
-
-
-@app.get('/admin')
-def admin_page():
-    # basic admin interface to trigger reconciliation
-    if not is_admin():
-        return render_template('admin.html', allowed=False)
-    return render_template('admin.html', allowed=True)
-
-
-@app.get('/api/admin/users')
-def api_admin_users():
-    """Admin endpoint to fetch users with their profiles and activity data."""
-    if not is_admin():
-        return jsonify({'ok': False, 'error': 'Admin required'}), 403
-    
-    db = get_db()
-    # Fetch users with profile data joined
-    # Note: The above query has a limitation - it doesn't properly link users to profiles
-    # because profiles are session-based, not user-based. Let's use a simpler approach:
-    query = """
-        SELECT 
-            u.id, 
-            u.email, 
-            u.is_paid,
-            u.stripe_customer_id,
-            u.created_at as user_created_at,
-            u.is_admin
-        FROM users u
-        ORDER BY u.created_at DESC
-    """
-    
-    users = db.execute(query).fetchall()
-    
-    # Get all profiles to find most recent activity
-    profiles_query = "SELECT id, industry, tone, platforms, brand_keywords, niche_keywords, company, created_at FROM profiles ORDER BY created_at DESC"
-    profiles = db.execute(profiles_query).fetchall()
-    
-    # Parse JSON fields helper function
-    def parse_json_field(val):
-        try:
-            if not val:
-                return []
-            return json.loads(val)
-        except Exception:
-            return []
-    
-    # Build user data list
-    user_data = []
-    for user in users:
-        # Get feedback count and subscription info
-        sub_query = "SELECT status, current_period_end FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1"
-        sub = db.execute(sub_query, (user['id'],)).fetchone()
-        
-        user_info = {
-            'id': user['id'],
-            'email': user['email'],
-            'is_paid': bool(user['is_paid']),
-            'is_admin': bool(user.get('is_admin', 0)),
-            'has_stripe': bool(user['stripe_customer_id']),
-            'created_at': user['user_created_at'],
-            'subscription_status': sub['status'] if sub else None,
-            'subscription_end': sub['current_period_end'] if sub else None,
-            # Profile data will be aggregated from all profiles (simplified for now)
-        }
-        user_data.append(user_info)
-    
-    # Aggregate profile data for overview
-    profile_stats = {
-        'total_profiles': len(profiles),
-        'industries': {},
-        'platforms': {}
-    }
-    
-    for profile in profiles:
-        industry = profile['industry']
-        if industry:
-            profile_stats['industries'][industry] = profile_stats['industries'].get(industry, 0) + 1
-        
-        platforms = parse_json_field(profile['platforms'])
-        for platform in platforms:
-            profile_stats['platforms'][platform] = profile_stats['platforms'].get(platform, 0) + 1
-    
-    return jsonify({
-        'ok': True, 
-        'users': user_data,
-        'stats': {
-            'total_users': len(user_data),
-            'paid_users': sum(1 for u in user_data if u['is_paid']),
-            'free_users': sum(1 for u in user_data if not u['is_paid']),
-            'profile_stats': profile_stats
-        }
-    })
-
-
-# Dev debug route to inspect session and current user (only in dev or when ALLOW_DEV_DEBUG=1)
-@app.get('/__debug__/session')
-def debug_session():
-    if os.getenv('FLASK_ENV') != 'development' and os.getenv('ALLOW_DEV_DEBUG') != '1':
-        return jsonify({'ok': False, 'error': 'Not allowed'}), 403
-    out = {'session': dict(session)}
-    uid = session.get('user_id')
-    if uid:
-        try:
-            db = get_db()
-            row = db.execute('SELECT id, email, is_paid FROM users WHERE id = ?', (uid,)).fetchone()
-            out['current_user'] = row_to_mapping(row) if row else {}
-        except Exception:
-            out['current_user'] = {}
-    return jsonify({'ok': True, 'debug': out})
-
-
-# Dev helper: list registered routes (dev-only)
-@app.get('/__dev__/routes')
-def dev_list_routes():
-    if os.getenv('FLASK_ENV') != 'development' and os.getenv('ALLOW_DEV_DEBUG') != '1':
-        return jsonify({'ok': False, 'error': 'Not allowed'}), 403
-    rules = []
-    for rule in app.url_map.iter_rules():
-        methods = list(rule.methods) if rule.methods else []
-        rules.append({'rule': str(rule), 'endpoint': rule.endpoint, 'methods': sorted(methods)})
-    return jsonify({'ok': True, 'routes': rules})
-
-
-# Dev helper: simple ping
-@app.get('/__dev__/ping')
-def dev_ping():
-    if os.getenv('FLASK_ENV') != 'development' and os.getenv('ALLOW_DEV_DEBUG') != '1':
-        return 'Not allowed', 403
-    return 'pong'
-
-
-# Dev-only helper: create or update a user and sign them in (only in dev)
-@app.post('/__dev__/create_user')
-def dev_create_user():
-    if os.getenv('FLASK_ENV') != 'development' and os.getenv('ALLOW_DEV_DEBUG') != '1':
-        return jsonify({'ok': False, 'error': 'Not allowed'}), 403
-    data = request.get_json(force=True)
-    email = (data.get('email') or '').strip().lower()
-    password = data.get('password') or 'password'
-    is_paid = bool(data.get('is_paid', False))
-    free_sample_used = bool(data.get('free_sample_used', False))
-    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-        return jsonify({'ok': False, 'error': 'Invalid email'}), 400
-    db = get_db()
-    # if exists, update password and paid flag, else create
-    row = db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
-    uid = row['id'] if row else str(uuid.uuid4())
-    pw_hash = generate_password_hash(password, method='pbkdf2:sha256')
-    try:
-        if row:
-            db.execute('UPDATE users SET password_hash = ?, is_paid = ?, free_sample_used = ? WHERE id = ?', (pw_hash, 1 if is_paid else 0, 1 if free_sample_used else 0, uid))
-        else:
-            db.execute('INSERT INTO users (id, email, password_hash, is_paid, free_sample_used) VALUES (?, ?, ?, ?, ?)', (uid, email, pw_hash, 1 if is_paid else 0, 1 if free_sample_used else 0))
-        db.commit()
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-    session['user_id'] = uid
-    try:
-        row = db.execute('SELECT id, email, is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
-    except Exception:
-        row = None
-    payload = {
-        'ok': True,
-        'id': uid,
-        'email': email,
-        'is_paid': bool(row['is_paid']) if row else is_paid,
-        'free_sample_used': bool(row['free_sample_used']) if row and 'free_sample_used' in row.keys() else free_sample_used
-    }
-    return jsonify(payload)
-
-
-@app.post('/api/request-password-reset')
-def api_request_password_reset():
-    data = request.get_json(force=True)
-    email = (data.get('email') or '').strip().lower()
-    if not email:
-        return jsonify({'ok': False, 'error': 'Email required'}), 400
-    db = get_db()
-    row = db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
-    if not row:
-        # don't leak user existence in production — here we return ok for dev
-        return jsonify({'ok': True})
-    token = str(uuid.uuid4())
-    # token valid for 1 hour
-    import datetime
-    expires = (datetime.datetime.utcnow() + datetime.timedelta(hours=1)).isoformat()
-    try:
-        db.execute('INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)', (token, row['id'], expires))
-        db.commit()
-    except Exception:
-        pass
-    # In production, send email with reset link that contains token. For local dev, return token so tests can use it.
-    return jsonify({'ok': True, 'token': token})
-
-
-@app.post('/api/confirm-password-reset')
-def api_confirm_password_reset():
-    data = request.get_json(force=True)
-    token = data.get('token')
-    new_pw = data.get('password')
-    if not token or not new_pw or len(new_pw) < 6:
-        return jsonify({'ok': False, 'error': 'Invalid token or password too short'}), 400
-    db = get_db()
-    row = db.execute('SELECT * FROM password_reset_tokens WHERE token = ?', (token,)).fetchone()
-    if not row:
-        return jsonify({'ok': False, 'error': 'Invalid or expired token'}), 400
-    import datetime
-    if row['expires_at'] and datetime.datetime.fromisoformat(row['expires_at']) < datetime.datetime.utcnow():
-        return jsonify({'ok': False, 'error': 'Token expired'}), 400
-    # update password
-    pw_hash = generate_password_hash(new_pw, method='pbkdf2:sha256')
-    try:
-        db.execute('UPDATE users SET password_hash = ? WHERE id = ?', (pw_hash, row['user_id']))
-        db.execute('DELETE FROM password_reset_tokens WHERE token = ?', (token,))
-        db.commit()
-    except Exception as e:
-        return jsonify({'ok': False, 'error': 'Could not reset password'}), 500
-    return jsonify({'ok': True})
-
-
-@app.post('/api/waitlist')
-def api_waitlist():
-    """Add email to waitlist for landing page signups."""
-    data = request.get_json(force=True)
-    email = (data.get('email') or '').strip().lower()
-    
-    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
-    
-    db = get_db()
-    try:
-        db.execute('INSERT INTO waitlist (email) VALUES (?)', (email,))
-        db.commit()
-        
-        # In production, send confirmation email here
-        # For now, just return success
-        return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
-    except Exception as e:
-        # Email already exists or other error
-        if 'UNIQUE constraint' in str(e):
-            return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
-        return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
-
-
-@app.post('/api/waitlist')
-def api_waitlist():
-    """Add email to waitlist for landing page signups."""
-    data = request.get_json(force=True)
-    email = (data.get('email') or '').strip().lower()
-
-    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
-
-    db = get_db()
-    try:
-        db.execute('INSERT INTO waitlist (email) VALUES (?)', (email,))
-        db.commit()
-
-        # In production, send confirmation email here
-        # For now, just return success
-        return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
-    except Exception as e:
-        # Email already exists or other error
-        if 'UNIQUE constraint' in str(e):
-            return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
-        return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
- 
-@app.post("/api/profile")
-def save_profile():
-    data = request.get_json(force=True)
-    profile_id = session.get("profile_id") or str(uuid.uuid4())
-    session["profile_id"] = profile_id
-
-    platforms = data.get("platforms", ["instagram"])
-    company = data.get("company", "")
-    # normalize company: trim and title-case for consistency
-    if isinstance(company, str):
-        company = company.strip()
-        company = company.title() if company else ""
-
-    # server-side validation: length and allowed chars
-    if company:
-        if len(company) > 100:
-            return jsonify({"ok": False, "error": "Company name is too long (max 100 chars).", "errors": {"company": "Company name is too long (max 100 chars)."}}), 400
-        import re
-        if not re.match(r"^[\w \-\'\.\&]+$", company):
-            return jsonify({"ok": False, "error": "Company name contains invalid characters.", "errors": {"company": "Company name contains invalid characters."}}), 400
-    details = data.get("details", {}) or {}
-    row = (
-        profile_id,
-        data.get("industry", "Business"),
-        data.get("tone", "friendly"),
-        json.dumps(platforms),
-        json.dumps(data.get("brand_keywords", [])),
-        json.dumps(data.get("niche_keywords", [])),
-        json.dumps(data.get("goals", [])),
-        json.dumps(details),
-        company,
-        1 if data.get("include_images", True) else 0,
-    )
-    db = get_db()
-    db.execute(
-        """INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, details, company, include_images)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-              industry=excluded.industry,
-              tone=excluded.tone,
-              platforms=excluded.platforms,
-              brand_keywords=excluded.brand_keywords,
-              niche_keywords=excluded.niche_keywords,
-              goals=excluded.goals,
-              details=excluded.details,
-              company=excluded.company,
-              include_images=excluded.include_images
-        """,
-        row,
-    )
-    db.commit()
-    return jsonify({"ok": True, "profile_id": profile_id})
-
-
-@app.get("/api/profile")
-def get_profile():
-    profile_id = session.get("profile_id")
-    uid = session.get('user_id')
-    if not profile_id:
-        return jsonify({})
-    db = get_db()
-    row = db.execute("SELECT * FROM profiles WHERE id = ?", (profile_id,)).fetchone()
-    if not row:
-        return jsonify({})
-    # parse stored JSON fields
-    def parse_json_field(val, default=None):
-        try:
-            if not val:
-                return [] if default is None else default
-            return json.loads(val)
-        except Exception:
-            return [] if default is None else default
-
-    return jsonify({
-        "id": row["id"],
-        "industry": row["industry"],
-        "tone": row["tone"],
-        "platforms": parse_json_field(row["platforms"], []),
-        "brand_keywords": parse_json_field(row["brand_keywords"], []),
-        "niche_keywords": parse_json_field(row["niche_keywords"], []),
-        "goals": parse_json_field(row["goals"], []),
-    "details": parse_json_field(row["details"], {}),
-        "company": row["company"] or "",
-        "include_images": bool(row["include_images"]),
-        "created_at": row["created_at"],
-    })
-
-@app.post("/api/generate")
-def api_generate():
-    uid = session.get('user_id')
-    if not uid:
-        return jsonify({'ok': False, 'error': 'Authentication required'}), 401
-
-    db = get_db()
-    user = db.execute('SELECT id, is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
-    if not user:
-        return jsonify({'ok': False, 'error': 'Authentication required'}), 401
-
-    data = request.get_json(force=True)
-    profile_id = session.get("profile_id")
-    days = int(data.get("days", 30))
-    start_iso = data.get("start_date")
-    try:
-        start_day = date.fromisoformat(start_iso) if start_iso else date.today()
-    except Exception:
-        start_day = date.today()
-
-    industry = data.get("industry", "Business")
-    tone = data.get("tone", "friendly")
-    platforms = data.get("platforms", ["instagram"])
-    brand_keywords = data.get("brand_keywords", [])
-    niche_keywords = data.get("niche_keywords", [])
-    goals = data.get("goals", [])
-    details = data.get("details", {})
-    include_images = bool(data.get("include_images", True))
-    company = data.get("company", "")
-    details = data.get("details", {}) or {}
-
-    reel_platforms = set(['tiktok', 'short_video'])
-    requested_reel_platforms = [p for p in (platforms or []) if p and p.lower() in reel_platforms]
-    reels_requested = max(0, len(requested_reel_platforms)) * int(days)
-    is_paid = bool(user['is_paid'])
-    free_sample_used = bool(user['free_sample_used'])
-    is_reel_request = reels_requested > 0
-    is_sample_request = days <= 1 and not is_reel_request
-    consume_free_sample = False
-
-    if not is_paid:
-        if is_reel_request:
-            return jsonify({'ok': False, 'error': 'Paid subscription required to generate reels'}), 403
-        if days > 1:
-            return jsonify({'ok': False, 'error': 'Paid subscription required to generate multi-day plans'}), 403
-        if free_sample_used:
-            return jsonify({'ok': False, 'error': 'You already used your free sample. Subscribe to unlock unlimited posts.'}), 403
-        if not is_sample_request:
-            return jsonify({'ok': False, 'error': 'Paid subscription required for this feature'}), 403
-        consume_free_sample = True
-
-    if is_reel_request:
-        if not is_paid:
-            return jsonify({'ok': False, 'error': 'Paid subscription required to generate reels'}), 403
-        quota = int(os.getenv('REELS_QUOTA_MONTHLY', '30'))
-        period = date.today().strftime('%Y-%m')
-        row = db.execute('SELECT reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
-        used = int(row['reels_generated']) if row else 0
-        if used + reels_requested > quota:
-            return jsonify({'ok': False, 'error': 'Reel generation quota exceeded for this billing period', 'quota': quota, 'used': used}), 403
-
-    posts = generate_posts(
-        days=days,
-        start_day=start_day,
-        industry=industry,
-        tone=tone,
-        platforms=platforms,
-        brand_keywords=brand_keywords,
-        include_images=include_images,
-        niche_keywords=niche_keywords,
-        goals=goals,
-        details=details,
-        company=company
-    )
-
-    if consume_free_sample:
-        try:
-            db.execute('UPDATE users SET free_sample_used = 1 WHERE id = ?', (uid,))
-            db.commit()
-        except Exception:
-            pass
-
-    # if reels were requested, increment usage after successful generation
-    if reels_requested > 0:
-        try:
-            period = date.today().strftime('%Y-%m')
-            existing = db.execute('SELECT reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
-            if existing:
-                db.execute('UPDATE generation_usage SET reels_generated = reels_generated + ? WHERE user_id = ? AND period = ?', (reels_requested, uid, period))
-            else:
-                db.execute('INSERT INTO generation_usage (id, user_id, period, reels_generated) VALUES (?, ?, ?, ?)', (str(uuid.uuid4()), uid, period, reels_requested))
-            db.commit()
-        except Exception:
-            # non-fatal: do not fail generation if usage increment fails
-            pass
-    return jsonify({"count": len(posts), "posts": posts, "profile_id": profile_id})
-
-@app.post("/api/feedback")
-def api_feedback():
-    data = request.get_json(force=True)
-    profile_id = session.get("profile_id")
-    if not profile_id:
-        return jsonify({"ok": False, "error": "No profile in session"}), 400
-    db = get_db()
-    db.execute(
-        "INSERT INTO feedback (profile_id, post_day, platform, rating, note) VALUES (?, ?, ?, ?, ?)",
-        (
-            profile_id,
-            int(data.get("post_day", 0)),
-            data.get("platform"),
-            int(data.get("rating", 0)),
-            data.get("note", "")[:500],
-        ),
-    )
-    db.commit()
-    return jsonify({"ok": True})
-
-
-@app.post("/api/generate-review-response")
-def api_generate_review_response():
-    """Generate a professional response to a customer review or rating."""
-    data = request.get_json(force=True)
-    review_text = data.get("review_text", "").strip()
-    response_tone = data.get("tone", "professional")  # professional, grateful, apologetic, friendly
-    company_name = data.get("company_name", "").strip()
-    
-    if not review_text:
-        return jsonify({"ok": False, "error": "Review text is required"}), 400
-    
-    # Tone templates for different response types
-    tone_templates = {
-        "professional": {
-            "positive": "Thank you for your {rating} review{company}. We're pleased to hear that {summary}. We appreciate your business and look forward to serving you again.",
-            "negative": "Thank you for your feedback{company}. We apologize that {summary}. We take all feedback seriously and will use this to improve our service. Please contact us directly so we can make this right.",
-            "neutral": "Thank you for taking the time to share your feedback{company}. We appreciate your comments about {summary} and will continue working to improve."
-        },
-        "grateful": {
-            "positive": "We're so grateful for your wonderful {rating} review{company}! It means the world to us to hear that {summary}. Thank you for choosing us!",
-            "negative": "Thank you for sharing your experience{company}. We're truly sorry that {summary}. Your feedback helps us grow, and we'd love the chance to make things right.",
-            "neutral": "We really appreciate you taking the time to leave feedback{company}. Your thoughts on {summary} are valuable to us. Thank you!"
-        },
-        "apologetic": {
-            "positive": "Thank you so much for your {rating} review{company}! We're thrilled that {summary}. We truly appreciate your support.",
-            "negative": "We sincerely apologize for your experience{company}. We're very sorry that {summary}. This doesn't meet our standards, and we'd like to make it right. Please reach out to us directly.",
-            "neutral": "Thank you for your feedback{company}. We appreciate you letting us know about {summary}. We're always working to improve."
-        },
-        "friendly": {
-            "positive": "Wow, thank you for the amazing {rating} review{company}! 🎉 We're so happy to hear that {summary}. You made our day!",
-            "negative": "Thanks for letting us know about your experience{company}. We're really sorry that {summary}. We'd love to chat and see how we can fix this. Please get in touch!",
-            "neutral": "Hey, thanks for the feedback{company}! We appreciate your thoughts on {summary}. We're always listening and improving!"
-        }
-    }
-    
-    # Use OpenAI if available for better responses
-    if USE_OPENAI:
-        try:
-            company_context = f" for {company_name}" if company_name else ""
-            prompt = f"""Generate a professional response to this customer review{company_context}. 
-The tone should be {response_tone}.
-
-Customer Review:
-{review_text}
-
-Generate a thoughtful, personalized response that:
-1. Acknowledges their feedback
-2. Matches the {response_tone} tone
-3. Is concise (2-3 sentences)
-4. Sounds genuine and human
-5. For positive reviews: thank them and show appreciation
-6. For negative reviews: apologize and offer to make it right
-7. For neutral reviews: thank them and acknowledge their feedback
-
-Response:"""
-            
-            response = openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant that generates professional, empathetic responses to customer reviews."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=200,
-                temperature=0.7
-            )
-            
-            generated_response = response.choices[0].message.content.strip()
-            return jsonify({
-                "ok": True, 
-                "response": generated_response,
-                "method": "ai"
-            })
-        except Exception as e:
-            # Fall through to template-based approach if OpenAI fails
-            pass
-    
-    # Template-based fallback
-    # Analyze sentiment (simple keyword-based)
-    review_lower = review_text.lower()
-    positive_words = ["great", "excellent", "amazing", "wonderful", "fantastic", "love", "best", "perfect", "awesome"]
-    negative_words = ["bad", "poor", "terrible", "awful", "worst", "horrible", "disappointed", "never", "rude"]
-    
-    positive_count = sum(1 for word in positive_words if word in review_lower)
-    negative_count = sum(1 for word in negative_words if word in review_lower)
-    
-    if positive_count > negative_count:
-        sentiment = "positive"
-        rating = "positive"
-    elif negative_count > positive_count:
-        sentiment = "negative"
-        rating = ""
-    else:
-        sentiment = "neutral"
-        rating = ""
-    
-    # Extract key phrases (word-boundary-aware truncation)
-    if '.' in review_text:
-        summary = review_text.split('.', 1)[0].strip().lower()
-        if not summary.endswith('.'):
-            summary += "..."
-    else:
-        # Truncate to 80 chars at word boundary
-        truncated = review_text[:80]
-        if len(review_text) > 80:
-            # Avoid cutting off mid-word
-            last_space = truncated.rfind(' ')
-            if last_space > 0:
-                truncated = truncated[:last_space]
-            summary = truncated.strip().lower() + "..."
-        else:
-            summary = truncated.strip().lower()
-    
-    # Build response from template
-    template = tone_templates.get(response_tone, tone_templates["professional"])[sentiment]
-    company_part = f" at {company_name}" if company_name else ""
-    
-    response_text = template.format(
-        rating=rating,
-        company=company_part,
-        summary=summary
-    )
-    
-    return jsonify({
-        "ok": True, 
-        "response": response_text,
-        "method": "template",
-        "detected_sentiment": sentiment
-    })
-
-
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", "5000"))
-    # Run without the debugger/reloader here to avoid issues with the dev reloader
-    # blocking incoming requests in some environments. For interactive debugging
-    # set FLASK_DEBUG=1 and run with the flask CLI instead.
-    app.run(host="0.0.0.0", port=port, debug=False)
+*** End Patch
