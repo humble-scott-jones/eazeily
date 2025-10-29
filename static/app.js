@@ -241,6 +241,10 @@ function renderAuthUi(){
 function openAuthModal(view){
   const modal = document.getElementById('auth-modal');
   if (!modal) return;
+  // Append to body to ensure proper centering regardless of parent transforms
+  if (!document.body.contains(modal)) {
+    document.body.appendChild(modal);
+  }
   modal.classList.remove('hidden');
   const container = modal.querySelector('[tabindex="-1"]');
   if (container && typeof container.focus === 'function') container.focus();

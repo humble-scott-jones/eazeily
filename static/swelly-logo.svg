@@ -1,20 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="Swelly logo">
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="32" viewBox="0 0 128 32" role="img" aria-label="Swelly logo text">
   <defs>
-    <linearGradient id="sgrad" x1="0%" x2="100%" y1="0%" y2="100%">
-      <stop offset="0%" stop-color="#a5b4fc"/>
-      <stop offset="100%" stop-color="#6366F1"/>
+    <linearGradient id="textgrad" x1="0%" x2="100%" y1="0%" y2="0%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#a5b4fc"/>
     </linearGradient>
   </defs>
-  <rect width="128" height="128" rx="24" fill="url(#sgrad)"/>
-  <g transform="translate(0,0)">
-    <!-- face -->
-    <circle cx="64" cy="54" r="30" fill="#2b2f4a" opacity="0.06" />
-    <!-- smile -->
-    <path d="M44 68c6 8 34 8 44 0" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none" stroke-linejoin="round" opacity="0.95" />
-    <!-- eyes -->
-    <circle cx="50" cy="50" r="4" fill="#fff" opacity="0.95" />
-    <circle cx="78" cy="50" r="4" fill="#fff" opacity="0.95" />
-    <!-- subtle highlight -->
-    <ellipse cx="48" cy="40" rx="20" ry="10" fill="#ffffff" opacity="0.06" />
-  </g>
+  <text x="64" y="24" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="url(#textgrad)" text-anchor="middle">Swelly</text>
 </svg>
