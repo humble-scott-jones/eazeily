@@ -14,7 +14,7 @@ cmds = ["echo 'No install needed for static site'"]
 cmds = ["echo 'Static site ready'"]
 
 [deploy]
-startCommand = "python3 -m http.server 8080"
+startCommand = "python3 -c \"import os, http.server, socketserver; port = int(os.getenv('PORT', 8000)); httpd = socketserver.TCPServer(('', port), http.server.SimpleHTTPRequestHandler); httpd.serve_forever()\""
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
