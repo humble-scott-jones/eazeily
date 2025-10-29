@@ -9,9 +9,13 @@
 .logo-gradient{ width:32px;height:32px;border-radius:10px; overflow:hidden; display:inline-block;
   /* Use the explicit brand logo asset if present */
   background-image: url('/static/logo.svg');
-  background-size: cover;
+  /* ensure transparent SVGs render on a white background */
+  background-color: #fff;
+  background-size: contain;
+  background-repeat: no-repeat;
   background-position: center;
-  box-shadow: 0 4px 18px rgba(99,102,241,.35);
+  padding: 3px; /* small white padding so the logo sits on white */
+  box-shadow: 0 4px 18px rgba(99,102,241,.18);
 }
 .card{ background:#fff;border:1px solid #eaeaf0;border-radius:16px;padding:18px;box-shadow:0 4px 14px rgba(15,23,42,.04);}
 .input{ width:100%;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;outline:none;}
@@ -41,8 +45,29 @@
 
 /* Landing Page Styles */
 .hero-visual { 
+  /* keep a subtle background but ensure the inner logo image sits on white */
   background: linear-gradient(135deg, var(--brand-50) 0%, #ffffff 100%);
   aspect-ratio: 16/9;
+}
+
+/* If the hero shows the logo svg directly, place it on a white card so transparent bg looks correct */
+.hero-visual img {
+  background: #fff;
+  padding: 28px;
+  display: block;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+
+/* Header logo styling to ensure transparent SVGs sit on a white rounded background
+   and scale cleanly inside the header without appearing visually offset. */
+.header-logo {
+  background: #fff;
+  padding: 4px;
+  border-radius: 8px;
+  display: inline-block;
+  object-fit: contain;
+  box-shadow: 0 6px 18px rgba(99,102,241,0.12);
 }
 
 details summary {
