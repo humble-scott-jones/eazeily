@@ -55,12 +55,12 @@ function updateAccessUi(){
       btn.dataset.requiresPaid = '1';
       if (btn.id === 'modal-generate-7') btn.textContent = 'Unlock 7-day plan';
       if (btn.id === 'modal-generate-30' || btn.id === 'btn-30') btn.textContent = 'Unlock 30-day plan';
-      if (btn.id === 'modal-generate-reels') btn.textContent = 'Unlock reels plan';
+      if (btn.id === 'modal-generate-reels') btn.textContent = 'Get 7-day plan';
     } else {
       delete btn.dataset.requiresPaid;
       if (btn.id === 'modal-generate-7') btn.textContent = 'Generate 7-day plan';
       if (btn.id === 'modal-generate-30' || btn.id === 'btn-30') btn.textContent = 'Generate 30-day plan';
-      if (btn.id === 'modal-generate-reels') btn.textContent = 'Generate 5-reel sample';
+      if (btn.id === 'modal-generate-reels') btn.textContent = 'Generate 7-day plan';
     }
   });
 }
@@ -176,6 +176,28 @@ document.addEventListener('DOMContentLoaded', () => {
       await refreshCurrentUser();
     }catch(e){/* ignore */}
   })();
+
+  // Smart defaults to reduce clicks
+  setTimeout(() => {
+    // Pre-select "Friendly" tone (most common)
+    const friendlyTone = document.querySelector('#tones .choice[data-key="friendly"]');
+    if (friendlyTone && !document.querySelector('#tones .choice.selected')) {
+      friendlyTone.click();
+    }
+
+    // Pre-select Instagram platform (most common)
+    const instagramPlatform = document.querySelector('#platforms .choice[data-key="instagram"]');
+    if (instagramPlatform && !document.querySelector('#platforms .choice.selected')) {
+      instagramPlatform.click();
+    }
+
+    // Pre-select "Custom" industry if no other is selected (gives users flexibility)
+    const customIndustry = document.querySelector('#industries .choice[data-key="other"]');
+    if (customIndustry && !document.querySelector('#industries .choice.selected')) {
+      setTimeout(() => customIndustry.click(), 500); // Small delay to ensure UI is ready
+    }
+  }, 1000);
+
   // normalize company on blur
   const c = document.getElementById('company');
   if (c){
@@ -220,11 +242,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function renderAuthUi(){
-  const link = document.querySelector('header a[href="#"]');
+  const link = document.querySelector('header .auth-link');
   if (!link) return;
   // ensure we don't attach duplicate handlers
   link.replaceWith(link.cloneNode(true));
-  const newLink = document.querySelector('header a[href="#"]');
+  const newLink = document.querySelector('header .auth-link');
   if (window.CURRENT_USER && window.CURRENT_USER.id){
     newLink.textContent = window.CURRENT_USER.email || 'Account';
     newLink.href = '/account';
@@ -409,6 +431,10 @@ function renderIndustryChoices(list){
       // store both key and label for reliable lookups
       answers.industry = opt.label;
       answers.industry_key = opt.key;
+      // preserve manually entered keywords, clear industry-specific data
+      const manualKeywords = answers.manual_keywords || [];
+      answers.brand_keywords = [...manualKeywords];
+      answers.details = {};
       renderIndustryQuestions(opt.key);
       // set suggested keywords and note placeholder for this industry
       try{
@@ -421,7 +447,8 @@ function renderIndustryChoices(list){
           const kws = meta.suggested_keywords || [];
           kws.forEach(k => {
             const btn = document.createElement('button');
-            btn.className = 'choice text-sm'; btn.textContent = k;
+            btn.className = 'choice text-sm preselected'; btn.textContent = k;
+            btn.title = 'Preselected keyword for this industry';
             btn.addEventListener('click', () => {
               toggleKeyword(k);
               btn.classList.toggle('selected');
@@ -432,10 +459,17 @@ function renderIndustryChoices(list){
         if (noteInput){
           noteInput.placeholder = meta.note_placeholder || noteInput.placeholder;
         }
-        // set answers.brand_keywords to the canonical suggested keywords for this industry
-        // but don't overwrite any existing saved keywords
-        if (!answers.brand_keywords || answers.brand_keywords.length === 0) {
-          answers.brand_keywords = (meta.suggested_keywords || []).slice(0,4);
+        // set answers.brand_keywords to include the suggested keywords for this industry
+        // always add industry-specific keywords to ensure they're preselected
+        const suggestedKeywords = meta.suggested_keywords || [];
+        if (suggestedKeywords.length > 0) {
+          answers.brand_keywords = answers.brand_keywords || [];
+          // Add suggested keywords that aren't already in the list
+          suggestedKeywords.forEach(kw => {
+            if (!answers.brand_keywords.includes(kw)) {
+              answers.brand_keywords.push(kw);
+            }
+          });
         }
         // mark selected state on the rendered chips
         try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
@@ -462,6 +496,15 @@ function toggleKeyword(k){
   updateSummary();
 }
 
+function clearKeywords(){
+  answers.brand_keywords = [];
+  answers.manual_keywords = [];
+  // Clear visual selection state
+  const keywordChips = document.querySelectorAll('#suggested-keywords .choice');
+  keywordChips.forEach(chip => chip.classList.remove('selected'));
+  updateSummary();
+}
+
 // handle extra keywords input (comma-separated or Enter)
 document.addEventListener('DOMContentLoaded', () => {
   const extra = document.getElementById('extra-keywords');
@@ -470,14 +513,29 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter'){
         e.preventDefault();
         const parts = extra.value.split(',').map(s=>s.trim()).filter(Boolean);
-        answers.brand_keywords = (answers.brand_keywords||[]).concat(parts);
+        answers.manual_keywords = (answers.manual_keywords || []).concat(parts);
+        answers.brand_keywords = (answers.brand_keywords || []).concat(parts);
         extra.value = '';
         updateSummary();
       }
     });
     extra.addEventListener('blur', () => {
       const parts = extra.value.split(',').map(s=>s.trim()).filter(Boolean);
-      if (parts.length){ answers.brand_keywords = (answers.brand_keywords||[]).concat(parts); extra.value = ''; updateSummary(); }
+      if (parts.length){
+        answers.manual_keywords = (answers.manual_keywords || []).concat(parts);
+        answers.brand_keywords = (answers.brand_keywords || []).concat(parts);
+        extra.value = '';
+        updateSummary();
+      }
+    });
+  }
+
+  // Clear keywords button
+  const clearBtn = document.getElementById('clear-keywords');
+  if (clearBtn){
+    clearBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      clearKeywords();
     });
   }
 });
@@ -627,6 +685,15 @@ function showStep(n){
     const dots = stepsBar.querySelectorAll(".step") || [];
     dots.forEach((d,i)=> d.classList.toggle("active", (i+1) <= n));
   }
+
+  // Update progress bar
+  const progressBar = document.getElementById('progress-bar');
+  const progressText = document.getElementById('progress-text');
+  if (progressBar && progressText) {
+    const progressPercent = (n / 4) * 100;
+    progressBar.style.width = progressPercent + '%';
+    progressText.textContent = `Step ${n} of 4`;
+  }
 }
 
 if (prevBtn) prevBtn.addEventListener("click", ()=>{ step = Math.max(1, step-1); showStep(step); });
@@ -636,6 +703,7 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     const extra = document.getElementById('extra-keywords');
     if (extra && extra.value.trim()){
       const parts = extra.value.split(',').map(s=>s.trim()).filter(Boolean);
+      answers.manual_keywords = (answers.manual_keywords || []).concat(parts);
       answers.brand_keywords = (answers.brand_keywords || []).concat(parts);
       extra.value = '';
     }
@@ -701,25 +769,8 @@ async function saveProfile(){
   }
   if (btn30) btn30.disabled = false;
   updateSummary();
-  // show the setup-complete inline summary if present (fall back to modal), then redirect to /complete
-  try{
-    const inline = document.getElementById('setup-summary-inline');
-    const modal = document.getElementById('setup-modal') || document.getElementById('modal');
-    const ms = document.getElementById('modal-summary');
-    if (ms && window.__setup_summary){
-      ms.innerHTML = '';
-      window.__setup_summary.forEach(([k,v]) => {
-        const li = document.createElement('li');
-        li.className = 'flex justify-between';
-        li.innerHTML = `<span class="font-medium">${k}</span><span>${escapeHtml(v)}</span>`;
-        ms.appendChild(li);
-      });
-    }
-    const mv = document.getElementById('modal-content-version');
-    if (mv) mv.textContent = (window.CONTENT_META && window.CONTENT_META.version) ? window.CONTENT_META.version : (CFG && CFG.version) || 'local';
-  if (inline) inline.classList.remove('hidden');
-  else if (modal) modal.classList.remove('hidden');
-  }catch(e){/* ignore */}
+  // setup complete - redirect to /generate dashboard for content generation
+  window.location.href = '/generate';
 }
 
 // wire company input to answers
@@ -1077,60 +1128,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Close handlers: hide inline or modal depending on what exists
   closeBtn?.addEventListener('click', () => { if (inline) inline.classList.add('hidden'); if (modal) modal.classList.add('hidden'); });
   xBtn?.addEventListener('click', () => { if (inline) inline.classList.add('hidden'); if (modal) modal.classList.add('hidden'); });
-
-  gen1Btn?.addEventListener('click', async () => {
-    if (!isLoggedIn()){ openAuthModal('signup'); return; }
-    if (!window.CURRENT_USER?.is_paid && window.CURRENT_USER?.free_sample_used){ showPaywall('You already used your free sample. Subscribe to keep going.'); return; }
-    if (inline) inline.classList.add('hidden');
-    if (modal) modal.classList.add('hidden');
-    try{
-      await maybeSaveDefaults();
-      const data = await generate(1);
-      renderPosts(data);
-      await refreshCurrentUser();
-    }catch(err){ if (err && err.message) console.debug(err.message); }
-  });
-  genReelsBtn?.addEventListener('click', async () => {
-    if (!isLoggedIn()){ openAuthModal('signup'); return; }
-    if (!window.CURRENT_USER?.is_paid){ showPaywall('Subscribe to unlock reels.'); return; }
-    if (inline) inline.classList.add('hidden');
-    if (modal) modal.classList.add('hidden');
-    try{
-      clearFormError();
-      await maybeSaveDefaults();
-      const data = await generate(5, { platforms: ['short_video'] });
-      renderPosts(data);
-      await refreshCurrentUser();
-    }catch(err){ if (err && err.message) console.debug(err.message); }
-  });
-  gen7Btn?.addEventListener('click', async () => {
-    if (!isLoggedIn()){ openAuthModal('signup'); return; }
-    if (!window.CURRENT_USER?.is_paid){ showPaywall('Subscribe to unlock multi-day plans.'); return; }
-    if (inline) inline.classList.add('hidden');
-    if (modal) modal.classList.add('hidden');
-    try{
-      clearFormError();
-      await maybeSaveDefaults();
-      const data = await generate(7);
-      renderPosts(data);
-      await refreshCurrentUser();
-    }catch(err){ if (err && err.message) console.debug(err.message); }
-  });
-
-  gen30Btn?.addEventListener('click', async () => {
-    if (!isLoggedIn()){ openAuthModal('signup'); return; }
-    if (!window.CURRENT_USER?.is_paid){ showPaywall('Subscribe to unlock multi-day plans.'); return; }
-    if (inline) inline.classList.add('hidden');
-    if (modal) modal.classList.add('hidden');
-    try{
-      await maybeSaveDefaults();
-      const data = await generate(30);
-      renderPosts(data);
-      await refreshCurrentUser();
-    }catch(err){ if (err && err.message) console.debug(err.message); }
-  });
-  // show 7-day button based on flags
-  try{ if (window.FLAGS && window.FLAGS.show7Day){ gen7Btn?.classList.remove('hidden'); } }catch(e){}
   // paywall modal handlers
   const payModal = document.getElementById('paywall-modal');
   const payCancel = document.getElementById('paywall-cancel');
@@ -1230,7 +1227,7 @@ document.addEventListener('DOMContentLoaded', () => {
       finally{ setButtonLoading(paySubscribe, false); }
   });
   // Manage subscription: attach to header account link via context menu (right-click)
-  const headerLink = document.querySelector('header a[href="#"]');
+  const headerLink = document.querySelector('header .auth-link');
   headerLink?.addEventListener('contextmenu', async (e) => {
     e.preventDefault();
     // try to open portal
@@ -1241,3 +1238,82 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(err){ console.error(err); alert('Could not open billing portal'); }
   });
 });
+
+// Floating Action Button functionality - REMOVED: All generation now happens on /generate dashboard
+
+// Review Insights functionality
+document.addEventListener('DOMContentLoaded', () => {
+  const toggleBtn = document.getElementById('toggle-review-insights');
+  const reviewSection = document.getElementById('review-insights-section');
+  const reviewText = document.getElementById('review-text');
+  const analyzeBtn = document.getElementById('analyze-review');
+  const reviewLoading = document.getElementById('review-loading');
+  const reviewInsights = document.getElementById('review-insights');
+  const reviewKeywords = document.getElementById('review-keywords');
+  const reviewSuggestions = document.getElementById('review-suggestions');
+  const chevron = document.getElementById('review-chevron');
+
+  // Toggle review insights section
+  toggleBtn?.addEventListener('click', () => {
+    const isHidden = reviewSection.classList.contains('hidden');
+    reviewSection.classList.toggle('hidden');
+    chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+  });
+
+  // Analyze review text
+  analyzeBtn?.addEventListener('click', async () => {
+    const text = reviewText.value.trim();
+    if (!text) {
+      showToast('Please paste a customer review first');
+      return;
+    }
+
+    // Show loading state
+    analyzeBtn.disabled = true;
+    reviewLoading.classList.remove('hidden');
+    reviewInsights.classList.add('hidden');
+
+    try {
+      // Simple client-side analysis (could be enhanced with AI later)
+      const insights = analyzeReviewText(text);
+
+      // Display results
+      reviewKeywords.innerHTML = '';
+      insights.keywords.forEach(keyword => {
+        const chip = document.createElement('button');
+        chip.className = 'choice text-xs py-1 px-2 rounded-full bg-blue-100 text-blue-800 hover:bg-blue-200';
+        chip.textContent = keyword;
+        chip.addEventListener('click', () => {
+          toggleKeyword(keyword);
+          chip.classList.toggle('selected');
+          chip.classList.toggle('bg-blue-100');
+          chip.classList.toggle('bg-blue-200');
+        });
+        reviewKeywords.appendChild(chip);
+      });
+
+      reviewSuggestions.innerHTML = '';
+      insights.suggestions.forEach(suggestion => {
+        const div = document.createElement('div');
+        div.className = 'flex items-start gap-2 mb-1';
+        div.innerHTML = `
+          <span class="text-green-600 mt-0.5">•</span>
+          <span class="text-sm">${suggestion}</span>
+        `;
+        reviewSuggestions.appendChild(div);
+      });
+
+      reviewInsights.classList.remove('hidden');
+      showToast('Review analyzed! Keywords and suggestions added.');
+
+    } catch (error) {
+      console.error('Review analysis failed:', error);
+      showToast('Failed to analyze review. Please try again.');
+    } finally {
+      analyzeBtn.disabled = false;
+      reviewLoading.classList.add('hidden');
+    }
+  });
+});
+
+

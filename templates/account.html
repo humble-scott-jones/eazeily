@@ -62,7 +62,7 @@
                       <button id="manage-sub" class="btn-ghost">Manage</button>
                       <button id="cancel-sub" class="btn-secondary">Cancel</button>
                     {% else %}
-                      <button id="subscribe-now" class="btn-primary">Subscribe</button>
+                      <button id="subscribe-now" class="btn-primary btn-small">Subscribe</button>
                     {% endif %}
                     <!-- Sign out button for all signed-in users -->
                     <div class="mt-2">
@@ -94,7 +94,7 @@
       const cancelBtn = document.getElementById('cancel-sub');
       const cancelModal = document.createElement('div');
       cancelModal.id = 'cancel-modal'; cancelModal.className = 'fixed inset-0 bg-black/40 hidden items-center justify-center';
-      cancelModal.innerHTML = `<div class="bg-white rounded p-4 max-w-sm w-full"><p class="mb-3">Are you sure you want to cancel your subscription? You can reopen it anytime.</p><div class="flex gap-2"><button id="cancel-no" class="btn-secondary">No</button><button id="cancel-yes" class="btn-primary">Yes, cancel</button></div></div>`;
+      cancelModal.innerHTML = `<div class="bg-white rounded p-4 max-w-sm w-full"><p class="mb-3">Are you sure you want to cancel your subscription? You can reopen it anytime.</p><div class="flex gap-2"><button id="cancel-no" class="btn-secondary">No</button><button id="cancel-yes" class="btn-primary btn-small">Yes, cancel</button></div></div>`;
       document.body.appendChild(cancelModal);
       cancelBtn?.addEventListener('click', () => { cancelModal.classList.remove('hidden'); });
       document.getElementById('cancel-no')?.addEventListener('click', () => { cancelModal.classList.add('hidden'); });

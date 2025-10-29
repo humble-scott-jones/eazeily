@@ -93,8 +93,11 @@ def init_db():
             email TEXT UNIQUE,
             password_hash TEXT,
             is_paid INTEGER DEFAULT 0,
-            free_sample_used INTEGER DEFAULT 0,
+            subscription_tier TEXT DEFAULT 'free',
             stripe_customer_id TEXT,
+            free_sample_used INTEGER DEFAULT 0,
+            free_posts_this_week INTEGER DEFAULT 0,
+            free_posts_week_start DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS subscriptions (
@@ -124,6 +127,8 @@ def init_db():
             user_id TEXT,
             period TEXT,
             reels_generated INTEGER DEFAULT 0,
+            posts_generated INTEGER DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS waitlist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE,
@@ -159,6 +164,31 @@ def init_db():
         if "free_sample_used" not in ucols:
             try:
                 db.execute("ALTER TABLE users ADD COLUMN free_sample_used INTEGER DEFAULT 0;")
+            except Exception:
+                pass
+        if "subscription_tier" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN subscription_tier TEXT DEFAULT 'free';")
+            except Exception:
+                pass
+        if "free_posts_this_week" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN free_posts_this_week INTEGER DEFAULT 0;")
+            except Exception:
+                pass
+        if "free_posts_week_start" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN free_posts_week_start DATETIME;")
+            except Exception:
+                pass
+    except Exception:
+        pass
+    # ensure generation_usage table has posts_generated column (backfill for upgrades)
+    try:
+        gcols = [r[1] for r in db.execute("PRAGMA table_info(generation_usage)").fetchall()]
+        if "posts_generated" not in gcols:
+            try:
+                db.execute("ALTER TABLE generation_usage ADD COLUMN posts_generated INTEGER DEFAULT 0;")
             except Exception:
                 pass
     except Exception:
@@ -233,7 +263,13 @@ def health_check():
 
 @app.get("/")
 def landing():
-    """Landing page with marketing content, pricing, and waitlist signup."""
+    """Launch page for collecting email addresses from interested users."""
+    return render_template("launch.html")
+
+
+@app.get("/landing")
+def original_landing():
+    """Original landing page with marketing content, pricing, and waitlist signup."""
     return render_template("landing.html")
 
 @app.get("/app")
@@ -241,6 +277,17 @@ def index():
     """Main application page for authenticated users."""
     is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
     return render_template("index.html", is_dev=is_dev)
+
+
+@app.get('/generate')
+def generate_page():
+    """Dashboard page for generating content and managing responses after setup."""
+    uid = session.get('user_id')
+    if not uid:
+        return redirect('/app')  # Redirect to setup if not logged in
+    
+    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
+    return render_template("dashboard.html", is_dev=is_dev)
 
 
 @app.get('/review-response')
@@ -261,40 +308,6 @@ def account_page():
     if user:
         sub = db.execute('SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
     subscription = row_to_mapping(sub) if sub else None
-        # try to fetch fresh data from Stripe and enrich with human dates (best-effort)
-        try:
-            if subscription and stripe and os.getenv('STRIPE_SECRET_KEY') and subscription.get('stripe_subscription_id'):
-                stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-                remote = stripe.Subscription.retrieve(subscription['stripe_subscription_id'])
-                subscription['status'] = remote.get('status')
-                subscription['current_period_end'] = remote.get('current_period_end')
-        except Exception:
-            pass
-        # enrich human-friendly date similar to /api/account
-        if subscription and subscription.get('current_period_end'):
-            try:
-                cpe = subscription.get('current_period_end')
-                dt = None
-                if isinstance(cpe, (int, float)):
-                    dt = datetime.fromtimestamp(int(cpe), tz=timezone.utc)
-                else:
-                    try:
-                        dt = datetime.fromtimestamp(int(str(cpe)), tz=timezone.utc)
-                    except Exception:
-                        try:
-                            dt = datetime.fromisoformat(str(cpe))
-                            if dt.tzinfo is None:
-                                dt = dt.replace(tzinfo=timezone.utc)
-                        except Exception:
-                            dt = None
-                if dt:
-                    subscription['current_period_end_iso'] = dt.astimezone(timezone.utc).isoformat()
-                    subscription['current_period_end_human'] = dt.strftime('%Y-%m-%d %H:%M UTC')
-                    now = datetime.now(tz=timezone.utc)
-                    delta = dt - now
-                    subscription['days_until_renewal'] = max(0, delta.days)
-            except Exception:
-                pass
     # pass is_admin flag to template for rendering admin controls
     return render_template('account.html', user=user, subscription=subscription, is_admin=is_admin())
 
@@ -308,46 +321,6 @@ def api_account():
     user = db.execute('SELECT id, email, is_paid, stripe_customer_id FROM users WHERE id = ?', (uid,)).fetchone()
     sub = db.execute('SELECT id, stripe_subscription_id, status, current_period_end FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', (uid,)).fetchone()
     subscription_data = row_to_mapping(sub) if sub else None
-    # if Stripe is configured and we have a stripe_subscription_id, try to fetch fresh status
-    try:
-        if subscription_data and stripe and os.getenv('STRIPE_SECRET_KEY') and subscription_data.get('stripe_subscription_id'):
-            stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
-            remote = stripe.Subscription.retrieve(subscription_data['stripe_subscription_id'])
-            subscription_data['status'] = remote.get('status')
-            subscription_data['current_period_end'] = remote.get('current_period_end')
-    except Exception:
-        # ignore Stripe errors; fall back to DB
-        pass
-    # Enrich subscription_data with human-friendly dates if current_period_end exists
-    if subscription_data and subscription_data.get('current_period_end'):
-        try:
-            # Stripe returns current_period_end as a unix timestamp (int) in many cases
-            cpe = subscription_data.get('current_period_end')
-            if isinstance(cpe, (int, float)):
-                dt = datetime.fromtimestamp(int(cpe), tz=timezone.utc)
-            else:
-                # sometimes it's stored as a string in DB; try parsing as int then ISO
-                try:
-                    dt = datetime.fromtimestamp(int(str(cpe)), tz=timezone.utc)
-                except Exception:
-                    # try ISO parse
-                    try:
-                        dt = datetime.fromisoformat(str(cpe))
-                        if dt.tzinfo is None:
-                            dt = dt.replace(tzinfo=timezone.utc)
-                    except Exception:
-                        dt = None
-            if dt:
-                subscription_data['current_period_end_iso'] = dt.astimezone(timezone.utc).isoformat()
-                # human readable in UTC for now; front-end can localize if desired
-                subscription_data['current_period_end_human'] = dt.strftime('%Y-%m-%d %H:%M UTC')
-                # days until renewal (rounding down)
-                now = datetime.now(tz=timezone.utc)
-                delta = dt - now
-                subscription_data['days_until_renewal'] = max(0, delta.days)
-        except Exception:
-            # best-effort only
-            pass
 
     return jsonify({'ok': True, 'user': {'id': user['id'], 'email': user['email'], 'is_paid': bool(user['is_paid'])}, 'subscription': subscription_data})
 
@@ -635,6 +608,23 @@ def api_reconcile_job_get(job_id):
     return jsonify({'ok': True, 'job': row_to_mapping(row)})
 
 
+def get_subscription_tier_from_price(price_id):
+    """Determine subscription tier based on Stripe price ID."""
+    if not price_id:
+        return 'free'
+    
+    # These would be your actual Stripe price IDs
+    creator_price_ids = os.getenv('STRIPE_CREATOR_PRICE_IDS', '').split(',')
+    team_price_ids = os.getenv('STRIPE_TEAM_PRICE_IDS', '').split(',')
+    
+    if price_id in creator_price_ids:
+        return 'creator'
+    elif price_id in team_price_ids:
+        return 'team'
+    else:
+        return 'free'
+
+
 def is_admin():
     """Simple admin check based on ADMIN_EMAILS env var (comma-separated)."""
     uid = session.get('user_id')
@@ -854,7 +844,19 @@ def api_stripe_webhook():
         subscription_id = data.get('subscription')
         if client_ref:
             try:
-                db.execute('UPDATE users SET stripe_customer_id = ?, is_paid = 1 WHERE id = ?', (customer, client_ref))
+                # Determine subscription tier from the price ID in the session
+                tier = 'free'
+                if subscription_id and stripe:
+                    try:
+                        stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+                        sub = stripe.Subscription.retrieve(subscription_id)
+                        if sub.get('items') and sub['items']['data']:
+                            price_id = sub['items']['data'][0].get('price', {}).get('id')
+                            tier = get_subscription_tier_from_price(price_id)
+                    except Exception:
+                        pass
+                
+                db.execute('UPDATE users SET stripe_customer_id = ?, is_paid = 1, subscription_tier = ? WHERE id = ?', (customer, tier, client_ref))
                 # create subscription row if subscription_id present
                 if subscription_id:
                     sub_id = str(uuid.uuid4())
@@ -874,6 +876,12 @@ def api_stripe_webhook():
         user_row = db.execute('SELECT id FROM users WHERE stripe_customer_id = ?', (customer,)).fetchone()
         if user_row:
             uid = user_row['id']
+            # Determine subscription tier from the price ID
+            tier = 'free'
+            if sub.get('items') and sub['items']['data']:
+                price_id = sub['items']['data'][0].get('price', {}).get('id')
+                tier = get_subscription_tier_from_price(price_id)
+            
             # upsert subscription
             try:
                 # find existing
@@ -883,9 +891,9 @@ def api_stripe_webhook():
                 else:
                     db.execute('INSERT INTO subscriptions (id, user_id, stripe_subscription_id, status, current_period_end) VALUES (?, ?, ?, ?, ?)',
                                (str(uuid.uuid4()), uid, stripe_sub_id, status, sub.get('current_period_end')))
-                # set user paid flag based on status
+                # set user paid flag and tier based on status
                 is_paid = 1 if status in ('active', 'trialing') else 0
-                db.execute('UPDATE users SET is_paid = ? WHERE id = ?', (is_paid, uid))
+                db.execute('UPDATE users SET is_paid = ?, subscription_tier = ? WHERE id = ?', (is_paid, tier if is_paid else 'free', uid))
                 db.commit()
             except Exception:
                 pass
@@ -1152,7 +1160,7 @@ def api_admin_users():
             'id': user['id'],
             'email': user['email'],
             'is_paid': bool(user['is_paid']),
-            'is_admin': bool(user.get('is_admin', 0)),
+            'is_admin': bool(user['is_admin']) if 'is_admin' in user.keys() else False,
             'has_stripe': bool(user['stripe_customer_id']),
             'created_at': user['user_created_at'],
             'subscription_status': sub['status'] if sub else None,
@@ -1337,30 +1345,6 @@ def api_waitlist():
         if 'UNIQUE constraint' in str(e):
             return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
         return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
-
-
-@app.post('/api/waitlist')
-def api_waitlist():
-    """Add email to waitlist for landing page signups."""
-    data = request.get_json(force=True)
-    email = (data.get('email') or '').strip().lower()
-
-    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
-
-    db = get_db()
-    try:
-        db.execute('INSERT INTO waitlist (email) VALUES (?)', (email,))
-        db.commit()
-
-        # In production, send confirmation email here
-        # For now, just return success
-        return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
-    except Exception as e:
-        # Email already exists or other error
-        if 'UNIQUE constraint' in str(e):
-            return jsonify({'ok': False, 'error': 'This email is already on the waitlist'}), 400
-        return jsonify({'ok': False, 'error': 'Could not add to waitlist'}), 500
  
 @app.post("/api/profile")
 def save_profile():
@@ -1456,7 +1440,7 @@ def api_generate():
         return jsonify({'ok': False, 'error': 'Authentication required'}), 401
 
     db = get_db()
-    user = db.execute('SELECT id, is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
+    user = db.execute('SELECT id, is_paid, free_sample_used, subscription_tier FROM users WHERE id = ?', (uid,)).fetchone()
     if not user:
         return jsonify({'ok': False, 'error': 'Authentication required'}), 401
 
@@ -1510,6 +1494,16 @@ def api_generate():
         if used + reels_requested > quota:
             return jsonify({'ok': False, 'error': 'Reel generation quota exceeded for this billing period', 'quota': quota, 'used': used}), 403
 
+    # Check post limits for Creator tier users
+    user_tier = user['subscription_tier'] or 'free'
+    if user_tier == 'creator' and is_paid:
+        posts_quota = 30  # 30 posts per month for Creator tier
+        period = date.today().strftime('%Y-%m')
+        row = db.execute('SELECT posts_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
+        posts_used = int(row['posts_generated']) if row else 0
+        if posts_used + days > posts_quota:
+            return jsonify({'ok': False, 'error': 'Post generation quota exceeded for this billing period', 'quota': posts_quota, 'used': posts_used}), 403
+
     posts = generate_posts(
         days=days,
         start_day=start_day,
@@ -1539,7 +1533,21 @@ def api_generate():
             if existing:
                 db.execute('UPDATE generation_usage SET reels_generated = reels_generated + ? WHERE user_id = ? AND period = ?', (reels_requested, uid, period))
             else:
-                db.execute('INSERT INTO generation_usage (id, user_id, period, reels_generated) VALUES (?, ?, ?, ?)', (str(uuid.uuid4()), uid, period, reels_requested))
+                db.execute('INSERT INTO generation_usage (id, user_id, period, reels_generated, posts_generated) VALUES (?, ?, ?, ?, 0)', (str(uuid.uuid4()), uid, period, reels_requested))
+            db.commit()
+        except Exception:
+            # non-fatal: do not fail generation if usage increment fails
+            pass
+    
+    # if user is on Creator tier, increment post usage after successful generation
+    if user_tier == 'creator' and is_paid:
+        try:
+            period = date.today().strftime('%Y-%m')
+            existing = db.execute('SELECT posts_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
+            if existing:
+                db.execute('UPDATE generation_usage SET posts_generated = posts_generated + ? WHERE user_id = ? AND period = ?', (days, uid, period))
+            else:
+                db.execute('INSERT INTO generation_usage (id, user_id, period, posts_generated, reels_generated) VALUES (?, ?, ?, ?, 0)', (str(uuid.uuid4()), uid, period, days))
             db.commit()
         except Exception:
             # non-fatal: do not fail generation if usage increment fails
@@ -1567,134 +1575,7 @@ def api_feedback():
     return jsonify({"ok": True})
 
 
-@app.post("/api/generate-review-response")
-def api_generate_review_response():
-    """Generate a professional response to a customer review or rating."""
-    data = request.get_json(force=True)
-    review_text = data.get("review_text", "").strip()
-    response_tone = data.get("tone", "professional")  # professional, grateful, apologetic, friendly
-    company_name = data.get("company_name", "").strip()
-    
-    if not review_text:
-        return jsonify({"ok": False, "error": "Review text is required"}), 400
-    
-    # Tone templates for different response types
-    tone_templates = {
-        "professional": {
-            "positive": "Thank you for your {rating} review{company}. We're pleased to hear that {summary}. We appreciate your business and look forward to serving you again.",
-            "negative": "Thank you for your feedback{company}. We apologize that {summary}. We take all feedback seriously and will use this to improve our service. Please contact us directly so we can make this right.",
-            "neutral": "Thank you for taking the time to share your feedback{company}. We appreciate your comments about {summary} and will continue working to improve."
-        },
-        "grateful": {
-            "positive": "We're so grateful for your wonderful {rating} review{company}! It means the world to us to hear that {summary}. Thank you for choosing us!",
-            "negative": "Thank you for sharing your experience{company}. We're truly sorry that {summary}. Your feedback helps us grow, and we'd love the chance to make things right.",
-            "neutral": "We really appreciate you taking the time to leave feedback{company}. Your thoughts on {summary} are valuable to us. Thank you!"
-        },
-        "apologetic": {
-            "positive": "Thank you so much for your {rating} review{company}! We're thrilled that {summary}. We truly appreciate your support.",
-            "negative": "We sincerely apologize for your experience{company}. We're very sorry that {summary}. This doesn't meet our standards, and we'd like to make it right. Please reach out to us directly.",
-            "neutral": "Thank you for your feedback{company}. We appreciate you letting us know about {summary}. We're always working to improve."
-        },
-        "friendly": {
-            "positive": "Wow, thank you for the amazing {rating} review{company}! 🎉 We're so happy to hear that {summary}. You made our day!",
-            "negative": "Thanks for letting us know about your experience{company}. We're really sorry that {summary}. We'd love to chat and see how we can fix this. Please get in touch!",
-            "neutral": "Hey, thanks for the feedback{company}! We appreciate your thoughts on {summary}. We're always listening and improving!"
-        }
-    }
-    
-    # Use OpenAI if available for better responses
-    if USE_OPENAI:
-        try:
-            company_context = f" for {company_name}" if company_name else ""
-            prompt = f"""Generate a professional response to this customer review{company_context}. 
-The tone should be {response_tone}.
 
-Customer Review:
-{review_text}
-
-Generate a thoughtful, personalized response that:
-1. Acknowledges their feedback
-2. Matches the {response_tone} tone
-3. Is concise (2-3 sentences)
-4. Sounds genuine and human
-5. For positive reviews: thank them and show appreciation
-6. For negative reviews: apologize and offer to make it right
-7. For neutral reviews: thank them and acknowledge their feedback
-
-Response:"""
-            
-            response = openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant that generates professional, empathetic responses to customer reviews."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=200,
-                temperature=0.7
-            )
-            
-            generated_response = response.choices[0].message.content.strip()
-            return jsonify({
-                "ok": True, 
-                "response": generated_response,
-                "method": "ai"
-            })
-        except Exception as e:
-            # Fall through to template-based approach if OpenAI fails
-            pass
-    
-    # Template-based fallback
-    # Analyze sentiment (simple keyword-based)
-    review_lower = review_text.lower()
-    positive_words = ["great", "excellent", "amazing", "wonderful", "fantastic", "love", "best", "perfect", "awesome"]
-    negative_words = ["bad", "poor", "terrible", "awful", "worst", "horrible", "disappointed", "never", "rude"]
-    
-    positive_count = sum(1 for word in positive_words if word in review_lower)
-    negative_count = sum(1 for word in negative_words if word in review_lower)
-    
-    if positive_count > negative_count:
-        sentiment = "positive"
-        rating = "positive"
-    elif negative_count > positive_count:
-        sentiment = "negative"
-        rating = ""
-    else:
-        sentiment = "neutral"
-        rating = ""
-    
-    # Extract key phrases (word-boundary-aware truncation)
-    if '.' in review_text:
-        summary = review_text.split('.', 1)[0].strip().lower()
-        if not summary.endswith('.'):
-            summary += "..."
-    else:
-        # Truncate to 80 chars at word boundary
-        truncated = review_text[:80]
-        if len(review_text) > 80:
-            # Avoid cutting off mid-word
-            last_space = truncated.rfind(' ')
-            if last_space > 0:
-                truncated = truncated[:last_space]
-            summary = truncated.strip().lower() + "..."
-        else:
-            summary = truncated.strip().lower()
-    
-    # Build response from template
-    template = tone_templates.get(response_tone, tone_templates["professional"])[sentiment]
-    company_part = f" at {company_name}" if company_name else ""
-    
-    response_text = template.format(
-        rating=rating,
-        company=company_part,
-        summary=summary
-    )
-    
-    return jsonify({
-        "ok": True, 
-        "response": response_text,
-        "method": "template",
-        "detected_sentiment": sentiment
-    })
 
 
 if __name__ == "__main__":

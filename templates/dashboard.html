@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generate Content - Swelly</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/swelly-theme.css" />
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen">
+  <!-- Background decoration -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    <div class="absolute top-40 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
+    <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
+  </div>
+
+  <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <img src="/static/logo.svg" alt="Swelly icon" class="w-8 h-8 header-logo" onerror="this.style.display='none'" />
+        <img src="/static/swelly-logo.svg" alt="Swelly" class="h-6 header-logo-text" onerror="this.style.display='none'" />
+      </a>
+      <div class="flex items-center gap-4">
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/app">Setup</a>
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/generate">Generate</a>
+        <a class="auth-link text-sm text-brand hover:underline cursor-pointer">Account</a>
+      </div>
+    </div>
+  </header>
+
+  {% if is_dev %}
+  <div class="max-w-6xl mx-auto px-6 py-3">
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm text-slate-800">
+      Dev helper: create a test user —
+      <form id="dev-create-form" class="inline-flex items-center gap-2 ml-2">
+        <input id="dev-email" class="input text-sm" placeholder="dev@example.com" value="dev@example.com" />
+        <input id="dev-password" class="input text-sm" placeholder="password" value="password" />
+        <label class="flex items-center gap-1 text-sm"><input id="dev-paid" type="checkbox" /> Paid</label>
+        <button id="dev-create-btn" class="btn-ghost btn-sm">Create & Sign in</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <main class="relative max-w-7xl mx-auto p-6 grid lg:grid-cols-[1fr,400px] gap-8">
+    <!-- Main Content Area -->
+    <div class="space-y-6">
+      <!-- Header -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-2">
+              Generate Content
+            </h1>
+            <p class="text-slate-600 text-lg">Create review responses and social media posts</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Review Response Section -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"></path>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-900">Review Response Generator</h2>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label for="review-text" class="block text-sm font-medium text-slate-700 mb-1">
+              Customer Review <span class="text-red-500">*</span>
+            </label>
+            <textarea id="review-text" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-blue-500 focus:ring-blue-500 resize-none" rows="4" placeholder="Paste a customer review here..."></textarea>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label for="response-tone" class="block text-sm font-medium text-slate-700 mb-1">
+                Response Tone
+              </label>
+              <select id="response-tone" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="professional">Professional</option>
+                <option value="grateful">Grateful</option>
+                <option value="apologetic">Apologetic</option>
+                <option value="friendly">Friendly</option>
+                <option value="empathetic">Empathetic</option>
+              </select>
+            </div>
+            <div>
+              <label for="company-name" class="block text-sm font-medium text-slate-700 mb-1">
+                Company Name (Optional)
+              </label>
+              <input type="text" id="company-name" class="w-full input text-base py-2 px-3 rounded-lg border-slate-300 focus:border-blue-500 focus:ring-blue-500" placeholder="Your company name" />
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button id="generate-response" class="btn-secondary text-base py-3 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white border-blue-600 flex-1">
+              Generate Response
+            </button>
+            <div id="response-loading" class="hidden text-sm text-blue-600 flex items-center gap-2 flex-1">
+              <div class="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+              Generating...
+            </div>
+          </div>
+
+          <div id="response-result" class="hidden p-4 bg-blue-50 rounded-xl border border-blue-200">
+            <div class="flex justify-between items-start mb-3">
+              <div class="flex items-center gap-2">
+                <h3 class="text-lg font-semibold text-blue-900">Suggested Response</h3>
+                <span id="response-method" class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"></span>
+              </div>
+              <button id="copy-response" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copy
+              </button>
+            </div>
+            <p id="response-text" class="text-sm text-slate-700 whitespace-pre-wrap"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Generation Section -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-900">Generate Social Media Content</h2>
+        </div>
+
+        <div class="space-y-4">
+          <div class="grid md:grid-cols-3 gap-4">
+            <div>
+              <label for="gen-days" class="block text-sm font-medium text-slate-700 mb-1">
+                Number of Days
+              </label>
+              <select id="gen-days" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                <option value="1">1 Day Sample</option>
+                <option value="7">7 Days</option>
+                <option value="30">30 Days</option>
+              </select>
+            </div>
+            <div>
+              <label for="gen-platform" class="block text-sm font-medium text-slate-700 mb-1">
+                Platform
+              </label>
+              <select id="gen-platform" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="twitter">Twitter</option>
+                <option value="tiktok">TikTok</option>
+              </select>
+            </div>
+            <div>
+              <label for="gen-tone" class="block text-sm font-medium text-slate-700 mb-1">
+                Tone
+              </label>
+              <select id="gen-tone" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                <option value="friendly">Friendly</option>
+                <option value="professional">Professional</option>
+                <option value="playful">Playful</option>
+                <option value="inspirational">Inspirational</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Advanced Reel Options (shown for video platforms) -->
+          <div id="reel-options" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <h4 class="text-lg font-semibold text-slate-900">Reel Options</h4>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-4">
+              <div>
+                <label for="reel-style" class="block text-sm font-medium text-slate-700 mb-1">
+                  Reel Style
+                </label>
+                <select id="reel-style" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                  <option value="Face-camera tips">Face-Camera Tips</option>
+                  <option value="Property b-roll + captions">Property B-Roll + Captions</option>
+                  <option value="Product b-roll + captions">Product B-Roll + Captions</option>
+                  <option value="Local hotspot montage">Local Hotspot Montage</option>
+                  <option value="Story + before/after">Story + Before/After</option>
+                  <option value="Workout montage">Workout Montage</option>
+                </select>
+              </div>
+              <div>
+                <label for="reel-length" class="block text-sm font-medium text-slate-700 mb-1">
+                  Length (seconds)
+                </label>
+                <select id="reel-length" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                  <option value="15">15 seconds</option>
+                  <option value="30" selected>30 seconds</option>
+                  <option value="45">45 seconds</option>
+                  <option value="60">60 seconds</option>
+                </select>
+              </div>
+              <div>
+                <label for="production-tier" class="block text-sm font-medium text-slate-700 mb-1">
+                  Production Tier
+                </label>
+                <select id="production-tier" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                  <option value="solo">Solo Creator</option>
+                  <option value="small_team">Small Team</option>
+                  <option value="professional">Professional</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button id="generate-content" class="btn-primary text-base py-3 pr-10 pl-6 rounded-xl flex-1">
+              Generate Content
+            </button>
+            <div id="content-loading" class="hidden text-sm text-purple-600 flex items-center gap-2 flex-1">
+              <div class="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+              Generating...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generated Content Display -->
+      <div id="generated-content" class="hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-8 h-8 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-900">Generated Content</h2>
+        </div>
+        <div id="content-results" class="space-y-4"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="space-y-6">
+      <!-- Account Settings -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200">
+        <h4 class="text-lg font-semibold mb-4 text-slate-900">Account Settings</h4>
+
+        <div class="space-y-4">
+          <div>
+            <label for="account-company" class="block text-sm font-medium text-slate-700 mb-1">
+              Company Name
+            </label>
+            <input type="text" id="account-company" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" />
+          </div>
+
+          <div>
+            <label for="account-industry" class="block text-sm font-medium text-slate-700 mb-1">
+              Industry
+            </label>
+            <select id="account-industry" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+              <option value="restaurant">Restaurant</option>
+              <option value="retail">Retail</option>
+              <option value="fitness">Fitness</option>
+              <option value="real_estate">Real Estate</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="account-tone" class="block text-sm font-medium text-slate-700 mb-1">
+              Default Tone
+            </label>
+            <select id="account-tone" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+              <option value="friendly">Friendly</option>
+              <option value="professional">Professional</option>
+              <option value="playful">Playful</option>
+              <option value="inspirational">Inspirational</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">
+              Platforms
+            </label>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input type="checkbox" id="platform-instagram" class="w-4 h-4 text-purple-600 bg-slate-100 border-slate-300 rounded focus:ring-purple-500" checked />
+                <span class="ml-2 text-sm text-slate-700">Instagram</span>
+              </label>
+              <label class="flex items-center">
+                <input type="checkbox" id="platform-facebook" class="w-4 h-4 text-purple-600 bg-slate-100 border-slate-300 rounded focus:ring-purple-500" />
+                <span class="ml-2 text-sm text-slate-700">Facebook</span>
+              </label>
+              <label class="flex items-center">
+                <input type="checkbox" id="platform-linkedin" class="w-4 h-4 text-purple-600 bg-slate-100 border-slate-300 rounded focus:ring-purple-500" />
+                <span class="ml-2 text-sm text-slate-700">LinkedIn</span>
+              </label>
+            </div>
+          </div>
+
+          <button id="save-settings" class="btn-primary w-full text-sm py-2 pr-10 pl-4 rounded-lg">
+            Save Settings
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200">
+        <h4 class="text-lg font-semibold mb-4 text-slate-900">Quick Actions</h4>
+        <div class="space-y-3">
+          <button id="quick-sample" class="btn-ghost w-full text-left text-sm py-2 px-3 rounded-lg hover:bg-slate-50 transition">
+            ✨ Generate Free Sample
+          </button>
+          <button id="quick-7day" class="btn-ghost w-full text-left text-sm py-2 px-3 rounded-lg hover:bg-slate-50 transition">
+            📅 Generate 7-Day Plan
+          </button>
+          <button id="quick-30day" class="btn-ghost w-full text-left text-sm py-2 px-3 rounded-lg hover:bg-slate-50 transition">
+            📊 Generate 30-Day Plan
+          </button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

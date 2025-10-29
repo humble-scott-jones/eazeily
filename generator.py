@@ -36,7 +36,7 @@ def to_sentence_case(s: str):
     return s[0].upper() + s[1:]
 
 def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = ""):
+                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
     tone_blurb = {
         "friendly": "Warm, encouraging, and conversational.",
         "professional": "Clear, confident, and value-focused.",
@@ -49,10 +49,12 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
     goal_line = f"Focus: {', '.join(goals)}." if goals else ""
 
     company_line = f"From {company}." if company else ""
+    theme_line = f"Theme: {theme}." if theme else ""
     body = (
         f"{pillar_name} • {industry}{brand_line}\n"
         f"{pillar_hint}\n\n"
         f"{company_line}\n"
+        f"{theme_line}\n"
         f"{goal_line}\n"
         f"Tone: {tone_blurb}\n"
         f"Platform tip: {platform_hint}\n\n"
@@ -61,6 +63,15 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
 
     tags = " ".join(hashtags)
     return f"{body}\n\n{tags}"
+
+def make_full_post(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                   platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
+    """Legacy function for backward compatibility with tests."""
+    caption = make_caption(industry, tone, pillar_name, pillar_hint, platform, brand_keywords, hashtags, goals, company, theme)
+    return {
+        'caption': caption,
+        'theme': theme
+    }
 
 def image_prompt(industry: str, pillar_name: str, brand_keywords: list[str], company: str = ""):
     kw = ", ".join(brand_keywords) if brand_keywords else "on-brand colors"
