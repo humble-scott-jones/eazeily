@@ -3,24 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Togetherly – Simple, smart social media that sounds like you</title>
+  <title>Swelly – Simple, smart social media that sounds like you</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/swelly-theme.css" />
 </head>
 <body class="bg-brand-sand text-slate-900">
   <header class="px-6 py-5 bg-white/90 backdrop-blur border-b">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
       <a href="/" class="flex items-center gap-3">
-        <div class="logo-gradient"></div>
-        <h1 class="text-xl font-semibold tracking-tight">Togetherly</h1>
+        <img src="/static/swelly-logo.svg" alt="Swelly logo" class="w-8 h-8" onerror="this.style.display='none'" />
+        <div class="logo-gradient" aria-hidden="true"></div>
+        <h1 class="text-xl font-semibold tracking-tight">Swelly</h1>
       </a>
       <div class="flex items-center gap-4">
         <a class="text-sm text-slate-600 hover:text-brand" href="/">Home</a>
-        <a class="text-sm text-brand hover:underline" href="/account">Account</a>
-      </div>
-      <div class="flex items-center gap-4">
-        <a class="text-sm text-brand hover:underline" href="/review-response">Review Response</a>
-        <a class="text-sm text-brand hover:underline" href="#">Sign in</a>
+        <a class="auth-link text-sm text-brand hover:underline" style="cursor:pointer;">Sign in</a>
       </div>
     </div>
   </header>
@@ -167,7 +165,7 @@
   </main>
 
   <footer class="text-center text-xs text-slate-500 py-6">
-    Made with care • Togetherly
+    Made with care • Swelly
   </footer>
 
   <script src="/static/app.js"></script>
@@ -175,8 +173,8 @@
 </html>
 
 <!-- Auth modal (signup / login / password reset) -->
-<div id="auth-modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-  <div class="bg-white rounded-lg p-6 w-full max-w-md" tabindex="-1">
+<div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+  <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-6 w-full max-w-md" tabindex="-1">
     <button id="auth-close" class="float-right text-slate-500" aria-label="Close">✕</button>
     <h3 id="auth-title" class="text-lg font-semibold mb-2">Sign in</h3>
     <div id="auth-message" class="text-sm text-red-600 mb-2 hidden" role="status" aria-live="polite"></div>
