@@ -58,3 +58,15 @@ def test_account_api_reflects_canceled_state(client):
     assert sub.get('status') == 'canceled'
     # canceled should not have days_until_renewal > 0
     assert sub.get('days_until_renewal', 0) == 0
+
+
+def test_account_page_includes_admin_snapshot(client, monkeypatch):
+    monkeypatch.setenv('ADMIN_EMAILS', 'admin@example.com')
+    client.post('/api/signup', json={'email': 'admin@example.com', 'password': 'pw12345'})
+    client.post('/api/login', json={'email': 'admin@example.com', 'password': 'pw12345'})
+
+    resp = client.get('/account')
+    assert resp.status_code == 200
+    html = resp.get_data(as_text=True)
+    assert 'Admin snapshot' in html
+    assert 'data-admin-csrf' in html

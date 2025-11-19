@@ -1,5 +1,10 @@
-from datetime import timedelta
-from typing import Optional
+import json
+import os
+import re
+import time
+from datetime import timedelta, date
+from pathlib import Path
+from typing import Optional, Any, Mapping, Sequence
 
 PILLARS_BY_DEFAULT = [
     ("Educational", "Share a quick tip that solves a common problem for your audience."),
@@ -17,6 +22,151 @@ PLATFORM_HINTS = {
     "tiktok": "Hook in first sentence, keep lines punchy, suggest a shot list.",
     "twitter": "Short & punchy. 1–2 tweets per post; avoid walls of text.",
 }
+
+USE_OPENAI_FOR_POSTS = bool(os.getenv('OPENAI_API_KEY') or os.getenv('USE_OPENAI_FOR_POSTS'))
+_openai_client = None
+_TREND_MODEL = os.getenv('OPENAI_TRENDS_MODEL', 'gpt-4o-mini')
+_CACHE_DIR = Path(os.getenv('TREND_CACHE_DIR') or (Path(__file__).resolve().parent / '.cache'))
+_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _slugify_industry(industry: str) -> str:
+    if not industry:
+        return 'general'
+    slug = re.sub(r'[^a-z0-9]+', '-', industry.strip().lower())
+    return slug.strip('-') or 'general'
+
+
+def _trend_cache_path(industry: str) -> str:
+    slug = _slugify_industry(industry)
+    return str(_CACHE_DIR / f'trends-{slug}.json')
+
+
+def _extract_openai_content(response) -> Optional[str]:
+    try:
+        if isinstance(response, dict):
+            choices = response.get('choices') or []
+        else:
+            choices = getattr(response, 'choices', None)
+        if not choices:
+            return None
+        first = choices[0]
+        message = getattr(first, 'message', None)
+        if message and getattr(message, 'content', None):
+            return message.content  # type: ignore[attr-defined]
+        if isinstance(first, dict):
+            msg = first.get('message') or {}
+            if isinstance(msg, dict) and msg.get('content'):
+                return str(msg.get('content'))
+        text = getattr(first, 'text', None)
+        if text:
+            return str(text)
+    except Exception:
+        return None
+    return None
+
+
+def _parse_trend_payload(raw: str) -> Optional[list[dict[str, Any]]]:
+    if not raw:
+        return None
+    raw = raw.strip()
+    candidate = raw
+    if not raw.startswith('['):
+        start = raw.find('[')
+        end = raw.rfind(']')
+        if start != -1 and end != -1 and end > start:
+            candidate = raw[start:end + 1]
+    try:
+        data = json.loads(candidate)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(data, dict):
+        for key in ('trends', 'items', 'data'):
+            val = data.get(key)
+            if isinstance(val, list):
+                data = val
+                break
+        else:
+            data = [data]
+    if not isinstance(data, list):
+        return None
+    out: list[dict[str, Any]] = []
+    for item in data:
+        if isinstance(item, dict):
+            out.append(item)
+        else:
+            out.append({'topic': str(item)})
+    return out
+
+
+def _load_cached_trends(cache_path: str, ttl_hours: int) -> Optional[list[dict[str, Any]]]:
+    if ttl_hours <= 0:
+        return None
+    if not os.path.exists(cache_path):
+        return None
+    age = time.time() - os.path.getmtime(cache_path)
+    if age > ttl_hours * 3600:
+        return None
+    try:
+        with open(cache_path, 'r', encoding='utf-8') as fh:
+            data = json.load(fh)
+            if isinstance(data, list):
+                return data
+    except Exception:
+        return None
+    return None
+
+
+def _save_trend_cache(cache_path: str, payload: Sequence[Mapping[str, Any]]) -> None:
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    try:
+        with open(cache_path, 'w', encoding='utf-8') as fh:
+            json.dump(list(payload), fh)
+    except Exception:
+        pass
+
+
+def _fallback_trends(industry: str) -> list[dict[str, str]]:
+    focus = (industry or 'local business').strip() or 'local business'
+    title = focus.title()
+    return [
+        {'topic': f'{title} customer stories', 'rationale': 'Spotlight authentic wins to build trust', 'confidence': 'medium'},
+        {'topic': f'Behind-the-scenes of {title}', 'rationale': 'Show process and people for transparency', 'confidence': 'medium'},
+        {'topic': f'{title} seasonal offers', 'rationale': 'Tie promos to timely moments for urgency', 'confidence': 'medium'}
+    ]
+
+
+def fetch_trend_context(industry: str, ttl_hours: int = 6) -> list[dict[str, Any]]:
+    cache_path = _trend_cache_path(industry or 'general')
+    cached = _load_cached_trends(cache_path, ttl_hours)
+    if cached is not None:
+        return cached
+
+    if USE_OPENAI_FOR_POSTS and _openai_client:
+        try:
+            prompt = (
+                "List three emerging content trends for the {industry} industry. "
+                "Respond ONLY with a JSON array where each item has 'topic', 'rationale', and 'confidence'."
+            ).format(industry=industry or 'local business')
+            response = _openai_client.chat.completions.create(  # type: ignore[attr-defined]
+                model=_TREND_MODEL,
+                messages=[
+                    {'role': 'system', 'content': 'You are a marketing strategist.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                temperature=0.4
+            )
+            content = _extract_openai_content(response)
+            parsed = _parse_trend_payload(content or '')
+            if parsed:
+                _save_trend_cache(cache_path, parsed)
+                return parsed
+        except Exception:
+            return []
+
+    fallback = _fallback_trends(industry)
+    _save_trend_cache(cache_path, fallback)
+    return fallback
 
 def default_hashtags(industry: str, niche_keywords: list[str]):
     base = [f"#{industry.replace(' ', '')[:18]}", "#SmallBusiness", "#LocalBiz", "#BehindTheScenes", "#Tips"]
@@ -332,22 +482,179 @@ def rolling_pillars():
         for name, hint in PILLARS_BY_DEFAULT:
             yield (name, hint)
 
-def generate_posts(days: int, start_day, industry: str, tone: str,
-                   platforms: list[str], brand_keywords: list[str],
-                   include_images: bool, niche_keywords: list[str], goals: list[str], company: str = "", details: Optional[dict] = None):
-    posts = []
+def generate_review_response(review_text: str, tone: str = "professional", company_name: str = "", industry: str = "") -> dict:
+    """
+    Generate a professional response to a customer review.
+    
+    Args:
+        review_text: The customer's review text
+        tone: Response tone ('professional', 'grateful', 'apologetic', 'friendly')
+        company_name: Optional company name to include
+        industry: Optional industry for tailored responses
+        
+    Returns:
+        dict with 'response', 'method', and optionally 'detected_sentiment'
+    """
+    if not review_text or not review_text.strip():
+        raise ValueError("Review text is required")
+    
+    review_text = review_text.strip()
+    
+    # Simple sentiment detection
+    positive_words = ['great', 'excellent', 'amazing', 'wonderful', 'fantastic', 'love', 'perfect', 'best', 'awesome', 'thank', 'appreciate', 'enjoyed', 'beautiful', 'clean', 'comfortable', 'helpful', 'friendly']
+    negative_words = ['terrible', 'awful', 'horrible', 'worst', 'disappointed', 'disappointing', 'bad', 'poor', 'rude', 'dirty', 'uncomfortable', 'unhelpful', 'problem', 'issue', 'complaint', 'never', 'waste']
+    
+    review_lower = review_text.lower()
+    positive_count = sum(1 for word in positive_words if word in review_lower)
+    negative_count = sum(1 for word in negative_words if word in review_lower)
+    
+    if positive_count > negative_count:
+        detected_sentiment = "positive"
+    elif negative_count > positive_count:
+        detected_sentiment = "negative"
+    else:
+        detected_sentiment = "neutral"
+    
+    # Industry-specific response templates
+    industry_templates = {
+        "house_host": {
+            "positive": {
+                "professional": "Thank you for choosing to stay with us! We're delighted to hear that you had a wonderful experience at {company}. We hope to welcome you back soon.",
+                "grateful": "We're so grateful for your kind words about your stay at {company}! It means the world to us that you enjoyed your time here. Come back and visit us again soon!",
+                "friendly": "Thanks so much for the lovely review of your stay at {company}! We're thrilled you had such a great time. Hope to see you back here again soon! 😊",
+                "apologetic": "Thank you for your positive feedback about your stay at {company}. We're grateful for guests like you who appreciate the comforts of home."
+            },
+            "negative": {
+                "professional": "We're sorry to hear about your experience at {company}. We take all feedback seriously and would like to discuss this further to ensure future stays are better. Please contact us directly so we can make this right.",
+                "grateful": "Thank you for bringing this to our attention regarding your stay at {company}. We truly appreciate your feedback as it helps us improve. We'd love to speak with you personally to address your concerns.",
+                "friendly": "Oh no, we're so sorry to hear about the issues during your stay at {company}! We really want to make this right. Can you please reach out to us directly so we can chat about how to improve your experience?",
+                "apologetic": "We sincerely apologize for the difficulties you experienced during your stay at {company}. This is not the experience we strive to provide. Please contact us so we can discuss how to make amends."
+            },
+            "neutral": {
+                "professional": "Thank you for staying with us at {company}. We appreciate you taking the time to share your feedback. We hope to have the opportunity to host you again in the future.",
+                "grateful": "Thank you for choosing {company} for your stay. We value your feedback and are always working to improve. We hope to welcome you back soon!",
+                "friendly": "Thanks for staying with us at {company}! We appreciate you sharing your thoughts. Hope we get to host you again sometime! 👍",
+                "apologetic": "Thank you for your feedback about your stay at {company}. We're sorry if we fell short of your expectations and would welcome the chance to improve."
+            }
+        }
+    }
+    
+    # Default templates for other industries
+    default_templates = {
+        "positive": {
+            "professional": "Thank you for your positive feedback{company_part}! We appreciate you taking the time to share your experience with us.",
+            "grateful": "We're so grateful for your kind words{company_part}! Thank you for choosing us and for sharing your positive experience.",
+            "friendly": "Thanks so much for the great review{company_part}! We're thrilled you had a wonderful experience. 😊",
+            "apologetic": "Thank you for your positive feedback{company_part}. We're grateful for customers like you who appreciate our service."
+        },
+        "negative": {
+            "professional": "We're sorry to hear about your experience{company_part}. We take all feedback seriously and would like to discuss this further to ensure we can better serve you in the future.",
+            "grateful": "Thank you for bringing this to our attention{company_part}. We truly appreciate your feedback as it helps us improve our service.",
+            "friendly": "Oh no, we're so sorry to hear about this{company_part}! We really want to make this right. Can you please reach out to us directly?",
+            "apologetic": "We sincerely apologize for any inconvenience or disappointment you experienced{company_part}. This is not the level of service we strive to provide."
+        },
+        "neutral": {
+            "professional": "Thank you for your feedback{company_part}. We appreciate you taking the time to share your thoughts with us.",
+            "grateful": "Thank you for your feedback{company_part}. We value all input from our customers as it helps us continue to improve.",
+            "friendly": "Thanks for sharing your thoughts{company_part}! We appreciate you taking the time to leave feedback. 👍",
+            "apologetic": "Thank you for your feedback{company_part}. We're sorry if we fell short of your expectations."
+        }
+    }
+    
+    # Get templates based on industry
+    templates = industry_templates.get(industry.lower(), default_templates)
+    
+    # Get the appropriate template
+    template = templates.get(detected_sentiment, templates["neutral"]).get(tone.lower(), templates["neutral"]["professional"])
+    
+    # Format company name
+    company_part = f" about {company_name}" if company_name else ""
+    
+    # Generate response
+    response = template.format(company=company_name or "our property", company_part=company_part)
+    
+    return {
+        "response": response,
+        "method": "template",
+        "detected_sentiment": detected_sentiment
+    }
+
+
+def _coerce_start_day(value: Any) -> date:
+    if value is None:
+        return date.today()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            pass
+    # fallback: treat anything else as "today"
+    return date.today()
+
+
+def generate_posts(
+    profile: Optional[Mapping[str, Any]] = None,
+    *,
+    days: Optional[int] = None,
+    start_day: Optional[date] = None,
+    industry: str = "Business",
+    tone: str = "friendly",
+    platforms: Optional[list[str]] = None,
+    brand_keywords: Optional[list[str]] = None,
+    include_images: bool = True,
+    niche_keywords: Optional[list[str]] = None,
+    goals: Optional[list[str]] = None,
+    company: str = "",
+    details: Optional[Mapping[str, Any]] = None,
+) -> list[dict[str, Any]]:
+    """Generate a list of posts for the requested period.
+
+    Supports both keyword arguments and a single profile mapping. The mapping
+    may contain keys like days, start_day, industry, tone, platforms, etc.
+    """
+
+    if isinstance(profile, Mapping):
+        default = profile
+        days = days or default.get("days") or default.get("plan_days")
+        start_day = start_day or default.get("start_day")
+        industry = default.get("industry", industry)
+        tone = default.get("tone", tone)
+        platforms = default.get("platforms", platforms)
+        brand_keywords = default.get("brand_keywords", brand_keywords)
+        include_images = default.get("include_images", include_images)
+        niche_keywords = default.get("niche_keywords", niche_keywords)
+        goals = default.get("goals", goals)
+        company = default.get("company", company)
+        details = default.get("details", details)
+
+    days = int(days or 7)
+    start_day = _coerce_start_day(start_day)
+    industry = (industry or "Business").strip() or "Business"
+    tone = tone or "friendly"
+    platforms = list(platforms or ["instagram"])
+    if not platforms:
+        platforms = ["instagram"]
+    brand_keywords = list(brand_keywords or [])
+    niche_keywords = list(niche_keywords or [])
+    goals = list(goals or [])
+    details = dict(details or {})
+    company = company or ""
+
+    posts: list[dict[str, Any]] = []
     pillar_stream = rolling_pillars()
     hashtags = default_hashtags(industry, niche_keywords)
 
     for i in range(days):
         day = start_day + timedelta(days=i)
         pillar_name, pillar_hint = next(pillar_stream)
-        
+
         # Generate platform-specific variants for this day
         variants = {}
         for p in platforms:
             caption = make_caption(
-                industry=to_sentence_case(industry.strip() or "Business"),
+                industry=to_sentence_case(industry),
                 tone=tone,
                 pillar_name=pillar_name,
                 pillar_hint=pillar_hint,
@@ -355,10 +662,11 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                 brand_keywords=brand_keywords,
                 hashtags=hashtags,
                 goals=goals,
-                company=company
+                company=company,
+                theme=details.get("note")
             )
             variants[p] = caption
-        
+
         # Create one post per platform (maintains backward compatibility)
         for p in platforms:
             caption = variants[p]
@@ -367,22 +675,25 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
 
             reel_obj = None
             if p.lower() in ["instagram", "tiktok", "short_video"]:
-                reel_style = None
+                reel_style = details.get('reel_style')
+                raw_length = details.get('reel_length')
                 try:
-                    reel_style = (details or {}).get('reel_style')
-                except Exception:
-                    reel_style = None
-                reel_length = None
-                production_tier = None
-                try:
-                    reel_length = int((details or {}).get('reel_length') or 30)
-                except Exception:
+                    reel_length = int(raw_length) if raw_length not in (None, "") else 30
+                except (TypeError, ValueError):
                     reel_length = 30
-                try:
-                    production_tier = (details or {}).get('production_tier') or 'solo'
-                except Exception:
-                    production_tier = 'solo'
-                reel_obj = make_reel_plan(industry, pillar_name, brand_keywords, tone, company, reel_style, goals=goals, niche_keywords=niche_keywords, length_seconds=reel_length, production_tier=production_tier)
+                production_tier = details.get('production_tier') or 'solo'
+                reel_obj = make_reel_plan(
+                    industry,
+                    pillar_name,
+                    brand_keywords,
+                    tone,
+                    company,
+                    reel_style,
+                    goals=goals,
+                    niche_keywords=niche_keywords,
+                    length_seconds=reel_length,
+                    production_tier=production_tier or 'solo'
+                )
 
             posts.append({
                 "date": day.isoformat(),
@@ -395,4 +706,5 @@ def generate_posts(days: int, start_day, industry: str, tone: str,
                 "reel": reel_obj,
                 "variants": variants if len(platforms) > 1 else None
             })
+
     return posts

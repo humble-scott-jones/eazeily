@@ -1,5 +1,9 @@
 let CFG = null;
 let FLAGS = null;
+const SEED_STORAGE_KEY = '__swelly_seed_posts';
+if (typeof window !== 'undefined') {
+  window.SEED_STORAGE_KEY = SEED_STORAGE_KEY;
+}
 
 function setCurrentUser(user){
   if (user && user.id){
@@ -15,6 +19,190 @@ function setCurrentUser(user){
   renderAuthUi();
   updateAccessUi();
 }
+
+function userFromResponse(payload){
+  if (!payload) return null;
+  if (payload.user && payload.user.id) return payload.user;
+  if (payload.active_user && payload.active_user.id) return payload.active_user;
+  if (payload.id) return payload;
+  return null;
+}
+
+const AUTH_FORM_IDS = {
+  login: 'login-form',
+  signup: 'signup-form',
+  reset: 'reset-form',
+  'confirm-reset': 'confirm-reset-form'
+};
+
+const AUTH_VIEW_META = {
+  login: {
+    title: 'Sign in',
+    subtitle: 'Access your saved brand voice and content plans.'
+  },
+  signup: {
+    title: 'Create your account',
+    subtitle: 'Free to start — no credit card required.'
+  },
+  reset: {
+    title: 'Reset password',
+    subtitle: 'Send yourself a secure reset link.'
+  },
+  'confirm-reset': {
+    title: 'Set a new password',
+    subtitle: 'Paste the token from your email and pick a fresh password.'
+  }
+};
+
+const EMAIL_INPUT_IDS = ['auth-email','signup-email','reset-email','paywall-email'];
+
+const MESSAGE_CLASS_POOL = ['bg-red-50','text-red-700','border','border-red-200','bg-green-50','text-green-700','border-green-200','bg-blue-50','text-blue-700','border-blue-200'];
+const MESSAGE_PALETTES = {
+  success: ['bg-green-50','text-green-700','border','border-green-200'],
+  info: ['bg-blue-50','text-blue-700','border','border-blue-200'],
+  error: ['bg-red-50','text-red-700','border','border-red-200']
+};
+
+function resetMessageElement(el){
+  if (!el) return;
+  MESSAGE_CLASS_POOL.forEach(cls => el.classList.remove(cls));
+  el.textContent = '';
+  el.classList.add('hidden');
+}
+
+function setStatusMessage(el, message, type = 'error'){
+  if (!el) return;
+  if (!message){
+    resetMessageElement(el);
+    return;
+  }
+  resetMessageElement(el);
+  const palette = MESSAGE_PALETTES[type] || MESSAGE_PALETTES.error;
+  palette.forEach(cls => el.classList.add(cls));
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+function clearAuthMessage(){
+  resetMessageElement(document.getElementById('auth-message'));
+}
+
+function setAuthMessage(message, type = 'error'){
+  setStatusMessage(document.getElementById('auth-message'), message, type);
+}
+
+function clearPaywallMessage(){
+  resetMessageElement(document.getElementById('paywall-message'));
+}
+
+function setPaywallMessage(message, type = 'error'){
+  setStatusMessage(document.getElementById('paywall-message'), message, type);
+}
+
+function prefillAuthEmail(value){
+  if (!value) return;
+  EMAIL_INPUT_IDS.forEach(id => {
+    const field = document.getElementById(id);
+    if (field && !field.value){
+      field.value = value;
+    }
+  });
+}
+
+function getKnownEmailValue(){
+  for (const id of EMAIL_INPUT_IDS){
+    const field = document.getElementById(id);
+    const val = field?.value?.trim();
+    if (val) return val;
+  }
+  return '';
+}
+
+function broadcastEmailValue(sourceId, value){
+  EMAIL_INPUT_IDS.forEach(id => {
+    if (id === sourceId) return;
+    const input = document.getElementById(id);
+    if (!input) return;
+    const active = document.activeElement === input;
+    if (active && input.value && input.value !== value) return;
+    input.value = value;
+  });
+}
+
+function initEmailSync(){
+  EMAIL_INPUT_IDS.forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener('input', () => {
+      broadcastEmailValue(id, input.value);
+    });
+  });
+}
+
+function setAuthView(view = 'login', opts = {}){
+  const modal = document.getElementById('auth-modal');
+  if (!modal) return;
+  modal.dataset.authView = view;
+  const meta = AUTH_VIEW_META[view] || AUTH_VIEW_META.login;
+  const titleEl = document.getElementById('auth-title');
+  if (titleEl) titleEl.textContent = meta.title;
+  const subtitleEl = document.getElementById('auth-subtitle');
+  if (subtitleEl){
+    if (meta.subtitle){
+      subtitleEl.textContent = meta.subtitle;
+      subtitleEl.classList.remove('hidden');
+    } else {
+      subtitleEl.classList.add('hidden');
+    }
+  }
+  Object.entries(AUTH_FORM_IDS).forEach(([key, formId]) => {
+    const form = document.getElementById(formId);
+    if (form) form.classList.toggle('hidden', key !== view);
+  });
+  document.querySelectorAll('[data-auth-tab]').forEach(tab => {
+    const isActive = tab.dataset.authTab === view;
+    tab.classList.toggle('auth-tab--active', isActive);
+    tab.classList.toggle('bg-white', isActive);
+    tab.classList.toggle('shadow', isActive);
+    tab.classList.toggle('text-slate-900', isActive);
+    tab.classList.toggle('text-slate-500', !isActive);
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
+  requestAnimationFrame(() => {
+    let target = null;
+    if (opts.focusField === 'password'){
+      if (view === 'login') target = document.getElementById('auth-password');
+      else if (view === 'signup') target = document.getElementById('signup-password');
+      else if (view === 'confirm-reset') target = document.getElementById('confirm-password');
+    }
+    if (!target){
+      const activeForm = document.getElementById(AUTH_FORM_IDS[view]);
+      target = activeForm?.querySelector('[data-autofocus]') || activeForm?.querySelector('input, select, textarea, button');
+    }
+    if (target && typeof target.focus === 'function'){
+      target.focus({ preventScroll: true });
+    }
+  });
+}
+
+(function bootstrapInitialUser(){
+  if (typeof window === 'undefined') return;
+  try {
+    const attr = document?.body?.dataset?.initialUser;
+    if (typeof attr !== 'undefined') {
+      const parsed = attr ? JSON.parse(attr) : null;
+      setCurrentUser(parsed);
+      delete document.body.dataset.initialUser;
+      return;
+    }
+  } catch (err) {
+    console.debug('initial user hydration failed', err);
+  }
+  if (Object.prototype.hasOwnProperty.call(window, '__INITIAL_USER')){
+    setCurrentUser(window.__INITIAL_USER);
+    delete window.__INITIAL_USER;
+  }
+})();
 
 async function refreshCurrentUser(){
   try{
@@ -130,9 +318,19 @@ const results = document.getElementById("results");
 const stepsBar = document.getElementById("steps");
 const btnSample = document.getElementById("btn-sample");
 const btn30 = document.getElementById("btn-30");
+const finishStatus = document.getElementById('finish-status');
+const finishStatusIcon = document.getElementById('finish-status-icon');
+const finishStatusTitle = document.getElementById('finish-status-title');
+const finishStatusDetail = document.getElementById('finish-status-detail');
+const previewHint = document.getElementById('preview-hint');
+const previewJumpBtn = document.getElementById('jump-to-preview');
+const previewGenerateLink = document.getElementById('generate-after-preview');
+let finishCountdownInterval = null;
+let skipStep2 = false;
 
-// load optional flags then config
-loadFlags().then(loadConfig).catch(err => { console.error(err); });
+// load optional flags then config (share promise for later waits)
+const bootPromise = loadFlags().then(loadConfig).catch(err => { console.error(err); });
+bootPromise.then(() => hydrateWizardPreview());
 
 // attempt to load saved profile for this session and prefill fields
 async function loadSavedProfile(){
@@ -175,6 +373,27 @@ document.addEventListener('DOMContentLoaded', () => {
     try{
       await refreshCurrentUser();
     }catch(e){/* ignore */}
+    const quickStartBtn = document.getElementById('quick-start');
+    if (quickStartBtn){
+      quickStartBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        await handleQuickStart(quickStartBtn);
+      });
+    }
+    const scrollBtn = document.getElementById('scroll-to-wizard');
+    if (scrollBtn){
+      scrollBtn.addEventListener('click', () => {
+        document.getElementById('wiz')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+    const createAcctBtn = document.getElementById('cta-create-account');
+    if (createAcctBtn){
+      createAcctBtn.addEventListener('click', () => openAuthModal('signup'));
+    }
+    const signInBtn = document.getElementById('cta-sign-in');
+    if (signInBtn){
+      signInBtn.addEventListener('click', () => openAuthModal('login'));
+    }
   })();
 
   // Smart defaults to reduce clicks
@@ -211,14 +430,21 @@ document.addEventListener('DOMContentLoaded', () => {
       ev.preventDefault();
       const email = document.getElementById('dev-email').value.trim();
       const pw = document.getElementById('dev-password').value || 'password';
-      const isPaid = !!document.getElementById('dev-paid').checked;
+      const select = document.getElementById('dev-templates');
+      const chosen = Array.from(select?.selectedOptions || []).map(opt => opt.value).filter(Boolean);
+      const templates = chosen.length ? chosen : ['free'];
       const btn = document.getElementById('dev-create-btn'); setButtonLoading(btn, true);
       try{
-        const r = await fetch('/__dev__/create_user', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw, is_paid: isPaid }) });
+        const payload = { email, password: pw };
+        if (templates.length === 1) payload.template = templates[0];
+        else payload.templates = templates;
+        const r = await fetch('/__dev__/create_user', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         const j = await r.json().catch(()=>null);
-  if (!r.ok){ alert((j && j.error) || 'Could not create dev user'); return; }
-  setCurrentUser(j);
-  showToast('Dev user created and signed in');
+        if (!r.ok){ alert((j && j.error) || 'Could not create dev user'); return; }
+        const active = j?.active_user || j;
+        if (active && active.id){ setCurrentUser(active); }
+        const created = Array.isArray(j?.created) ? j.created.length : 1;
+        showToast(created > 1 ? `Created ${created} dev users` : 'Dev user created and signed in');
       }catch(e){ alert('Dev create failed'); }
       finally{ setButtonLoading(btn, false); }
     });
@@ -260,54 +486,102 @@ function renderAuthUi(){
 }
 
 // Auth modal helpers
-function openAuthModal(view){
+function openAuthModal(view = 'login', opts = {}){
   const modal = document.getElementById('auth-modal');
   if (!modal) return;
-  // Append to body to ensure proper centering regardless of parent transforms
   if (!document.body.contains(modal)) {
     document.body.appendChild(modal);
   }
   modal.classList.remove('hidden');
   const container = modal.querySelector('[tabindex="-1"]');
   if (container && typeof container.focus === 'function') container.focus();
-  document.getElementById('auth-title').textContent = view === 'signup' ? 'Create account' : (view === 'reset' ? 'Reset password' : 'Sign in');
-  // hide all forms
-  ['login-form','signup-form','reset-form','confirm-reset-form'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('hidden'); });
-  if (view === 'signup') document.getElementById('signup-form').classList.remove('hidden');
-  else if (view === 'reset') document.getElementById('reset-form').classList.remove('hidden');
-  else if (view === 'confirm-reset') document.getElementById('confirm-reset-form').classList.remove('hidden');
-  else document.getElementById('login-form').classList.remove('hidden');
+  clearAuthMessage();
+  const knownEmail = opts.prefillEmail || getKnownEmailValue();
+  if (knownEmail) prefillAuthEmail(knownEmail);
+  setAuthView(view, opts);
   trapFocus(modal);
 }
-function closeAuthModal(){ document.getElementById('auth-modal')?.classList.add('hidden'); }
+function closeAuthModal(){
+  const modal = document.getElementById('auth-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.dataset.authView = 'login';
+  clearAuthMessage();
+}
+
+function navigateAuthView(view = 'login', opts = {}){
+  const modal = document.getElementById('auth-modal');
+  if (modal && !modal.classList.contains('hidden')){
+    clearAuthMessage();
+    const knownEmail = opts.prefillEmail || getKnownEmailValue();
+    if (knownEmail) prefillAuthEmail(knownEmail);
+    setAuthView(view, opts);
+    return;
+  }
+  openAuthModal(view, opts);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   // modal switch buttons
-  document.getElementById('show-signup')?.addEventListener('click', () => openAuthModal('signup'));
-  document.getElementById('show-login')?.addEventListener('click', () => openAuthModal('login'));
-  document.getElementById('show-reset')?.addEventListener('click', () => openAuthModal('reset'));
-  document.getElementById('auth-close')?.addEventListener('click', closeAuthModal);
-  document.getElementById('reset-back')?.addEventListener('click', () => openAuthModal('login'));
-  document.getElementById('confirm-back')?.addEventListener('click', () => openAuthModal('login'));
+  document.querySelectorAll('[data-auth-tab]').forEach(btn => {
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      navigateAuthView(btn.dataset.authTab || 'login');
+    });
+  });
+  document.querySelectorAll('[data-auth-action]').forEach(btn => {
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      const targetView = btn.dataset.authAction || 'login';
+      const opts = {};
+      const emailField = btn.closest('form')?.querySelector('input[type="email"]');
+      if (emailField && emailField.value){
+        opts.prefillEmail = emailField.value.trim();
+      }
+      navigateAuthView(targetView, opts);
+    });
+  });
+  document.getElementById('auth-close')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    closeAuthModal();
+  });
+  const authModal = document.getElementById('auth-modal');
+  authModal?.addEventListener('click', (event) => {
+    if (event.target === authModal){
+      closeAuthModal();
+    }
+  });
+
+  initEmailSync();
 
   // paywall sign-in link (for users who already have an account)
   const paywallSigninLink = document.getElementById('paywall-signin-link');
   if (paywallSigninLink){
-    paywallSigninLink.addEventListener('click', () => { openAuthModal('login'); });
+    paywallSigninLink.addEventListener('click', () => {
+      const email = document.getElementById('paywall-email')?.value?.trim();
+      if (email) broadcastEmailValue('paywall-email', email);
+      openAuthModal('login', { prefillEmail: email || getKnownEmailValue() });
+    });
   }
 
   // login submit
-  document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+  const loginForm = document.getElementById('login-form');
+  loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    clearAuthMessage();
     const email = document.getElementById('auth-email').value.trim();
     const pw = document.getElementById('auth-password').value;
-    const msgEl = document.getElementById('auth-message');
+    if (!email || !pw){
+      setAuthMessage('Enter both email and password to continue.', 'error');
+      return;
+    }
+    const submitBtn = e.submitter || loginForm.querySelector('button[type=submit]');
     try{
-      setButtonLoading(e.submitter || e.target.querySelector('button[type=submit]'), true);
+      setButtonLoading(submitBtn, true);
   const r = await fetch('/api/login', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw }) });
       const j = await r.json().catch(()=>null);
-      if (!r.ok){ showAuthMessage((j && j.error) || 'Sign in failed'); setButtonLoading(null,false); return; }
-  setCurrentUser(j); closeAuthModal(); showToast('Signed in');
+    if (!r.ok){ setAuthMessage((j && j.error) || 'Sign in failed', 'error'); return; }
+  setCurrentUser(userFromResponse(j)); closeAuthModal(); showToast('Signed in');
       // If the paywall modal is open, continue to the subscribe flow automatically
       try{
         const payModal = document.getElementById('paywall-modal');
@@ -316,74 +590,151 @@ document.addEventListener('DOMContentLoaded', () => {
           if (subBtn) subBtn.click();
         }
       }catch(e){}
-    }catch(err){ showAuthMessage('Sign in failed'); }
-    finally{ setButtonLoading(null,false); }
+    }catch(err){ setAuthMessage('Sign in failed. Please try again.', 'error'); }
+    finally{ setButtonLoading(submitBtn, false); }
   });
 
   // signup submit
-  document.getElementById('signup-form')?.addEventListener('submit', async (e) => {
+  const signupForm = document.getElementById('signup-form');
+  signupForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    clearAuthMessage();
     const email = document.getElementById('signup-email').value.trim();
     const pw = document.getElementById('signup-password').value;
+    if (!email){
+      setAuthMessage('Enter your email to create an account.', 'error');
+      return;
+    }
+    if (!pw || pw.length < 6){
+      setAuthMessage('Passwords need at least 6 characters.', 'error');
+      return;
+    }
+    const btn = e.submitter || signupForm.querySelector('button[type=submit]');
     try{
-      const btn = e.submitter || e.target.querySelector('button[type=submit]'); setButtonLoading(btn, true);
+      setButtonLoading(btn, true);
   const r = await fetch('/api/signup', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw }) });
       const j = await r.json().catch(()=>null);
-      if (!r.ok){ showAuthMessage((j && j.error) || 'Sign up failed'); return; }
-  setCurrentUser(j); closeAuthModal(); showToast('Account created');
-    }catch(err){ showAuthMessage('Sign up failed'); }
-    finally{ setButtonLoading(null,false); }
+    if (!r.ok){ setAuthMessage((j && j.error) || 'Sign up failed', 'error'); return; }
+  setCurrentUser(userFromResponse(j)); closeAuthModal(); showToast('Account created');
+    }catch(err){ setAuthMessage('Sign up failed. Please try again.', 'error'); }
+    finally{ setButtonLoading(btn, false); }
   });
 
-  // request reset
-  document.getElementById('request-reset')?.addEventListener('click', async () => {
-    const email = document.getElementById('reset-email').value.trim();
-    if (!email) return alert('Email required');
+  // password reset request submit
+  const resetForm = document.getElementById('reset-form');
+  resetForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearAuthMessage();
+    const emailInput = document.getElementById('reset-email');
+    const email = emailInput?.value.trim();
+    if (!email){
+      setAuthMessage('Enter your account email to continue.', 'error');
+      emailInput?.focus();
+      return;
+    }
+    const btn = e.submitter || resetForm.querySelector('button[type=submit]');
     try{
-      const btn = document.getElementById('request-reset'); setButtonLoading(btn, true);
+      setButtonLoading(btn, true);
   const r = await fetch('/api/request-password-reset', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email }) });
       const j = await r.json().catch(()=>null);
-      if (!r.ok){ showAuthMessage((j && j.error) || 'Request failed'); return; }
-      // show token-based confirm form for dev/testing
-      openAuthModal('confirm-reset');
-      if (j && j.token) document.getElementById('confirm-token').value = j.token;
-      showToast('Password reset token generated (dev)');
-    }catch(e){ showAuthMessage('Request failed'); }
-    finally{ setButtonLoading(null,false); }
+      if (!r.ok){ setAuthMessage((j && j.error) || 'Could not send reset email', 'error'); return; }
+      prefillAuthEmail(email);
+      if (j && j.token){
+        const tokenField = document.getElementById('confirm-token');
+        if (tokenField) tokenField.value = j.token;
+      }
+      setAuthMessage('Check your email for a reset link. Paste the token below to finish up.', 'success');
+      setAuthView('confirm-reset');
+    }catch(err){
+      console.error('password reset request failed', err);
+      setAuthMessage('Reset request failed. Try again shortly.', 'error');
+    }finally{
+      setButtonLoading(btn, false);
+    }
   });
 
-  // confirm reset
-  document.getElementById('confirm-reset')?.addEventListener('click', async () => {
-    const token = document.getElementById('confirm-token').value.trim();
-    const pw = document.getElementById('confirm-password').value;
-    if (!token || !pw) return alert('Token and password required');
+  // confirm reset submit
+  const confirmResetForm = document.getElementById('confirm-reset-form');
+  confirmResetForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearAuthMessage();
+    const tokenInput = document.getElementById('confirm-token');
+    const passwordInput = document.getElementById('confirm-password');
+    const token = tokenInput?.value.trim();
+    const pw = passwordInput?.value;
+    if (!token){
+      setAuthMessage('Enter the reset token from your email.', 'error');
+      tokenInput?.focus();
+      return;
+    }
+    if (!pw || pw.length < 6){
+      setAuthMessage('Choose a password with at least 6 characters.', 'error');
+      passwordInput?.focus();
+      return;
+    }
+    const btn = e.submitter || confirmResetForm.querySelector('button[type=submit]');
     try{
-      const btn = document.getElementById('confirm-reset'); setButtonLoading(btn, true);
+      setButtonLoading(btn, true);
   const r = await fetch('/api/confirm-password-reset', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token, password: pw }) });
       const j = await r.json().catch(()=>null);
-      if (!r.ok){ showAuthMessage((j && j.error) || 'Reset failed'); return; }
-      showToast('Password reset. Please sign in.');
-      openAuthModal('login');
-    }catch(e){ showAuthMessage('Reset failed'); }
-    finally{ setButtonLoading(null,false); }
+      if (!r.ok){ setAuthMessage((j && j.error) || 'Reset failed', 'error'); return; }
+      setAuthMessage('Password updated. You can sign in with the new password.', 'success');
+      showToast('Password reset');
+      tokenInput.value = '';
+      passwordInput.value = '';
+      setAuthView('login', { focusField: 'password' });
+    }catch(err){
+      console.error('password reset confirmation failed', err);
+      setAuthMessage('Reset failed. Please try again.', 'error');
+    }finally{
+      setButtonLoading(btn, false);
+    }
   });
 });
 
+function ensureQuickStartAuth(){
+  if (isLoggedIn()) return true;
+  showToast('Create a free account first so Quick Start can auto-fill the wizard for you.');
+  const heroCta = document.getElementById('cta-create-account');
+  if (heroCta){
+    const highlightClasses = ['ring-2','ring-offset-2','ring-purple-300'];
+    heroCta.classList.add(...highlightClasses);
+    heroCta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => heroCta.classList.remove(...highlightClasses), 2000);
+  }
+  openAuthModal('signup', { prefillEmail: getKnownEmailValue() });
+  return false;
+}
+
 // UI helpers: show inline messages & toasts
-function showAuthMessage(msg){ const el = document.getElementById('auth-message'); if (el){ el.textContent = msg; el.classList.remove('hidden'); } else alert(msg); }
-function clearAuthMessage(){ const el = document.getElementById('auth-message'); if (el){ el.textContent=''; el.classList.add('hidden'); } }
-function showPaywallMessage(msg){ const el = document.getElementById('paywall-message'); if (el){ el.textContent = msg; el.classList.remove('hidden'); } }
-function clearPaywallMessage(){ const el = document.getElementById('paywall-message'); if (el){ el.textContent=''; el.classList.add('hidden'); } }
-function showPaywall(message){
+function showPaywall(message, opts = {}){
   const payModal = document.getElementById('paywall-modal');
   if (!payModal){
     alert(message || 'Paid subscription required');
     return;
   }
-  if (message){ showPaywallMessage(message); }
+  const paywallEmail = document.getElementById('paywall-email');
+  const desiredEmail = opts.prefillEmail || getKnownEmailValue();
+  if (paywallEmail && desiredEmail && !paywallEmail.value){
+    paywallEmail.value = desiredEmail;
+  }
+  if (paywallEmail && paywallEmail.value){
+    broadcastEmailValue('paywall-email', paywallEmail.value);
+  }
+  if (message){ setPaywallMessage(message, opts.messageType || 'info'); }
   else clearPaywallMessage();
   payModal.classList.remove('hidden');
+  const focusTarget = opts.focusEmail === false ? null : (paywallEmail || payModal.querySelector('[data-autofocus]'));
+  if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus({ preventScroll: true });
+  trapFocus(payModal);
   try{ ensureStripeElementsInitialized().catch(()=>{}); }catch(e){}
+}
+
+function closePaywall(){
+  const payModal = document.getElementById('paywall-modal');
+  if (!payModal) return;
+  payModal.classList.add('hidden');
+  clearPaywallMessage();
 }
 function showToast(msg){ const t = document.createElement('div'); t.className='fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.classList.add('opacity-0'), 2200); setTimeout(()=>t.remove(), 2800); }
 
@@ -420,6 +771,7 @@ function validateCompany(name){
 
 function renderIndustryChoices(list){
   const wrap = document.getElementById("industries");
+  if (!wrap) return;
   wrap.innerHTML = "";
   list.forEach(opt => {
     const div = document.createElement("button");
@@ -474,8 +826,10 @@ function renderIndustryChoices(list){
         // mark selected state on the rendered chips
         try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
       }catch(e){/* ignore */}
-  if (nextBtn && typeof nextBtn.focus === 'function') nextBtn.focus();
       updateSummary();
+      if (step === 1 && nextBtn && typeof nextBtn.focus === 'function'){
+        nextBtn.focus();
+      }
     });
     // if this industry matches the already-selected industry, mark it as selected
     if ((answers.industry_key && answers.industry_key === opt.key) || (!answers.industry_key && answers.industry === opt.label)){
@@ -507,6 +861,13 @@ function clearKeywords(){
 
 // handle extra keywords input (comma-separated or Enter)
 document.addEventListener('DOMContentLoaded', () => {
+  setPreviewCTAState(false);
+  if (previewJumpBtn){
+    previewJumpBtn.addEventListener('click', () => {
+      const target = document.getElementById('results') || results;
+      if (target){ target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    });
+  }
   const extra = document.getElementById('extra-keywords');
   if (extra){
     extra.addEventListener('keydown', (e) => {
@@ -542,6 +903,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function renderToneChoices(list){
   const wrap = document.getElementById("tones");
+  if (!wrap) return;
   wrap.innerHTML = "";
   list.forEach(opt => {
     const div = document.createElement("button");
@@ -559,6 +921,7 @@ function renderToneChoices(list){
 
 function renderPlatformChoices(list){
   const wrap = document.getElementById("platforms");
+  if (!wrap) return;
   wrap.innerHTML = "";
   list.forEach(opt => {
     const div = document.createElement("button");
@@ -611,6 +974,7 @@ async function ensureStripeElementsInitialized(){
 
 function renderIndustryQuestions(key){
   const wrap = document.getElementById("industry-questions");
+  if (!wrap) return;
   wrap.innerHTML = "";
   // preserve existing answers.goals and answers.details when switching industries
   const map = (CFG && CFG.questions) || {};
@@ -669,35 +1033,73 @@ function renderIndustryQuestions(key){
       wrap.appendChild(box);
     }
   });
+  skipStep2 = wrap.children.length === 0;
+  updateStepTwoState();
 }
 
 function showStep(n){
-  // hide all panels (only if panels exist on the page)
-  const panels = document.querySelectorAll(".step-panel");
-  if (panels && panels.length){
-    panels.forEach(s=>s.classList.add("hidden"));
-    const active = document.querySelector(`.step-panel[data-step="${n}"]`);
-    if (active) active.classList.remove("hidden");
+  if (skipStep2 && n === 2){
+    n = 3;
   }
-  if (prevBtn) prevBtn.disabled = n === 1;
-  if (nextBtn) nextBtn.textContent = n >= 4 ? "Finish" : "Next";
+  step = n;
+  if (nextBtn) setButtonLoading(nextBtn, false);
+  const panels = document.querySelectorAll('.step-panel');
+  if (panels && panels.length){
+    panels.forEach(s=>s.classList.add('hidden'));
+    const active = document.querySelector(`.step-panel[data-step="${n}"]`);
+    if (active) active.classList.remove('hidden');
+  }
+  if (prevBtn) prevBtn.disabled = step === 1;
+  if (nextBtn) nextBtn.textContent = step >= 4 ? 'Finish' : 'Next';
   if (stepsBar){
-    const dots = stepsBar.querySelectorAll(".step") || [];
-    dots.forEach((d,i)=> d.classList.toggle("active", (i+1) <= n));
+    const dots = stepsBar.querySelectorAll('.step') || [];
+    dots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
   }
 
-  // Update progress bar
   const progressBar = document.getElementById('progress-bar');
   const progressText = document.getElementById('progress-text');
   if (progressBar && progressText) {
-    const progressPercent = (n / 4) * 100;
+    const progressPercent = (step / 4) * 100;
     progressBar.style.width = progressPercent + '%';
-    progressText.textContent = `Step ${n} of 4`;
+    progressText.textContent = `Step ${step} of 4`;
+  }
+
+  if (step !== 4){
+    clearFinishStatus();
   }
 }
 
-if (prevBtn) prevBtn.addEventListener("click", ()=>{ step = Math.max(1, step-1); showStep(step); });
+if (prevBtn) prevBtn.addEventListener("click", ()=>{
+  if (step === 3 && skipStep2){
+    step = 1;
+  } else {
+    step = Math.max(1, step-1);
+  }
+  showStep(step);
+});
 if (nextBtn) nextBtn.addEventListener("click", async ()=>{
+  if (step === 1){
+    if (!answers.industry){ showToast('Pick an industry to keep going'); return; }
+    step = skipStep2 ? 3 : 2;
+    showStep(step);
+    return;
+  }
+  if (step === 2){
+    if (!skipStep2 && !hasStepTwoAnswer()){
+      showToast('Choose at least one focus so we can tailor ideas');
+      return;
+    }
+    step = 3;
+    showStep(step);
+    return;
+  }
+  if (step === 3){
+    if (!answers.tone){ showToast('Pick a tone to keep going'); return; }
+    if (!answers.platforms || !answers.platforms.length){ showToast('Choose at least one platform'); return; }
+    step = 4;
+    showStep(step);
+    return;
+  }
   if (step === 4){
     // collect keywords from selected chips and extra input
     const extra = document.getElementById('extra-keywords');
@@ -710,28 +1112,28 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     // ensure niche_keywords mirrors brand_keywords for now
     answers.niche_keywords = answers.brand_keywords || [];
     answers.include_images = document.getElementById("include_images").checked;
+    clearFieldError('company');
+    clearFormError();
+    if (nextBtn){
+      nextBtn.dataset.loadingText = 'Saving…';
+      setButtonLoading(nextBtn, true);
+    }
+    updateFinishStatus('info', 'Saving your brand voice…', 'Hang tight while we prepare your dashboard.');
     try{
       await saveProfile();
+      updateFinishStatus('info', 'Generating your first post…', 'We’re creating a sample so your dashboard feels ready.');
+      await seedInitialPosts();
+      updateFinishStatus('success', 'Brand voice saved', 'Redirecting in 3 seconds…');
+      startFinishCountdown(3, () => { window.location.href = '/generate'; });
     }catch(err){
       console.error('saveProfile failed', err);
-      const msg = (err && err.message) ? err.message : 'Save failed — check console for details.';
-      // remove any existing error
-      const existingError = document.getElementById('company-error');
-      if (existingError) existingError.remove();
-      const el = document.createElement('div'); el.id = 'company-error'; el.className = 'text-xs text-red-600 mt-1'; el.textContent = msg;
-      const companyInput = document.getElementById('company');
-      if (companyInput && companyInput.parentElement){
-        companyInput.parentElement.appendChild(el);
-      }else{
-        // fallback: append to wizard area
-        const wiz = document.getElementById('wiz');
-        (wiz || document.body).appendChild(el);
-      }
-      return;
+      const msg = (err && err.message) ? err.message : 'Save failed — please try again.';
+      showFormError(msg);
+      updateFinishStatus('error', 'Could not save profile', msg);
+      setButtonLoading(nextBtn, false);
     }
+    return;
   }
-  step = Math.min(4, step+1);
-  showStep(step);
 });
 
 async function saveProfile(){
@@ -744,33 +1146,50 @@ async function saveProfile(){
   clearFieldError('company');
   if (err){
     showFieldError('company', err);
-    return; // don't save while invalid
+    throw new Error(err);
   }
 
-  const resp = await fetch("/api/profile?content_version=" + encodeURIComponent(version), {
-    method: "POST",
-    credentials: 'include',
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify(answers)
-  });
+  let resp;
+  try{
+    resp = await fetch("/api/profile?content_version=" + encodeURIComponent(version), {
+      method: "POST",
+      credentials: 'include',
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(answers)
+    });
+  }catch(networkErr){
+    const msg = 'Network error: unable to save your profile right now. Please check your connection and try again.';
+    showFormError(msg);
+    throw new Error(msg);
+  }
+  let body = null;
+  try{ body = await resp.json(); }catch(e){ body = null; }
+  if (resp.status === 401){
+    const msg = 'Please sign in to save your profile.';
+    showFormError(msg);
+    if (typeof openAuthModal === 'function') openAuthModal('login');
+    throw new Error(msg);
+  }
+  if (resp.status === 403){
+    const msg = (body && body.error) ? body.error : 'You do not have permission to save this profile.';
+    showFormError(msg);
+    throw new Error(msg);
+  }
   if (!resp.ok){
-    let j = null;
-    try{ j = await resp.json(); }catch(e){ j = null; }
-    // server may return structured field errors in { errors: { field: msg } }
-    if (j && j.errors){
-      Object.keys(j.errors).forEach(f => showFieldError(f, j.errors[f]));
-      const formMsg = j.error || 'Please correct the highlighted fields.';
+    if (body && body.errors){
+      Object.keys(body.errors).forEach(f => showFieldError(f, body.errors[f]));
+      const formMsg = body.error || 'Please correct the highlighted fields.';
       showFormError(formMsg);
       throw new Error(formMsg);
     }
-    const msg = (j && j.error) ? j.error : `Save failed (HTTP ${resp.status})`;
+    const msg = (body && body.error) ? body.error : `Save failed (HTTP ${resp.status})`;
     showFormError(msg);
     throw new Error(msg);
   }
   if (btn30) btn30.disabled = false;
   updateSummary();
-  // setup complete - redirect to /generate dashboard for content generation
-  window.location.href = '/generate';
+  clearFormError();
+  return body;
 }
 
 // wire company input to answers
@@ -822,24 +1241,156 @@ function clearFormError(){
   if (el){ el.textContent = ''; el.classList.add('hidden'); }
 }
 
-if (btnSample) btnSample.addEventListener("click", async () =>{
-  if (!isLoggedIn()){ openAuthModal('signup'); return; }
+function setPreviewCTAState(hasPosts){
+  if (previewHint){
+    previewHint.textContent = hasPosts
+      ? 'Sample loaded — open the Generate dashboard once you like what you see.'
+      : 'We’ll drop a sample plan below once you save. Give it a quick look before heading to your dashboard.';
+  }
+  if (previewGenerateLink){
+    previewGenerateLink.classList.toggle('hidden', !hasPosts);
+    previewGenerateLink.setAttribute('aria-disabled', hasPosts ? 'false' : 'true');
+  }
+  if (previewJumpBtn){
+    previewJumpBtn.textContent = hasPosts ? 'Jump to preview again' : 'Jump to preview';
+  }
+}
+
+function updateFinishStatus(state, title, detail){
+  if (!finishStatus) return;
+  if (state) finishStatus.dataset.state = state;
+  finishStatus.classList.remove('hidden');
+  if (finishStatusIcon){
+    finishStatusIcon.textContent = state === 'success' ? '✅' : (state === 'error' ? '⚠️' : '⏳');
+  }
+  if (finishStatusTitle) finishStatusTitle.textContent = title || '';
+  if (finishStatusDetail && typeof detail === 'string') finishStatusDetail.textContent = detail;
+}
+
+function clearFinishStatus(){
+  if (!finishStatus) return;
+  finishStatus.classList.add('hidden');
+  finishStatus.removeAttribute('data-state');
+  if (finishStatusIcon) finishStatusIcon.textContent = '⏳';
+  if (finishStatusTitle) finishStatusTitle.textContent = '';
+  if (finishStatusDetail) finishStatusDetail.textContent = '';
+  if (finishCountdownInterval){ clearInterval(finishCountdownInterval); finishCountdownInterval = null; }
+}
+
+function startFinishCountdown(seconds, done){
+  if (finishCountdownInterval){ clearInterval(finishCountdownInterval); finishCountdownInterval = null; }
+  if (!finishStatusDetail){
+    if (typeof done === 'function') setTimeout(done, seconds * 1000);
+    return;
+  }
+  let remaining = seconds;
+  finishStatusDetail.textContent = `Redirecting in ${remaining} seconds…`;
+  finishCountdownInterval = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0){
+      clearInterval(finishCountdownInterval);
+      finishCountdownInterval = null;
+      finishStatusDetail.textContent = 'Redirecting now…';
+      if (typeof done === 'function') done();
+    } else {
+      finishStatusDetail.textContent = `Redirecting in ${remaining} seconds…`;
+    }
+  }, 1000);
+}
+
+function updateStepTwoState(){
+  const panel = document.querySelector('[data-step="2"]');
+  const empty = document.getElementById('step-2-empty');
+  if (!panel || !empty) return;
+  panel.classList.toggle('step-panel--empty', skipStep2);
+  if (skipStep2){
+    empty.classList.remove('hidden');
+  } else {
+    empty.classList.add('hidden');
+  }
+}
+
+function hasStepTwoAnswer(){
+  const goalsReady = Array.isArray(answers.goals) && answers.goals.length > 0;
+  const detailReady = answers.details && Object.keys(answers.details).some(key => key !== '_content_version' && answers.details[key]);
+  return goalsReady || detailReady;
+}
+
+async function handleQuickStart(btn){
   try{
-    await maybeSaveDefaults();
-    const data = await generate(1);
-    renderPosts(data);
-    await refreshCurrentUser();
-  }catch(err){ if (err && err.message) console.debug(err.message); }
+    if (!ensureQuickStartAuth()) return;
+    setButtonLoading(btn, true);
+    await bootPromise;
+    if (!selectIndustryChoice('other')){
+      const fallback = document.querySelector('#industries .choice');
+      fallback?.click();
+    }
+    await new Promise(res => setTimeout(res, 50));
+    const firstDetailInput = document.querySelector('#industry-questions input');
+    if (firstDetailInput && !firstDetailInput.value){
+      firstDetailInput.value = 'Quick overview of our work';
+      firstDetailInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    const firstQuestionChip = document.querySelector('#industry-questions .choice');
+    if (firstQuestionChip && !firstQuestionChip.classList.contains('selected')){
+      firstQuestionChip.click();
+    }
+    ensureToneChoice('friendly');
+    ensurePlatformChoice('instagram');
+    ensurePlatformChoice('facebook');
+    answers.brand_keywords = ['behind the scenes', 'community updates', 'customer stories'];
+    answers.niche_keywords = answers.brand_keywords.slice();
+    answers.goals = answers.goals && answers.goals.length ? answers.goals : ['Community'];
+    if (!answers.company){
+      answers.company = 'My Business';
+      const companyInput = document.getElementById('company');
+      if (companyInput && !companyInput.value){
+        companyInput.value = answers.company;
+      }
+    }
+    updateSummary();
+    step = 4;
+    showStep(4);
+    updateFinishStatus('info', 'Saving your preferences…', 'We’re also preloading a fresh sample for your dashboard.');
+    await saveProfile();
+    await seedInitialPosts();
+    showToast('Setup complete — redirecting to Generate');
+    window.location.href = '/generate';
+  }catch(err){
+    console.error('handleQuickStart failed', err);
+    showToast('Quick start unavailable — please finish the steps manually.');
+  }finally{
+    setButtonLoading(btn, false);
+  }
+}
+
+function selectIndustryChoice(key){
+  const target = document.querySelector(`#industries .choice[data-key="${key}"]`);
+  if (!target) return false;
+  target.click();
+  return true;
+}
+
+function ensureToneChoice(key){
+  const btn = document.querySelector(`#tones .choice[data-key="${key}"]`);
+  if (btn && !btn.classList.contains('selected')){
+    btn.click();
+  }
+}
+
+function ensurePlatformChoice(key){
+  const btn = document.querySelector(`#platforms .choice[data-key="${key}"]`);
+  if (!btn) return;
+  if (!answers.platforms.includes(key)){
+    btn.click();
+  }
+}
+
+if (btnSample) btnSample.addEventListener("click", () => {
+  handlePlanGeneration(1, { planLabel: '1-day sample', button: btnSample });
 });
-if (btn30) btn30.addEventListener("click", async () =>{
-  if (!isLoggedIn()){ openAuthModal('signup'); return; }
-  if (!window.CURRENT_USER || !window.CURRENT_USER.is_paid){ showPaywall('Subscribe to unlock multi-day plans.'); return; }
-  try{
-    await maybeSaveDefaults();
-    const data = await generate(30);
-    renderPosts(data);
-    await refreshCurrentUser();
-  }catch(err){ if (err && err.message) console.debug(err.message); }
+if (btn30) btn30.addEventListener("click", () => {
+  handlePlanGeneration(30, { requiresPaid: true, planLabel: '30-day plan', button: btn30 });
 });
 
 async function maybeSaveDefaults(){
@@ -847,6 +1398,34 @@ async function maybeSaveDefaults(){
   if (!answers.tone) answers.tone = "friendly";
   if (!answers.platforms || answers.platforms.length === 0) answers.platforms = ["instagram"];
   await saveProfile();
+}
+
+function ensurePlanAccess({ requiresPaid = false, planLabel = 'this plan' } = {}){
+  if (!isLoggedIn()){
+    showToast(`Sign in to unlock the ${planLabel}.`);
+    openAuthModal('signup', { prefillEmail: getKnownEmailValue() });
+    return false;
+  }
+  if (requiresPaid && (!window.CURRENT_USER || !window.CURRENT_USER.is_paid)){
+    showPaywall(`Subscribe to unlock the ${planLabel}.`, { prefillEmail: getKnownEmailValue() });
+    return false;
+  }
+  return true;
+}
+
+async function handlePlanGeneration(days, { requiresPaid = false, planLabel = `${days}-day plan`, button = null, generateOptions = {} } = {}){
+  if (!ensurePlanAccess({ requiresPaid, planLabel })) return;
+  try{
+    if (button) setButtonLoading(button, true);
+    await maybeSaveDefaults();
+    const data = await generate(days, generateOptions);
+    renderPosts(data);
+    await refreshCurrentUser();
+  }catch(err){
+    if (err && err.message) console.debug(err.message);
+  }finally{
+    if (button) setButtonLoading(button, false);
+  }
 }
 
 async function generate(days){
@@ -910,10 +1489,104 @@ async function generate(days){
   }
 }
 
+async function seedInitialPosts(){
+  if (typeof sessionStorage === 'undefined') return;
+  try{
+    const data = await generate(1);
+    if (data && data.posts && data.posts.length){
+      sessionStorage.setItem(SEED_STORAGE_KEY, JSON.stringify({ ts: Date.now(), payload: data }));
+    }
+  }catch(err){
+    console.debug('seedInitialPosts skipped', err && err.message ? err.message : err);
+  }
+}
+
+const PREVIEW_SAMPLE_PAYLOAD = {
+  posts: [
+    {
+      day_index: 1,
+      date: 'Mon',
+      platform: 'instagram',
+      pillar: 'Behind-the-scenes',
+      image_prompt: 'Warm morning light over a local cafe counter filled with pastries and flowers',
+      image_url: '',
+      caption: 'Fresh croissants just left the oven and the whole shop smells like butter. Drop by on your morning walk and we’ll save you one ☕️🥐',
+      hashtags: ['#localsmallbusiness','#morningritual'],
+      reel: null
+    },
+    {
+      day_index: 1,
+      date: 'Mon',
+      platform: 'short_video',
+      pillar: 'Reel spotlight',
+      image_prompt: 'Vertical shot of barista pouring latte art, handheld phone POV',
+      image_url: '',
+      caption: 'Your daily latte ritual in 12 seconds. Film the steam, the pour, and that final swirl.',
+      reel: {
+        hook: 'Walk with us behind the counter before doors open',
+        script_beats: ['Unlock the cafe at sunrise','Grind beans + linger on the aroma','Pour the first latte with silky art'],
+        shot_list: [
+          { type: 'Wide entrance', description: 'Unlocking the door with sun flare' },
+          { type: 'Close-up', description: 'Freshly ground espresso falling into the portafilter' },
+          { type: 'POV', description: 'Milk swirl + slow reveal of the latte art' }
+        ],
+        on_screen_text: ['Doors open at 7', 'House-made syrups daily'],
+        hashtags: ['#reelideas','#coffeeclub'],
+        cta: 'DM us “latte” for the flavor of the week',
+        thumbnail_prompt: 'Latte art heart on wooden counter with morning light',
+        srt_prompt: 'Upbeat, percussive captions matching coffee prep beats'
+      }
+    },
+    {
+      day_index: 2,
+      date: 'Tue',
+      platform: 'facebook',
+      pillar: 'Testimonial',
+      image_prompt: 'Smiling customer picking up a pastry box at the counter, candid photo',
+      image_url: '',
+      caption: '“Their seasonal danishes taste like a buttery postcard from Europe.” — Maya, neighborhood regular. Leave a note below if we’ve made your morning!'
+    }
+  ]
+};
+
+function getSeedPreviewData(){
+  if (typeof sessionStorage === 'undefined') return null;
+  try{
+    const raw = sessionStorage.getItem(SEED_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const data = parsed?.payload || parsed?.data || parsed;
+    if (data && Array.isArray(data.posts) && data.posts.length){
+      return data;
+    }
+  }catch(err){ console.debug('preview seed unavailable', err); }
+  return null;
+}
+
+function hydrateWizardPreview(){
+  const target = results || document.getElementById('results');
+  if (!target) return;
+  const seeded = getSeedPreviewData();
+  if (seeded){
+    renderPosts(seeded);
+    return;
+  }
+  if (PREVIEW_SAMPLE_PAYLOAD.posts && PREVIEW_SAMPLE_PAYLOAD.posts.length){
+    renderPosts(PREVIEW_SAMPLE_PAYLOAD);
+  }
+}
+
 function renderPosts(data){
   const posts = data.posts || [];
-  results.innerHTML = "";
-  if (!posts.length){ results.innerHTML = `<div class="text-sm text-slate-600">No posts yet.</div>`; return; }
+  const target = results || document.getElementById('content-results');
+  if (!target) return;
+  const isWizardPreview = target === results;
+  target.innerHTML = "";
+  if (!posts.length){
+    target.innerHTML = `<div class="text-sm text-slate-600">No posts yet.</div>`;
+    if (isWizardPreview) setPreviewCTAState(false);
+    return;
+  }
   const byDay = groupBy(posts, "day_index");
   for (const day of Object.keys(byDay).sort((a,b)=>+a-+b)){
     const items = byDay[day];
@@ -924,13 +1597,16 @@ function renderPosts(data){
       <span class="text-xs text-slate-500">${items.length} platform(s)</span>
     </div>`;
     items.forEach(p => section.appendChild(renderCard(p)));
-    results.appendChild(section);
+    target.appendChild(section);
   }
+  if (isWizardPreview) setPreviewCTAState(true);
 }
 
 function renderCard(post){
   const card = document.createElement("div");
-  card.className = "border rounded-lg p-3 mt-2";
+  card.className = "card border rounded-lg p-3 mt-2";
+  card.__feedbackSnapshot = buildFeedbackSnapshot(post);
+  card.__feedbackSummary = buildFeedbackSummary(post);
   // normalize reel object to the legacy view shape so older UI keeps working
   function normalizeReel(r){
     if (!r) return null;
@@ -1036,17 +1712,32 @@ function renderCard(post){
   }
   card.querySelectorAll("[data-like]").forEach(btn => {
     btn.addEventListener("click", async () => {
+      if (btn.disabled) return;
       const rating = +btn.getAttribute("data-like");
-      const post_day = +btn.getAttribute("data-day");
-      const platform = btn.getAttribute("data-platform");
-      await fetch("/api/feedback", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ rating, post_day, platform })
+      const post_day = +btn.getAttribute("data-day") || 0;
+      const platform = btn.getAttribute("data-platform") || '';
+      let note = '';
+      if (rating < 0 && typeof requestFeedbackNote === 'function'){
+        note = await requestFeedbackNote({
+          platform,
+          post_day,
+          source: 'wizard',
+          captionPreview: card.__feedbackSummary || ''
+        });
+        if (note === null) return;
+      }
+      const ok = await submitFeedback({
+        rating,
+        postDay: post_day,
+        platform,
+        note,
+        source: 'wizard',
+        planLength: answers?.plan_length || answers?.planLength || null,
+        postSnapshot: card.__feedbackSnapshot,
+        summary: card.__feedbackSummary
       });
-      if (btn){
-        btn.textContent = rating > 0 ? "👍 Thanks" : "👎 Noted";
-        try{ btn.disabled = true; }catch(e){}
+      if (ok){
+        finalizeFeedbackButtons(card, platform, post_day, rating);
       }
     });
   });
@@ -1107,6 +1798,161 @@ function renderInlineSummary(){
   });
 }
 
+async function submitFeedback(options = {}){
+  try{
+    const {
+      rating,
+      postDay,
+      platform,
+      note,
+      source,
+      planLength,
+      postSnapshot,
+      summary
+    } = options;
+    const payload = {
+      rating,
+      post_day: postDay,
+      platform
+    };
+    const trimmedNote = typeof note === 'string' ? note.trim() : '';
+    if (trimmedNote) payload.note = trimmedNote;
+    if (source) payload.source = source;
+    if (planLength) payload.plan_length = planLength;
+    if (postSnapshot) payload.post_snapshot = postSnapshot;
+    if (summary) payload.summary = summary;
+    const res = await fetch('/api/feedback', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok){
+      showToast('Unable to save your feedback right now.');
+      return false;
+    }
+    return true;
+  }catch(err){
+    console.error('submitFeedback failed', err);
+    showToast('Unable to save your feedback right now.');
+    return false;
+  }
+}
+window.submitFeedback = submitFeedback;
+
+function finalizeFeedbackButtons(container, platform, dayIndex, rating){
+  if (!container) return;
+  const label = rating > 0 ? '👍 Thanks' : '👎 Logged';
+  const buttons = container.querySelectorAll(`[data-like][data-platform="${platform}"][data-day="${dayIndex}"]`);
+  buttons.forEach(btn => {
+    btn.disabled = true;
+    btn.textContent = label;
+  });
+}
+
+function requestFeedbackNote(meta = {}){
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4';
+    const reasons = ['Not relevant', 'Too generic', 'Off brand', 'Wrong platform', 'Needs more detail'];
+    const previewBlock = meta.captionPreview
+      ? `<div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600">${escapeHtml(meta.captionPreview)}</div>`
+      : '';
+    overlay.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <form class="space-y-4" id="feedback-note-form">
+          <div>
+            <p class="text-lg font-semibold text-slate-900 mb-1">Help us tune your results</p>
+            <p class="text-sm text-slate-600">Tell us what missed for ${meta.platform || 'this post'} so we can make the next one better.</p>
+          </div>
+          ${previewBlock}
+          <div class="flex flex-wrap gap-2">
+            ${reasons.map(reason => `<button type="button" data-reason="${reason}" class="choice text-xs px-3 py-1">${reason}</button>`).join('')}
+          </div>
+          <div>
+            <label class="text-xs uppercase tracking-wide text-slate-500">Quick note (optional)</label>
+            <textarea id="feedback-note-input" class="w-full mt-1 input text-sm" rows="3" placeholder="e.g. This looks like it's for a restaurant, not a gym"></textarea>
+          </div>
+          <div class="flex justify-end gap-3">
+            <button type="button" data-cancel class="btn-ghost">Skip</button>
+            <button type="submit" class="btn-primary btn-sm">Send feedback</button>
+          </div>
+        </form>
+      </div>`;
+    document.body.appendChild(overlay);
+    const textarea = overlay.querySelector('#feedback-note-input');
+    const form = overlay.querySelector('#feedback-note-form');
+    const cleanup = (value) => {
+      overlay.remove();
+      resolve(value);
+    };
+    overlay.querySelector('[data-cancel]')?.addEventListener('click', () => cleanup(''));
+    overlay.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape'){
+        ev.preventDefault();
+        cleanup(null);
+      }
+    });
+    overlay.addEventListener('click', (ev) => {
+      if (ev.target === overlay){
+        cleanup(null);
+      }
+    });
+    overlay.querySelectorAll('[data-reason]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const reason = btn.getAttribute('data-reason') || '';
+        textarea.value = reason;
+        textarea.focus();
+      });
+    });
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const note = textarea.value.trim();
+      if (!note){
+        textarea.focus();
+        return;
+      }
+      cleanup(note);
+    });
+    textarea.focus();
+  });
+}
+window.requestFeedbackNote = requestFeedbackNote;
+
+function buildFeedbackSnapshot(post = {}){
+  const lines = [];
+  lines.push(`Platform: ${formatPlatformLabel(post.platform || '')}`);
+  if (post.pillar) lines.push(`Pillar: ${post.pillar}`);
+  if (post.day_index || post.dayIndex) lines.push(`Day: ${post.day_index || post.dayIndex}`);
+  if (post.image_prompt) lines.push(`Image prompt: ${post.image_prompt}`);
+  lines.push('');
+  lines.push('Caption:');
+  lines.push(post.caption || '(empty)');
+  if (post.reel){
+    const reel = post.reel;
+    lines.push('');
+    if (reel.hook) lines.push(`Reel hook: ${reel.hook}`);
+    const beats = reel.script_beats || reel.scriptBeats || reel.script || [];
+    if (beats.length){
+      lines.push('Reel beats:');
+      beats.forEach((beat, idx) => lines.push(`${idx + 1}. ${beat}`));
+    }
+    if (reel.thumbnail_prompt) lines.push(`Thumbnail: ${reel.thumbnail_prompt}`);
+    if (reel.srt_prompt) lines.push(`SRT prompt: ${reel.srt_prompt}`);
+  }
+  return lines.join('\n');
+}
+
+function buildFeedbackSummary(post = {}){
+  const platformLabel = formatPlatformLabel(post.platform || '');
+  const day = post.day_index || post.dayIndex;
+  const pillar = post.pillar ? ` • ${post.pillar}` : '';
+  const primaryLine = (post.caption || '').split('\n')[0].trim();
+  const snippet = primaryLine.length > 60 ? `${primaryLine.slice(0, 57)}…` : primaryLine;
+  const dayPart = day ? ` day ${day}` : '';
+  return `${platformLabel}${dayPart}${pillar}`.trim() + (snippet ? ` • ${snippet}` : '');
+}
+
 function groupBy(arr, key){
   return arr.reduce((acc, x) => { (acc[x[key]] ||= []).push(x); return acc; }, {});
 }
@@ -1125,6 +1971,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const gen7Btn = document.getElementById('modal-generate-7');
   const genReelsBtn = document.getElementById('modal-generate-reels');
 
+  gen1Btn?.addEventListener('click', () => {
+    handlePlanGeneration(1, { planLabel: '1-day sample', button: gen1Btn });
+  });
+  gen7Btn?.addEventListener('click', () => {
+    handlePlanGeneration(7, { requiresPaid: true, planLabel: '7-day plan', button: gen7Btn });
+  });
+  gen30Btn?.addEventListener('click', () => {
+    handlePlanGeneration(30, { requiresPaid: true, planLabel: '30-day plan', button: gen30Btn });
+  });
+  genReelsBtn?.addEventListener('click', () => {
+    handlePlanGeneration(7, { requiresPaid: true, planLabel: 'Reels calendar', button: genReelsBtn, generateOptions: { platforms: ['short_video'] } });
+  });
+
   // Close handlers: hide inline or modal depending on what exists
   closeBtn?.addEventListener('click', () => { if (inline) inline.classList.add('hidden'); if (modal) modal.classList.add('hidden'); });
   xBtn?.addEventListener('click', () => { if (inline) inline.classList.add('hidden'); if (modal) modal.classList.add('hidden'); });
@@ -1132,26 +1991,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const payModal = document.getElementById('paywall-modal');
   const payCancel = document.getElementById('paywall-cancel');
   const paySubscribe = document.getElementById('paywall-subscribe');
-  payCancel?.addEventListener('click', () => { if (payModal) payModal.classList.add('hidden'); });
+  document.querySelectorAll('[data-paywall-close]').forEach(btn => btn.addEventListener('click', closePaywall));
+  payModal?.addEventListener('click', (event) => { if (event.target === payModal) closePaywall(); });
+  payCancel?.addEventListener('click', closePaywall);
   paySubscribe?.addEventListener('click', async () => {
       // One-step signup + subscribe flow.
       // If user isn't signed in, create account first using the paywall inputs, then proceed to initialize Elements and create subscription.
-      const wrap = document.getElementById('stripe-elements-wrap');
-      const emailInput = document.getElementById('paywall-email');
-      const passInput = document.getElementById('paywall-password');
-      const signupError = document.getElementById('paywall-signup-error');
-      clearPaywallMessage(); if (signupError) signupError.classList.add('hidden');
+  const wrap = document.getElementById('stripe-elements-wrap');
+  const emailInput = document.getElementById('paywall-email');
+  const passInput = document.getElementById('paywall-password');
+  const signupError = document.getElementById('paywall-signup-error');
+  const cardErrors = document.getElementById('card-errors');
+  clearPaywallMessage();
+  if (signupError){ signupError.classList.add('hidden'); signupError.textContent = ''; }
+  if (cardErrors){ cardErrors.classList.add('hidden'); cardErrors.textContent = ''; }
 
       // helper to fallback to Checkout redirect
       const checkoutFallback = async () => {
         try{
           setButtonLoading(paySubscribe, true);
           const priceId = null;
+          setPaywallMessage('Redirecting to secure checkout…', 'info');
           const r2 = await fetch('/api/create-checkout-session', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ price_id: priceId, success_url: window.location.href, cancel_url: window.location.href }) });
           const j = await r2.json().catch(()=>null);
           if (r2.ok && j && j.url){ window.location.href = j.url; return true; }
         }catch(e){ console.error('checkout redirect failed', e); }
         finally{ setButtonLoading(paySubscribe, false); }
+        setPaywallMessage('Could not open secure checkout. Please try again.', 'error');
         return false;
       };
 
@@ -1161,14 +2027,15 @@ document.addEventListener('DOMContentLoaded', () => {
           const email = emailInput ? emailInput.value.trim() : '';
           const pw = passInput ? passInput.value : '';
           if (!email || !pw){
-            if (signupError){ signupError.textContent = 'Please provide an email and password to create an account.'; signupError.classList.remove('hidden'); }
-            else showPaywallMessage('Please sign up to continue');
+            const msg = 'Please provide an email and password to create an account.';
+            if (signupError){ signupError.textContent = msg; signupError.classList.remove('hidden'); }
+            setPaywallMessage(msg, 'error');
             return;
           }
           setButtonLoading(paySubscribe, true);
           const r = await fetch('/api/signup', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ email, password: pw }) });
-          const j = await r.json().catch(()=>null);
-      if (!r.ok){
+      const j = await r.json().catch(()=>null);
+    if (!r.ok){
                 const msg = (j && j.error) ? j.error : 'Sign up failed';
                 // if server returned structured field errors, prioritize those
                 if (j && j.errors){
@@ -1178,13 +2045,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                   if (signupError) signupError.textContent = msg;
                 }
-                if (signupError) signupError.classList.remove('hidden');
-            else showPaywallMessage(msg);
+        if (signupError) signupError.classList.remove('hidden');
+        setPaywallMessage(msg, 'error');
             setButtonLoading(paySubscribe, false);
             return;
           }
           // success — server should set session cookie; update client state
-          setCurrentUser(j); showToast('Account created');
+      setCurrentUser(userFromResponse(j)); showToast('Account created');
+      setPaywallMessage('Account created. Add your card details to finish checkout.', 'success');
               // disable signup inputs to prevent duplicate submissions
               try{ if (emailInput) { emailInput.disabled = true; emailInput.classList.add('opacity-50'); } if (passInput) { passInput.disabled = true; passInput.classList.add('opacity-50'); } }catch(e){}
               setButtonLoading(paySubscribe, false);
@@ -1200,30 +2068,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // create payment method with card element
         setButtonLoading(paySubscribe, true);
+        setPaywallMessage('Securing your payment details…', 'info');
         const pmRes = await window.STRIPE.createPaymentMethod({ type: 'card', card: window.__card });
-        if (pmRes.error){ const ce = document.getElementById('card-errors'); if (ce){ ce.textContent = pmRes.error.message; ce.classList.remove('hidden'); } setButtonLoading(paySubscribe,false); return; }
+        if (pmRes.error){
+          if (cardErrors){ cardErrors.textContent = pmRes.error.message; cardErrors.classList.remove('hidden'); }
+          setPaywallMessage(pmRes.error.message || 'Payment details incomplete.', 'error');
+          setButtonLoading(paySubscribe,false);
+          return;
+        }
         const payment_method = pmRes.paymentMethod.id;
 
         // create subscription server-side (server will use its configured STRIPE_TEST_PRICE_ID when price_id null)
-        const r2 = await fetch('/api/create-subscription', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ price_id: null, payment_method }) });
+  setPaywallMessage('Creating your subscription…', 'info');
+  const r2 = await fetch('/api/create-subscription', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ price_id: null, payment_method }) });
         const j2 = await r2.json().catch(()=>null);
         if (!r2.ok || !j2 || !j2.ok){
           const msg = (j2 && j2.error) ? j2.error : 'Subscription creation failed';
-          showPaywallMessage(msg);
+          setPaywallMessage(msg, 'error');
           setButtonLoading(paySubscribe,false);
           return;
         }
         // if SCA required, confirm payment
         if (j2.client_secret){
           const ci = await window.STRIPE.confirmCardPayment(j2.client_secret, { payment_method: payment_method });
-          if (ci.error){ showPaywallMessage(ci.error.message || 'Payment confirmation failed'); setButtonLoading(paySubscribe,false); return; }
+          if (ci.error){
+            setPaywallMessage(ci.error.message || 'Payment confirmation failed', 'error');
+            setButtonLoading(paySubscribe,false);
+            return;
+          }
         }
 
         // success
-  await refreshCurrentUser();
-  showToast('Subscription active');
-        const pm = document.getElementById('paywall-modal'); if (pm) pm.classList.add('hidden');
-      }catch(e){ console.error(e); showPaywallMessage('Subscription failed — check console'); }
+        await refreshCurrentUser();
+        setPaywallMessage('Subscription active! Redirecting you…', 'success');
+        showToast('Subscription active');
+        closePaywall();
+      }catch(e){ console.error(e); setPaywallMessage('Subscription failed — please try again.', 'error'); }
       finally{ setButtonLoading(paySubscribe, false); }
   });
   // Manage subscription: attach to header account link via context menu (right-click)

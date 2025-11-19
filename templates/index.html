@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/swelly-theme.css" />
 </head>
-<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen">
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="{{ initial_user | tojson | forceescape }}">
   <!-- Background decoration -->
   <div class="fixed inset-0 overflow-hidden pointer-events-none">
     <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
@@ -19,8 +19,9 @@
   <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
       <a href="/" class="flex items-center gap-3">
-        <img src="/static/logo.svg" alt="Swelly icon" class="w-8 h-8 header-logo" onerror="this.style.display='none'" />
-        <img src="/static/swelly-logo.svg" alt="Swelly" class="h-6 header-logo-text" onerror="this.style.display='none'" />
+        <img src="/static/logo.svg" alt="Swelly icon" class="w-9 h-9" />
+        <img src="/static/swelly-logo.svg" alt="Swelly wordmark" class="h-6 hidden sm:block" />
+        <span class="sr-only">Swelly</span>
       </a>
       <div class="flex items-center gap-4">
         <a class="text-sm text-slate-600 hover:text-brand transition" href="/">Home</a>
@@ -32,16 +33,102 @@
   {% if is_dev %}
   <div class="max-w-6xl mx-auto px-6 py-3">
     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm text-slate-800">
-      Dev helper: create a test user —
-      <form id="dev-create-form" class="inline-flex items-center gap-2 ml-2">
+      Dev helper: create one or more test users —
+      <form id="dev-create-form" class="inline-flex flex-wrap items-center gap-2 ml-2">
         <input id="dev-email" class="input text-sm" placeholder="dev@example.com" value="dev@example.com" />
         <input id="dev-password" class="input text-sm" placeholder="password" value="password" />
-        <label class="flex items-center gap-1 text-sm"><input id="dev-paid" type="checkbox" /> Paid</label>
-        <button id="dev-create-btn" class="btn-ghost btn-sm">Create & Sign in</button>
+        <select id="dev-templates" multiple class="input text-sm min-w-[180px]" aria-label="Choose user templates">
+          <option value="free" selected>Free (unpaid)</option>
+          <option value="paid_solo">Paid – Solo</option>
+          <option value="paid_team_admin">Paid – Team admin</option>
+          <option value="paid_team_member">Paid – Team member</option>
+        </select>
+        <button id="dev-create-btn" class="btn-ghost btn-sm">Create selected</button>
       </form>
+      <p class="text-xs text-slate-600 mt-2">Tip: hold ⌘/Ctrl to select multiple templates. We'll sign you in as the last one created.</p>
     </div>
   </div>
   {% endif %}
+
+  <!-- Fast lane hero -->
+  <section class="relative max-w-6xl mx-auto px-6 py-10 lg:py-16 grid gap-10 lg:grid-cols-[1.1fr,0.9fr] items-center">
+    <div class="space-y-6">
+      <div class="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full px-4 py-2 text-sm font-medium text-slate-600 w-max">
+        <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+        Start in under 2 minutes
+      </div>
+      <div>
+        <p class="text-sm uppercase tracking-[0.35em] text-slate-500 mb-3">Setup wizard</p>
+        <h1 class="text-4xl md:text-5xl font-bold leading-tight bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+          Create an account, set your voice, and generate content in one flow
+        </h1>
+      </div>
+      <p class="text-lg text-slate-600 max-w-2xl">
+        Meet the same polished experience from the public launch page—only now it’s interactive. Sign in, hit Quick Start, and we’ll pre-fill your brand voice, tone, and channels so the Generate dashboard greets you with content that already sounds like you.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <button id="quick-start" class="btn-primary flex items-center gap-2 text-base py-3 px-6 rounded-xl">
+          <span>✨ Quick start (auto-fill)</span>
+        </button>
+        <button id="scroll-to-wizard" type="button" class="btn-secondary text-base py-3 px-6 rounded-xl">
+          Prefer to answer manually
+        </button>
+      </div>
+      <p class="text-sm text-slate-500">
+        Quick Start uses your saved profile, so create or sign in to your account first. Don't worry—it’s free and takes under a minute.
+      </p>
+      <div class="bg-white/85 backdrop-blur-sm border border-slate-200 rounded-2xl p-5 shadow-lg space-y-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Step zero</p>
+          <h3 class="text-xl font-semibold text-slate-900 mt-1">Create your free account</h3>
+          <p class="text-sm text-slate-600 mt-2">Use one button to sign up or sign in — we’ll keep your Quick Start answers synced in the background.</p>
+        </div>
+        <button id="cta-create-account" type="button" class="btn-primary w-full py-3 rounded-xl">Create your free account</button>
+        <button id="cta-sign-in" type="button" class="btn-secondary w-full py-3 rounded-xl">Already have an account? Sign in</button>
+      </div>
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div class="bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-sm">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Step 1</p>
+          <p class="text-base font-semibold text-slate-900 mt-1">Choose your industry</p>
+          <p class="text-sm text-slate-500 mt-1">One tap selects defaults + related questions.</p>
+        </div>
+        <div class="bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-sm">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Step 2</p>
+          <p class="text-base font-semibold text-slate-900 mt-1">Tone & platforms</p>
+          <p class="text-sm text-slate-500 mt-1">Auto-selects friendly tone + Instagram once you're signed in.</p>
+        </div>
+        <div class="bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl p-4 shadow-sm">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Step 3</p>
+          <p class="text-base font-semibold text-slate-900 mt-1">Save & generate</p>
+          <p class="text-sm text-slate-500 mt-1">We seed sample posts before redirecting.</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white/80 backdrop-blur-sm rounded-3xl p-8 border border-slate-200 shadow-2xl space-y-6 hero-panel">
+      <div>
+        <p class="text-sm font-medium text-slate-500">Confidence preview</p>
+        <h3 class="text-2xl font-bold text-slate-900 mt-1">90-second brand voice setup</h3>
+      </div>
+      <ul class="space-y-4 text-slate-700">
+        <li class="flex gap-3">
+          <span class="text-green-500">✔</span>
+          <span>Inline progress summary lets you jump back to any step instantly.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="text-green-500">✔</span>
+          <span>Skip unnecessary questions—Step 2 hides automatically if your industry has no follow-ups.</span>
+        </li>
+        <li class="flex gap-3">
+          <span class="text-green-500">✔</span>
+          <span>Quick Start option fills in common answers once you're signed in, saves your profile, and redirects to Generate with content already queued.</span>
+        </li>
+      </ul>
+      <div class="p-4 rounded-2xl border border-dashed border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
+        <p class="text-sm font-medium text-purple-800">Need more control?</p>
+        <p class="text-sm text-purple-600">Answer manually once, then tweak defaults anytime from the dashboard sidebar.</p>
+      </div>
+    </div>
+  </section>
 
   <main class="relative max-w-7xl mx-auto p-6 grid lg:grid-cols-[1fr,400px] gap-8">
     <!-- Main Content Area -->
@@ -77,17 +164,6 @@
           <span class="step">4</span>
         </div>
 
-        <!-- Progress Indicator -->
-        <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-slate-700 font-medium">Setup Progress</span>
-            <span class="text-purple-600 font-semibold" id="progress-text">Step 1 of 4</span>
-          </div>
-          <div class="w-full bg-slate-200 rounded-full h-2 mt-2">
-            <div class="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300" id="progress-bar" style="width: 25%"></div>
-          </div>
-        </div>
-
         <!-- Pro Tips -->
         <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
           <div class="flex items-center gap-3 mb-4">
@@ -118,55 +194,107 @@
       <!-- Form Steps -->
       <div id="wiz" class="space-y-6">
         <div class="step-panel bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="1">
-          <label class="block text-xl font-semibold mb-4 text-slate-900">What best describes your work?</label>
-          <div id="industries" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 1</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Choose your industry</h2>
+              <p class="text-slate-600">Pick the closest match so we can load the right follow-up questions, tones, and sample keywords.</p>
+            </div>
+            <div>
+              <label class="block text-xl font-semibold mb-4 text-slate-900">What best describes your work?</label>
+              <div id="industries" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+          </div>
         </div>
 
         <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="2">
-          <label class="block text-xl font-semibold mb-4 text-slate-900">A few quick details</label>
-          <div id="industry-questions" class="grid gap-4"></div>
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 2</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Add quick context</h2>
+              <p class="text-slate-600">Answer any follow-up questions so we can highlight the right goals, locations, and reel styles. If your industry doesn’t need this, we’ll skip ahead automatically.</p>
+            </div>
+            <div>
+              <label class="block text-xl font-semibold mb-4 text-slate-900">A few quick details</label>
+              <div id="step-2-empty" class="hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-600 text-sm p-4">
+                This industry skips extra questions. We'll fast-forward you to tone + platforms.
+              </div>
+              <div id="industry-questions" class="grid gap-4"></div>
+            </div>
+          </div>
         </div>
 
         <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="3">
-          <div class="grid md:grid-cols-2 gap-6">
-            <div class="space-y-4">
-              <label class="block text-xl font-semibold text-slate-900">Pick your tone</label>
-              <div id="tones" class="grid grid-cols-1 gap-3"></div>
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 3</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Dial in your tone and channels</h2>
+              <p class="text-slate-600">Choose how your brand should sound and where we should publish. Tone and platform selections stay visible side-by-side so you can tweak both without leaving the step.</p>
             </div>
-            <div class="space-y-4">
-              <label class="block text-xl font-semibold text-slate-900">Platforms</label>
-              <div id="platforms" class="grid grid-cols-1 gap-3"></div>
+            <div class="grid gap-6 lg:grid-cols-2">
+              <section class="space-y-4 p-5 rounded-2xl border border-slate-200 bg-slate-50/60">
+                <div>
+                  <p class="text-sm font-semibold text-purple-700">Tone</p>
+                  <p class="text-xl font-semibold text-slate-900">Pick your tone</p>
+                </div>
+                <div id="tones" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+              </section>
+              <section class="space-y-4 p-5 rounded-2xl border border-slate-200 bg-slate-50/60">
+                <div>
+                  <p class="text-sm font-semibold text-purple-700">Platforms</p>
+                  <p class="text-xl font-semibold text-slate-900">Choose your channels</p>
+                </div>
+                <div id="platforms" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+              </section>
             </div>
           </div>
         </div>
 
         <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="4">
-          <div class="grid md:grid-cols-2 gap-6">
-            <div class="space-y-4">
-              <div class="flex items-center justify-between">
-                <label class="block text-lg font-semibold text-slate-900">Suggested keywords</label>
-                <button id="clear-keywords" class="text-sm text-slate-500 hover:text-slate-700 underline" type="button">Clear all</button>
-              </div>
-              <div id="suggested-keywords" class="flex flex-wrap gap-2 mb-4"></div>
-              <label class="block text-lg font-semibold text-slate-900">Add more keywords (optional)</label>
-              <input id="extra-keywords" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter or separate with commas" />
-              <p class="text-sm text-slate-500 mt-2">Select suggested keywords or type your own. We'll include them in your plan.</p>
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 4</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Lock in keywords & notes</h2>
+              <p class="text-slate-600">Pick the themes you want us to emphasize, then leave a quick note or promo so your first draft feels current.</p>
             </div>
-            <div class="space-y-4">
-              <label class="block text-lg font-semibold text-slate-900">Optional note for this month</label>
-              <input id="note" autocomplete="off" spellcheck="false" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Spring sale, workshop, new menu launch" />
-              <label class="block text-lg font-semibold text-slate-900">Company / Business name (optional)</label>
-              <input id="company" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" />
-              <div id="error-company" class="text-sm text-red-600 mt-2 hidden" aria-live="polite"></div>
+            <div class="grid md:grid-cols-2 gap-6">
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <label class="block text-lg font-semibold text-slate-900">Suggested keywords</label>
+                  <button id="clear-keywords" class="text-sm text-slate-500 hover:text-slate-700 underline" type="button">Clear all</button>
+                </div>
+                <div id="suggested-keywords" class="flex flex-wrap gap-2 mb-4"></div>
+                <label class="block text-lg font-semibold text-slate-900">Add more keywords (optional)</label>
+                <input id="extra-keywords" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter or separate with commas" />
+                <p class="text-sm text-slate-500 mt-2">Select suggested keywords or type your own. We'll include them in your plan.</p>
+              </div>
+              <div class="space-y-4">
+                <label class="block text-lg font-semibold text-slate-900">Monthly focus or promo (optional)</label>
+                <input id="note" autocomplete="off" spellcheck="false" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Spring sale, workshop, new menu launch" />
+                <label class="block text-lg font-semibold text-slate-900">Company / Business name (optional)</label>
+                <input id="company" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" />
+                <div id="error-company" class="text-sm text-red-600 mt-2 hidden" aria-live="polite"></div>
+              </div>
             </div>
           </div>
           <div id="error-form" class="text-lg text-red-600 mt-4 hidden p-4 bg-red-50 rounded-xl border border-red-200" aria-live="polite"></div>
+          <div id="finish-status" class="finish-status hidden" role="status" aria-live="polite">
+            <div id="finish-status-icon" class="finish-status__icon">⏳</div>
+            <div>
+              <p id="finish-status-title" class="finish-status__title"></p>
+              <p id="finish-status-detail" class="finish-status__detail"></p>
+            </div>
+          </div>
           <div class="flex items-center gap-3 mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
             <input id="include_images" type="checkbox" checked class="w-5 h-5 text-purple-600 bg-slate-100 border-slate-300 rounded focus:ring-purple-500" />
             <label for="include_images" class="text-slate-700 font-medium">Suggest image ideas</label>
           </div>
-          <div class="mt-4 text-sm text-slate-600">
-            <p>Ready to generate content? <a href="/generate" class="text-purple-600 hover:underline">Go to Generate page</a></p>
+          <div class="mt-6 space-y-3 text-sm text-slate-600 bg-slate-50 rounded-xl border border-slate-200 p-4" id="preview-cta">
+            <p id="preview-hint">We’ll drop a sample plan below once you save. Give it a quick look before heading to your dashboard.</p>
+            <div class="flex flex-wrap gap-3">
+              <button type="button" id="jump-to-preview" class="btn-secondary text-base py-2 px-4 rounded-xl">Jump to preview</button>
+              <a id="generate-after-preview" href="/generate" class="btn-primary text-base py-2 px-4 rounded-xl hidden">Open Generate dashboard</a>
+            </div>
           </div>
         </div>
 
@@ -236,51 +364,84 @@
   </footer>
 
   <script src="/static/app.js"></script>
-</body>
-</html>
 
 <!-- Auth modal (signup / login / password reset) -->
-<div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-  <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-6 w-full max-w-md" tabindex="-1">
-    <button id="auth-close" class="float-right text-slate-500" aria-label="Close">✕</button>
-    <h3 id="auth-title" class="text-lg font-semibold mb-2">Sign in</h3>
-    <div id="auth-message" class="text-sm text-red-600 mb-2 hidden" role="status" aria-live="polite"></div>
-    <div id="auth-forms">
-      <form id="login-form" class="space-y-3">
-        <input id="auth-email" type="email" class="w-full input" placeholder="Email" required aria-describedby="auth-message" />
-        <input id="auth-password" type="password" class="w-full input" placeholder="Password" required aria-describedby="auth-message" />
-        <div class="flex items-center justify-between">
-          <button type="submit" class="btn-primary btn-small">Sign in</button>
-          <button id="show-reset" type="button" class="text-sm text-brand">Forgot?</button>
+<div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-auth-view="login">
+  <div class="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 shadow-2xl space-y-5" tabindex="-1">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Swelly account</p>
+        <h3 id="auth-title" class="text-2xl font-semibold text-slate-900 mt-1">Sign in</h3>
+        <p id="auth-subtitle" class="text-sm text-slate-500 mt-1">Access your saved brand voice and content plans.</p>
+      </div>
+      <button id="auth-close" class="text-slate-500 hover:text-slate-900" aria-label="Close">✕</button>
+    </div>
+
+    <div class="flex gap-1 bg-slate-100 rounded-full p-1" role="tablist">
+      <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-600 auth-tab bg-white shadow auth-tab--active" data-auth-tab="login" aria-selected="true">Sign in</button>
+      <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-500 auth-tab" data-auth-tab="signup" aria-selected="false">Create account</button>
+    </div>
+
+    <div id="auth-message" class="hidden rounded-xl px-4 py-3 text-sm font-medium" role="status" aria-live="polite"></div>
+
+    <div id="auth-forms" class="space-y-6">
+      <form id="login-form" class="space-y-4">
+        <div class="space-y-1">
+          <label for="auth-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="auth-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
         </div>
-        <div class="text-sm text-slate-500">Don’t have an account? <button id="show-signup" type="button" class="text-brand">Sign up</button></div>
+        <div class="space-y-1">
+          <label for="auth-password" class="text-sm font-medium text-slate-700">Password</label>
+          <input id="auth-password" type="password" class="w-full input" placeholder="••••••••" required autocomplete="current-password" aria-describedby="auth-message" />
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Continue</button>
+        <div class="flex items-center justify-between text-sm text-slate-500">
+          <button type="button" class="text-brand hover:underline" data-auth-action="reset">Forgot password?</button>
+          <button type="button" class="text-slate-600 hover:text-brand" data-auth-action="signup">Create account</button>
+        </div>
       </form>
 
-      <form id="signup-form" class="hidden space-y-3">
-        <input id="signup-email" type="email" class="w-full input" placeholder="Email" required aria-describedby="auth-message" />
-        <input id="signup-password" type="password" class="w-full input" placeholder="Password (min 6 chars)" required aria-describedby="auth-message" />
-        <div class="flex items-center justify-between">
-          <button type="submit" class="btn-primary btn-small">Create account</button>
-          <button id="show-login" type="button" class="text-sm text-brand">Back</button>
+      <form id="signup-form" class="hidden space-y-4">
+        <div class="space-y-1">
+          <label for="signup-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="signup-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
         </div>
+        <div class="space-y-1">
+          <label for="signup-password" class="text-sm font-medium text-slate-700">Password</label>
+          <input id="signup-password" type="password" class="w-full input" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password" aria-describedby="auth-message" />
+          <p class="text-xs text-slate-500">You'll use this to sign in next time.</p>
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Create free account</button>
+        <p class="text-sm text-center text-slate-500">Already signed up? <button type="button" class="text-brand hover:underline" data-auth-action="login">Sign in</button></p>
       </form>
 
-      <form id="reset-form" class="hidden space-y-3">
-        <input id="reset-email" type="email" class="w-full input" placeholder="Email" required aria-describedby="auth-message" />
-        <div class="flex items-center justify-between">
-          <button id="request-reset" type="button" class="btn-primary btn-small">Send reset link</button>
-          <button id="reset-back" type="button" class="text-sm text-brand">Back</button>
+      <form id="reset-form" class="hidden space-y-4">
+        <p class="text-sm text-slate-500">We'll email you reset instructions and show the token here for dev builds.</p>
+        <div class="space-y-1">
+          <label for="reset-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="reset-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
         </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Send reset link</button>
+        <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
       </form>
 
-      <form id="confirm-reset-form" class="hidden space-y-3">
-        <input id="confirm-token" class="w-full input" placeholder="Reset token (from dev)" aria-describedby="auth-message" />
-        <input id="confirm-password" type="password" class="w-full input" placeholder="New password" aria-describedby="auth-message" />
-        <div class="flex items-center justify-between">
-          <button id="confirm-reset" type="button" class="btn-primary btn-small">Set password</button>
-          <button id="confirm-back" type="button" class="text-sm text-brand">Back</button>
+      <form id="confirm-reset-form" class="hidden space-y-4">
+        <p class="text-sm text-slate-500">Paste the token we sent (or use the dev token below) and choose a new password.</p>
+        <div class="space-y-1">
+          <label for="confirm-token" class="text-sm font-medium text-slate-700">Reset token</label>
+          <input id="confirm-token" class="w-full input" placeholder="xxxx-xxxx" aria-describedby="auth-message" data-autofocus />
         </div>
+        <div class="space-y-1">
+          <label for="confirm-password" class="text-sm font-medium text-slate-700">New password</label>
+          <input id="confirm-password" type="password" class="w-full input" placeholder="••••••••" aria-describedby="auth-message" autocomplete="new-password" />
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Set new password</button>
+        <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
       </form>
     </div>
   </div>
 </div>
+
+{% include 'paywall_modal.html' %}
+</body>
+</html>

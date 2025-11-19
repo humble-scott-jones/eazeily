@@ -73,3 +73,44 @@ def test_generate_with_openai_malformed_json_falls_back(tmp_path, monkeypatch):
     j = rv.get_json()
     assert j['count'] == 1
     assert j['posts'][0]['caption'] == 'fallback-caption'
+
+
+def test_generate_with_image_payload_uses_image_helper(tmp_path, monkeypatch):
+    appmod.USE_OPENAI = True
+    appmod.openai_client = object()
+
+    captured = {}
+
+    def fake_image_generator(spec):
+        captured['spec'] = spec
+        return [{'caption': 'from image', 'platform': 'instagram', 'day_index': 1}]
+
+    monkeypatch.setattr(appmod, '_generate_posts_from_image', fake_image_generator)
+    monkeypatch.setattr(appmod, '_generate_posts_via_openai', lambda spec: None)
+
+    with appmod.app.app_context():
+        appmod.init_db()
+        db = appmod.get_db()
+        db.execute("INSERT OR REPLACE INTO users (id, email, password_hash, is_paid, free_sample_used) VALUES (?, ?, ?, ?, ?)", ('img-user', 'img@example.com', 'x', 1, 0))
+        db.commit()
+
+    client = appmod.app.test_client()
+    with client.session_transaction() as sess:
+        sess['user_id'] = 'img-user'
+        sess['profile_id'] = 'profile-img'
+
+    rv = client.post('/api/generate', json={'days': 1, 'image_data_url': 'data:image/png;base64,AAAA', 'image_context': 'Lean into the blue tones.'})
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body['posts'][0]['caption'] == 'from image'
+    assert 'spec' in captured
+    assert captured['spec']['image_data_url'].startswith('data:image/png')
+    assert captured['spec']['image_context'] == 'Lean into the blue tones.'
+
+
+def test_generate_rejects_oversized_image_payload(client):
+    with client.session_transaction() as sess:
+        sess['profile_id'] = 'profile-big'
+    huge_payload = 'data:image/png;base64,' + ('a' * (appmod.IMAGE_DATA_URL_MAX_BYTES + 10))
+    rv = client.post('/api/generate', json={'days': 1, 'image_data_url': huge_payload})
+    assert rv.status_code == 400

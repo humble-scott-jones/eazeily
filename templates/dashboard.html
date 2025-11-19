@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/swelly-theme.css" />
 </head>
-<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen">
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="{{ initial_user | tojson | forceescape }}">
   <!-- Background decoration -->
   <div class="fixed inset-0 overflow-hidden pointer-events-none">
     <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
@@ -19,8 +19,9 @@
   <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
       <a href="/" class="flex items-center gap-3">
-        <img src="/static/logo.svg" alt="Swelly icon" class="w-8 h-8 header-logo" onerror="this.style.display='none'" />
-        <img src="/static/swelly-logo.svg" alt="Swelly" class="h-6 header-logo-text" onerror="this.style.display='none'" />
+        <img src="/static/logo.svg" alt="Swelly icon" class="w-9 h-9" />
+        <img src="/static/swelly-logo.svg" alt="Swelly wordmark" class="h-6 hidden sm:block" />
+        <span class="sr-only">Swelly</span>
       </a>
       <div class="flex items-center gap-4">
         <a class="text-sm text-slate-600 hover:text-brand transition" href="/app">Setup</a>
@@ -33,13 +34,19 @@
   {% if is_dev %}
   <div class="max-w-6xl mx-auto px-6 py-3">
     <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm text-slate-800">
-      Dev helper: create a test user —
-      <form id="dev-create-form" class="inline-flex items-center gap-2 ml-2">
+      Dev helper: create one or more test users —
+      <form id="dev-create-form" class="inline-flex flex-wrap items-center gap-2 ml-2">
         <input id="dev-email" class="input text-sm" placeholder="dev@example.com" value="dev@example.com" />
         <input id="dev-password" class="input text-sm" placeholder="password" value="password" />
-        <label class="flex items-center gap-1 text-sm"><input id="dev-paid" type="checkbox" /> Paid</label>
-        <button id="dev-create-btn" class="btn-ghost btn-sm">Create & Sign in</button>
+        <select id="dev-templates" multiple class="input text-sm min-w-[180px]" aria-label="Choose user templates">
+          <option value="free" selected>Free (unpaid)</option>
+          <option value="paid_solo">Paid – Solo</option>
+          <option value="paid_team_admin">Paid – Team admin</option>
+          <option value="paid_team_member">Paid – Team member</option>
+        </select>
+        <button id="dev-create-btn" class="btn-ghost btn-sm">Create selected</button>
       </form>
+      <p class="text-xs text-slate-600 mt-2">Use ⌘/Ctrl + click to choose multiple templates. The newest account becomes your active session.</p>
     </div>
   </div>
   {% endif %}
@@ -48,19 +55,73 @@
     <!-- Main Content Area -->
     <div class="space-y-6">
       <!-- Header -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-2">
-              Generate Content
-            </h1>
-            <p class="text-slate-600 text-lg">Create review responses and social media posts</p>
+      <div class="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200">
+        <div class="grid gap-8 lg:grid-cols-[1.1fr,0.9fr] items-center">
+          <div class="space-y-6">
+            <div class="inline-flex items-center gap-2 bg-slate-900 text-white/90 rounded-full px-4 py-2 text-xs font-semibold tracking-wide uppercase">
+              <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+              Voice locked in
+            </div>
+            <div>
+              <p class="text-sm uppercase tracking-[0.35em] text-slate-500 mb-2">Generate dashboard</p>
+              <h1 class="text-4xl md:text-5xl font-bold text-slate-900 leading-tight">
+                Plan, post, and respond without leaving this page
+              </h1>
+            </div>
+            <p class="text-lg text-slate-600">
+              Reuse the same gradient energy from the launch landing page—now your logged-in experience feels premium, too. Kick off a sample or jump straight to a multi-day plan with one tap.
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <a href="#content-generator" class="btn-primary inline-flex items-center gap-2 text-base py-3 px-5 rounded-xl" data-scroll-to="generator">
+                <span>Open planner</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </a>
+              <a href="#review-response" class="btn-secondary text-base py-3 px-5 rounded-xl" data-scroll-to="reviews">
+                Clear reviews first
+              </a>
+            </div>
+            <div class="grid sm:grid-cols-3 gap-3">
+              <div class="rounded-2xl border border-slate-200 p-4">
+                <p class="text-xs uppercase tracking-wide text-slate-500">1. Review voice</p>
+                <p class="text-sm text-slate-600 mt-1">Return to Setup anytime to update keywords.</p>
+              </div>
+              <div class="rounded-2xl border border-slate-200 p-4">
+                <p class="text-xs uppercase tracking-wide text-slate-500">2. Generate plans</p>
+                <p class="text-sm text-slate-600 mt-1">Buttons above remember your last selections.</p>
+              </div>
+              <div class="rounded-2xl border border-slate-200 p-4">
+                <p class="text-xs uppercase tracking-wide text-slate-500">3. Copy & post</p>
+                <p class="text-sm text-slate-600 mt-1">Each card includes copy shortcuts + reels data.</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-gradient-to-br from-purple-50 via-blue-50 to-white rounded-2xl border border-purple-100 p-6 shadow-lg space-y-5">
+            <h3 class="text-lg font-semibold text-slate-900">Session checklist</h3>
+            <ul class="space-y-4 text-sm text-slate-700">
+              <li class="flex gap-3 items-start">
+                <span class="text-green-500 mt-0.5">✔</span>
+                <span>Save new tone or keywords from the account sidebar—changes sync instantly with Generate.</span>
+              </li>
+              <li class="flex gap-3 items-start">
+                <span class="text-green-500 mt-0.5">✔</span>
+                <span>Use Review Response first to clear your inbox, then roll into social posts without losing context.</span>
+              </li>
+              <li class="flex gap-3 items-start">
+                <span class="text-green-500 mt-0.5">✔</span>
+                <span>Session storage keeps the most recent sample so the page never feels empty after redirect.</span>
+              </li>
+            </ul>
+            <a href="/app" class="inline-flex items-center gap-2 text-sm font-semibold text-purple-700 hover:text-purple-900">
+              ↺ Return to wizard to tweak voice
+            </a>
           </div>
         </div>
       </div>
 
       <!-- Review Response Section -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+  <div id="review-response" class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
         <div class="flex items-center gap-3 mb-6">
           <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
             <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -100,7 +161,7 @@
           </div>
 
           <div class="flex gap-3">
-            <button id="generate-response" class="btn-secondary text-base py-3 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white border-blue-600 flex-1">
+            <button id="generate-response" class="btn-primary text-base py-3 px-6 rounded-xl flex-1">
               Generate Response
             </button>
             <div id="response-loading" class="hidden text-sm text-blue-600 flex items-center gap-2 flex-1">
@@ -127,63 +188,100 @@
         </div>
       </div>
 
-      <!-- Content Generation Section -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-            </svg>
+  <!-- Content Generation Section -->
+  <div id="content-generator" class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+        <div class="flex flex-col gap-4 mb-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.35em] text-slate-500 mb-1">Session planner</p>
+            <h2 class="text-2xl font-bold text-slate-900">Generate Social Media Content</h2>
+            <p class="text-sm text-slate-600">One streamlined flow: set length, confirm tone & platform, then let Swelly handle the rest.</p>
           </div>
-          <h2 class="text-2xl font-bold text-slate-900">Generate Social Media Content</h2>
+          <div class="planner-pill" id="voice-pill">Syncing voice from wizard…</div>
         </div>
 
-        <div class="space-y-4">
-          <div class="grid md:grid-cols-3 gap-4">
+        <div class="planner-card space-y-8">
+          <div class="planner-recipes">
             <div>
-              <label for="gen-days" class="block text-sm font-medium text-slate-700 mb-1">
-                Number of Days
-              </label>
-              <select id="gen-days" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+              <p class="planner-eyebrow">Need a quick start?</p>
+              <p class="text-sm text-slate-600">Recipes auto-fill your preferences and run immediately.</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <button id="quick-sample" class="chip chip--accent" type="button">✨ Fresh 1-day sample</button>
+              <button id="quick-7day" class="chip" type="button">📅 7-day cadence</button>
+              <button id="quick-30day" class="chip" type="button">📊 30-day calendar</button>
+            </div>
+          </div>
+
+          <div class="planner-row">
+            <div class="planner-label">1. Session length</div>
+            <div class="planner-body space-y-3">
+              <div id="plan-length-buttons" class="chip-group" role="group" aria-label="Choose a plan length">
+                <button type="button" class="chip chip--active" data-plan-length="1">1 day • Sample</button>
+                <button type="button" class="chip" data-plan-length="7">7 days • Weekly</button>
+                <button type="button" class="chip" data-plan-length="30">30 days • Monthly</button>
+              </div>
+              <select id="gen-days" class="sr-only" aria-label="Number of days">
                 <option value="1">1 Day Sample</option>
                 <option value="7">7 Days</option>
                 <option value="30">30 Days</option>
               </select>
+              <p class="planner-hint">Switch lengths anytime — 7-day plans suit weekly content, 30-day covers a full calendar.</p>
             </div>
-            <div>
-              <label for="gen-platform" class="block text-sm font-medium text-slate-700 mb-1">
-                Platform
-              </label>
-              <select id="gen-platform" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                <option value="instagram">Instagram</option>
-                <option value="facebook">Facebook</option>
-                <option value="linkedin">LinkedIn</option>
-                <option value="twitter">Twitter</option>
-                <option value="tiktok">TikTok</option>
-              </select>
+          </div>
+
+          <div class="planner-row">
+            <div class="planner-label">2. Platform focus</div>
+            <div class="planner-body space-y-3">
+              <div id="platform-preset-buttons" class="chip-group hidden" aria-label="Saved platforms"></div>
+              <p id="platform-preset-empty" class="planner-hint">Save preferred platforms in the wizard to unlock quick toggles here.</p>
+              <p class="text-xs uppercase tracking-wide text-slate-500">Select every channel for this plan</p>
+              <div id="generator-platforms" class="generator-platforms" role="group" aria-label="Select platforms">
+                <button type="button" class="chip chip--active" data-generator-platform="instagram" aria-pressed="true">Instagram</button>
+                <button type="button" class="chip" data-generator-platform="facebook" aria-pressed="false">Facebook</button>
+                <button type="button" class="chip" data-generator-platform="linkedin" aria-pressed="false">LinkedIn</button>
+                <button type="button" class="chip" data-generator-platform="twitter" aria-pressed="false">X / Twitter</button>
+                <button type="button" class="chip" data-generator-platform="short_video" aria-pressed="false">Reels / Shorts</button>
+                <button type="button" class="chip" data-generator-platform="tiktok" aria-pressed="false">TikTok</button>
+              </div>
+              <p id="platform-prefs-note" class="planner-hint hidden"></p>
             </div>
-            <div>
-              <label for="gen-tone" class="block text-sm font-medium text-slate-700 mb-1">
-                Tone
-              </label>
-              <select id="gen-tone" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-                <option value="friendly">Friendly</option>
-                <option value="professional">Professional</option>
-                <option value="playful">Playful</option>
-                <option value="inspirational">Inspirational</option>
-              </select>
+          </div>
+
+          <div class="planner-row">
+            <div class="planner-label">3. Tone & extras</div>
+            <div class="planner-body grid md:grid-cols-2 gap-4">
+              <div>
+                <label for="gen-tone" class="block text-xs uppercase tracking-wide text-slate-500 mb-1">Tone</label>
+                <select id="gen-tone" class="planner-select">
+                  <option value="friendly">Friendly</option>
+                  <option value="professional">Professional</option>
+                  <option value="playful">Playful</option>
+                  <option value="inspirational">Inspirational</option>
+                </select>
+                <p id="tone-prefs-note" class="planner-hint hidden"></p>
+              </div>
+              <div class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <div class="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">AI</div>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900">Wizard settings applied</p>
+                  <p class="text-xs text-slate-500">Adjust tone, keywords, or industries anytime from the Setup page.</p>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- Advanced Reel Options (shown for video platforms) -->
-          <div id="reel-options" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
+          <div id="reel-options" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 border border-purple-100">
             <div class="flex items-center gap-3 mb-4">
               <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
                 <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                 </svg>
               </div>
-              <h4 class="text-lg font-semibold text-slate-900">Reel Options</h4>
+              <div>
+                <h4 class="text-lg font-semibold text-slate-900">Reel Options</h4>
+                <p class="text-xs text-slate-500">Only appears for Instagram Reels & TikTok.</p>
+              </div>
             </div>
 
             <div class="grid md:grid-cols-3 gap-4">
@@ -191,7 +289,7 @@
                 <label for="reel-style" class="block text-sm font-medium text-slate-700 mb-1">
                   Reel Style
                 </label>
-                <select id="reel-style" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                <select id="reel-style" class="planner-select">
                   <option value="Face-camera tips">Face-Camera Tips</option>
                   <option value="Property b-roll + captions">Property B-Roll + Captions</option>
                   <option value="Product b-roll + captions">Product B-Roll + Captions</option>
@@ -204,7 +302,7 @@
                 <label for="reel-length" class="block text-sm font-medium text-slate-700 mb-1">
                   Length (seconds)
                 </label>
-                <select id="reel-length" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                <select id="reel-length" class="planner-select">
                   <option value="15">15 seconds</option>
                   <option value="30" selected>30 seconds</option>
                   <option value="45">45 seconds</option>
@@ -215,7 +313,7 @@
                 <label for="production-tier" class="block text-sm font-medium text-slate-700 mb-1">
                   Production Tier
                 </label>
-                <select id="production-tier" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                <select id="production-tier" class="planner-select">
                   <option value="solo">Solo Creator</option>
                   <option value="small_team">Small Team</option>
                   <option value="professional">Professional</option>
@@ -224,8 +322,35 @@
             </div>
           </div>
 
+          <div class="planner-row">
+            <div class="planner-label">4. Visual inspiration</div>
+            <div class="planner-body">
+              <div class="rounded-2xl border border-dashed border-purple-200 bg-gradient-to-r from-white to-purple-50 p-5">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800">Have an image ready?</p>
+                    <p class="text-xs text-slate-500">Upload it so GPT-4o can tailor copy to the photo.</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input type="file" id="image-upload" accept="image/*" class="hidden" />
+                    <button id="image-upload-trigger" class="btn-secondary btn-sm" type="button">Attach image</button>
+                    <button id="image-upload-clear" class="btn-ghost btn-sm hidden" type="button">Remove</button>
+                  </div>
+                </div>
+                <div class="mt-4 flex gap-4 items-center">
+                  <img id="image-upload-preview" class="hidden w-24 h-24 object-cover rounded-xl border border-purple-100" alt="Uploaded inspiration preview" />
+                  <div class="flex-1">
+                    <p id="image-upload-name" class="text-sm font-medium text-slate-700">No image attached</p>
+                    <p id="image-upload-helper" class="text-xs text-slate-500">We’ll pull colors, textures, and vibes directly from your photo.</p>
+                    <textarea id="image-context" class="mt-3 w-full input text-sm" rows="2" placeholder="Optional: call out what matters most in this image (e.g. new pastry case, sunset hues, team photo)"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="flex gap-3">
-            <button id="generate-content" class="btn-primary text-base py-3 pr-10 pl-6 rounded-xl flex-1">
+            <button id="generate-content" class="btn-primary text-base py-3 px-6 rounded-xl flex-1">
               Generate Content
             </button>
             <div id="content-loading" class="hidden text-sm text-purple-600 flex items-center gap-2 flex-1">
@@ -233,6 +358,34 @@
               Generating...
             </div>
           </div>
+        </div>
+
+        <div class="voice-summary-card mt-10">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <p class="planner-eyebrow">Voice snapshot</p>
+              <p class="text-sm text-slate-600">Pulled from your latest setup wizard answers.</p>
+            </div>
+            <a href="/app" class="btn-ghost btn-sm">Edit in wizard</a>
+          </div>
+          <dl class="voice-summary-grid">
+            <div>
+              <dt>Company</dt>
+              <dd data-voice-company>—</dd>
+            </div>
+            <div>
+              <dt>Industry</dt>
+              <dd data-voice-industry>—</dd>
+            </div>
+            <div>
+              <dt>Signature tone</dt>
+              <dd data-voice-tone>—</dd>
+            </div>
+            <div>
+              <dt>Platforms</dt>
+              <dd data-voice-platforms>Instagram</dd>
+            </div>
+          </dl>
         </div>
       </div>
 
@@ -245,6 +398,27 @@
             </svg>
           </div>
           <h2 class="text-2xl font-bold text-slate-900">Generated Content</h2>
+        </div>
+  <p class="text-sm text-slate-600 mb-6">We auto-save your latest plan in this browser for 72 hours so you can leave the page and pick up right where you left off.</p>
+            <div id="plan-note-banner" class="hidden mb-6 p-4 rounded-2xl border border-amber-200 bg-amber-50/80">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-lg">📝</div>
+                <div>
+                  <p class="text-sm font-semibold text-amber-900 mb-1">Latest promo note</p>
+                  <p id="plan-note-text" class="text-sm text-amber-800"></p>
+                  <p class="text-xs text-amber-700 mt-2">Saved from your most recent plan.</p>
+                </div>
+              </div>
+            </div>
+        <div id="generated-toolbar" class="generated-toolbar hidden">
+          <div class="generated-toolbar__filters">
+            <p class="generated-toolbar__label">Filter platforms</p>
+            <div id="platform-filter-chips" class="filter-chip-group"></div>
+          </div>
+          <div class="generated-toolbar__actions">
+            <button type="button" class="btn-ghost btn-sm" id="expand-all-days">Expand all days</button>
+            <button type="button" class="btn-ghost btn-sm" id="collapse-all-days">Collapse all days</button>
+          </div>
         </div>
         <div id="content-results" class="space-y-4"></div>
       </div>
@@ -268,14 +442,10 @@
             <label for="account-industry" class="block text-sm font-medium text-slate-700 mb-1">
               Industry
             </label>
-            <select id="account-industry" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
-              <option value="restaurant">Restaurant</option>
-              <option value="retail">Retail</option>
-              <option value="fitness">Fitness</option>
-              <option value="real_estate">Real Estate</option>
-              <option value="healthcare">Healthcare</option>
-              <option value="other">Other</option>
+            <select id="account-industry" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500" data-config-select="industry">
+              <option value="">Select industry</option>
             </select>
+            <p class="text-xs text-slate-500 mt-1">Matches the wizard list so you never lose your saved niche.</p>
           </div>
 
           <div>
@@ -294,20 +464,8 @@
             <label class="block text-sm font-medium text-slate-700 mb-2">
               Platforms
             </label>
-            <div class="space-y-2">
-              <label class="flex items-center">
-                <input type="checkbox" id="platform-instagram" class="w-4 h-4 text-purple-600 bg-slate-100 border-slate-300 rounded focus:ring-purple-500" checked />
-                <span class="ml-2 text-sm text-slate-700">Instagram</span>
-              </label>
-              <label class="flex items-center">
-                <input type="checkbox" id="platform-facebook" class="w-4 h-4 text-purple-600 bg-slate-100 border-slate-300 rounded focus:ring-purple-500" />
-                <span class="ml-2 text-sm text-slate-700">Facebook</span>
-              </label>
-              <label class="flex items-center">
-                <input type="checkbox" id="platform-linkedin" class="w-4 h-4 text-purple-600 bg-slate-100 border-slate-300 rounded focus:ring-purple-500" />
-                <span class="ml-2 text-sm text-slate-700">LinkedIn</span>
-              </label>
-            </div>
+            <div id="account-platforms" class="flex flex-wrap gap-2" data-account-platforms></div>
+            <p class="text-xs text-slate-500 mt-1">Pick every channel you publish on—TikTok & Reels have zero limits now.</p>
           </div>
 
           <button id="save-settings" class="btn-primary w-full text-sm py-2 pr-10 pl-4 rounded-lg">
@@ -316,25 +474,48 @@
         </div>
       </div>
 
-      <!-- Quick Actions -->
       <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200">
-        <h4 class="text-lg font-semibold mb-4 text-slate-900">Quick Actions</h4>
-        <div class="space-y-3">
-          <button id="quick-sample" class="btn-ghost w-full text-left text-sm py-2 px-3 rounded-lg hover:bg-slate-50 transition">
-            ✨ Generate Free Sample
+        <h4 class="text-lg font-semibold mb-2 text-slate-900">Feedback & requests</h4>
+        <p class="text-sm text-slate-600 mb-4">Tell us what to polish next. We'll get it to the team.</p>
+        <form id="feedback-form" class="space-y-4" autocomplete="off">
+          <div>
+            <label for="feedback-summary" class="block text-sm font-medium text-slate-700 mb-1">Headline</label>
+            <input type="text" id="feedback-summary" maxlength="120" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g. Let me reorder scheduled posts" required>
+          </div>
+          <div>
+            <label for="feedback-details" class="block text-sm font-medium text-slate-700 mb-1">Details</label>
+            <textarea id="feedback-details" rows="4" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="What happened? What should it do instead?" required></textarea>
+          </div>
+          <div>
+            <label for="feedback-category" class="block text-sm font-medium text-slate-700 mb-1">Category</label>
+            <select id="feedback-category" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm">
+              <option value="idea" selected>Product idea</option>
+              <option value="request">Content request</option>
+              <option value="bug">Something broke</option>
+            </select>
+          </div>
+          <label class="flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" id="feedback-contact-ok" class="w-4 h-4 text-purple-600 border-slate-300 rounded focus:ring-purple-500">
+            It’s OK to email me about this
+          </label>
+          <button type="submit" class="btn-primary w-full text-sm py-2 rounded-lg" data-feedback-submit>
+            Send to team
           </button>
-          <button id="quick-7day" class="btn-ghost w-full text-left text-sm py-2 px-3 rounded-lg hover:bg-slate-50 transition">
-            📅 Generate 7-Day Plan
-          </button>
-          <button id="quick-30day" class="btn-ghost w-full text-left text-sm py-2 px-3 rounded-lg hover:bg-slate-50 transition">
-            📊 Generate 30-Day Plan
-          </button>
-        </div>
+          <p id="feedback-status" class="text-xs text-slate-500 hidden"></p>
+        </form>
+      </div>
+
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200">
+        <h4 class="text-lg font-semibold mb-3 text-slate-900">Need to revisit onboarding?</h4>
+        <p class="text-sm text-slate-600 mb-4">The new wizard saves instantly. Click below to open it in a new tab without losing your generated plan.</p>
+        <a href="/app" class="btn-primary w-full text-sm py-3 rounded-xl text-center">Open Setup Wizard</a>
       </div>
     </aside>
   </main>
 
   <script src="/static/app.js"></script>
   <script src="/static/dashboard.js"></script>
+
+  {% include 'paywall_modal.html' %}
 </body>
 </html>

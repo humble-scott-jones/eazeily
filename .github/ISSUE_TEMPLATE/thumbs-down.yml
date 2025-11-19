@@ -1,0 +1,50 @@
+name: "👎 Content quality fix"
+description: "Auto-filed when a generated post receives a thumbs down in the Generate dashboard."
+title: "[Thumbs Down] <platform + day>"
+labels:
+  - feedback
+  - content-quality
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Use this template when a generated card gets a 👎 vote from the dashboard.
+        The automation fills most fields; double-check them and add missing context
+        before handing off to Copilot or a teammate.
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      placeholder: Instagram
+    validations:
+      required: true
+  - type: input
+    id: day_index
+    attributes:
+      label: Day index or plan length
+      placeholder: Day 2 of 7
+    validations:
+      required: true
+  - type: textarea
+    id: note
+    attributes:
+      label: Reporter note
+      description: Include the exact comment that the user left (if any).
+    validations:
+      required: false
+  - type: textarea
+    id: post_snapshot
+    attributes:
+      label: Caption / reel snapshot
+      description: Paste the generated copy so we can see what missed the mark.
+      placeholder: >-
+        Caption:
+        Hook:
+        Script beats:
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Industry, tone, brand keywords, or anything else that will help us reproduce the issue.

@@ -1,0 +1,36 @@
+name: "✨ Product feedback"
+description: "Log feedback coming from the in-product Settings panel."
+title: "[Feedback] <write a short summary>"
+labels:
+  - feedback
+  - triage
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: What should we improve?
+      description: One sentence summary that will become the issue title when filed via the app.
+      placeholder: e.g. Give me a way to reorder scheduled posts
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Paste the full context from the user. Include tone, industry, and any reproduction steps if they described them.
+      placeholder: >-
+        Customer wants...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Extra context (optional)
+      description: Add app version, plan length, or anything else that will help triage.
+      placeholder: Reproduced on...
+  - type: checkboxes
+    id: contact-ok
+    attributes:
+      label: Can we contact the reporter back?
+      options:
+        - label: Yes, it's fine to follow up using their account email.

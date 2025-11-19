@@ -37,17 +37,14 @@
   </script>
 </head>
 </head>
-<body class="bg-brand-sand text-slate-900">
+<body class="bg-brand-sand text-slate-900" data-initial-user="{{ initial_user | tojson | forceescape }}">
   <!-- Header/Navigation -->
   <header class="sticky top-0 z-50 px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
       <a href="/" class="flex items-center gap-3">
-        <div class="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-lg">
-          S
-        </div>
-        <span class="text-xl font-bold bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
-          Swelly
-        </span>
+        <img src="/static/logo.svg" alt="Swelly icon" class="w-9 h-9" />
+        <img src="/static/swelly-logo.svg" alt="Swelly" class="h-6 hidden sm:block" />
+        <span class="sr-only">Swelly</span>
       </a>
       <nav class="hidden md:flex items-center gap-6 text-sm">
         <a href="#features" class="text-slate-600 hover:text-brand transition">Features</a>
@@ -106,7 +103,7 @@
             </p>
 
             <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center mb-8">
-              <a onclick="openAuthModal('signup')" class="group relative bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 cursor-pointer">
+              <a href="/app" class="group relative bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
                 <span class="relative z-10">Start Creating Free</span>
                 <div class="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
               </a>
@@ -498,45 +495,77 @@
   </footer>
 
   <!-- Auth modal (signup / login / password reset) -->
-  <div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-6 w-full max-w-md" tabindex="-1">
-      <button id="auth-close" class="float-right text-slate-500" aria-label="Close">✕</button>
-      <h3 id="auth-title" class="text-lg font-semibold mb-2">Sign in</h3>
-      <div id="auth-message" class="text-sm text-red-600 mb-2 hidden" role="status" aria-live="polite"></div>
-      <div id="auth-forms">
-        <form id="login-form" class="space-y-3">
-          <input id="auth-email" type="email" class="w-full input" placeholder="Email" required aria-describedby="auth-message" />
-          <input id="auth-password" type="password" class="w-full input" placeholder="Password" required aria-describedby="auth-message" />
-          <div class="flex items-center justify-between">
-            <button type="submit" class="btn-primary btn-small">Sign in</button>
-            <button id="show-reset" type="button" class="text-sm text-brand">Forgot password?</button>
-          </div>
-          <div class="text-sm text-slate-500">Don't have an account? <button id="show-signup" type="button" class="text-brand">Sign up</button></div>
-        </form>
-
-        <form id="signup-form" class="hidden space-y-3">
-          <input id="signup-email" type="email" class="w-full input" placeholder="Email" required aria-describedby="auth-message" />
-          <input id="signup-password" type="password" class="w-full input" placeholder="Password (min 6 chars)" required aria-describedby="auth-message" />
-          <div class="flex items-center justify-between">
-            <button type="submit" class="btn-primary btn-small">Create account</button>
-            <button id="show-login" type="button" class="text-sm text-brand">Back</button>
-          </div>
-        </form>
-
-      <form id="reset-form" class="hidden space-y-3">
-        <p class="text-sm text-slate-600 mb-3">Enter your email and we'll send you a password reset link.</p>
-        <input id="reset-email" type="email" class="w-full input" placeholder="Email" required aria-describedby="auth-message" />
-        <div class="flex items-center justify-between">
-          <button id="request-reset" type="button" class="btn-primary btn-small">Send reset link</button>
-          <button id="reset-back" type="button" class="text-sm text-brand">Back</button>
+  <div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-auth-view="login">
+    <div class="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 shadow-2xl space-y-5" tabindex="-1">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Swelly account</p>
+          <h3 id="auth-title" class="text-2xl font-semibold text-slate-900 mt-1">Sign in</h3>
+          <p id="auth-subtitle" class="text-sm text-slate-500 mt-1">Access your saved brand voice and content plans.</p>
         </div>
-      </form>        <form id="confirm-reset-form" class="hidden space-y-3">
-          <input id="confirm-token" class="w-full input" placeholder="Reset token" aria-describedby="auth-message" />
-          <input id="confirm-password" type="password" class="w-full input" placeholder="New password" aria-describedby="auth-message" />
-          <div class="flex items-center justify-between">
-            <button id="confirm-reset" type="button" class="btn-primary btn-small">Set password</button>
-            <button id="confirm-back" type="button" class="text-sm text-brand">Back</button>
+        <button id="auth-close" class="text-slate-500 hover:text-slate-900" aria-label="Close">✕</button>
+      </div>
+
+      <div class="flex gap-1 bg-slate-100 rounded-full p-1" role="tablist">
+        <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-600 auth-tab bg-white shadow auth-tab--active" data-auth-tab="login" aria-selected="true">Sign in</button>
+        <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-500 auth-tab" data-auth-tab="signup" aria-selected="false">Create account</button>
+      </div>
+
+      <div id="auth-message" class="hidden rounded-xl px-4 py-3 text-sm font-medium" role="status" aria-live="polite"></div>
+
+      <div id="auth-forms" class="space-y-6">
+        <form id="login-form" class="space-y-4">
+          <div class="space-y-1">
+            <label for="auth-email" class="text-sm font-medium text-slate-700">Email</label>
+            <input id="auth-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
           </div>
+          <div class="space-y-1">
+            <label for="auth-password" class="text-sm font-medium text-slate-700">Password</label>
+            <input id="auth-password" type="password" class="w-full input" placeholder="••••••••" required autocomplete="current-password" aria-describedby="auth-message" />
+          </div>
+          <button type="submit" class="btn-primary w-full py-3 rounded-xl">Continue</button>
+          <div class="flex items-center justify-between text-sm text-slate-500">
+            <button type="button" class="text-brand hover:underline" data-auth-action="reset">Forgot password?</button>
+            <button type="button" class="text-slate-600 hover:text-brand" data-auth-action="signup">Create account</button>
+          </div>
+        </form>
+
+        <form id="signup-form" class="hidden space-y-4">
+          <div class="space-y-1">
+            <label for="signup-email" class="text-sm font-medium text-slate-700">Email</label>
+            <input id="signup-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
+          </div>
+          <div class="space-y-1">
+            <label for="signup-password" class="text-sm font-medium text-slate-700">Password</label>
+            <input id="signup-password" type="password" class="w-full input" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password" aria-describedby="auth-message" />
+            <p class="text-xs text-slate-500">You'll use this to sign in next time.</p>
+          </div>
+          <button type="submit" class="btn-primary w-full py-3 rounded-xl">Create free account</button>
+          <p class="text-sm text-center text-slate-500">Already signed up? <button type="button" class="text-brand hover:underline" data-auth-action="login">Sign in</button></p>
+        </form>
+
+        <form id="reset-form" class="hidden space-y-4">
+          <p class="text-sm text-slate-500">We'll email you reset instructions and show the token here for dev builds.</p>
+          <div class="space-y-1">
+            <label for="reset-email" class="text-sm font-medium text-slate-700">Email</label>
+            <input id="reset-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
+          </div>
+          <button type="submit" class="btn-primary w-full py-3 rounded-xl">Send reset link</button>
+          <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
+        </form>
+
+        <form id="confirm-reset-form" class="hidden space-y-4">
+          <p class="text-sm text-slate-500">Paste the token we sent (or use the dev token below) and choose a new password.</p>
+          <div class="space-y-1">
+            <label for="confirm-token" class="text-sm font-medium text-slate-700">Reset token</label>
+            <input id="confirm-token" class="w-full input" placeholder="xxxx-xxxx" aria-describedby="auth-message" data-autofocus />
+          </div>
+          <div class="space-y-1">
+            <label for="confirm-password" class="text-sm font-medium text-slate-700">New password</label>
+            <input id="confirm-password" type="password" class="w-full input" placeholder="••••••••" aria-describedby="auth-message" autocomplete="new-password" />
+          </div>
+          <button type="submit" class="btn-primary w-full py-3 rounded-xl">Set new password</button>
+          <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
         </form>
       </div>
     </div>
@@ -611,5 +640,7 @@
       });
     });
   </script>
+
+  {% include 'paywall_modal.html' %}
 </body>
 </html>

@@ -1,1 +1,25 @@
-{"ok":true,"profile_id":"3c4b87c3-d960-47e9-9c09-f54a22fc6d32"}
+{
+  "id": "677b6cd4-a387-40f0-b5a5-f0e83d5cafbb",
+  "ok": true,
+  "profile": {
+    "brand_keywords": [
+      "listings"
+    ],
+    "company": "TestCo",
+    "details": {
+      "reel_length": 30,
+      "reel_style": "Property b-roll + captions"
+    },
+    "goals": [
+      "New listings"
+    ],
+    "id": "677b6cd4-a387-40f0-b5a5-f0e83d5cafbb",
+    "include_images": false,
+    "industry": "Realtor",
+    "niche_keywords": [],
+    "platforms": [
+      "short_video"
+    ],
+    "tone": "friendly"
+  }
+}

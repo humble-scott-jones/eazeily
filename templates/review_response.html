@@ -60,17 +60,29 @@
           </select>
         </div>
 
-        <!-- Company Name (Optional) -->
+        <!-- Industry Selection -->
         <div>
-          <label for="company-name" class="block text-sm font-medium text-slate-700 mb-1">
-            Company Name (Optional)
+          <label for="industry" class="block text-sm font-medium text-slate-700 mb-1">
+            Industry (Optional - for tailored responses)
           </label>
-          <input
-            type="text"
-            id="company-name"
-            name="company_name"
-            placeholder="Your company name"
-            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand" />
+          <select
+            id="industry"
+            name="industry"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
+          >
+            <option value="">General</option>
+            <option value="house_host">House Host / Airbnb</option>
+            <option value="restaurant">Restaurant</option>
+            <option value="retail">Retail</option>
+            <option value="fitness">Fitness</option>
+            <option value="artisan">Artisan</option>
+            <option value="coach">Coach</option>
+            <option value="nonprofit">Nonprofit</option>
+            <option value="home_services">Home Services</option>
+            <option value="healthcare">Healthcare</option>
+            <option value="church">Church</option>
+            <option value="realtor">Realtor</option>
+          </select>
         </div>
 
         <div>
@@ -153,7 +165,8 @@
         const formData = {
           review_text: document.getElementById('review-text').value,
           tone: document.getElementById('tone').value,
-          company_name: document.getElementById('company-name').value
+          company_name: document.getElementById('company-name').value,
+          industry: document.getElementById('industry').value
         };
 
         const response = await fetch('/api/generate-review-response', {
