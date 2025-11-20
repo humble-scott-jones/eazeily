@@ -4,6 +4,15 @@
 
 This runbook describes the deployment process for Togetherly, including pre-deployment checks, deployment strategies, and rollback procedures.
 
+## Current CI/CD (Railway)
+
+- **Platform:** Railway project with two environments: `staging` and `production`.
+- **Triggers:** Push to `main` deploys to staging; published GitHub release deploys to production after manual environment approval; `workflow_dispatch` supports on-demand redeploys for either environment.
+- **Workflow:** `.github/workflows/deploy-railway.yml` installs Railway CLI, logs in via service token, and runs `railway up` against the appropriate environment/service.
+- **Required GitHub secrets:** `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID_STAGING`, `RAILWAY_SERVICE_ID_PRODUCTION`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_PRODUCTION`, plus app secrets per environment (`SECRET_KEY`, Stripe keys/price/webhook, `OPENAI_API_KEY`, `ADMIN_EMAILS`, optional `GITHUB_FEEDBACK_*`, `TEAM_MEMBER_LIMIT`, `PASSWORD_HASH_METHOD`, `DATABASE_URL` if using Postgres).
+- **Railway environment vars:** Mirror the app secrets above inside each Railway environment; keep values identical across envs except for secrets/keys and webhook URLs. Healthcheck path uses `/health`.
+- **Rollback:** List deployments with `railway deployments list --project <project-id> --environment staging|production`; roll back with `railway deployment rollback <deployment-id> --project <project-id> --environment staging|production`. Validate with a smoke ping to `/health` after rollback.
+
 ## Environments
 
 ### Development
