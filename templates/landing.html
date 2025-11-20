@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Togetherly – Simple, Smart Social Media That Sounds Like You</title>
-  <meta name="description" content="Create authentic social media content in minutes, not hours. Togetherly helps small businesses generate personalized posts, reels, and content plans that truly represent your brand." />
+  <title>Swelly – Simple, Smart Social Media That Sounds Like You</title>
+  <meta name="description" content="Create authentic social media content in minutes, not hours. Swelly helps small businesses generate personalized posts, reels, and content plans that truly represent your brand." />
   
   <!-- Open Graph / Social Media Preview -->
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Togetherly – Social Media Made Simple" />
+  <meta property="og:title" content="Swelly – Social Media Made Simple" />
   <meta property="og:description" content="Create authentic social media content in minutes, not hours. Personalized posts and content plans for your business." />
   <meta property="og:image" content="/static/og-image.png" />
-  <meta property="og:url" content="https://togetherly.app" />
+  <meta property="og:url" content="https://swelly.app" />
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Togetherly – Social Media Made Simple" />
+  <meta name="twitter:title" content="Swelly – Social Media Made Simple" />
   <meta name="twitter:description" content="Create authentic social media content in minutes, not hours." />
   <meta name="twitter:image" content="/static/og-image.png" />
   
@@ -24,6 +24,8 @@
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/swelly-theme.css" />
+  <script src="/static/app.js"></script>
   
   <!-- Google Analytics Placeholder (GA4) -->
   <script>
@@ -34,19 +36,21 @@
     // gtag('config', 'G-XXXXXXXXXX');
   </script>
 </head>
-<body class="bg-brand-sand text-slate-900">
+</head>
+<body class="bg-brand-sand text-slate-900" data-initial-user="{{ initial_user | tojson | forceescape }}">
   <!-- Header/Navigation -->
   <header class="sticky top-0 z-50 px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
       <a href="/" class="flex items-center gap-3">
-        <div class="logo-gradient"></div>
-        <h1 class="text-xl font-semibold tracking-tight">Togetherly</h1>
+        <img src="/static/logo.svg" alt="Swelly icon" class="w-9 h-9" />
+        <img src="/static/swelly-logo.svg" alt="Swelly" class="h-6 hidden sm:block" />
+        <span class="sr-only">Swelly</span>
       </a>
       <nav class="hidden md:flex items-center gap-6 text-sm">
         <a href="#features" class="text-slate-600 hover:text-brand transition">Features</a>
         <a href="#pricing" class="text-slate-600 hover:text-brand transition">Pricing</a>
         <a href="#faq" class="text-slate-600 hover:text-brand transition">FAQ</a>
-        <a href="/account" class="text-brand hover:underline">Sign In</a>
+        <a class="auth-link text-brand hover:underline">Sign In</a>
       </nav>
       <button id="mobile-menu-toggle" class="md:hidden text-slate-600">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,32 +64,130 @@
         <a href="#features" class="text-slate-600 hover:text-brand transition py-2">Features</a>
         <a href="#pricing" class="text-slate-600 hover:text-brand transition py-2">Pricing</a>
         <a href="#faq" class="text-slate-600 hover:text-brand transition py-2">FAQ</a>
-        <a href="/account" class="text-brand hover:underline py-2">Sign In</a>
+        <a class="auth-link text-brand hover:underline py-2">Sign In</a>
       </nav>
     </div>
   </header>
 
   <!-- Hero Section -->
-  <section class="px-6 py-16 md:py-24">
-    <div class="max-w-4xl mx-auto text-center">
-      <h2 class="text-4xl md:text-6xl font-bold tracking-tight mb-6 leading-tight">
-        Simple, smart social media<br />
-        <span class="text-brand">that sounds like you</span>
-      </h2>
-      <p class="text-xl md:text-2xl text-slate-600 mb-8 max-w-2xl mx-auto">
-        Create authentic social media content in minutes, not hours. Perfect for small businesses who want to stay consistent without the stress.
-      </p>
-      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-        <a href="#waitlist" class="btn-primary text-lg px-8 py-4 inline-block">Get Started Free</a>
-        <a href="#features" class="btn-ghost text-lg px-8 py-4 inline-block">Learn More</a>
-      </div>
-      <p class="text-sm text-slate-500">✨ No credit card required • Cancel anytime</p>
+  <section class="relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <!-- Background decoration -->
+    <div class="absolute inset-0">
+      <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+      <div class="absolute top-40 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
+      <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
     </div>
-    
-    <!-- Hero Image/Illustration Placeholder -->
-    <div class="max-w-5xl mx-auto mt-12">
-      <div class="hero-visual rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
-        <img src="/static/hero-preview.png" alt="Togetherly app interface showing social media content generation" class="w-full" onerror="this.parentElement.innerHTML='<div class=\'aspect-video bg-gradient-to-br from-brand-50 to-purple-100 flex items-center justify-center\'><div class=\'text-center\'><div class=\'text-6xl mb-4\'>✨</div><div class=\'text-slate-600\'>Your Social Media, Simplified</div></div></div>'" />
+
+    <div class="relative px-6 py-20 md:py-32">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+          <!-- Left column - Content -->
+          <div class="text-center lg:text-left">
+            <div class="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full px-4 py-2 text-sm font-medium text-slate-700 mb-8">
+              <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              Now in beta - Early access
+            </div>
+
+            <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-tight">
+              <span class="bg-gradient-to-r from-slate-900 via-purple-900 to-slate-900 bg-clip-text text-transparent">
+                Social Media
+              </span>
+              <br />
+              <span class="bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                That Works
+              </span>
+            </h1>
+
+            <p class="text-xl md:text-2xl text-slate-600 mb-8 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              Stop wasting hours creating content. Get a full month's worth of authentic, brand-perfect social media posts in minutes. Built for busy entrepreneurs who want results, not busywork.
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center mb-8">
+              <a href="/app" class="group relative bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                <span class="relative z-10">Start Creating Free</span>
+                <div class="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              </a>
+              <a href="#demo" class="group flex items-center gap-2 text-slate-700 hover:text-slate-900 font-medium py-4 px-8 rounded-xl border border-slate-200 hover:border-slate-300 bg-white/50 backdrop-blur-sm hover:bg-white/80 transition-all duration-200">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"></path>
+                </svg>
+                Watch Demo
+              </a>
+            </div>
+
+            <div class="flex items-center justify-center lg:justify-start gap-6 text-sm text-slate-500">
+              <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                </svg>
+                No credit card required
+              </div>
+              <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                </svg>
+                Cancel anytime
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column - Visual -->
+          <div class="relative">
+            <div class="relative bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-slate-200 p-8 transform hover:scale-105 transition-transform duration-300">
+              <!-- Mock social media feed -->
+              <div class="space-y-4">
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">S</div>
+                  <div>
+                    <div class="font-semibold text-slate-900">Swelly</div>
+                    <div class="text-sm text-slate-500">@swellyapp</div>
+                  </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
+                  <p class="text-slate-700 mb-3">Just launched our beta! 🎉 Small businesses can now create authentic social media content in minutes, not hours. Who's ready to level up their online presence?</p>
+                  <div class="flex gap-2 text-sm text-purple-600">
+                    <span>#SocialMedia</span>
+                    <span>#SmallBusiness</span>
+                    <span>#Marketing</span>
+                  </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                  <p class="text-slate-700 mb-3">Pro tip: Consistency is key, but creativity keeps it fresh. Our AI understands your brand voice and generates content that actually sounds like you. 🤖✨</p>
+                  <div class="flex gap-2 text-sm text-blue-600">
+                    <span>#ContentCreation</span>
+                    <span>#Branding</span>
+                    <span>#AI</span>
+                  </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100">
+                  <p class="text-slate-700 mb-3">From coffee shops to consulting firms, we've got templates for every industry. What's your business? Let's create some amazing content together! ☕💼</p>
+                  <div class="flex gap-2 text-sm text-indigo-600">
+                    <span>#Entrepreneur</span>
+                    <span>#BusinessGrowth</span>
+                    <span>#DigitalMarketing</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Floating elements -->
+              <div class="absolute -top-4 -right-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-bounce">
+                LIVE
+              </div>
+              <div class="absolute -bottom-4 -left-4 bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg animate-pulse">
+                NEW
+              </div>
+            </div>
+
+            <!-- Stats floating cards -->
+            <div class="absolute -bottom-6 -right-6 bg-white rounded-xl shadow-lg p-4 border border-slate-200">
+              <div class="text-2xl font-bold text-slate-900">5min</div>
+              <div class="text-sm text-slate-600">Content generation</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -94,8 +196,8 @@
   <section class="px-6 py-16 bg-white">
     <div class="max-w-6xl mx-auto">
       <div class="text-center mb-12">
-        <h3 class="text-3xl md:text-4xl font-bold mb-4">Why Togetherly?</h3>
-        <p class="text-xl text-slate-600 max-w-2xl mx-auto">Built specifically for busy small business owners who know their brand but don't have hours to spend on social media.</p>
+  <h3 class="text-3xl md:text-4xl font-bold mb-4">Why Swelly?</h3>
+  <p class="text-xl text-slate-600 max-w-2xl mx-auto">Built specifically for busy small business owners who know their brand but don't have hours to spend on social media.</p>
       </div>
       
       <div class="grid md:grid-cols-3 gap-8">
@@ -170,7 +272,7 @@
   <section class="px-6 py-16 bg-white">
     <div class="max-w-4xl mx-auto">
       <div class="text-center mb-12">
-        <h3 class="text-3xl md:text-4xl font-bold mb-4">How Togetherly works</h3>
+  <h3 class="text-3xl md:text-4xl font-bold mb-4">How Swelly works</h3>
         <p class="text-xl text-slate-600">Three simple steps to your best social media yet</p>
       </div>
       
@@ -211,62 +313,68 @@
       </div>
       
       <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-        <!-- Free/Trial Tier -->
+        <!-- Free Tier -->
         <div class="card border-2 border-slate-200">
           <div class="mb-6">
-            <h4 class="text-2xl font-bold mb-2">Free Trial</h4>
+            <h4 class="text-2xl font-bold mb-2">Free</h4>
             <div class="text-4xl font-bold mb-2">$0</div>
-            <p class="text-slate-600">Perfect for testing</p>
+            <p class="text-slate-600">Perfect for getting started</p>
           </div>
           <ul class="space-y-3 mb-6 text-sm">
-            <li class="flex gap-2"><span class="text-green-500">✓</span> 1-day content sample</li>
-            <li class="flex gap-2"><span class="text-green-500">✓</span> 5 reel scripts</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> 1 post per week</li>
             <li class="flex gap-2"><span class="text-green-500">✓</span> All industries & tones</li>
             <li class="flex gap-2"><span class="text-green-500">✓</span> Multi-platform support</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> Basic review responses</li>
             <li class="flex gap-2"><span class="text-slate-300">✗</span> Full month plans</li>
-            <li class="flex gap-2"><span class="text-slate-300">✗</span> Priority support</li>
+            <li class="flex gap-2"><span class="text-slate-300">✗</span> Reel generation</li>
+            <li class="flex gap-2"><span class="text-slate-300">✗</span> Team collaboration</li>
           </ul>
-          <a href="#waitlist" class="btn-ghost w-full text-center block">Try Free</a>
+          <a onclick="openAuthModal('signup')" class="btn-ghost w-full text-center block cursor-pointer">Get Started Free</a>
         </div>
         
-        <!-- Pro Tier (Most Popular) -->
+        <!-- Creator Tier (Most Popular) -->
         <div class="card border-2 border-brand shadow-lg relative">
           <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-brand text-white text-xs px-4 py-1 rounded-full font-semibold">
             MOST POPULAR
           </div>
           <div class="mb-6">
-            <h4 class="text-2xl font-bold mb-2">Pro</h4>
-            <div class="text-4xl font-bold mb-2">$14<span class="text-lg text-slate-600">/month</span></div>
-            <p class="text-slate-600">For active businesses</p>
+            <h4 class="text-2xl font-bold mb-2">Creator</h4>
+            <div class="text-4xl font-bold mb-2">$9<span class="text-lg text-slate-600">/month</span></div>
+            <p class="text-slate-600">For active creators & businesses</p>
           </div>
           <ul class="space-y-3 mb-6 text-sm">
-            <li class="flex gap-2"><span class="text-green-500">✓</span> Unlimited 30-day plans</li>
-            <li class="flex gap-2"><span class="text-green-500">✓</span> Unlimited reel scripts</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> 30 posts per month</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> 30 reel scripts per month</li>
             <li class="flex gap-2"><span class="text-green-500">✓</span> All industries & tones</li>
             <li class="flex gap-2"><span class="text-green-500">✓</span> Multi-platform support</li>
             <li class="flex gap-2"><span class="text-green-500">✓</span> Image suggestions</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> AI-enhanced responses</li>
             <li class="flex gap-2"><span class="text-green-500">✓</span> Priority email support</li>
+            <li class="flex gap-2"><span class="text-slate-300">✗</span> Team collaboration</li>
           </ul>
-          <a href="#waitlist" class="btn-primary w-full text-center block">Start Free Trial</a>
+          <a onclick="openAuthModal('signup')" class="btn-primary w-full text-center block cursor-pointer btn-small">Start Free Trial</a>
           <p class="text-xs text-center text-slate-500 mt-3">7-day free trial • Cancel anytime</p>
         </div>
         
-        <!-- Enterprise Tier -->
+        <!-- Team Tier -->
         <div class="card border-2 border-slate-200">
           <div class="mb-6">
-            <h4 class="text-2xl font-bold mb-2">Enterprise</h4>
-            <div class="text-4xl font-bold mb-2">Custom</div>
-            <p class="text-slate-600">For teams & agencies</p>
+            <h4 class="text-2xl font-bold mb-2">Team</h4>
+            <div class="text-4xl font-bold mb-2">$19<span class="text-lg text-slate-600">/month</span></div>
+            <p class="text-slate-600">For teams & growing businesses</p>
           </div>
           <ul class="space-y-3 mb-6 text-sm">
-            <li class="flex gap-2"><span class="text-green-500">✓</span> Everything in Pro</li>
-            <li class="flex gap-2"><span class="text-green-500">✓</span> Multiple brand profiles</li>
-            <li class="flex gap-2"><span class="text-green-500">✓</span> Team collaboration</li>
-            <li class="flex gap-2"><span class="text-green-500">✓</span> White-label options</li>
-            <li class="flex gap-2"><span class="text-green-500">✓</span> Custom integrations</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> Everything in Creator</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> 1-5 team members</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> Shared brand profiles</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> Content approval workflows</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> Team content library</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> Brand consistency tools</li>
+            <li class="flex gap-2"><span class="text-green-500">✓</span> Comment & edit suggestions</li>
             <li class="flex gap-2"><span class="text-green-500">✓</span> Dedicated support</li>
           </ul>
-          <a href="#contact" class="btn-ghost w-full text-center block">Contact Sales</a>
+          <a onclick="openAuthModal('signup')" class="btn-ghost w-full text-center block cursor-pointer">Start Team Trial</a>
+          <p class="text-xs text-center text-slate-500 mt-3">14-day free trial • Cancel anytime</p>
         </div>
       </div>
     </div>
@@ -281,23 +389,23 @@
       
       <div class="space-y-6">
         <details class="card cursor-pointer" open>
-          <summary class="font-semibold text-lg cursor-pointer">How does Togetherly work?</summary>
-          <p class="mt-3 text-slate-600">Togetherly asks you a few simple questions about your business, then generates a personalized content calendar with posts, reel scripts, and image suggestions. You can customize everything before posting to your social media accounts.</p>
+          <summary class="font-semibold text-lg cursor-pointer">How does Swelly work?</summary>
+          <p class="mt-3 text-slate-600">Swelly asks you a few simple questions about your business, then generates a personalized content calendar with posts, reel scripts, and image suggestions. You can customize everything before posting to your social media accounts.</p>
         </details>
         
         <details class="card cursor-pointer">
-          <summary class="font-semibold text-lg">What industries does Togetherly support?</summary>
+          <summary class="font-semibold text-lg">What industries does Swelly support?</summary>
           <p class="mt-3 text-slate-600">We support realtors, restaurants, retail/boutiques, fitness studios, artisans, coaches/consultants, nonprofits, home services, healthcare providers, churches, and more. Each industry has custom templates and content styles.</p>
         </details>
         
         <details class="card cursor-pointer">
           <summary class="font-semibold text-lg">Can I customize the generated content?</summary>
-          <p class="mt-3 text-slate-600">Absolutely! All content is fully editable. Think of Togetherly as your creative starting point—you can tweak the tone, add details, or completely rewrite anything to make it perfectly yours.</p>
+            <p class="mt-3 text-slate-600">Absolutely! All content is fully editable. Think of Swelly as your creative starting point—you can tweak the tone, add details, or completely rewrite anything to make it perfectly yours.</p>
         </details>
         
         <details class="card cursor-pointer">
           <summary class="font-semibold text-lg">Do you post to social media for me?</summary>
-          <p class="mt-3 text-slate-600">Not yet! Togetherly generates the content, and you copy/paste to your preferred scheduling tool or post directly. We're focused on making great content—you maintain full control of when and where it goes live.</p>
+          <p class="mt-3 text-slate-600">Not yet! Swelly generates the content, and you copy/paste to your preferred scheduling tool or post directly. We're focused on making great content—you maintain full control of when and where it goes live.</p>
         </details>
         
         <details class="card cursor-pointer">
@@ -312,7 +420,7 @@
         
         <details class="card cursor-pointer">
           <summary class="font-semibold text-lg">Is there a free trial?</summary>
-          <p class="mt-3 text-slate-600">Yes! You can try a 1-day content sample and 5 reel scripts completely free. Pro subscriptions include a 7-day free trial so you can explore all features risk-free.</p>
+          <p class="mt-3 text-slate-600">Yes! Start with our free plan that gives you 1 post per week. Our Creator ($9/month) and Team ($19/month) plans include 7-day and 14-day free trials respectively, so you can explore all features risk-free.</p>
         </details>
       </div>
     </div>
@@ -323,7 +431,7 @@
     <div class="max-w-2xl mx-auto">
       <div class="card text-center">
         <h3 class="text-3xl md:text-4xl font-bold mb-4">Ready to simplify your social media?</h3>
-        <p class="text-xl text-slate-600 mb-8">Join Togetherly and start creating authentic content that grows your business.</p>
+          <p class="text-xl text-slate-600 mb-8">Join Swelly and start creating authentic content that grows your business.</p>
         
         <form id="waitlist-form" class="max-w-md mx-auto">
           <div class="flex flex-col sm:flex-row gap-3 mb-4">
@@ -335,7 +443,7 @@
               class="input flex-1"
               aria-label="Email address"
             />
-            <button type="submit" class="btn-primary whitespace-nowrap">Get Started</button>
+            <button type="submit" class="btn-primary whitespace-nowrap btn-small">Get Started</button>
           </div>
           <p class="text-xs text-slate-500">By signing up, you agree to our Terms of Service and Privacy Policy.</p>
           <div id="waitlist-message" class="mt-4 hidden" role="status" aria-live="polite"></div>
@@ -351,7 +459,7 @@
         <div>
           <div class="flex items-center gap-3 mb-4">
             <div class="logo-gradient"></div>
-            <span class="font-semibold text-lg">Togetherly</span>
+            <span class="font-semibold text-lg">Swelly</span>
           </div>
           <p class="text-sm text-slate-600">Simple, smart social media that sounds like you.</p>
         </div>
@@ -368,8 +476,6 @@
         <div>
           <h5 class="font-semibold mb-3">Company</h5>
           <ul class="space-y-2 text-sm text-slate-600">
-            <li><a href="#" class="hover:text-brand transition">About</a></li>
-            <li><a href="#" class="hover:text-brand transition">Blog</a></li>
             <li><a href="#contact" class="hover:text-brand transition">Contact</a></li>
           </ul>
         </div>
@@ -377,17 +483,93 @@
         <div>
           <h5 class="font-semibold mb-3">Legal</h5>
           <ul class="space-y-2 text-sm text-slate-600">
-            <li><a href="#" class="hover:text-brand transition">Privacy Policy</a></li>
-            <li><a href="#" class="hover:text-brand transition">Terms of Service</a></li>
+            <li><a href="#contact" class="hover:text-brand transition">Contact Us</a></li>
           </ul>
         </div>
       </div>
       
       <div class="border-t border-slate-200 pt-8 text-center text-sm text-slate-600">
-        <p>&copy; 2025 Togetherly. Made with care for small businesses everywhere.</p>
+  <p>&copy; 2025 Swelly. Made with care for small businesses everywhere.</p>
       </div>
     </div>
   </footer>
+
+  <!-- Auth modal (signup / login / password reset) -->
+  <div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-auth-view="login">
+    <div class="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 shadow-2xl space-y-5" tabindex="-1">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Swelly account</p>
+          <h3 id="auth-title" class="text-2xl font-semibold text-slate-900 mt-1">Sign in</h3>
+          <p id="auth-subtitle" class="text-sm text-slate-500 mt-1">Access your saved brand voice and content plans.</p>
+        </div>
+        <button id="auth-close" class="text-slate-500 hover:text-slate-900" aria-label="Close">✕</button>
+      </div>
+
+      <div class="flex gap-1 bg-slate-100 rounded-full p-1" role="tablist">
+        <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-600 auth-tab bg-white shadow auth-tab--active" data-auth-tab="login" aria-selected="true">Sign in</button>
+        <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-500 auth-tab" data-auth-tab="signup" aria-selected="false">Create account</button>
+      </div>
+
+      <div id="auth-message" class="hidden rounded-xl px-4 py-3 text-sm font-medium" role="status" aria-live="polite"></div>
+
+      <div id="auth-forms" class="space-y-6">
+        <form id="login-form" class="space-y-4">
+          <div class="space-y-1">
+            <label for="auth-email" class="text-sm font-medium text-slate-700">Email</label>
+            <input id="auth-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
+          </div>
+          <div class="space-y-1">
+            <label for="auth-password" class="text-sm font-medium text-slate-700">Password</label>
+            <input id="auth-password" type="password" class="w-full input" placeholder="••••••••" required autocomplete="current-password" aria-describedby="auth-message" />
+          </div>
+          <button type="submit" class="btn-primary w-full py-3 rounded-xl">Continue</button>
+          <div class="flex items-center justify-between text-sm text-slate-500">
+            <button type="button" class="text-brand hover:underline" data-auth-action="reset">Forgot password?</button>
+            <button type="button" class="text-slate-600 hover:text-brand" data-auth-action="signup">Create account</button>
+          </div>
+        </form>
+
+        <form id="signup-form" class="hidden space-y-4">
+          <div class="space-y-1">
+            <label for="signup-email" class="text-sm font-medium text-slate-700">Email</label>
+            <input id="signup-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
+          </div>
+          <div class="space-y-1">
+            <label for="signup-password" class="text-sm font-medium text-slate-700">Password</label>
+            <input id="signup-password" type="password" class="w-full input" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password" aria-describedby="auth-message" />
+            <p class="text-xs text-slate-500">You'll use this to sign in next time.</p>
+          </div>
+          <button type="submit" class="btn-primary w-full py-3 rounded-xl">Create free account</button>
+          <p class="text-sm text-center text-slate-500">Already signed up? <button type="button" class="text-brand hover:underline" data-auth-action="login">Sign in</button></p>
+        </form>
+
+        <form id="reset-form" class="hidden space-y-4">
+          <p class="text-sm text-slate-500">We'll email you reset instructions and show the token here for dev builds.</p>
+          <div class="space-y-1">
+            <label for="reset-email" class="text-sm font-medium text-slate-700">Email</label>
+            <input id="reset-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
+          </div>
+          <button type="submit" class="btn-primary w-full py-3 rounded-xl">Send reset link</button>
+          <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
+        </form>
+
+        <form id="confirm-reset-form" class="hidden space-y-4">
+          <p class="text-sm text-slate-500">Paste the token we sent (or use the dev token below) and choose a new password.</p>
+          <div class="space-y-1">
+            <label for="confirm-token" class="text-sm font-medium text-slate-700">Reset token</label>
+            <input id="confirm-token" class="w-full input" placeholder="xxxx-xxxx" aria-describedby="auth-message" data-autofocus />
+          </div>
+          <div class="space-y-1">
+            <label for="confirm-password" class="text-sm font-medium text-slate-700">New password</label>
+            <input id="confirm-password" type="password" class="w-full input" placeholder="••••••••" aria-describedby="auth-message" autocomplete="new-password" />
+          </div>
+          <button type="submit" class="btn-primary w-full py-3 rounded-xl">Set new password</button>
+          <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
+        </form>
+      </div>
+    </div>
+  </div>
 
   <!-- Waitlist Form Handler -->
   <script>
@@ -458,5 +640,7 @@
       });
     });
   </script>
+
+  {% include 'paywall_modal.html' %}
 </body>
 </html>

@@ -12,8 +12,8 @@ def test_generate_includes_goals_and_keywords(client, monkeypatch, tmp_path):
     db_path = togetherly_app.DB_PATH  # set by conftest
     con = sqlite3.connect(db_path)
     con.execute(
-        "INSERT INTO users (id, email, password_hash, is_paid, free_sample_used) VALUES (?, ?, ?, ?, ?)",
-        (user_id, 'test@example.com', 'hash', 0, 0),
+        "INSERT INTO users (id, email, password_hash, is_paid, free_sample_used, subscription_tier) VALUES (?, ?, ?, ?, ?, ?)",
+        (user_id, 'test@example.com', 'hash', 0, 0, 'free'),
     )
     con.commit()
     con.close()
@@ -52,7 +52,7 @@ def test_generate_includes_goals_and_keywords(client, monkeypatch, tmp_path):
             }
         ]
 
-    monkeypatch.setattr(gen_mod, 'generate_posts', fake_generate_posts)
+    monkeypatch.setattr(togetherly_app, 'generate_posts', fake_generate_posts)
 
     payload = {
         'days': 1,

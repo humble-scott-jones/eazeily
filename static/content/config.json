@@ -10,6 +10,8 @@
     {"key": "nonprofit", "icon": "🤝", "label": "Nonprofit / Community", "suggested_keywords": ["impact","volunteers","donation","event"], "note_placeholder": "e.g., volunteer drive, annual fundraising event"},
     {"key": "home_services", "icon": "🛠️", "label": "Home Services", "suggested_keywords": ["before and after","tips","seasonal maintenance","reviews"], "note_placeholder": "e.g., spring maintenance reminders, new service offering"},
     {"key": "healthcare", "icon": "🩺", "label": "Healthcare", "suggested_keywords": ["patient tips","team","clinic hours","wellness"], "note_placeholder": "e.g., flu shot clinics, new telehealth hours"},
+    {"key": "church", "icon": "⛪", "label": "Church", "suggested_keywords": ["Sunday service","community","sermon","worship","volunteer"], "note_placeholder": "e.g., upcoming sermon series, volunteer opportunities"},
+  {"key": "house_host", "icon": "🏠", "label": "House Host / Vacation Rental", "suggested_keywords": ["guest experience","local tips","amenities","check-in","attractions"], "note_placeholder": "e.g., summer availability, new hot tub installation"},
     {"key": "other", "icon": "✨", "label": "Other / Custom", "suggested_keywords": ["about","what we do","behind the scenes"], "note_placeholder": "One-line note about this month's focus"}
   ],
   "tones": [
@@ -24,7 +26,8 @@
     {"key": "linkedin", "label": "LinkedIn"},
     {"key": "twitter", "label": "X / Twitter"},
     {"key": "tiktok", "label": "TikTok"},
-    {"key": "short_video", "label": "Short Video (Reels/TikTok/Shorts)"}
+    {"key": "short_video", "label": "Reels / Shorts"},
+    {"key": "reviews", "label": "Review responses"}
   ],
   "pricing": {
     "monthly_display": "$9 / month",
@@ -69,6 +72,14 @@
     "healthcare": [
       {"type":"chips","key":"goals","label":"Primary focus","options":["Education","Team","Patient resources","Community"]},
       {"type":"chips","key":"reel_style","label":"Reel style","options":["Education tips","Team spotlight","Patient story","Quick explainer"]}
+    ],
+    "church": [
+      {"type":"chips","key":"goals","label":"What do you want to focus on?","options":["Sermons","Events","Community","Volunteer opportunities"]},
+      {"type":"chips","key":"reel_style","label":"Reel style","options":["Face-camera message","Worship moments","Community highlights","Story + testimony"]}
+    ],
+    "house_host": [
+      {"type":"chips","key":"goals","label":"What do you want to focus on?","options":["Guest experience","Local recommendations","Property highlights","Booking tips","Seasonal availability","Amenity showcase"]},
+      {"type":"chips","key":"reel_style","label":"Reel style","options":["Property tour","Local attractions","Guest testimonials","Check-in process","Amenity highlights","Seasonal activities"]}
     ],
     "other": [
       {"type":"text","key":"describe","label":"Tell us a sentence about your work","placeholder":"One line about what you do"},

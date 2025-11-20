@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Account - Togetherly</title>
+  <title>Account - Swelly</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="bg-brand-sand text-slate-900">
-  <header class="px-6 py-5 bg-white/90 backdrop-blur border-b">
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 text-slate-900">
+  <header class="px-6 py-5 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
       <div class="max-w-6xl mx-auto flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="logo-gradient"></div>
-        <h1 class="text-xl font-semibold tracking-tight">Togetherly</h1>
+  <img src="/static/swelly-logo.svg" alt="Swelly logo" class="w-8 h-8 header-logo" onerror="this.style.display='none'" />
+        <h1 class="text-xl font-semibold tracking-tight">Swelly</h1>
       </div>
       <div class="flex items-center gap-4">
         <a class="text-sm text-brand hover:underline" href="/app">Go to App</a>
@@ -23,14 +23,28 @@
     </div>
   </header>
 
-  <main class="max-w-4xl mx-auto p-6">
-    <section class="card">
+  <main class="max-w-4xl mx-auto p-6 space-y-6">
+    <section class="bg-white/85 backdrop-blur rounded-3xl border border-slate-200 shadow-xl p-8">
+      <div class="flex flex-col gap-4">
+        <div class="inline-flex items-center gap-2 bg-slate-900 text-white/90 rounded-full px-4 py-2 text-xs font-semibold tracking-wide uppercase w-max">
+          <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+          Account overview
+        </div>
+        <div>
+          <p class="text-sm uppercase tracking-[0.35em] text-slate-500 mb-2">Billing + profile</p>
+          <h2 class="text-3xl font-bold text-slate-900 leading-tight">Manage your subscription and profile without leaving the Swelly experience</h2>
+        </div>
+        <p class="text-slate-600 text-lg">This page now mirrors the launch site’s typography and gradients, so the upgrade from marketing to app feels seamless.</p>
+      </div>
+    </section>
+
+    <section class="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-6">
       <h2 class="text-lg font-semibold">Account</h2>
       <div class="mt-4">
         {% if not user %}
           <p class="text-sm text-slate-600">You are not signed in. <a href="/" class="text-brand">Go to home page</a> to get started.</p>
         {% else %}
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div class="text-xs text-slate-500">Email</div>
               <div class="font-medium">{{ user['email'] }}</div>
@@ -41,8 +55,8 @@
             </div>
           </div>
           <div class="mt-4">
-            <div class="bg-slate-50 p-3 rounded">
-              <div class="flex items-center justify-between">
+            <div class="bg-gradient-to-br from-purple-50 to-blue-50 p-4 rounded-2xl border border-purple-100">
+              <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <div class="text-xs text-slate-500">Status</div>
                   <div class="font-medium">
@@ -57,17 +71,15 @@
                     <div id="next-billing" class="text-sm" data-iso="{{ subscription.current_period_end_iso or '' }}">{{ subscription.current_period_end_human or subscription.current_period_end_iso }}{% if subscription.days_until_renewal %} (in {{ subscription.days_until_renewal }} days){% endif %}</div>
                   {% endif %}
                 </div>
-                <div>
+                <div class="flex flex-col gap-2 text-right">
                     {% if user['is_paid'] %}
                       <button id="manage-sub" class="btn-ghost">Manage</button>
                       <button id="cancel-sub" class="btn-secondary">Cancel</button>
                     {% else %}
-                      <button id="subscribe-now" class="btn-primary">Subscribe</button>
+                      <button id="subscribe-now" class="btn-primary btn-small">Subscribe</button>
                     {% endif %}
                     <!-- Sign out button for all signed-in users -->
-                    <div class="mt-2">
-                      <button id="sign-out" class="text-sm text-slate-600 hover:underline">Sign out</button>
-                    </div>
+                    <button id="sign-out" class="text-sm text-slate-600 hover:underline">Sign out</button>
                 </div>
               </div>
             </div>
@@ -75,6 +87,58 @@
         {% endif %}
       </div>
     </section>
+
+    {% if is_admin %}
+    <section id="admin-panel" class="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-6 space-y-6" data-admin-csrf="{{ admin_csrf or '' }}">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-500 mb-1">Admin snapshot</p>
+          <h2 class="text-2xl font-semibold text-slate-900">See user health without leaving your account</h2>
+          <p class="text-sm text-slate-500">Data is powered by the same <code class="bg-slate-100 px-1.5 py-0.5 rounded">/api/admin</code> endpoints.</p>
+        </div>
+        <button id="admin-reconcile" class="btn-primary btn-sm">Sync Stripe state</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" data-admin-stats>
+        <div class="p-4 rounded-xl bg-slate-50 border" aria-live="polite">
+          <p class="text-xs text-slate-500">Total users</p>
+          <p id="stat-admin-total" class="text-2xl font-semibold text-slate-900">—</p>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-50 border">
+          <p class="text-xs text-slate-500">Paid</p>
+          <p id="stat-admin-paid" class="text-2xl font-semibold text-emerald-600">—</p>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-50 border">
+          <p class="text-xs text-slate-500">Free</p>
+          <p id="stat-admin-free" class="text-2xl font-semibold text-slate-600">—</p>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-50 border">
+          <p class="text-xs text-slate-500">Profiles</p>
+          <p id="stat-admin-profiles" class="text-2xl font-semibold text-indigo-600">—</p>
+        </div>
+      </div>
+      <div class="overflow-auto border rounded-xl">
+        <table class="w-full text-sm" id="admin-users-table">
+          <thead class="bg-slate-50 text-slate-500">
+            <tr>
+              <th class="text-left p-3 font-semibold">Email</th>
+              <th class="text-left p-3 font-semibold">Status</th>
+              <th class="text-left p-3 font-semibold">Subscription</th>
+              <th class="text-left p-3 font-semibold">Created</th>
+            </tr>
+          </thead>
+          <tbody id="admin-users-body">
+            <tr>
+              <td colspan="4" class="text-center text-slate-400 p-4">Loading admin data…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <p id="admin-reconcile-status" class="text-xs text-slate-500"></p>
+        <pre id="admin-reconcile-log" class="mt-2 text-xs bg-slate-900/90 text-white rounded-xl p-3 overflow-x-auto hidden"></pre>
+      </div>
+    </section>
+    {% endif %}
   </main>
 
   <script>
@@ -91,10 +155,10 @@
         if (!r.ok){ const j = await r.json().catch(()=>null); alert((j && j.error) || 'Checkout failed'); return; }
         const j = await r.json(); if (j && j.url) window.location.href = j.url; else alert('Checkout failed');
       });
-      const cancelBtn = document.getElementById('cancel-sub');
+  const cancelBtn = document.getElementById('cancel-sub');
       const cancelModal = document.createElement('div');
       cancelModal.id = 'cancel-modal'; cancelModal.className = 'fixed inset-0 bg-black/40 hidden items-center justify-center';
-      cancelModal.innerHTML = `<div class="bg-white rounded p-4 max-w-sm w-full"><p class="mb-3">Are you sure you want to cancel your subscription? You can reopen it anytime.</p><div class="flex gap-2"><button id="cancel-no" class="btn-secondary">No</button><button id="cancel-yes" class="btn-primary">Yes, cancel</button></div></div>`;
+      cancelModal.innerHTML = `<div class="bg-white rounded p-4 max-w-sm w-full"><p class="mb-3">Are you sure you want to cancel your subscription? You can reopen it anytime.</p><div class="flex gap-2"><button id="cancel-no" class="btn-secondary">No</button><button id="cancel-yes" class="btn-primary btn-small">Yes, cancel</button></div></div>`;
       document.body.appendChild(cancelModal);
       cancelBtn?.addEventListener('click', () => { cancelModal.classList.remove('hidden'); });
       document.getElementById('cancel-no')?.addEventListener('click', () => { cancelModal.classList.add('hidden'); });
@@ -121,6 +185,61 @@
             window.location.href = '/';
           }catch(e){ alert('Sign out failed'); signOutBtn.disabled = false; signOutBtn.textContent = 'Sign out'; }
         });
+      }
+
+      const adminPanel = document.getElementById('admin-panel');
+      if (adminPanel) {
+        const csrf = adminPanel.getAttribute('data-admin-csrf') || '';
+        hydrateAdminPanel(csrf);
+      }
+
+      async function hydrateAdminPanel(csrfToken){
+        try {
+          const res = await fetch('/api/admin/users', { credentials: 'include' });
+          const payload = await res.json();
+          if (!res.ok || !payload.ok) {
+            document.getElementById('admin-users-body').innerHTML = `<tr><td colspan="4" class="text-center text-red-500 p-4">${(payload && payload.error) || 'Failed to load admin data'}</td></tr>`;
+            return;
+          }
+          document.getElementById('stat-admin-total').textContent = payload.stats.total_users;
+          document.getElementById('stat-admin-paid').textContent = payload.stats.paid_users;
+          document.getElementById('stat-admin-free').textContent = payload.stats.free_users;
+          document.getElementById('stat-admin-profiles').textContent = payload.stats.profile_stats.total_profiles;
+          const rows = payload.users.slice(0, 8).map(user => {
+            const status = user.is_paid ? '<span class="text-emerald-600 font-medium">Paid</span>' : '<span class="text-slate-500">Free</span>';
+            const sub = user.subscription_status || '—';
+            const created = new Date(user.created_at).toLocaleDateString();
+            return `<tr class="border-t"><td class="p-3">${user.email}</td><td class="p-3">${status}</td><td class="p-3">${sub}</td><td class="p-3 text-slate-500">${created}</td></tr>`;
+          }).join('');
+          document.getElementById('admin-users-body').innerHTML = rows || '<tr><td colspan="4" class="text-center text-slate-400 p-4">No users yet</td></tr>';
+          const reconcileBtn = document.getElementById('admin-reconcile');
+          reconcileBtn?.addEventListener('click', async () => {
+            reconcileBtn.disabled = true;
+            reconcileBtn.textContent = 'Syncing…';
+            const statusEl = document.getElementById('admin-reconcile-status');
+            const logEl = document.getElementById('admin-reconcile-log');
+            if (logEl) { logEl.textContent = ''; logEl.classList.add('hidden'); }
+            try {
+              const resp = await fetch('/api/reconcile-job?wait=1', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': csrfToken } });
+              const body = await resp.json().catch(()=>null);
+              statusEl.textContent = resp.ok ? 'Stripe sync complete' : (body && body.error) || 'Sync failed';
+              statusEl.className = resp.ok ? 'text-xs text-emerald-600' : 'text-xs text-red-600';
+              if (body && body.job) {
+                logEl.classList.remove('hidden');
+                logEl.textContent = JSON.stringify(body.job, null, 2);
+              }
+              await hydrateAdminPanel(csrfToken);
+            } catch (err) {
+              statusEl.textContent = 'Sync failed';
+              statusEl.className = 'text-xs text-red-600';
+            } finally {
+              reconcileBtn.disabled = false;
+              reconcileBtn.textContent = 'Sync Stripe state';
+            }
+          }, { once: true });
+        } catch (err) {
+          document.getElementById('admin-users-body').innerHTML = `<tr><td colspan="4" class="text-center text-red-500 p-4">${err?.message || 'Failed to load admin data'}</td></tr>`;
+        }
       }
     });
   </script>

@@ -64,6 +64,24 @@ Notes:
 
 Load `.env` into your shell (or use `direnv`) before running the server.
 
+### GitHub feedback automation
+
+To automatically turn in-product feedback into GitHub issues, add the following secrets to your `.env` (or hosting provider) once you enable the Settings → Feedback form:
+
+```bash
+GITHUB_FEEDBACK_TOKEN=ghp_xxx      # PAT with "repo" scope
+GITHUB_FEEDBACK_REPO=owner/name    # e.g. humble-scott-jones/swelly
+GITHUB_FEEDBACK_TEMPLATE_GENERAL=user-feedback   # optional override
+GITHUB_FEEDBACK_TEMPLATE_THUMBSDOWN=thumbs-down  # optional override
+```
+
+Missing env vars simply disable the GitHub API call while still saving the feedback locally so you can develop without a PAT.
+
+### Priority 0 runbook & smoke test
+
+- 📘 `docs/runbooks/priority0.md` — step-by-step guide for wiring secrets, enabling branch protection, and running feedback smoke tests.
+- 🧪 `scripts/feedback_smoke.sh` — posts a thumbs-down and Settings feedback payload so you can verify GitHub issues are created end-to-end (pass `--help` for usage).
+
 ## 3) Install Playwright (optional but recommended for e2e)
 
 Playwright is optional. Install and download browsers if you plan to run browser tests or capture screenshots.

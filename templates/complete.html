@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Togetherly — Setup complete</title>
+  <title>Swelly — Setup complete</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body class="bg-brand-sand text-slate-900">
   <header class="px-6 py-5 bg-white/90 backdrop-blur border-b">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="logo-gradient"></div>
-        <h1 class="text-xl font-semibold tracking-tight">Togetherly</h1>
+        <div class="flex items-center gap-3">
+  <img src="/static/swelly-logo.svg" alt="Swelly logo" class="w-8 h-8 header-logo" onerror="this.style.display='none'" />
+        <h1 class="text-xl font-semibold tracking-tight">Swelly</h1>
       </div>
       <a class="text-sm text-brand hover:underline" href="/">Back</a>
     </div>
@@ -39,10 +39,9 @@
       </div>
 
       <div class="mt-4 flex gap-2">
-        <button id="generate-1" class="btn-ghost">Generate 1-day sample</button>
-        <button id="generate-30" class="btn-primary">Generate 30-day plan (paid)</button>
+        <a href="/generate" class="btn-primary">Go to Generate Page</a>
       </div>
-      <p class="text-xs text-slate-500 mt-2">One free 1-day sample is included with each account.</p>
+      <p class="text-xs text-slate-500 mt-2">Generate your personalized content plan on the dedicated dashboard.</p>
     </section>
 
     <section class="card mt-6">

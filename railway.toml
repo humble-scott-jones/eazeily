@@ -1,0 +1,24 @@
+[build]
+builder = "NIXPACKS"
+
+[build.nixpacksPlan]
+phases = ["setup", "install", "build"]
+
+[build.nixpacksPlan.phases.setup]
+nixPkgs = ["python311"]
+
+[build.nixpacksPlan.phases.install]
+cmds = ["echo 'No install needed for static site'"]
+
+[build.nixpacksPlan.phases.build]
+cmds = ["echo 'Static site ready'"]
+
+[deploy]
+startCommand = "python3 -c \"import os, http.server, socketserver; port = int(os.getenv('PORT', 8000)); httpd = socketserver.TCPServer(('', port), http.server.SimpleHTTPRequestHandler); httpd.serve_forever()\""
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[deploy.env]
+PORT = "8080"

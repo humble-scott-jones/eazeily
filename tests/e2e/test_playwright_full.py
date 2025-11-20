@@ -11,6 +11,22 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.getenv('PORT', '5001'))
 BASE = f'http://127.0.0.1:{PORT}'
 
+
+def _resolve_db_path() -> pathlib.Path:
+    env_path = os.getenv('DB_PATH')
+    if env_path:
+        return pathlib.Path(env_path)
+    default_db = ROOT / 'swelly.db'
+    legacy_db = ROOT / 'togetherly.db'
+    if default_db.exists():
+        return default_db
+    if legacy_db.exists():
+        return legacy_db
+    return default_db
+
+
+DB_FILE = _resolve_db_path()
+
 pytestmark = pytest.mark.skipif(os.getenv("RUN_UI_SMOKE") != "1", reason="UI smoke tests disabled (set RUN_UI_SMOKE=1)")
 
 
@@ -45,8 +61,7 @@ def stop_server(p):
 def set_generation_usage(user_id: str, used: int, period=None):
     if period is None:
         period = time.strftime('%Y-%m')
-    db_path = ROOT / 'togetherly.db'
-    conn = sqlite3.connect(str(db_path))
+    conn = sqlite3.connect(str(DB_FILE))
     cur = conn.cursor()
     cur.execute('CREATE TABLE IF NOT EXISTS generation_usage (id TEXT PRIMARY KEY, user_id TEXT, period TEXT, reels_generated INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)')
     # upsert
@@ -70,6 +85,9 @@ def test_playwright_full_flow():
         headless = os.getenv('HEADLESS', '1') != '0'
         out_base = ROOT / 'tmp' / 'test-outputs' / time.strftime('%Y%m%d-%H%M%S')
         out_base.mkdir(parents=True, exist_ok=True)
+        page = None
+        gen_r = None
+        wh_r = None
         try:
             with sync_playwright() as pw:
                 browser = pw.chromium.launch(headless=headless, slow_mo=50)
@@ -79,11 +97,12 @@ def test_playwright_full_flow():
                     context.add_cookies([{'name': name, 'value': val, 'url': BASE}])
 
                 page = context.new_page()
-                page.goto(BASE)
+                page.goto(f'{BASE}/generate')
 
                 # Try generate (should fail because not paid) via UI button
                 try:
-                    page.click('#modal-generate-reels')
+                    page.wait_for_selector('#generate-content', timeout=5000)
+                    page.click('#generate-content')
                     # wait for error toast or modal (implementation-specific) - fallback: wait briefly
                     time.sleep(1)
                 except Exception:
@@ -103,10 +122,9 @@ def test_playwright_full_flow():
                 assert wh_r.status_code == 200
 
                 # Now try generate again (via UI click and wait for cards)
-                page.reload()
-                # ensure modal generate button present
-                page.wait_for_selector('#modal-generate-reels', timeout=5000)
-                page.click('#modal-generate-reels')
+                page.goto(f'{BASE}/generate')
+                page.wait_for_selector('#generate-content', timeout=5000)
+                page.click('#generate-content')
                 # wait for result cards (app renders .card for each post)
                 page.wait_for_selector('.card', timeout=10000)
                 cards = page.query_selector_all('.card')

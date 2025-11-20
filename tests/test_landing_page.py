@@ -6,7 +6,7 @@ def test_landing_page_renders(client):
     """Test that landing page route exists and renders."""
     response = client.get('/')
     assert response.status_code == 200
-    assert b'Togetherly' in response.data
+    assert b'Swelly' in response.data
     assert b'Simple, smart social media' in response.data
     assert b'that sounds like you' in response.data
 
@@ -38,7 +38,7 @@ def test_app_route_exists(client):
     """Test that /app route exists for main application."""
     response = client.get('/app')
     assert response.status_code == 200
-    assert b'Togetherly' in response.data
+    assert b'Swelly' in response.data
 
 
 def test_waitlist_api_valid_email(client):

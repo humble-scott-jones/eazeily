@@ -1,0 +1,34 @@
+# Rendered by CI (do not check in a populated version with secrets).
+runtime: python312
+service: togetherly-${ENVIRONMENT}
+instance_class: F1
+entrypoint: gunicorn -b :$PORT app:app
+automatic_scaling:
+  target_cpu_utilization: 0.65
+  min_instances: 1
+  max_instances: 3
+
+handlers:
+  - url: /static
+    static_dir: static
+    secure: always
+  - url: /.*
+    script: auto
+    secure: always
+
+env_variables:
+  FLASK_ENV: "production"
+  PORT: "8080"
+  SECRET_KEY: "${SECRET_KEY}"
+  STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY}"
+  STRIPE_PUBLISHABLE_KEY: "${STRIPE_PUBLISHABLE_KEY}"
+  STRIPE_PRICE_ID: "${STRIPE_PRICE_ID}"
+  STRIPE_WEBHOOK_SECRET: "${STRIPE_WEBHOOK_SECRET}"
+  OPENAI_API_KEY: "${OPENAI_API_KEY}"
+  OPENAI_GENERATE_MODEL: "${OPENAI_GENERATE_MODEL}"
+  ADMIN_EMAILS: "${ADMIN_EMAILS}"
+  GITHUB_FEEDBACK_TOKEN: "${GITHUB_FEEDBACK_TOKEN}"
+  GITHUB_FEEDBACK_REPO: "${GITHUB_FEEDBACK_REPO}"
+  GITHUB_FEEDBACK_TEMPLATE_GENERAL: "${GITHUB_FEEDBACK_TEMPLATE_GENERAL}"
+  GITHUB_FEEDBACK_TEMPLATE_THUMBSDOWN: "${GITHUB_FEEDBACK_TEMPLATE_THUMBSDOWN}"
+  GITHUB_FEEDBACK_TIMEOUT: "${GITHUB_FEEDBACK_TIMEOUT}"
