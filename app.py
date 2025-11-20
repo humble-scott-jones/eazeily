@@ -90,7 +90,7 @@ app.secret_key = _secret
 # Structured logging with request IDs
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s [req=%(request_id)s] %(message)s",
+    format="%(asctime)s %(levelname)s %(message)s",
 )
 
 
@@ -195,6 +195,11 @@ class RequestIdFilter(logging.Filter):
 
 
 app.logger.addFilter(RequestIdFilter())
+
+# Set up app logger with request ID formatting
+app_logger_formatter = logging.Formatter("%(asctime)s %(levelname)s [req=%(request_id)s] %(message)s")
+for handler in app.logger.handlers:
+    handler.setFormatter(app_logger_formatter)
 
 
 def _redact(value: str, keep: int = 3) -> str:
