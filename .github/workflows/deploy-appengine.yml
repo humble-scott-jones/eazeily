@@ -1,0 +1,126 @@
+name: Deploy (App Engine)
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Choose deployment target"
+        required: true
+        default: staging
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  APP_YAML_TEMPLATE: deploy/appengine/app.yaml.tmpl
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    name: Deploy staging
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext-base
+
+      - name: Auth to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_STAGING }}
+
+      - name: Render app.yaml for staging
+        run: |
+          mkdir -p /tmp/deploy
+          envsubst < "$APP_YAML_TEMPLATE" > /tmp/deploy/app.staging.yaml
+          echo "Rendered staging app.yaml to /tmp/deploy/app.staging.yaml (content hidden to avoid secret leak)."
+        env:
+          APP_YAML_TEMPLATE: ${{ env.APP_YAML_TEMPLATE }}
+          ENVIRONMENT: staging
+          SECRET_KEY: ${{ secrets.STAGING_SECRET_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.STAGING_STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STAGING_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_PRICE_ID: ${{ secrets.STAGING_STRIPE_PRICE_ID }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STAGING_STRIPE_WEBHOOK_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.STAGING_OPENAI_API_KEY }}
+          OPENAI_GENERATE_MODEL: ${{ secrets.STAGING_OPENAI_GENERATE_MODEL }}
+          ADMIN_EMAILS: ${{ secrets.STAGING_ADMIN_EMAILS }}
+          GITHUB_FEEDBACK_TOKEN: ${{ secrets.STAGING_GITHUB_FEEDBACK_TOKEN }}
+          GITHUB_FEEDBACK_REPO: ${{ secrets.STAGING_GITHUB_FEEDBACK_REPO }}
+          GITHUB_FEEDBACK_TEMPLATE_GENERAL: ${{ secrets.STAGING_GITHUB_FEEDBACK_TEMPLATE_GENERAL }}
+          GITHUB_FEEDBACK_TEMPLATE_THUMBSDOWN: ${{ secrets.STAGING_GITHUB_FEEDBACK_TEMPLATE_THUMBSDOWN }}
+          GITHUB_FEEDBACK_TIMEOUT: ${{ secrets.STAGING_GITHUB_FEEDBACK_TIMEOUT }}
+
+      - name: Deploy to App Engine (staging)
+        run: gcloud app deploy /tmp/deploy/app.staging.yaml --quiet --project "${GCP_PROJECT}"
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_STAGING }}
+
+  deploy-production:
+    name: Deploy production
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install envsubst
+        run: sudo apt-get update && sudo apt-get install -y gettext-base
+
+      - name: Auth to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY_PRODUCTION }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_PRODUCTION }}
+
+      - name: Render app.yaml for production
+        run: |
+          mkdir -p /tmp/deploy
+          envsubst < "$APP_YAML_TEMPLATE" > /tmp/deploy/app.production.yaml
+          echo "Rendered production app.yaml to /tmp/deploy/app.production.yaml (content hidden to avoid secret leak)."
+        env:
+          APP_YAML_TEMPLATE: ${{ env.APP_YAML_TEMPLATE }}
+          ENVIRONMENT: production
+          SECRET_KEY: ${{ secrets.PRODUCTION_SECRET_KEY }}
+          STRIPE_SECRET_KEY: ${{ secrets.PRODUCTION_STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.PRODUCTION_STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_PRICE_ID: ${{ secrets.PRODUCTION_STRIPE_PRICE_ID }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.PRODUCTION_STRIPE_WEBHOOK_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.PRODUCTION_OPENAI_API_KEY }}
+          OPENAI_GENERATE_MODEL: ${{ secrets.PRODUCTION_OPENAI_GENERATE_MODEL }}
+          ADMIN_EMAILS: ${{ secrets.PRODUCTION_ADMIN_EMAILS }}
+          GITHUB_FEEDBACK_TOKEN: ${{ secrets.PRODUCTION_GITHUB_FEEDBACK_TOKEN }}
+          GITHUB_FEEDBACK_REPO: ${{ secrets.PRODUCTION_GITHUB_FEEDBACK_REPO }}
+          GITHUB_FEEDBACK_TEMPLATE_GENERAL: ${{ secrets.PRODUCTION_GITHUB_FEEDBACK_TEMPLATE_GENERAL }}
+          GITHUB_FEEDBACK_TEMPLATE_THUMBSDOWN: ${{ secrets.PRODUCTION_GITHUB_FEEDBACK_TEMPLATE_THUMBSDOWN }}
+          GITHUB_FEEDBACK_TIMEOUT: ${{ secrets.PRODUCTION_GITHUB_FEEDBACK_TIMEOUT }}
+
+      - name: Deploy to App Engine (production)
+        run: gcloud app deploy /tmp/deploy/app.production.yaml --quiet --project "${GCP_PROJECT}"
+        env:
+          GCP_PROJECT: ${{ secrets.GCP_PROJECT_PRODUCTION }}

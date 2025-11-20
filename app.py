@@ -3,6 +3,7 @@ from datetime import date
 from datetime import datetime, timezone
 from datetime import timedelta
 from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context, url_for
+import logging
 import threading
 import time
 import math
@@ -36,17 +37,6 @@ try:
         import stripe
 except Exception:
     stripe = None
-
-openai_client = None
-USE_OPENAI = bool(os.getenv("OPENAI_API_KEY"))
-OPENAI_GENERATE_MODEL = os.getenv('OPENAI_GENERATE_MODEL', 'gpt-4o-mini')
-if USE_OPENAI:
-    try:
-        from openai import OpenAI
-        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    except Exception:
-        USE_OPENAI = False
-        openai_client = None
 
 IMAGE_DATA_URL_MAX_BYTES = 2_500_000  # ~2.5MB encoded payload cap for inline uploads
 MAX_FEEDBACK_NOTE_LEN = 1500
@@ -97,6 +87,23 @@ _secret = os.getenv("SECRET_KEY")
 if not _secret:
     _secret = "dev-secret-change-me"
 app.secret_key = _secret
+# Structured logging with request IDs
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [req=%(request_id)s] %(message)s",
+)
+
+
+class RequestIdMissingFilter(logging.Filter):
+    """Ensure log records always have request_id to satisfy the formatter."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not hasattr(record, 'request_id'):
+            record.request_id = 'n/a'
+        return True
+
+
+logging.getLogger().addFilter(RequestIdMissingFilter())
 CORS(app)
 
 if yaml and os.path.exists(_FEEDBACK_CONFIG_PATH):
@@ -124,10 +131,78 @@ elif os.path.exists(_legacy_db):
 else:
     DB_PATH = _default_db
 
+# Optional Postgres connection string (preferred for team/prod plans)
+DATABASE_URL = os.getenv('DATABASE_URL')
+USE_POSTGRES = bool(DATABASE_URL)
+
+# Normalize integrity errors across sqlite/Postgres so API handlers can stay consistent
+DB_INTEGRITY_ERRORS = (sqlite3.IntegrityError,)
+# psycopg may be absent in local/dev; guard import so we don't fail at module import.
+psycopg = None
+try:
+    import psycopg  # type: ignore
+except Exception:
+    psycopg = None
+if psycopg:
+    try:
+        from psycopg import errors as _pg_errors
+        DB_INTEGRITY_ERRORS = DB_INTEGRITY_ERRORS + (_pg_errors.UniqueViolation, _pg_errors.ForeignKeyViolation)
+    except Exception:
+        pass
+
+# Outbound call kill switch (set KILL_SWITCH_OUTBOUND=1 to block external services)
+OUTBOUND_KILL_SWITCH = (os.getenv('KILL_SWITCH_OUTBOUND') or os.getenv('DISABLE_OUTBOUND_CALLS') or '').lower() in ('1', 'true', 'yes', 'on')
 # Simple in-memory token-bucket rate limiter for low-volume dev/prod protection.
 # For production, prefer a distributed store (Redis) and a proper rate-limiting middleware.
 RATE_LIMIT_STORE = {}
 RATE_LIMIT_LOCK = threading.Lock()
+
+openai_client = None
+USE_OPENAI = bool(os.getenv("OPENAI_API_KEY"))
+OPENAI_GENERATE_MODEL = os.getenv('OPENAI_GENERATE_MODEL', 'gpt-4o-mini')
+if USE_OPENAI:
+    try:
+        from openai import OpenAI
+        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    except Exception:
+        USE_OPENAI = False
+        openai_client = None
+if OUTBOUND_KILL_SWITCH:
+    USE_OPENAI = False
+    openai_client = None
+
+class OutboundBlocked(RuntimeError):
+    """Raised when outbound calls are disabled via kill switch."""
+
+
+def _ensure_outbound_allowed(service: str):
+    if OUTBOUND_KILL_SWITCH:
+        raise OutboundBlocked(f"Outbound calls disabled for maintenance (service={service}).")
+
+
+def _get_request_id() -> str:
+    rid = getattr(g, 'request_id', None)
+    if not rid:
+        rid = uuid.uuid4().hex[:8]
+        g.request_id = rid
+    return rid
+
+
+class RequestIdFilter(logging.Filter):
+    def filter(self, record):
+        record.request_id = getattr(g, 'request_id', 'n/a')
+        return True
+
+
+app.logger.addFilter(RequestIdFilter())
+
+
+def _redact(value: str, keep: int = 3) -> str:
+    if not value:
+        return value
+    if len(value) <= keep:
+        return '*' * len(value)
+    return value[:keep] + '*' * max(1, len(value) - keep)
 
 def _check_rate_limit(key: str, capacity: int = 30, refill_seconds: int = 60):
     """Return (allowed: bool, retry_after_seconds: int)
@@ -161,6 +236,15 @@ def _check_rate_limit(key: str, capacity: int = 30, refill_seconds: int = 60):
         t_per_token = float(refill_seconds) / float(capacity)
         retry_after = math.ceil(needed * t_per_token)
         return False, retry_after
+
+
+def _enforce_rate_limit(bucket: str, capacity: int = 30, refill_seconds: int = 60):
+    if os.getenv('DISABLE_RATE_LIMITS') or os.getenv('FLASK_ENV') in ('test', 'testing'):
+        return None
+    allowed, retry_after = _check_rate_limit(bucket, capacity=capacity, refill_seconds=refill_seconds)
+    if not allowed:
+        return jsonify({'ok': False, 'error': 'Rate limit exceeded', 'retry_after': retry_after}), 429
+    return None
 
 
 def _extract_choice_content(response_or_choice):
@@ -332,10 +416,40 @@ def _generate_posts_from_image(spec: dict):
     except Exception:
         return None
 
+class _PgConnectionWrapper:
+    """Lightweight wrapper to normalize Postgres connection to sqlite-style API."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, sql, params=()):
+        normalized_sql = sql.replace("?", "%s")
+        cur = self._conn.cursor(row_factory=_pg_dict_row) if _pg_dict_row else self._conn.cursor()
+        cur.execute(normalized_sql, params)
+        return cur
+
+    def commit(self):
+        return self._conn.commit()
+
+    def close(self):
+        return self._conn.close()
+
+
+def _connect_db():
+    """Return a DB connection using Postgres if configured, otherwise sqlite."""
+    if USE_POSTGRES:
+        if not psycopg:
+            raise RuntimeError("psycopg is required for Postgres connections; install dependencies.")
+        conn = psycopg.connect(DATABASE_URL, autocommit=False)
+        return _PgConnectionWrapper(conn)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
+        g.db = _connect_db()
     return g.db
 
 @app.teardown_appcontext
@@ -344,8 +458,23 @@ def close_db(exc):
     if db is not None:
         db.close()
 
+@app.before_request
+def _attach_request_id():
+    _get_request_id()
+
+@app.after_request
+def _set_request_id_header(response):
+    try:
+        response.headers['X-Request-Id'] = _get_request_id()
+    except Exception:
+        pass
+    return response
+
 def init_db():
     db = get_db()
+    # For Postgres deployments, migrations should handle schema creation.
+    if USE_POSTGRES:
+        return db
     db.executescript(
         """
         CREATE TABLE IF NOT EXISTS profiles (
@@ -420,6 +549,26 @@ def init_db():
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_team_members_owner_email
             ON team_members(owner_user_id, member_email);
+        CREATE TABLE IF NOT EXISTS team_approvals (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            submitter_user_id TEXT NOT NULL,
+            title TEXT,
+            content_ref TEXT,
+            state TEXT DEFAULT 'pending',
+            reviewers TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS team_approval_events (
+            id TEXT PRIMARY KEY,
+            approval_id TEXT NOT NULL,
+            actor_user_id TEXT NOT NULL,
+            action TEXT NOT NULL,
+            note TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_approvals_owner_state ON team_approvals(owner_user_id, state);
         """
     )
     # Backfill for upgrades
@@ -487,45 +636,50 @@ def init_db():
 def ensure_db():
     init_db()
 
-@app.get("/health")
-def health_check():
-    """Health check endpoint for monitoring and load balancers"""
-    health_status = {
-        'status': 'healthy',
-        'version': os.getenv('APP_VERSION', 'dev'),
-        'timestamp': datetime.now(timezone.utc).isoformat(),
-        'checks': {}
-    }
-    
-    # Check database connectivity
+def _db_healthcheck():
     try:
         db = get_db()
-        result = db.execute('SELECT 1').fetchone()
-        if result is not None:
-            health_status['checks']['database'] = 'connected'
-        else:
-            health_status['checks']['database'] = 'disconnected'
-            health_status['status'] = 'unhealthy'
-    except Exception as e:
-        health_status['checks']['database'] = 'disconnected'
-        health_status['status'] = 'unhealthy'
-    
-    # Check Stripe availability (if configured)
-    if os.getenv('STRIPE_SECRET_KEY') and stripe:
-        health_status['checks']['stripe'] = 'configured'
-    else:
-        health_status['checks']['stripe'] = 'not_configured'
-    
-    # Check OpenAI availability (if configured)
-    if USE_OPENAI:
-        health_status['checks']['openai'] = 'configured'
-    else:
-        health_status['checks']['openai'] = 'not_configured'
-    
-    status_code = 200 if health_status['status'] == 'healthy' else 503
-    return jsonify(health_status), status_code
+        db.execute('SELECT 1')
+        return True, None
+    except Exception as exc:
+        return False, str(exc)
 
 
+@app.get("/healthz")
+def healthz():
+    """Liveness probe (no dependencies)."""
+    return jsonify({
+        'status': 'ok',
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.get("/readyz")
+def readyz():
+    """Readiness probe with dependency checks."""
+    healthy, db_error = _db_healthcheck()
+    checks = {}
+    checks['database'] = 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}"
+    checks['stripe'] = 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured'
+    checks['openai'] = 'configured' if USE_OPENAI else 'not_configured'
+    checks['github_feedback'] = 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured'
+
+    status = 'healthy' if healthy else 'unhealthy'
+    status_code = 200 if healthy else 503
+    payload = {
+        'status': status,
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': checks
+    }
+    return jsonify(payload), status_code
+
+
+@app.get("/health")
+def legacy_health():
+    """Back-compat endpoint; proxies to /readyz."""
+    return readyz()
 
 def _initial_user_payload():
     uid = session.get('user_id')
@@ -717,6 +871,8 @@ def api_cancel_subscription():
     uid = session.get('user_id')
     if not uid:
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    if OUTBOUND_KILL_SWITCH:
+        return jsonify({'ok': False, 'error': 'Outbound calls disabled for maintenance'}), 503
     db = get_db()
     # find active subscription and mark canceled (dev-only; in prod call Stripe API)
     sub = db.execute('SELECT id, stripe_subscription_id, status FROM subscriptions WHERE user_id = ? ORDER BY created_at DESC LIMIT 1', (uid,)).fetchone()
@@ -750,6 +906,9 @@ def api_create_checkout_session():
 
     if not hasattr(stripe, 'checkout') or not hasattr(stripe.checkout, 'Session'):
         return jsonify({'ok': False, 'error': 'Stripe checkout not available'}), 501
+
+    if OUTBOUND_KILL_SWITCH:
+        return jsonify({'ok': False, 'error': 'Outbound calls disabled for maintenance'}), 503
 
     stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
     data = request.get_json(force=True) or {}
@@ -787,6 +946,8 @@ def api_create_subscription():
     uid = session.get('user_id')
     if not uid:
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    if OUTBOUND_KILL_SWITCH:
+        return jsonify({'ok': False, 'error': 'Outbound calls disabled for maintenance'}), 503
 
     data = request.get_json(force=True) or {}
     price_id = (data.get('price_id') or os.getenv('STRIPE_TEST_PRICE_ID') or '').strip()
@@ -1288,6 +1449,108 @@ def api_admin_team_member_delete(member_id: int):
     return jsonify({'ok': True, 'deleted': member_id})
 
 
+def _serialize_approval_row(row):
+    if not row:
+        return None
+    raw = dict(row)
+    reviewers = []
+    try:
+        if raw.get('reviewers'):
+            reviewers = json.loads(raw['reviewers'])
+    except Exception:
+        reviewers = []
+    raw['reviewers'] = reviewers
+    return raw
+
+
+def _current_team_user():
+    user_row = _get_current_user_row()
+    if not user_row:
+        return None
+    mapped = row_to_mapping(user_row)
+    tier = (mapped.get('subscription_tier') or '').lower()
+    if tier == 'team' or mapped.get('is_admin'):
+        return mapped
+    return None
+
+
+@app.get('/api/team/approvals')
+def api_team_approvals_list():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    owner_id = user_row['id']
+    db = get_db()
+    rows = db.execute('SELECT * FROM team_approvals WHERE owner_user_id = ? ORDER BY created_at DESC', (owner_id,)).fetchall()
+    return jsonify({'ok': True, 'approvals': [ _serialize_approval_row(r) for r in rows ]})
+
+
+@app.post('/api/team/approvals')
+def api_team_approvals_create():
+    rl = _enforce_rate_limit(f"{request.remote_addr}:team-approvals-create", capacity=15, refill_seconds=300)
+    if rl:
+        return rl
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    data = request.get_json(force=True) or {}
+    title = (data.get('title') or '').strip()
+    content_ref = (data.get('content_ref') or '').strip()
+    reviewers = data.get('reviewers') or []
+    if not title:
+        return jsonify({'ok': False, 'error': 'Title is required'}), 400
+    if not content_ref:
+        return jsonify({'ok': False, 'error': 'content_ref is required'}), 400
+    if not isinstance(reviewers, list):
+        reviewers = []
+    reviewers = [str(x).strip() for x in reviewers if str(x).strip()]
+    aid = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    db = get_db()
+    db.execute(
+        'INSERT INTO team_approvals (id, owner_user_id, submitter_user_id, title, content_ref, state, reviewers, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (aid, user_row['id'], user_row['id'], title, content_ref, 'pending', json.dumps(reviewers), now_iso, now_iso)
+    )
+    db.execute(
+        'INSERT INTO team_approval_events (id, approval_id, actor_user_id, action, note, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        (str(uuid.uuid4()), aid, user_row['id'], 'created', data.get('note'), now_iso)
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM team_approvals WHERE id = ?', (aid,)).fetchone()
+    return jsonify({'ok': True, 'approval': _serialize_approval_row(row)})
+
+
+@app.post('/api/team/approvals/<approval_id>/transition')
+def api_team_approvals_transition(approval_id: str):
+    rl = _enforce_rate_limit(f"{request.remote_addr}:team-approvals-transition", capacity=30, refill_seconds=300)
+    if rl:
+        return rl
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    data = request.get_json(force=True) or {}
+    action = (data.get('action') or '').strip().lower()
+    if action not in ('approve', 'changes_requested'):
+        return jsonify({'ok': False, 'error': 'Action must be approve or changes_requested'}), 400
+    db = get_db()
+    row = db.execute('SELECT * FROM team_approvals WHERE id = ?', (approval_id,)).fetchone()
+    if not row:
+        return jsonify({'ok': False, 'error': 'Approval not found'}), 404
+    if row['owner_user_id'] != user_row['id'] and row['submitter_user_id'] != user_row['id'] and not user_row.get('is_admin'):
+        return jsonify({'ok': False, 'error': 'Not authorized'}), 403
+    new_state = 'approved' if action == 'approve' else 'changes_requested'
+    now_iso = datetime.now(timezone.utc).isoformat()
+    db.execute('UPDATE team_approvals SET state = ?, updated_at = ? WHERE id = ?', (new_state, now_iso, approval_id))
+    db.execute(
+        'INSERT INTO team_approval_events (id, approval_id, actor_user_id, action, note, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        (str(uuid.uuid4()), approval_id, user_row['id'], action, data.get('note'), now_iso)
+    )
+    db.commit()
+    updated = db.execute('SELECT * FROM team_approvals WHERE id = ?', (approval_id,)).fetchone()
+    events = db.execute('SELECT * FROM team_approval_events WHERE approval_id = ? ORDER BY created_at DESC', (approval_id,)).fetchall()
+    return jsonify({'ok': True, 'approval': _serialize_approval_row(updated), 'events': [dict(e) for e in events]})
+
+
 ### DB helpers
 def get_user_by_email(email: str):
     # Helper used in tests; prefer using the app context DB when available.
@@ -1598,6 +1861,9 @@ def _build_feedback_issue_payload(issue_type: str, context: dict):
 def _maybe_create_feedback_issue(issue_type: str, context: dict):
     if not GITHUB_FEEDBACK_TOKEN or not GITHUB_FEEDBACK_REPO:
         return None
+    if OUTBOUND_KILL_SWITCH:
+        app.logger.info('Skipping GitHub feedback issue creation (outbound disabled)', extra={'service': 'github'})
+        return None
     try:
         title, body, extra_labels = _build_feedback_issue_payload(issue_type, context)
     except Exception:
@@ -1807,6 +2073,9 @@ def api_current_user():
 
 @app.post('/api/login')
 def api_login():
+    rl = _enforce_rate_limit(f"{request.remote_addr}:login", capacity=20, refill_seconds=300)
+    if rl:
+        return rl
     data = request.get_json(force=True) or {}
     email = (data.get('email') or '').strip().lower()
     password = data.get('password') or ''
@@ -1987,6 +2256,9 @@ def dev_create_user():
 
 @app.post('/api/generate')
 def api_generate():
+    rl = _enforce_rate_limit(f"{request.remote_addr}:generate", capacity=30, refill_seconds=60)
+    if rl:
+        return rl
     payload = request.get_json(force=True) or {}
     raw_image_data = payload.get('image_data_url')
     image_data_url = None
@@ -2074,6 +2346,9 @@ def api_generate():
 
 @app.post('/api/generate-variants')
 def api_generate_variants():
+    rl = _enforce_rate_limit(f"{request.remote_addr}:generate-variants", capacity=20, refill_seconds=60)
+    if rl:
+        return rl
     env = os.getenv('FLASK_ENV', '').lower()
     if env != 'development' and not _get_current_user_row():
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
@@ -2098,6 +2373,9 @@ def api_generate_variants():
 
 @app.post('/api/feedback')
 def api_feedback():
+    rl = _enforce_rate_limit(f"{request.remote_addr}:feedback", capacity=20, refill_seconds=60)
+    if rl:
+        return rl
     data = request.get_json(force=True) or {}
     rating = int(data.get('rating') or 0)
     post_day = int(data.get('post_day') or 0)
@@ -2144,6 +2422,9 @@ def api_feedback():
 
 @app.post('/api/feedback/report')
 def api_feedback_report():
+    rl = _enforce_rate_limit(f"{request.remote_addr}:feedback-report", capacity=10, refill_seconds=60)
+    if rl:
+        return rl
     user_row = _get_current_user_row()
     if not user_row:
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
@@ -2198,6 +2479,9 @@ def api_feedback_report():
 
 @app.post('/api/signup')
 def api_signup():
+    rl = _enforce_rate_limit(f"{request.remote_addr}:signup", capacity=10, refill_seconds=300)
+    if rl:
+        return rl
     data = request.get_json(force=True) or {}
     email = (data.get('email') or '').strip().lower()
     password = data.get('password') or ''
@@ -2225,6 +2509,9 @@ def api_signup():
 @app.post('/api/generate-review-response')
 def api_generate_review_response():
     """Generate a professional response to a customer review."""
+    rl = _enforce_rate_limit(f"{request.remote_addr}:review-response", capacity=20, refill_seconds=60)
+    if rl:
+        return rl
     data = request.get_json(force=True) or {}
     review_text = (data.get('review_text') or '').strip()
     tone = data.get('tone', 'professional')
@@ -2258,4 +2545,4 @@ def api_generate_review_response():
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_ENV') == 'development')
+    app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_ENV') == 'development', use_reloader=False)

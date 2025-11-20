@@ -14,6 +14,8 @@ sys.path.insert(0, str(ROOT))
 # overrides the setting. This keeps the suite from spending most of its time
 # hashing passwords created by signup/login flows.
 os.environ.setdefault('FAST_PASSWORD_HASH', '12000')
+os.environ.setdefault('FLASK_ENV', 'test')
+os.environ.setdefault('DISABLE_RATE_LIMITS', '1')
 
 import app as togetherly_app
 

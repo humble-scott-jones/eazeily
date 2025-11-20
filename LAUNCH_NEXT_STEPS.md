@@ -38,10 +38,10 @@ Use the sections below to open new GitHub issues (one per numbered item). Sugges
 ## Priority 1 – Infrastructure & Reliability (Before inviting external beta)
 
 4. **Deployment pipeline + environment separation**  
-   - Pick hosting (Render/Fly/Railway/Cloud Run/etc.).  
-   - Create staging + production environments with identical configs except secrets.  
-   - Set up GitHub Actions deploy workflow: merge to `main` ➜ staging deploy; tagged release ➜ production deploy with approval gate.  
-   - Capture rollback command/steps in repo.
+   - ✅ Hosting: Railway project with `staging` + `production` environments (identical config; only secrets differ).  
+   - ✅ GitHub Actions deploy workflow: merge to `main` ➜ staging deploy; tagged release ➜ production deploy with approval gate. See `.github/workflows/deploy-railway.yml`.  
+   - 🚧 Secrets: add `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID_STAGING`, `RAILWAY_SERVICE_ID_PRODUCTION`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_PRODUCTION`, plus app env vars (`SECRET_KEY`, Stripe, OpenAI, feedback GitHub tokens, `ADMIN_EMAILS`) to GitHub envs. Mirror app secrets inside each Railway environment.  
+   - ✅ Rollback/runbook captured in `DEPLOYMENT.md` (Railway section). Use `railway deployments list` + `railway deployment rollback <id> --environment staging|production`.
 
 5. **Database durability + migration story**  
    - Decide whether to stay on SQLite (with automated backups) or migrate to managed Postgres.  
@@ -114,3 +114,4 @@ Use the sections below to open new GitHub issues (one per numbered item). Sugges
 - Create one GitHub issue per numbered line (or convert to Epics/Projects) and link back to this document.
 - Update this doc at the end of each sprint to reflect real status (✅ / 🚧 / 🟥).
 - When all Priority 0–2 items are ✅, schedule the launch rehearsal.
+- Process refs: branching/PR hygiene in `docs/branching.md`; PR template in `.github/pull_request_template.md`; staging vs production tracking in `docs/changelog.md`.
