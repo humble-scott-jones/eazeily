@@ -53,7 +53,7 @@
     </div>
   </template>
 
-  <script>window.DRAFT_VIEW = { draftId: '{{ draft_id }}' };</script>
+  <script>window.DRAFT_VIEW = { draftId: {{ draft_id | tojson | safe }} };</script>
   <script src="/static/draft_detail.js"></script>
 </body>
 </html>
