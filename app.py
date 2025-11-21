@@ -70,6 +70,27 @@ PASSWORD_HASH_METHOD = _resolve_password_hash_method()
 def _hash_password(secret: str) -> str:
     return generate_password_hash(secret, method=PASSWORD_HASH_METHOD)
 
+
+def _env_flag_enabled(var_name: str) -> bool:
+    raw = os.getenv(var_name)
+    if raw is None:
+        return False
+    return raw.strip().lower() in {'1', 'true', 't', 'yes', 'y', 'on'}
+
+
+def _is_dev_mode() -> bool:
+    env_value = (os.getenv('FLASK_ENV') or '').strip().lower()
+    if env_value.startswith('dev'):
+        return True
+    if _env_flag_enabled('ALLOW_DEV_DEBUG'):
+        return True
+    # allow dev helpers when running under automated tests/CI
+    if os.getenv('PYTEST_CURRENT_TEST'):
+        return True
+    if _env_flag_enabled('CI'):
+        return True
+    return False
+
 GITHUB_FEEDBACK_TOKEN = os.getenv('GITHUB_FEEDBACK_TOKEN')
 GITHUB_FEEDBACK_REPO = os.getenv('GITHUB_FEEDBACK_REPO')
 GITHUB_FEEDBACK_TEMPLATE_GENERAL = os.getenv('GITHUB_FEEDBACK_TEMPLATE_GENERAL', 'user-feedback')
@@ -614,7 +635,7 @@ def init_db():
 
     # Dev-only: seed a known admin user for local development to simplify testing
     try:
-        if os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1':
+        if _is_dev_mode():
             dev_email = 'hi.scott.jones@gmail.com'
             dev_pw = os.getenv('DEV_ADMIN_PW') or 'OHsj1984'
             # create or update user with admin flag
@@ -718,15 +739,13 @@ def launch_page():
 @app.get("/app")
 def index():
     """Main application page for authenticated users."""
-    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
-    return render_template("index.html", is_dev=is_dev, initial_user=_initial_user_payload())
+    return render_template("index.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
 
 @app.get("/generate")
 def generate_page():
     """Dashboard for generating content after onboarding completes."""
-    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
-    return render_template("dashboard.html", is_dev=is_dev, initial_user=_initial_user_payload())
+    return render_template("dashboard.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
 
 def _ensure_admin_csrf_token() -> Optional[str]:
@@ -1713,17 +1732,6 @@ def _get_active_profile_dict():
     if not row:
         return None
     return _profile_row_to_dict(row)
-
-
-def _is_dev_mode() -> bool:
-    if os.getenv('FLASK_ENV') == 'development':
-        return True
-    if os.getenv('ALLOW_DEV_DEBUG') == '1':
-        return True
-    # allow dev helpers when running under automated tests/CI
-    if os.getenv('PYTEST_CURRENT_TEST') or os.getenv('CI') == '1':
-        return True
-    return False
 
 
 def _get_current_user_row():

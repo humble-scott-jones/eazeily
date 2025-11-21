@@ -40,3 +40,19 @@ def test_dev_admin_seed_and_create_user(client):
     body = rv3.get_data(as_text=True)
     # admin page shows admin controls when allowed; look for 'Reconcile' button or similar marker
     assert re.search(r'Reconcile', body, re.IGNORECASE) or 'admin' in body.lower()
+
+
+def test_is_dev_mode_handles_truthy_env(monkeypatch):
+    monkeypatch.delenv('FLASK_ENV', raising=False)
+    monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)
+    monkeypatch.delenv('CI', raising=False)
+    monkeypatch.setenv('ALLOW_DEV_DEBUG', 'true')
+    assert togetherly_app._is_dev_mode() is True
+
+
+def test_is_dev_mode_supports_dev_env(monkeypatch):
+    monkeypatch.setenv('FLASK_ENV', 'Development')
+    monkeypatch.delenv('ALLOW_DEV_DEBUG', raising=False)
+    monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)
+    monkeypatch.delenv('CI', raising=False)
+    assert togetherly_app._is_dev_mode() is True
