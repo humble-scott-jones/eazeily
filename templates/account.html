@@ -7,7 +7,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 text-slate-900">
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 text-slate-900"
+  data-team-tier="{{ subscription_tier or '' }}"
+  data-team-access="{{ '1' if is_team_tier else '0' }}"
+  data-is-admin="{{ '1' if is_admin else '0' }}"
+  data-team-email="{{ user['email'] if user else '' }}">
   <header class="px-6 py-5 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
       <div class="max-w-6xl mx-auto flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -89,7 +93,12 @@
     </section>
 
     {% if is_admin %}
-    <section id="admin-panel" class="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-6 space-y-6" data-admin-csrf="{{ admin_csrf or '' }}">
+    <section id="admin-panel" class="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-6 space-y-6"
+      data-admin-csrf="{{ admin_csrf or '' }}"
+      data-team-limit="{{ team_capacity or 10 }}"
+      data-admin-mode="{{ (admin_scope.mode if admin_scope) or 'restricted' }}"
+      data-team-owner-id="{{ (admin_scope.team_owner_id if admin_scope) or '' }}"
+      data-team-owner-email="{{ (admin_scope.team_owner_email if admin_scope) or '' }}">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p class="text-xs uppercase tracking-[0.35em] text-slate-500 mb-1">Admin snapshot</p>
@@ -133,10 +142,91 @@
           </tbody>
         </table>
       </div>
+      <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 space-y-4" id="team-management-card">
+        <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.35em] text-slate-500">Team seats</p>
+            <h3 class="text-lg font-semibold text-slate-900">Invite collaborators without leaving your account</h3>
+            <p class="text-sm text-slate-500">Owners on the team plan can manage up to {{ team_capacity or 10 }} members.</p>
+          </div>
+          <div class="text-sm font-semibold text-slate-700" id="team-seat-usage">0 / {{ team_capacity or 10 }} seats</div>
+        </div>
+        <div id="team-scope-banner" class="hidden rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          You're scoped to <span id="team-scope-email" class="font-semibold">your account</span>. Super admins can switch between team owners.
+        </div>
+        <div id="team-empty-state" class="text-sm text-slate-500">No team plans to manage yet.</div>
+        <div id="team-tools" class="hidden space-y-4">
+          <label class="flex flex-col text-sm text-slate-700">
+            Team account
+            <select id="team-owner-select" class="input mt-1"></select>
+          </label>
+          <ul id="team-member-list" class="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white"></ul>
+          <form id="team-member-form" class="flex flex-col gap-3 md:flex-row">
+            <input type="email" id="team-member-email" class="input flex-1" placeholder="teammate@company.com" autocomplete="off" required />
+            <button type="submit" id="team-member-submit" class="btn-primary md:w-auto">Add member</button>
+          </form>
+          <p id="team-limit-warning" class="hidden text-sm text-amber-600">Seat limit reached. Remove a member to invite someone new.</p>
+          <p id="team-member-error" class="hidden text-sm text-red-600"></p>
+        </div>
+      </div>
       <div>
         <p id="admin-reconcile-status" class="text-xs text-slate-500"></p>
         <pre id="admin-reconcile-log" class="mt-2 text-xs bg-slate-900/90 text-white rounded-xl p-3 overflow-x-auto hidden"></pre>
       </div>
+    </section>
+    {% endif %}
+
+    {% if is_team_tier %}
+    <section id="team-approvals" class="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-6 space-y-6"
+      data-team-user="1">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.35em] text-slate-500 mb-1">Team approvals</p>
+          <h2 class="text-2xl font-semibold text-slate-900">Keep copy and campaigns aligned before publishing</h2>
+          <p class="text-sm text-slate-500">Submit new plans for review, track decisions, and capture change notes.</p>
+        </div>
+        <div class="flex gap-2">
+          <button id="team-approvals-refresh" class="btn-ghost btn-sm">Refresh queue</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="team-approval-stats">
+        <div class="p-4 rounded-xl bg-slate-50 border">
+          <p class="text-xs text-slate-500">Pending</p>
+          <p id="stat-approvals-pending" class="text-2xl font-semibold text-amber-600">—</p>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-50 border">
+          <p class="text-xs text-slate-500">Approved</p>
+          <p id="stat-approvals-approved" class="text-2xl font-semibold text-emerald-600">—</p>
+        </div>
+        <div class="p-4 rounded-xl bg-slate-50 border">
+          <p class="text-xs text-slate-500">Changes requested</p>
+          <p id="stat-approvals-changes" class="text-2xl font-semibold text-rose-600">—</p>
+        </div>
+      </div>
+      <div id="team-approval-empty" class="text-sm text-slate-500">No approval requests yet. Use the form below to send your first plan.</div>
+      <div id="team-approval-list" class="space-y-4"></div>
+      <form id="team-approval-form" class="space-y-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-5">
+        <div>
+          <label for="team-approval-title" class="block text-sm font-medium text-slate-700 mb-1">Request title</label>
+          <input type="text" id="team-approval-title" class="input w-full" placeholder="e.g. January promo plan" required />
+        </div>
+        <div>
+          <label for="team-approval-link" class="block text-sm font-medium text-slate-700 mb-1">Content link</label>
+          <input type="url" id="team-approval-link" class="input w-full" placeholder="Share a doc or Swelly link" required />
+        </div>
+        <div>
+          <label for="team-approval-reviewers" class="block text-sm font-medium text-slate-700 mb-1">Reviewers (optional)</label>
+          <input type="text" id="team-approval-reviewers" class="input w-full" placeholder="Comma-separated emails" />
+        </div>
+        <div>
+          <label for="team-approval-note" class="block text-sm font-medium text-slate-700 mb-1">Notes for reviewers</label>
+          <textarea id="team-approval-note" class="input w-full" rows="3" placeholder="Call out what needs attention"></textarea>
+        </div>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p id="team-approval-status" class="text-sm text-slate-500"></p>
+          <button type="submit" id="team-approval-submit" class="btn-primary sm:w-auto">Submit for approval</button>
+        </div>
+      </form>
     </section>
     {% endif %}
   </main>
@@ -155,7 +245,7 @@
         if (!r.ok){ const j = await r.json().catch(()=>null); alert((j && j.error) || 'Checkout failed'); return; }
         const j = await r.json(); if (j && j.url) window.location.href = j.url; else alert('Checkout failed');
       });
-  const cancelBtn = document.getElementById('cancel-sub');
+      const cancelBtn = document.getElementById('cancel-sub');
       const cancelModal = document.createElement('div');
       cancelModal.id = 'cancel-modal'; cancelModal.className = 'fixed inset-0 bg-black/40 hidden items-center justify-center';
       cancelModal.innerHTML = `<div class="bg-white rounded p-4 max-w-sm w-full"><p class="mb-3">Are you sure you want to cancel your subscription? You can reopen it anytime.</p><div class="flex gap-2"><button id="cancel-no" class="btn-secondary">No</button><button id="cancel-yes" class="btn-primary btn-small">Yes, cancel</button></div></div>`;
@@ -172,7 +262,6 @@
           window.location.reload();
         }catch(e){ alert('Cancel failed'); btn.disabled = false; btn.textContent = 'Yes, cancel'; }
       });
-      // Sign out handler
       const signOutBtn = document.getElementById('sign-out');
       if (signOutBtn){
         signOutBtn.addEventListener('click', async () => {
@@ -181,65 +270,517 @@
             signOutBtn.textContent = 'Signing out…';
             const r = await fetch('/api/logout', { method: 'POST', credentials: 'include' });
             if (!r.ok){ const j = await r.json().catch(()=>null); alert((j && j.error) || 'Sign out failed'); signOutBtn.disabled = false; signOutBtn.textContent = 'Sign out'; return; }
-            // on success redirect home
             window.location.href = '/';
           }catch(e){ alert('Sign out failed'); signOutBtn.disabled = false; signOutBtn.textContent = 'Sign out'; }
         });
       }
 
       const adminPanel = document.getElementById('admin-panel');
+      const adminState = {
+        csrf: adminPanel?.dataset.adminCsrf || '',
+        teamLimit: adminPanel ? parseInt(adminPanel.dataset.teamLimit || '10', 10) : 10,
+        adminMode: adminPanel?.dataset.adminMode || 'restricted',
+        teamOwnerId: adminPanel?.dataset.teamOwnerId || null,
+        teamOwnerEmail: adminPanel?.dataset.teamOwnerEmail || ''
+      };
+      const teamState = {
+        owners: [],
+        selectedOwnerId: adminState.teamOwnerId || null,
+        limit: adminState.teamLimit
+      };
+
       if (adminPanel) {
-        const csrf = adminPanel.getAttribute('data-admin-csrf') || '';
-        hydrateAdminPanel(csrf);
+        hydrateAdminPanel();
+        document.getElementById('team-owner-select')?.addEventListener('change', event => {
+          teamState.selectedOwnerId = event.target.value || null;
+          renderTeamMembers();
+        });
+        document.getElementById('team-member-form')?.addEventListener('submit', handleTeamMemberSubmit);
+        document.getElementById('team-member-list')?.addEventListener('click', handleTeamMemberListClick);
       }
 
-      async function hydrateAdminPanel(csrfToken){
+      const approvalsSection = document.getElementById('team-approvals');
+      const approvalsState = { items: [] };
+      if (approvalsSection) {
+        loadTeamApprovals();
+        document.getElementById('team-approvals-refresh')?.addEventListener('click', () => loadTeamApprovals());
+        document.getElementById('team-approval-form')?.addEventListener('submit', handleApprovalSubmit);
+        document.getElementById('team-approval-list')?.addEventListener('click', handleApprovalListClick);
+      }
+
+      async function hydrateAdminPanel(){
         try {
           const res = await fetch('/api/admin/users', { credentials: 'include' });
-          const payload = await res.json();
-          if (!res.ok || !payload.ok) {
-            document.getElementById('admin-users-body').innerHTML = `<tr><td colspan="4" class="text-center text-red-500 p-4">${(payload && payload.error) || 'Failed to load admin data'}</td></tr>`;
+          const payload = await res.json().catch(() => null);
+          if (!res.ok || !payload?.ok) {
+            setAdminTableError((payload && payload.error) || 'Failed to load admin data');
+            hydrateTeamManagement({ teams: [] });
             return;
           }
-          document.getElementById('stat-admin-total').textContent = payload.stats.total_users;
-          document.getElementById('stat-admin-paid').textContent = payload.stats.paid_users;
-          document.getElementById('stat-admin-free').textContent = payload.stats.free_users;
-          document.getElementById('stat-admin-profiles').textContent = payload.stats.profile_stats.total_profiles;
-          const rows = payload.users.slice(0, 8).map(user => {
-            const status = user.is_paid ? '<span class="text-emerald-600 font-medium">Paid</span>' : '<span class="text-slate-500">Free</span>';
-            const sub = user.subscription_status || '—';
-            const created = new Date(user.created_at).toLocaleDateString();
-            return `<tr class="border-t"><td class="p-3">${user.email}</td><td class="p-3">${status}</td><td class="p-3">${sub}</td><td class="p-3 text-slate-500">${created}</td></tr>`;
-          }).join('');
-          document.getElementById('admin-users-body').innerHTML = rows || '<tr><td colspan="4" class="text-center text-slate-400 p-4">No users yet</td></tr>';
-          const reconcileBtn = document.getElementById('admin-reconcile');
-          reconcileBtn?.addEventListener('click', async () => {
-            reconcileBtn.disabled = true;
-            reconcileBtn.textContent = 'Syncing…';
-            const statusEl = document.getElementById('admin-reconcile-status');
-            const logEl = document.getElementById('admin-reconcile-log');
-            if (logEl) { logEl.textContent = ''; logEl.classList.add('hidden'); }
-            try {
-              const resp = await fetch('/api/reconcile-job?wait=1', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': csrfToken } });
-              const body = await resp.json().catch(()=>null);
-              statusEl.textContent = resp.ok ? 'Stripe sync complete' : (body && body.error) || 'Sync failed';
-              statusEl.className = resp.ok ? 'text-xs text-emerald-600' : 'text-xs text-red-600';
-              if (body && body.job) {
-                logEl.classList.remove('hidden');
-                logEl.textContent = JSON.stringify(body.job, null, 2);
-              }
-              await hydrateAdminPanel(csrfToken);
-            } catch (err) {
-              statusEl.textContent = 'Sync failed';
-              statusEl.className = 'text-xs text-red-600';
-            } finally {
-              reconcileBtn.disabled = false;
-              reconcileBtn.textContent = 'Sync Stripe state';
-            }
-          }, { once: true });
+          applyAdminStats(payload.stats);
+          renderAdminUsers(payload.users);
+          updateTeamScope(payload.scope);
+          hydrateTeamManagement(payload);
+          bindReconcileButton();
         } catch (err) {
-          document.getElementById('admin-users-body').innerHTML = `<tr><td colspan="4" class="text-center text-red-500 p-4">${err?.message || 'Failed to load admin data'}</td></tr>`;
+          setAdminTableError(err?.message || 'Failed to load admin data');
+          hydrateTeamManagement({ teams: [] });
         }
+      }
+
+      function applyAdminStats(stats){
+        if (!stats) return;
+        document.getElementById('stat-admin-total').textContent = stats.total_users ?? '0';
+        document.getElementById('stat-admin-paid').textContent = stats.paid_users ?? '0';
+        document.getElementById('stat-admin-free').textContent = stats.free_users ?? '0';
+        document.getElementById('stat-admin-profiles').textContent = stats.profile_stats?.total_profiles ?? '0';
+      }
+
+      function renderAdminUsers(users){
+        const body = document.getElementById('admin-users-body');
+        if (!body) return;
+        if (!Array.isArray(users) || !users.length) {
+          body.innerHTML = '<tr><td colspan="4" class="text-center text-slate-400 p-4">No users yet</td></tr>';
+          return;
+        }
+        body.innerHTML = users.slice(0, 8).map(user => {
+          const status = user.is_paid ? '<span class="text-emerald-600 font-medium">Paid</span>' : '<span class="text-slate-500">Free</span>';
+          const sub = user.subscription_status || '—';
+          const created = user.created_at ? new Date(user.created_at).toLocaleDateString() : '—';
+          return `<tr class="border-t"><td class="p-3">${user.email}</td><td class="p-3">${status}</td><td class="p-3">${sub}</td><td class="p-3 text-slate-500">${created}</td></tr>`;
+        }).join('');
+      }
+
+      function setAdminTableError(message){
+        const body = document.getElementById('admin-users-body');
+        if (body) {
+          body.innerHTML = `<tr><td colspan="4" class="text-center text-red-500 p-4">${message}</td></tr>`;
+        }
+      }
+
+      function bindReconcileButton(){
+        const reconcileBtn = document.getElementById('admin-reconcile');
+        if (!reconcileBtn) return;
+        reconcileBtn.disabled = false;
+        reconcileBtn.textContent = 'Sync Stripe state';
+        reconcileBtn.onclick = async () => {
+          reconcileBtn.disabled = true;
+          reconcileBtn.textContent = 'Syncing…';
+          const statusEl = document.getElementById('admin-reconcile-status');
+          const logEl = document.getElementById('admin-reconcile-log');
+          if (logEl) { logEl.textContent = ''; logEl.classList.add('hidden'); }
+          try {
+            const resp = await fetch('/api/reconcile-job?wait=1', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': adminState.csrf } });
+            const body = await resp.json().catch(()=>null);
+            statusEl.textContent = resp.ok ? 'Stripe sync complete' : (body && body.error) || 'Sync failed';
+            statusEl.className = resp.ok ? 'text-xs text-emerald-600' : 'text-xs text-red-600';
+            if (body && body.job) {
+              logEl.classList.remove('hidden');
+              logEl.textContent = JSON.stringify(body.job, null, 2);
+            }
+            await hydrateAdminPanel();
+          } catch (err) {
+            statusEl.textContent = 'Sync failed';
+            statusEl.className = 'text-xs text-red-600';
+          } finally {
+            reconcileBtn.disabled = false;
+            reconcileBtn.textContent = 'Sync Stripe state';
+          }
+        };
+      }
+
+      function updateTeamScope(scope){
+        const banner = document.getElementById('team-scope-banner');
+        const emailEl = document.getElementById('team-scope-email');
+        if (!banner || !emailEl) return;
+        const mode = scope?.mode || adminState.adminMode;
+        if (mode === 'team') {
+          banner.classList.remove('hidden');
+          emailEl.textContent = scope?.team_owner_email || adminState.teamOwnerEmail || 'your account';
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
+
+      function hydrateTeamManagement(payload){
+        const teams = Array.isArray(payload?.teams) ? payload.teams : [];
+        const emptyState = document.getElementById('team-empty-state');
+        const tools = document.getElementById('team-tools');
+        setTeamError('');
+        if (!teams.length) {
+          teamState.owners = [];
+          teamState.selectedOwnerId = null;
+          const seatUsage = document.getElementById('team-seat-usage');
+          if (seatUsage) seatUsage.textContent = `0 / ${teamState.limit} seats`;
+          emptyState?.classList.remove('hidden');
+          tools?.classList.add('hidden');
+          renderTeamOwnerSelect();
+          renderTeamMembers();
+          return;
+        }
+        teamState.owners = teams;
+        if (!teamState.selectedOwnerId || !teamState.owners.find(team => team.owner_id === teamState.selectedOwnerId)) {
+          teamState.selectedOwnerId = teamState.owners[0].owner_id;
+        }
+        emptyState?.classList.add('hidden');
+        tools?.classList.remove('hidden');
+        renderTeamOwnerSelect();
+        renderTeamMembers();
+      }
+
+      function renderTeamOwnerSelect(){
+        const select = document.getElementById('team-owner-select');
+        if (!select) return;
+        select.innerHTML = '';
+        teamState.owners.forEach(team => {
+          const opt = document.createElement('option');
+          opt.value = team.owner_id;
+          opt.textContent = team.owner_email;
+          select.appendChild(opt);
+        });
+        if (teamState.selectedOwnerId) {
+          select.value = teamState.selectedOwnerId;
+        }
+      }
+
+      function renderTeamMembers(){
+  const list = document.getElementById('team-member-list');
+  const seatUsage = document.getElementById('team-seat-usage');
+        const form = document.getElementById('team-member-form');
+        const emailInput = document.getElementById('team-member-email');
+        const submitBtn = document.getElementById('team-member-submit');
+        const limitNote = document.getElementById('team-limit-warning');
+        if (!list) return;
+        list.innerHTML = '';
+        const owner = teamState.owners.find(team => team.owner_id === teamState.selectedOwnerId);
+        const members = owner?.members || [];
+        if (seatUsage) {
+          seatUsage.textContent = `${members.length} / ${(owner?.member_limit) || teamState.limit} seats`;
+        }
+        if (!members.length) {
+          const li = document.createElement('li');
+          li.className = 'px-4 py-3 text-sm text-slate-500';
+          li.textContent = 'No team members yet.';
+          list.appendChild(li);
+        } else {
+          members.forEach(member => {
+            const li = document.createElement('li');
+            li.className = 'flex flex-col gap-2 md:flex-row md:items-center md:justify-between px-4 py-3';
+            const info = document.createElement('div');
+            info.innerHTML = `<p class="font-medium text-slate-900 break-words">${member.email}</p><p class="text-xs text-slate-500">${member.created_at ? `Added ${new Date(member.created_at).toLocaleDateString()}` : 'Recently added'}</p>`;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-ghost btn-sm';
+            btn.textContent = 'Remove';
+            btn.setAttribute('data-remove-member', member.id);
+            li.appendChild(info);
+            li.appendChild(btn);
+            list.appendChild(li);
+          });
+        }
+        const limit = owner?.member_limit || teamState.limit;
+        const limitReached = members.length >= limit;
+        if (emailInput) emailInput.disabled = limitReached;
+        if (submitBtn) submitBtn.disabled = limitReached;
+        form?.classList.toggle('opacity-50', limitReached);
+        limitNote?.classList.toggle('hidden', !limitReached);
+      }
+
+      function setTeamError(message){
+        const el = document.getElementById('team-member-error');
+        if (!el) return;
+        if (message) {
+          el.textContent = message;
+          el.classList.remove('hidden');
+        } else {
+          el.textContent = '';
+          el.classList.add('hidden');
+        }
+      }
+
+      async function handleTeamMemberSubmit(event){
+        event.preventDefault();
+        if (!teamState.selectedOwnerId) {
+          setTeamError('Select a team account first.');
+          return;
+        }
+        const emailInput = document.getElementById('team-member-email');
+        const submitBtn = document.getElementById('team-member-submit');
+        if (!emailInput) return;
+        const email = emailInput.value.trim();
+        if (!email) {
+          setTeamError('Add an email to invite.');
+          return;
+        }
+        setTeamError('');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Adding…';
+        try {
+          const res = await fetch('/api/admin/team-members', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': adminState.csrf
+            },
+            body: JSON.stringify({ owner_id: teamState.selectedOwnerId, email })
+          });
+          const payload = await res.json().catch(() => null);
+          if (!res.ok || !payload?.ok) {
+            setTeamError(payload?.error || 'Unable to add member right now.');
+            return;
+          }
+          emailInput.value = '';
+          await hydrateAdminPanel();
+        } catch (err) {
+          setTeamError(err?.message || 'Unable to add member.');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Add member';
+        }
+      }
+
+      function handleTeamMemberListClick(event){
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) return;
+        const btn = target.closest('[data-remove-member]');
+        if (!btn) return;
+        const memberId = btn.getAttribute('data-remove-member');
+        removeTeamMember(memberId, btn);
+      }
+
+      async function removeTeamMember(memberId, triggerBtn){
+        if (!memberId) return;
+        const idNum = Number(memberId);
+        if (!Number.isFinite(idNum)) {
+          setTeamError('Invalid member id.');
+          return;
+        }
+        triggerBtn.disabled = true;
+        triggerBtn.textContent = 'Removing…';
+        setTeamError('');
+        try {
+          const res = await fetch(`/api/admin/team-members/${idNum}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 'X-CSRF-Token': adminState.csrf }
+          });
+          const payload = await res.json().catch(() => null);
+          if (!res.ok || !payload?.ok) {
+            setTeamError(payload?.error || 'Unable to remove member.');
+            return;
+          }
+          await hydrateAdminPanel();
+        } catch (err) {
+          setTeamError(err?.message || 'Unable to remove member.');
+        } finally {
+          triggerBtn.disabled = false;
+          triggerBtn.textContent = 'Remove';
+        }
+      }
+
+      async function loadTeamApprovals(){
+        try {
+          setApprovalStatus('Loading approvals…', 'muted');
+          const res = await fetch('/api/team/approvals', { credentials: 'include' });
+          const payload = await res.json().catch(() => null);
+          if (!res.ok || !payload?.ok) {
+            setApprovalStatus(payload?.error || 'Unable to load approvals', 'error');
+            return;
+          }
+          approvalsState.items = payload.approvals || [];
+          renderTeamApprovals(approvalsState.items);
+          setApprovalStatus('', 'muted');
+        } catch (err) {
+          setApprovalStatus(err?.message || 'Unable to load approvals', 'error');
+        }
+      }
+
+      function renderTeamApprovals(items){
+        const listEl = document.getElementById('team-approval-list');
+        const emptyEl = document.getElementById('team-approval-empty');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        if (!items.length) {
+          emptyEl?.classList.remove('hidden');
+        } else {
+          emptyEl?.classList.add('hidden');
+          items.forEach(item => listEl.appendChild(buildApprovalCard(item)));
+        }
+        const counts = items.reduce((acc, item) => {
+          const state = (item.state || '').toLowerCase();
+          if (state === 'approved') acc.approved += 1;
+          else if (state === 'changes_requested') acc.changes += 1;
+          else acc.pending += 1;
+          return acc;
+        }, { pending: 0, approved: 0, changes: 0 });
+        document.getElementById('stat-approvals-pending').textContent = counts.pending;
+        document.getElementById('stat-approvals-approved').textContent = counts.approved;
+        document.getElementById('stat-approvals-changes').textContent = counts.changes;
+      }
+
+      function buildApprovalCard(item){
+        const card = document.createElement('div');
+        card.className = 'rounded-2xl border border-slate-200 bg-white p-4 space-y-3';
+        card.dataset.approvalId = item.id;
+        const header = document.createElement('div');
+        header.className = 'flex flex-col gap-2 md:flex-row md:items-center md:justify-between';
+        const info = document.createElement('div');
+        const safeLink = item.content_ref ? escapeHtml(item.content_ref) : '';
+        const linkMarkup = item.content_ref ? `<a class="text-sm text-brand underline" href="${safeLink}" target="_blank" rel="noopener">${safeLink}</a>` : '<span class="text-sm text-slate-500">No link provided</span>';
+        const updatedTs = item.updated_at || item.created_at;
+        const updatedText = updatedTs ? new Date(updatedTs).toLocaleString() : 'just now';
+        info.innerHTML = `<h3 class="text-lg font-semibold text-slate-900">${escapeHtml(item.title || 'Untitled request')}</h3>
+          <p class="text-sm text-slate-500">Content: ${linkMarkup}</p>
+          <p class="text-xs text-slate-400">Updated ${updatedText}</p>`;
+        const badge = document.createElement('span');
+        const state = (item.state || 'pending').toLowerCase();
+        const stateMap = {
+          pending: { label: 'Pending', cls: 'bg-amber-100 text-amber-700' },
+          approved: { label: 'Approved', cls: 'bg-emerald-100 text-emerald-700' },
+          'changes_requested': { label: 'Changes requested', cls: 'bg-rose-100 text-rose-700' }
+        };
+        const stateMeta = stateMap[state] || stateMap.pending;
+        badge.className = `px-3 py-1 text-xs font-semibold rounded-full ${stateMeta.cls}`;
+        badge.textContent = stateMeta.label;
+        header.appendChild(info);
+        header.appendChild(badge);
+        card.appendChild(header);
+
+        if (Array.isArray(item.reviewers) && item.reviewers.length) {
+          const reviewers = document.createElement('div');
+          reviewers.className = 'flex flex-wrap gap-2';
+          reviewers.innerHTML = item.reviewers.map(email => `<span class="px-2 py-1 rounded-full bg-slate-100 text-xs text-slate-700">${escapeHtml(email)}</span>`).join('');
+          const label = document.createElement('p');
+          label.className = 'text-xs uppercase tracking-wide text-slate-500';
+          label.textContent = 'Reviewers';
+          card.appendChild(label);
+          card.appendChild(reviewers);
+        }
+
+        if (state === 'pending') {
+          const actions = document.createElement('div');
+          actions.className = 'flex flex-wrap gap-2 pt-2 border-t border-slate-100';
+          actions.innerHTML = `
+            <button type="button" class="btn-primary btn-sm" data-approval-action="approve" data-approval-id="${item.id}">Approve</button>
+            <button type="button" class="btn-secondary btn-sm" data-approval-action="changes_requested" data-approval-id="${item.id}">Request changes</button>
+          `;
+          card.appendChild(actions);
+        }
+        return card;
+      }
+
+      async function handleApprovalSubmit(event){
+        event.preventDefault();
+        const titleInput = document.getElementById('team-approval-title');
+        const linkInput = document.getElementById('team-approval-link');
+        const reviewersInput = document.getElementById('team-approval-reviewers');
+        const noteInput = document.getElementById('team-approval-note');
+        const submitBtn = document.getElementById('team-approval-submit');
+        if (!titleInput || !linkInput || !submitBtn) return;
+        const payload = {
+          title: titleInput.value.trim(),
+          content_ref: linkInput.value.trim(),
+          reviewers: parseReviewerList(reviewersInput?.value || ''),
+          note: noteInput?.value?.trim() || undefined
+        };
+        if (!payload.title || !payload.content_ref) {
+          setApprovalStatus('Add a title and link first.', 'error');
+          return;
+        }
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting…';
+        setApprovalStatus('Submitting for approval…', 'muted');
+        try {
+          const res = await fetch('/api/team/approvals', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const body = await res.json().catch(() => null);
+          if (!res.ok || !body?.ok) {
+            setApprovalStatus(body?.error || 'Unable to submit approval', 'error');
+            return;
+          }
+          event.target.reset();
+          setApprovalStatus('Sent for approval!', 'success');
+          await loadTeamApprovals();
+        } catch (err) {
+          setApprovalStatus(err?.message || 'Unable to submit approval', 'error');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit for approval';
+        }
+      }
+
+      function parseReviewerList(value){
+        if (!value) return [];
+        return value.split(',').map(item => item.trim()).filter(Boolean);
+      }
+
+      function handleApprovalListClick(event){
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) return;
+        const btn = target.closest('[data-approval-action]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-approval-id');
+        const action = btn.getAttribute('data-approval-action');
+        transitionApproval(id, action, btn);
+      }
+
+      async function transitionApproval(id, action, triggerBtn){
+        if (!id || !action) return;
+        const payload = { action };
+        if (action === 'changes_requested') {
+          const note = window.prompt('Add feedback for the requester (optional)');
+          if (note && note.trim()) {
+            payload.note = note.trim();
+          }
+        }
+        triggerBtn.disabled = true;
+        const originalText = triggerBtn.textContent;
+        triggerBtn.textContent = action === 'approve' ? 'Approving…' : 'Sending…';
+        try {
+          const res = await fetch(`/api/team/approvals/${id}/transition`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const body = await res.json().catch(() => null);
+          if (!res.ok || !body?.ok) {
+            setApprovalStatus(body?.error || 'Unable to update approval', 'error');
+            return;
+          }
+          setApprovalStatus('Approval updated.', 'success');
+          await loadTeamApprovals();
+        } catch (err) {
+          setApprovalStatus(err?.message || 'Unable to update approval', 'error');
+        } finally {
+          triggerBtn.disabled = false;
+          triggerBtn.textContent = originalText;
+        }
+      }
+
+      function setApprovalStatus(message, variant){
+        const el = document.getElementById('team-approval-status');
+        if (!el) return;
+        el.textContent = message || '';
+        if (!message) {
+          el.className = 'text-sm text-slate-500';
+          return;
+        }
+        const classes = {
+          success: 'text-sm text-emerald-600',
+          error: 'text-sm text-red-600',
+          muted: 'text-sm text-slate-500'
+        };
+        el.className = classes[variant] || classes.muted;
+      }
+
+      function escapeHtml(value){
+        return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
       }
     });
   </script>

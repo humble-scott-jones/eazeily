@@ -772,7 +772,7 @@ def account_page():
     if not uid:
         return render_template('account.html', user=None)
     db = get_db()
-    user = db.execute('SELECT id, is_paid, stripe_customer_id FROM users WHERE id = ?', (uid,)).fetchone()
+    user = db.execute('SELECT id, email, is_paid, stripe_customer_id, subscription_tier FROM users WHERE id = ?', (uid,)).fetchone()
     sub = None
     subscription = None
     if user:
@@ -815,7 +815,29 @@ def account_page():
     # pass is_admin flag (and admin CSRF) to template for rendering admin controls inline
     admin_flag = is_admin()
     admin_csrf = _ensure_admin_csrf_token() if admin_flag else None
-    return render_template('account.html', user=user, subscription=subscription, is_admin=admin_flag, admin_csrf=admin_csrf)
+    admin_scope = _get_admin_scope() if admin_flag else {
+        'mode': 'restricted',
+        'is_super_admin': False,
+        'is_team_admin': False,
+        'team_owner_id': None,
+        'team_owner_email': None,
+    }
+    user_team_tier = False
+    user_subscription_tier = None
+    if user and 'subscription_tier' in user.keys():
+        user_subscription_tier = (user['subscription_tier'] or '').lower()
+        user_team_tier = user_subscription_tier == 'team'
+    return render_template(
+        'account.html',
+        user=user,
+        subscription=subscription,
+        is_admin=admin_flag,
+        admin_csrf=admin_csrf,
+        admin_scope=admin_scope,
+        team_capacity=TEAM_MEMBER_LIMIT,
+        is_team_tier=user_team_tier,
+        subscription_tier=user_subscription_tier,
+    )
 
 
 @app.get('/api/account')
