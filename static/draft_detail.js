@@ -118,15 +118,31 @@
     (content || []).forEach((section) => {
       const card = document.createElement('article');
       card.className = 'bg-white border border-slate-200 rounded-2xl shadow-sm p-5 space-y-3';
-      card.innerHTML = `
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-xs uppercase tracking-[0.3em] text-slate-500">${section.heading || 'Section'}</p>
-            <h3 class="text-xl font-semibold text-slate-900">${section.text || ''}</h3>
-          </div>
-          <span class="text-xs text-slate-500">Paragraph ID: ${section.id}</span>
-        </div>
-      `;
+      // Build the card content using DOM APIs to avoid XSS
+      const flexDiv = document.createElement('div');
+      flexDiv.className = 'flex items-center justify-between';
+
+      const leftDiv = document.createElement('div');
+
+      const headingP = document.createElement('p');
+      headingP.className = 'text-xs uppercase tracking-[0.3em] text-slate-500';
+      headingP.textContent = section.heading || 'Section';
+
+      const textH3 = document.createElement('h3');
+      textH3.className = 'text-xl font-semibold text-slate-900';
+      textH3.textContent = section.text || '';
+
+      leftDiv.appendChild(headingP);
+      leftDiv.appendChild(textH3);
+
+      const idSpan = document.createElement('span');
+      idSpan.className = 'text-xs text-slate-500';
+      idSpan.textContent = `Paragraph ID: ${section.id}`;
+
+      flexDiv.appendChild(leftDiv);
+      flexDiv.appendChild(idSpan);
+
+      card.appendChild(flexDiv);
       const threadContainer = document.createElement('div');
       threadContainer.className = 'space-y-3';
       (threadMap.get(section.id) || []).forEach((thread) => {
