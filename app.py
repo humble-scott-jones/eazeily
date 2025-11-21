@@ -1867,7 +1867,10 @@ def api_team_draft_comment(draft_id: str):
     db.commit()
     row = db.execute('SELECT * FROM team_draft_comments WHERE id = ?', (cid,)).fetchone()
     return jsonify({'ok': True, 'comment': _serialize_comment_row(row), 'thread_id': thread_id})
-
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    rl = _enforce_rate_limit(f"{request.remote_addr}:team-draft-status", capacity=30, refill_seconds=60)
+    if rl:
+        return rl
 
 @app.post('/api/team/drafts/<draft_id>/status')
 def api_team_draft_status(draft_id: str):
