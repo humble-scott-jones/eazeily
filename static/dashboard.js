@@ -1212,10 +1212,11 @@ function renderActivityTypeChips() {
     btn.addEventListener('click', () => {
       if (activityFilterState.types.has(key)) {
         activityFilterState.types.delete(key);
+        btn.classList.remove('activity-chip--active');
       } else {
         activityFilterState.types.add(key);
+        btn.classList.add('activity-chip--active');
       }
-      renderActivityTypeChips();
       renderActivityFeed();
     });
     wrap.appendChild(btn);
