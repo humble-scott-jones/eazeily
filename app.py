@@ -593,6 +593,42 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_team_approvals_owner_state ON team_approvals(owner_user_id, state);
+        CREATE TABLE IF NOT EXISTS team_drafts (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            title TEXT,
+            campaign TEXT,
+            status TEXT DEFAULT 'draft',
+            assignee_email TEXT,
+            due_date DATETIME,
+            content TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_drafts_owner_status ON team_drafts(owner_user_id, status);
+        CREATE TABLE IF NOT EXISTS team_draft_comments (
+            id TEXT PRIMARY KEY,
+            draft_id TEXT NOT NULL,
+            paragraph_id TEXT,
+            author_user_id TEXT NOT NULL,
+            body TEXT,
+            thread_id TEXT NOT NULL,
+            parent_id TEXT,
+            mentions TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_draft_comments_draft ON team_draft_comments(draft_id);
+        CREATE TABLE IF NOT EXISTS team_draft_revisions (
+            id TEXT PRIMARY KEY,
+            draft_id TEXT NOT NULL,
+            author_user_id TEXT NOT NULL,
+            summary TEXT,
+            kind TEXT DEFAULT 'revision',
+            details TEXT,
+            content_snapshot TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_draft_revisions_draft ON team_draft_revisions(draft_id);
         """
     )
     # Backfill for upgrades
@@ -746,6 +782,25 @@ def index():
 def generate_page():
     """Dashboard for generating content after onboarding completes."""
     return render_template("dashboard.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
+
+
+@app.get('/inbox')
+def inbox_page():
+    """Legacy inbox route retained for backward compatibility."""
+    return redirect(url_for('planner_page'), code=302)
+
+
+@app.get('/planner')
+def planner_page():
+    """Content planner for generated drafts and approvals."""
+    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
+    return render_template('planner.html', is_dev=is_dev, initial_user=_initial_user_payload())
+
+
+@app.get('/drafts/<draft_id>')
+def draft_detail_page(draft_id: str):
+    """Detailed draft view with comments and approvals."""
+    return render_template('draft_detail.html', draft_id=draft_id, initial_user=_initial_user_payload())
 
 
 def _ensure_admin_csrf_token() -> Optional[str]:
@@ -1492,6 +1547,158 @@ def _serialize_approval_row(row):
     return raw
 
 
+def _serialize_draft_row(row):
+    if not row:
+        return None
+    data = row_to_mapping(row) or {}
+    data['content'] = _deserialize_json(data.get('content'), [])
+    due_date = data.get('due_date')
+    if due_date:
+        try:
+            # sqlite returns strings while Postgres may return datetime
+            data['due_date'] = due_date if isinstance(due_date, str) else due_date.isoformat()
+        except Exception:
+            data['due_date'] = str(due_date)
+    return data
+
+
+def _serialize_comment_row(row):
+    if not row:
+        return None
+    data = row_to_mapping(row) or {}
+    data['mentions'] = _deserialize_json(data.get('mentions'), [])
+    return data
+
+
+def _serialize_revision_row(row):
+    if not row:
+        return None
+    data = row_to_mapping(row) or {}
+    data['details'] = _deserialize_json(data.get('details'), {})
+    return data
+
+
+def _build_comment_threads(comments):
+    threads = {}
+    for c in comments:
+        cm = _serialize_comment_row(c)
+        tid = cm.get('thread_id') or cm.get('id')
+        if tid not in threads:
+            threads[tid] = {
+                'thread_id': tid,
+                'paragraph_id': cm.get('paragraph_id') or '',
+                'comments': [],
+            }
+        threads[tid]['comments'].append(cm)
+    return list(threads.values())
+
+
+def _ensure_demo_drafts(owner_id: str):
+    if not owner_id:
+        return
+    db = get_db()
+    existing = db.execute('SELECT id FROM team_drafts WHERE owner_user_id = ? LIMIT 1', (owner_id,)).fetchone()
+    if existing:
+        return
+    now = datetime.now(timezone.utc)
+    drafts = [
+        {
+            'title': 'Community drip campaign',
+            'campaign': 'Fall Product Drop',
+            'status': 'in_review',
+            'assignee_email': 'alex@brandco.com',
+            'due_date': now + timedelta(days=2),
+            'content': [
+                {'id': 'hook', 'heading': 'Hook', 'text': 'Introduce the collection with a community-first hook.'},
+                {'id': 'body', 'heading': 'Body', 'text': 'Highlight the new colors and preorder bonus for waitlist members.'},
+                {'id': 'cta', 'heading': 'CTA', 'text': 'Push to RSVP for the livestream reveal with a shortlink.'},
+            ],
+        },
+        {
+            'title': 'Founder note',
+            'campaign': 'Monthly Newsletter',
+            'status': 'draft',
+            'assignee_email': 'taylor@brandco.com',
+            'due_date': now + timedelta(days=4),
+            'content': [
+                {'id': 'intro', 'heading': 'Intro', 'text': 'Open with the behind-the-scenes from the studio build.'},
+                {'id': 'update', 'heading': 'Update', 'text': 'Share metrics from the early access cohort and lessons learned.'},
+                {'id': 'close', 'heading': 'Close', 'text': 'Reaffirm the mission and invite replies for Q4 topics.'},
+            ],
+        },
+        {
+            'title': 'UGC round-up',
+            'campaign': 'Community Highlights',
+            'status': 'approved',
+            'assignee_email': 'sam@brandco.com',
+            'due_date': now + timedelta(days=1),
+            'content': [
+                {'id': 'lead', 'heading': 'Lead', 'text': 'Feature the creator spotlights with their @handles.'},
+                {'id': 'proof', 'heading': 'Proof', 'text': 'Add short quotes from comments to show social proof.'},
+                {'id': 'cta', 'heading': 'CTA', 'text': 'Invite more submissions with the branded hashtag.'},
+            ],
+        },
+        {
+            'title': 'Paid social carousel',
+            'campaign': 'Fall Product Drop',
+            'status': 'scheduled',
+            'assignee_email': 'casey@brandco.com',
+            'due_date': now + timedelta(days=6),
+            'content': [
+                {'id': 'slide1', 'heading': 'Hook', 'text': 'Lead with the customer stat and a bold headline.'},
+                {'id': 'slide2', 'heading': 'Story', 'text': 'Walk through the before/after problem set with visuals.'},
+                {'id': 'slide3', 'heading': 'CTA', 'text': 'Close with preorder CTA and shipping date.'},
+            ],
+        },
+    ]
+    for item in drafts:
+        did = str(uuid.uuid4())
+        due_iso = item['due_date'].isoformat()
+        now_iso = now.isoformat()
+        db.execute(
+            'INSERT INTO team_drafts (id, owner_user_id, title, campaign, status, assignee_email, due_date, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                did,
+                owner_id,
+                item['title'],
+                item['campaign'],
+                item['status'],
+                item['assignee_email'],
+                due_iso,
+                json.dumps(item['content']),
+                now_iso,
+                now_iso,
+            ),
+        )
+        db.execute(
+            'INSERT INTO team_draft_revisions (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                str(uuid.uuid4()),
+                did,
+                owner_id,
+                'Draft created',
+                'status',
+                json.dumps({'from': None, 'to': item['status']}),
+                json.dumps(item['content']),
+                now_iso,
+            ),
+        )
+        db.execute(
+            'INSERT INTO team_draft_comments (id, draft_id, paragraph_id, author_user_id, body, thread_id, parent_id, mentions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                str(uuid.uuid4()),
+                did,
+                item['content'][0]['id'],
+                owner_id,
+                'Kickoff note: keep the voice tight and actionable.',
+                str(uuid.uuid4()),
+                None,
+                json.dumps(['alex@brandco.com']),
+                now_iso,
+            ),
+        )
+    db.commit()
+
 def _current_team_user():
     user_row = _get_current_user_row()
     if not user_row:
@@ -1578,6 +1785,177 @@ def api_team_approvals_transition(approval_id: str):
     updated = db.execute('SELECT * FROM team_approvals WHERE id = ?', (approval_id,)).fetchone()
     events = db.execute('SELECT * FROM team_approval_events WHERE approval_id = ? ORDER BY created_at DESC', (approval_id,)).fetchall()
     return jsonify({'ok': True, 'approval': _serialize_approval_row(updated), 'events': [dict(e) for e in events]})
+
+
+@app.get('/api/team/drafts')
+def api_team_drafts_list():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    owner_id = user_row['id']
+    _ensure_demo_drafts(owner_id)
+    db = get_db()
+    campaign_filter = (request.args.get('campaign') or '').strip()
+    assignee_filter = (request.args.get('assignee') or '').strip()
+    status_filter = (request.args.get('status') or '').strip().lower()
+    clauses = []
+    params = [owner_id]
+    if campaign_filter:
+        clauses.append('campaign = ?')
+        params.append(campaign_filter)
+    if assignee_filter:
+        clauses.append('assignee_email = ?')
+        params.append(assignee_filter)
+    if status_filter:
+        clauses.append('LOWER(status) = ?')
+        params.append(status_filter)
+    query = """
+        SELECT d.*, (
+            SELECT COUNT(*) FROM team_draft_comments c WHERE c.draft_id = d.id
+        ) AS comment_count
+        FROM team_drafts d
+        WHERE d.owner_user_id = ?
+    """
+    if clauses:
+        query += " AND " + " AND ".join(clauses)
+    query += " ORDER BY COALESCE(due_date, created_at) ASC"
+    rows = db.execute(query, params).fetchall()
+    # Compute filter options from the already-fetched rows to avoid a second query
+    campaigns = sorted(set([row['campaign'] or 'Uncategorized' for row in rows]))
+    assignees = sorted(set([(row['assignee_email'] or '').strip() for row in rows if (row['assignee_email'] or '').strip()]))
+    statuses = sorted(set([(row['status'] or 'draft').lower() for row in rows]))
+    return jsonify({
+        'ok': True,
+        'drafts': [_serialize_draft_row(r) for r in rows],
+        'filters': {
+            'campaigns': campaigns,
+            'assignees': assignees,
+            'statuses': statuses or ['draft', 'in_review', 'approved', 'scheduled']
+        }
+    })
+
+
+@app.get('/api/team/drafts/<draft_id>')
+def api_team_draft_detail(draft_id: str):
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    owner_id = user_row['id']
+    _ensure_demo_drafts(owner_id)
+    db = get_db()
+    draft = db.execute('SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
+    if not draft:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+    comments = db.execute('SELECT * FROM team_draft_comments WHERE draft_id = ? ORDER BY created_at ASC', (draft_id,)).fetchall()
+    threads = _build_comment_threads(comments)
+    revisions = db.execute('SELECT * FROM team_draft_revisions WHERE draft_id = ? ORDER BY created_at DESC', (draft_id,)).fetchall()
+    return jsonify({
+        'ok': True,
+        'draft': _serialize_draft_row(draft),
+        'threads': threads,
+        'revisions': [_serialize_revision_row(r) for r in revisions]
+    })
+
+
+@app.post('/api/team/drafts/<draft_id>/comment')
+def api_team_draft_comment(draft_id: str):
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    data = request.get_json(force=True) or {}
+    body = (data.get('body') or '').strip()
+    paragraph_id = (data.get('paragraph_id') or '').strip()
+    parent_id = (data.get('parent_id') or '').strip() or None
+    mentions = data.get('mentions') or []
+    if not body:
+        return jsonify({'ok': False, 'error': 'Comment text is required'}), 400
+    if len(body) > 10000:
+        return jsonify({'ok': False, 'error': 'Comment is too long (max 10,000 characters)'}), 400
+    if not isinstance(mentions, list):
+        mentions = []
+    mentions = [str(m).strip() for m in mentions if str(m).strip()]
+    owner_id = user_row['id']
+    db = get_db()
+    draft = db.execute('SELECT id FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
+    if not draft:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+    thread_id = None
+    if parent_id:
+        parent = db.execute('SELECT thread_id FROM team_draft_comments WHERE id = ? AND draft_id = ?', (parent_id, draft_id)).fetchone()
+        if not parent:
+            return jsonify({'ok': False, 'error': 'Parent comment not found'}), 404
+        thread_id = parent['thread_id'] or parent_id
+    if not thread_id:
+        thread_id = str(uuid.uuid4())
+    cid = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    db.execute(
+        'INSERT INTO team_draft_comments (id, draft_id, paragraph_id, author_user_id, body, thread_id, parent_id, mentions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (cid, draft_id, paragraph_id, owner_id, body, thread_id, parent_id, json.dumps(mentions), now_iso)
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM team_draft_comments WHERE id = ?', (cid,)).fetchone()
+    return jsonify({'ok': True, 'comment': _serialize_comment_row(row), 'thread_id': thread_id})
+
+
+@app.post('/api/team/drafts/<draft_id>/status')
+def api_team_draft_status(draft_id: str):
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    data = request.get_json(force=True) or {}
+    action = (data.get('action') or '').strip().lower()
+    explicit_status = (data.get('status') or '').strip().lower()
+    db = get_db()
+    owner_id = user_row['id']
+    _ensure_demo_drafts(owner_id)
+    draft = db.execute('SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
+    if not draft:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+    previous_status = (draft['status'] or 'draft').lower()
+    target_status = explicit_status
+    if action == 'approve':
+        target_status = 'approved'
+    elif action == 'request_changes':
+        target_status = 'draft'
+    elif action == 'undo':
+        last_change = db.execute(
+            "SELECT details FROM team_draft_revisions WHERE draft_id = ? AND kind = 'status' ORDER BY created_at DESC LIMIT 1",
+            (draft_id,)
+        ).fetchone()
+        if last_change:
+            details = _deserialize_json(last_change['details'], {})
+            target_status = (details.get('from') or 'draft').lower()
+    allowed_statuses = {'draft', 'in_review', 'approved', 'scheduled'}
+    if target_status not in allowed_statuses:
+        return jsonify({'ok': False, 'error': 'Invalid status'}), 400
+    now_iso = datetime.now(timezone.utc).isoformat()
+    db.execute('UPDATE team_drafts SET status = ?, updated_at = ? WHERE id = ?', (target_status, now_iso, draft_id))
+    db.execute(
+        'INSERT INTO team_draft_revisions (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (
+            str(uuid.uuid4()),
+            draft_id,
+            owner_id,
+            f"Status changed to {target_status.title()}",
+            'status',
+            json.dumps({'from': previous_status, 'to': target_status}),
+            draft['content'],
+            now_iso,
+        ),
+    )
+    db.commit()
+    updated = db.execute('SELECT * FROM team_drafts WHERE id = ?', (draft_id,)).fetchone()
+    comments = db.execute('SELECT * FROM team_draft_comments WHERE draft_id = ? ORDER BY created_at ASC', (draft_id,)).fetchall()
+    threads = _build_comment_threads(comments)
+    revisions = db.execute('SELECT * FROM team_draft_revisions WHERE draft_id = ? ORDER BY created_at DESC', (draft_id,)).fetchall()
+    return jsonify({
+        'ok': True,
+        'draft': _serialize_draft_row(updated),
+        'threads': threads,
+        'revisions': [_serialize_revision_row(r) for r in revisions],
+        'previous_status': previous_status
+    })
 
 
 ### DB helpers
