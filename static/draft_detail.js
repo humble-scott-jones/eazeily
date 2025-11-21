@@ -78,7 +78,14 @@
     statusActions.innerHTML = '';
     const approveBtn = button('Approve', 'bg-emerald-600 hover:bg-emerald-700 text-white', () => updateStatus('approve'));
     const changesBtn = button('Request changes', 'bg-amber-600 hover:bg-amber-700 text-white', () => updateStatus('request_changes'));
+    const submitBtn = button('Submit for review', 'bg-brand text-white hover:opacity-90', () => {
+      const note = prompt('Add a changelog note (optional)') || '';
+      updateStatus('submit_review', note);
+    });
     const undoBtn = button('Undo', 'bg-slate-100 text-slate-700 border border-slate-200', () => updateStatus('undo'));
+    if ((draft.status || '').toLowerCase() !== 'in_review') {
+      statusActions.appendChild(submitBtn);
+    }
     statusActions.appendChild(approveBtn);
     statusActions.appendChild(changesBtn);
     statusActions.appendChild(undoBtn);
@@ -96,14 +103,18 @@
     return btn;
   }
 
-  async function updateStatus(action) {
+  async function updateStatus(action, changelogNote) {
     if (!draftId) return;
     try {
       const res = await fetch(`/api/team/drafts/${draftId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ action, status: action === 'undo' ? lastStatus : undefined }),
+        body: JSON.stringify({
+          action,
+          status: action === 'undo' ? lastStatus : undefined,
+          changelog_note: changelogNote,
+        }),
       });
       if (!res.ok) throw new Error('Unable to update status');
       const data = await res.json();
@@ -248,9 +259,43 @@
       status.className = 'text-sm text-slate-600';
       status.textContent = statusText;
 
+      const changelog = document.createElement('p');
+      changelog.className = 'text-sm text-slate-700';
+      const changelogText = rev.changelog_note || (rev.details && rev.details.changelog_note);
+      changelog.textContent = changelogText ? `Changelog: ${changelogText}` : '';
+
+      const diffContainer = document.createElement('div');
+      diffContainer.className = 'text-xs text-slate-600 space-y-1';
+      const diff = (rev.details && rev.details.diff) || null;
+      if (diff && (diff.added?.length || diff.removed?.length || diff.changed?.length)) {
+        const summary = document.createElement('p');
+        summary.textContent = diff.summary || 'Content updated';
+        diffContainer.appendChild(summary);
+        const list = document.createElement('ul');
+        list.className = 'list-disc list-inside space-y-0.5';
+        (diff.added || []).forEach((d) => {
+          const li = document.createElement('li');
+          li.textContent = `Added section ${d.id}`;
+          list.appendChild(li);
+        });
+        (diff.changed || []).forEach((d) => {
+          const li = document.createElement('li');
+          li.textContent = `Updated section ${d.id}`;
+          list.appendChild(li);
+        });
+        (diff.removed || []).forEach((d) => {
+          const li = document.createElement('li');
+          li.textContent = `Removed section ${d.id}`;
+          list.appendChild(li);
+        });
+        diffContainer.appendChild(list);
+      }
+
       item.appendChild(meta);
       item.appendChild(title);
       item.appendChild(status);
+      if (changelog.textContent) item.appendChild(changelog);
+      if (diffContainer.childElementCount) item.appendChild(diffContainer);
       revisionList.appendChild(item);
     });
   }
