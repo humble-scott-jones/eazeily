@@ -28,7 +28,11 @@
     } catch (err) {
       console.error(err);
       if (sectionsEl) {
-        sectionsEl.innerHTML = `<div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl">${err.message}</div>`;
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl';
+        errorDiv.textContent = err.message;
+        sectionsEl.innerHTML = '';
+        sectionsEl.appendChild(errorDiv);
       }
     }
   }
