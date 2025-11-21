@@ -48,3 +48,10 @@ This note captures the proposed approach for getting the active branches back in
 2. Cut `integration/2025-11-sync` from `origin/main` and merge `feature/add-logo` into it.
 3. Sequentially merge the remaining high-value branches, validating between each merge as outlined above.
 4. Finalize the integration PR with test artifacts and request review.
+
+## 6. Execution log (Nov 20, 2025)
+
+- ✅ `feature/add-logo` staged + committed (`3eb2579`) with team approval UI, tests, and planning docs.
+- ✅ Created `integration/2025-11-sync` from `origin/main`, merged `feature/add-logo`, and pushed to GitHub (`origin/integration/2025-11-sync`).
+- ✅ Test coverage: `pytest -q` (passes with expected `NotOpenSSLWarning`).
+- ✅ Safety branch `integration/2025-11-sync-content-pack` created to experiment with `feature/content-pack` merge; initial direct merge revealed wide conflicts (`app.py`, templates, tests, workflows). Plan is to cherry-pick the two unique commits (`14cdc43`, `7803bd9`) or re-apply the minimal deltas manually to avoid destabilizing the new integration branch.
