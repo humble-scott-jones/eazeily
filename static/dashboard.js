@@ -1109,8 +1109,7 @@ function normalizeQueueEntry(entry = {}) {
     status: entry.status || 'draft',
     scheduledAt: entry.scheduledAt || null,
     lastUpdated: entry.lastUpdated || Date.now(),
-    error: entry.error || '',
-    timezoneLabel: entry.timezoneLabel || getTimezoneLabel()
+    error: entry.error || ''
   };
 }
 
