@@ -29,13 +29,18 @@ except ImportError:
     pass  # python-dotenv not installed, continue with system env vars
 
 # optional stripe import (only used if STRIPE_SECRET_KEY is set)
-try:
-    if TYPE_CHECKING:
-        # ensure type-checkers know about stripe without requiring it at runtime
-        import stripe  # type: ignore
-    else:
-        import stripe
-except Exception:
+stripe_secret = os.getenv("STRIPE_SECRET_KEY")
+stripe: Optional[Any]
+if stripe_secret:
+    try:
+        if TYPE_CHECKING:
+            # ensure type-checkers know about stripe without requiring it at runtime
+            import stripe  # type: ignore
+        else:
+            import stripe
+    except Exception:
+        stripe = None
+else:
     stripe = None
 
 IMAGE_DATA_URL_MAX_BYTES = 2_500_000  # ~2.5MB encoded payload cap for inline uploads
@@ -1566,6 +1571,11 @@ def get_user_by_email(email: str):
         if has_app_context():
             db = get_db()
             return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
+        # if we aren't in an app context, temporarily create one so the lookup uses
+        # the same connection helpers and DB_PATH overrides used elsewhere in tests
+        with app.app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
     except Exception:
         # fall through to file-based DB lookup
         pass
@@ -1582,6 +1592,9 @@ def get_user_by_email(email: str):
 def get_user_by_id(uid: str):
     try:
         if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+        with app.app_context():
             db = get_db()
             return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
     except Exception:
