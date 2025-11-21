@@ -1204,7 +1204,7 @@ function renderQueueItem(entry) {
   badge.textContent = formatQueueStatusLabel(entry.status);
   const label = document.createElement('div');
   label.className = 'text-sm text-slate-700';
-  label.textContent = `${entry.platformLabel || formatPlatformLabel(entry.platform)} • Day ${entry.day || 0}`;
+  label.textContent = `${entry.platformLabel || formatPlatformLabel(entry.platform)} • Day ${typeof entry.day === 'number' ? entry.day + 1 : 1}`;
 
   const detail = document.createElement('div');
   detail.className = 'text-xs text-slate-500';
