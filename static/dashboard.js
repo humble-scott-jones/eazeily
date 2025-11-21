@@ -1647,7 +1647,7 @@ function renderPostCard(post) {
     <div class="grid md:grid-cols-3 gap-3 mt-3 mb-2">
       <div class="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
         <span class="font-semibold text-slate-900">Characters</span>
-        <span>${metadata.charCount}${metadata.limit ? ` / ${metadata.limit}` : ''}</span>
+        <span class="${metadata.limit && metadata.charCount > metadata.limit ? 'text-rose-600 font-bold' : ''}">${metadata.charCount}${metadata.limit ? ` / ${metadata.limit}` : ''}</span>
       </div>
       <div class="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
         <p class="font-semibold text-slate-900">Hashtags</p>
