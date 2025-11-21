@@ -1847,6 +1847,8 @@ def api_team_draft_comment(draft_id: str):
     mentions = data.get('mentions') or []
     if not body:
         return jsonify({'ok': False, 'error': 'Comment text is required'}), 400
+    if len(body) > 10000:
+        return jsonify({'ok': False, 'error': 'Comment is too long (max 10,000 characters)'}), 400
     if not isinstance(mentions, list):
         mentions = []
     mentions = [str(m).strip() for m in mentions if str(m).strip()]
