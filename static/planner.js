@@ -40,6 +40,7 @@
       filtersData.statuses.forEach((s) => {
         if (!desired.includes(s)) desired.push(s);
       });
+      populateSelect(filters.status, desired, 'All statuses');
     }
   }
 
