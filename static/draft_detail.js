@@ -178,7 +178,7 @@
     const clone = tpl.content.firstElementChild.cloneNode(true);
     const meta = clone.querySelector('[data-thread-meta]');
     const commentsWrap = clone.querySelector('[data-thread-comments]');
-    meta.textContent = `Thread ${thread.thread_id.slice(0, 6)} • ${thread.paragraph_id || 'General'}`;
+    meta.textContent = `Thread ${(thread.thread_id || '').slice(0, 6)} • ${thread.paragraph_id || 'General'}`;
     (thread.comments || []).forEach((comment) => {
       const block = document.createElement('div');
       block.className = 'bg-white rounded-lg border border-slate-200 px-3 py-2 text-sm';
