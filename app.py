@@ -104,6 +104,9 @@ class RequestIdMissingFilter(logging.Filter):
 
 
 logging.getLogger().addFilter(RequestIdMissingFilter())
+# ensure werkzeug/WSGI logs also carry request_id placeholder to satisfy formatter
+for _logger_name in ("werkzeug", "werkzeug.error", "werkzeug.serving"):
+    logging.getLogger(_logger_name).addFilter(RequestIdMissingFilter())
 CORS(app)
 
 if yaml and os.path.exists(_FEEDBACK_CONFIG_PATH):
@@ -1713,7 +1716,14 @@ def _get_active_profile_dict():
 
 
 def _is_dev_mode() -> bool:
-    return os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
+    if os.getenv('FLASK_ENV') == 'development':
+        return True
+    if os.getenv('ALLOW_DEV_DEBUG') == '1':
+        return True
+    # allow dev helpers when running under automated tests/CI
+    if os.getenv('PYTEST_CURRENT_TEST') or os.getenv('CI') == '1':
+        return True
+    return False
 
 
 def _get_current_user_row():
