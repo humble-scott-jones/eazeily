@@ -705,6 +705,13 @@ def landing():
     """Landing page with marketing content, pricing, and waitlist signup."""
     return render_template("landing.html", initial_user=_initial_user_payload())
 
+
+@app.get("/launch")
+def launch_page():
+    """Public launch page with waitlist form and FAQs."""
+    return render_template("launch.html", initial_user=_initial_user_payload())
+
+
 @app.get("/app")
 def index():
     """Main application page for authenticated users."""
