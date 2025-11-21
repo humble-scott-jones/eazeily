@@ -41,9 +41,17 @@ def test_app_route_exists(client):
     assert b'Swelly' in response.data
 
 
+def test_launch_page_renders(client):
+    """Launch marketing page should be available for waitlist signups."""
+    response = client.get('/launch')
+    assert response.status_code == 200
+    assert b'Launching Soon' in response.data or b'Join Waitlist' in response.data
+    assert b'launch' in response.data.lower()
+
+
 def test_waitlist_api_valid_email(client):
     """Test waitlist API with valid email."""
-    response = client.post('/api/waitlist', 
+    response = client.post('/api/waitlist',
                           json={'email': 'test@example.com'},
                           content_type='application/json')
     assert response.status_code == 200
