@@ -1208,6 +1208,7 @@ function renderActivityTypeChips() {
     btn.className = 'activity-chip';
     btn.innerHTML = `<span class="activity-chip__icon">${meta.icon}</span><span>${meta.label}</span>`;
     btn.classList.toggle('activity-chip--active', activityFilterState.types.has(key));
+    btn.setAttribute('aria-pressed', activityFilterState.types.has(key) ? 'true' : 'false');
     btn.addEventListener('click', () => {
       if (activityFilterState.types.has(key)) {
         activityFilterState.types.delete(key);
