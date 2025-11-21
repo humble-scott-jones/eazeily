@@ -270,6 +270,75 @@
             </div>
           </div>
 
+          <div class="planner-row">
+            <div class="planner-label">4. Templates & goals</div>
+            <div class="planner-body space-y-4">
+              <div class="grid md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label for="template-picker" class="block text-xs uppercase tracking-wide text-slate-500">Template library</label>
+                  <div class="flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                    <div class="flex items-center gap-2">
+                      <select id="template-picker" class="planner-select flex-1"></select>
+                      <button id="apply-template" class="btn-secondary btn-sm" type="button">Apply</button>
+                    </div>
+                    <div class="flex flex-wrap gap-2" id="template-preset-buttons" aria-label="Quick presets"></div>
+                    <p id="template-empty" class="planner-hint">Save combinations per profile to reuse launch or update prompts.</p>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <label for="template-name" class="block text-xs uppercase tracking-wide text-slate-500">Save current as</label>
+                  <div class="flex items-center gap-2">
+                    <input id="template-name" class="planner-select flex-1" placeholder="e.g. Instagram launch push" />
+                    <button id="save-template" class="btn-primary btn-sm" type="button">Save</button>
+                  </div>
+                  <p class="planner-hint">Templates capture tone, platforms, goals, and keywords for the active profile.</p>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-4 grid gap-4 md:grid-cols-[1.1fr,0.9fr]">
+                <div class="flex items-start gap-3">
+                  <div class="flex -space-x-2" aria-hidden="true">
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">A</span>
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">B</span>
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-emerald-500 to-lime-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">C</span>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Team workspace</p>
+                    <p class="text-sm text-slate-700" id="collab-presence">Syncing team presets…</p>
+                    <p class="text-xs text-slate-500 mt-1">Matches the solo generator visuals but keeps a shared library so teammates can hand off faster.</p>
+                  </div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <div class="rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 p-3">
+                    <p class="text-xs uppercase tracking-wide text-purple-700">Latest team preset</p>
+                    <p class="text-sm font-semibold text-slate-900" id="collab-template-name">No presets yet</p>
+                    <p class="text-xs text-slate-600" id="collab-template-author">Save one to see it here.</p>
+                  </div>
+                  <div class="rounded-xl border border-slate-200 p-3 bg-white/60">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
+                    <p class="text-sm text-slate-700" id="collab-template-time">Waiting for your first save.</p>
+                    <p class="text-xs text-slate-500 mt-1">Aligned to the solo planner flow, but built for collaborative use.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label for="gen-goals" class="block text-xs uppercase tracking-wide text-slate-500 mb-1">Goals</label>
+                  <input id="gen-goals" class="planner-select" placeholder="Product launch, Weekly update" />
+                </div>
+                <div>
+                  <label for="gen-keywords" class="block text-xs uppercase tracking-wide text-slate-500 mb-1">Keywords</label>
+                  <input id="gen-keywords" class="planner-select" placeholder="SaaS, AI, productivity" />
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                  <p class="text-xs uppercase tracking-wide text-slate-500">Profile defaults</p>
+                  <div class="text-sm text-slate-700 mt-1" id="profile-defaults-summary">Loading profile…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Advanced Reel Options (shown for video platforms) -->
           <div id="reel-options" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 border border-purple-100">
             <div class="flex items-center gap-3 mb-4">
@@ -323,7 +392,7 @@
           </div>
 
           <div class="planner-row">
-            <div class="planner-label">4. Visual inspiration</div>
+            <div class="planner-label">5. Visual inspiration</div>
             <div class="planner-body">
               <div class="rounded-2xl border border-dashed border-purple-200 bg-gradient-to-r from-white to-purple-50 p-5">
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -352,6 +421,9 @@
           <div class="flex gap-3">
             <button id="generate-content" class="btn-primary text-base py-3 px-6 rounded-xl flex-1">
               Generate Content
+            </button>
+            <button id="one-click-generate" class="btn-secondary text-base py-3 px-6 rounded-xl flex-1" type="button">
+              One-click generate
             </button>
             <div id="content-loading" class="hidden text-sm text-purple-600 flex items-center gap-2 flex-1">
               <div class="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
