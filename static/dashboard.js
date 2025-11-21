@@ -17,12 +17,25 @@ const generatedViewPrefs = {
 const planCacheState = {
   meta: null
 };
+const templateLibraryState = {
+  templates: [],
+  lastUsed: null,
+  profileKey: 'anon'
+};
 const platformPresetState = {
   wizard: [],
   lastPlan: null
 };
 const DEFAULT_GENERATOR_PLATFORM = 'instagram';
 const VIDEO_PLATFORM_KEYS = new Set(['instagram', 'short_video', 'tiktok']);
+const TEMPLATE_LIBRARY_STORAGE_KEY = 'swelly_template_library';
+const DEFAULT_PRESETS = [
+  { id: 'product-launch', label: 'Product launch', goals: ['Product launch'], tone: 'inspirational', keywords: ['launch', 'new feature'] },
+  { id: 'weekly-update', label: 'Weekly update', goals: ['Weekly update'], tone: 'friendly', keywords: ['community', 'newsletter'] }
+];
+let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], goals: [], id: 'anon' };
+let lastGeneratorState = null;
+let generatorHydratedFromProfile = false;
 
 async function getDashboardConfig() {
   if (dashboardConfigCache) return dashboardConfigCache;
@@ -113,6 +126,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Quick Actions
   setupQuickActions();
 
+  // Template library and presets
+  setupTemplateLibrary();
+
+  // One-click generation defaults
+  setupOneClickGeneration();
+
   // Inspiration image uploads
   setupImageUpload();
 
@@ -133,6 +152,18 @@ async function loadUserProfile() {
       profile = await response.json();
       applyProfileToAccountForm(profile);
     }
+    profileDefaults = {
+      tone: profile.tone || 'friendly',
+      industry: profile.industry || profile.industry_key || 'Business',
+      keywords: Array.isArray(profile.brand_keywords) ? profile.brand_keywords : [],
+      goals: Array.isArray(profile.goals) ? profile.goals : [],
+      id: profile.id || (window.CURRENT_USER && window.CURRENT_USER.id) || 'anon'
+    };
+    setTemplateProfileKey(profileDefaults.id);
+    renderProfileDefaultsSummary(profileDefaults);
+    applyProfileDefaultsToGenerator(profileDefaults);
+    hydrateStoredGeneratorState({ apply: true, preferProfile: true });
+    hydrateTemplateLibrary();
     hydrateVoiceSummary(profile || {});
   } catch (error) {
     console.error('Failed to load user profile:', error);
@@ -180,6 +211,12 @@ function applyProfileToAccountForm(profile = {}) {
       }
     } else {
       setPlatformFieldValues([]);
+    }
+    if (Array.isArray(profile.brand_keywords)) {
+      setCurrentKeywords(profile.brand_keywords);
+    }
+    if (Array.isArray(profile.goals)) {
+      setCurrentGoals(profile.goals);
     }
   } catch (err) {
     console.error('applyProfileToAccountForm failed', err);
@@ -438,6 +475,8 @@ async function executeContentGeneration(options = {}){
   }
   const platforms = getGeneratorPlatformSelections();
   const tone = document.getElementById('gen-tone').value;
+  const goals = getCurrentGoals();
+  const keywords = getCurrentKeywords();
   if (!platforms.length) {
     showToast('Pick at least one platform to keep going.');
     return;
@@ -460,7 +499,9 @@ async function executeContentGeneration(options = {}){
     const overrides = {
       platforms,
       tone,
-      details
+      details,
+      goals,
+      brand_keywords: keywords
     };
     if (imageAttachmentState.dataUrl) {
       overrides.image_data_url = imageAttachmentState.dataUrl;
@@ -473,6 +514,8 @@ async function executeContentGeneration(options = {}){
   renderPosts(data);
   const meta = buildPlanMetadataFromPayload(data);
   cacheGeneratedPlan(data, meta);
+  lastGeneratorState = { platforms, tone, goals, keywords, planLength: days };
+  persistTemplateLibraryState();
   applyPlanMetadata(meta);
     resultsDiv?.classList.remove('hidden');
     resultsDiv?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -676,6 +719,147 @@ function setupQuickActions() {
   quick30Day?.addEventListener('click', () => handleShortcut(30, 'Create a free account to unlock plans.'));
 }
 
+function hydrateTemplateLibrary() {
+  loadTemplateLibraryState();
+  renderTemplatePicker();
+  renderPresetButtons();
+}
+
+function setupTemplateLibrary() {
+  const saveBtn = document.getElementById('save-template');
+  const applyBtn = document.getElementById('apply-template');
+  const picker = document.getElementById('template-picker');
+  hydrateTemplateLibrary();
+
+  saveBtn?.addEventListener('click', () => saveCurrentTemplate());
+  applyBtn?.addEventListener('click', () => applySelectedTemplate());
+  picker?.addEventListener('change', () => updateTemplateEmptyState());
+}
+
+function renderTemplatePicker() {
+  const picker = document.getElementById('template-picker');
+  const emptyState = document.getElementById('template-empty');
+  if (!picker) return;
+  picker.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Choose saved template';
+  picker.appendChild(placeholder);
+  (templateLibraryState.templates || []).forEach(tpl => {
+    const opt = document.createElement('option');
+    opt.value = tpl.id;
+    opt.textContent = tpl.name;
+    opt.dataset.platforms = (tpl.platforms || []).join(',');
+    picker.appendChild(opt);
+  });
+  updateTemplateEmptyState(emptyState);
+}
+
+function renderPresetButtons() {
+  const wrap = document.getElementById('template-preset-buttons');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  DEFAULT_PRESETS.forEach(preset => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip chip--ghost';
+    btn.dataset.templatePreset = preset.id;
+    btn.textContent = preset.label;
+    btn.addEventListener('click', () => applyPresetTemplate(preset));
+    wrap.appendChild(btn);
+  });
+}
+
+function updateTemplateEmptyState(target) {
+  const emptyState = target || document.getElementById('template-empty');
+  if (!emptyState) return;
+  const hasItems = Array.isArray(templateLibraryState.templates) && templateLibraryState.templates.length;
+  emptyState.classList.toggle('hidden', !!hasItems);
+}
+
+function saveCurrentTemplate() {
+  const nameField = document.getElementById('template-name');
+  const name = (nameField?.value || '').trim();
+  if (!name) {
+    showToast('Name your template first.');
+    nameField?.focus();
+    return;
+  }
+  const template = {
+    id: `tpl-${Date.now()}`,
+    name,
+    tone: document.getElementById('gen-tone')?.value || 'friendly',
+    platforms: getGeneratorPlatformSelections(),
+    goals: getCurrentGoals(),
+    keywords: getCurrentKeywords()
+  };
+  const existingIdx = (templateLibraryState.templates || []).findIndex(t => t.name.toLowerCase() === name.toLowerCase());
+  if (existingIdx >= 0) {
+    templateLibraryState.templates[existingIdx] = template;
+  } else {
+    templateLibraryState.templates = [...(templateLibraryState.templates || []), template];
+  }
+  lastGeneratorState = Object.assign({}, template, { planLength: getCurrentPlanLength() });
+  persistTemplateLibraryState();
+  renderTemplatePicker();
+  showToast('Template saved for this profile.');
+}
+
+function applySelectedTemplate() {
+  const picker = document.getElementById('template-picker');
+  if (!picker) return;
+  const selectedId = picker.value;
+  const tpl = (templateLibraryState.templates || []).find(t => t.id === selectedId);
+  if (!tpl) {
+    showToast('Pick a template to apply.');
+    return;
+  }
+  applyTemplateToGenerator(tpl);
+}
+
+function applyPresetTemplate(preset) {
+  const tpl = {
+    id: preset.id,
+    name: preset.label,
+    tone: preset.tone,
+    platforms: getGeneratorPlatformSelections(),
+    goals: preset.goals,
+    keywords: preset.keywords
+  };
+  applyTemplateToGenerator(tpl, { skipPlatform: false });
+}
+
+function applyTemplateToGenerator(tpl, opts = {}) {
+  if (!tpl) return;
+  if (tpl.tone) {
+    const toneField = document.getElementById('gen-tone');
+    if (toneField) toneField.value = tpl.tone;
+  }
+  if (!opts.skipPlatform && Array.isArray(tpl.platforms) && tpl.platforms.length) {
+    setGeneratorPlatformSelections(tpl.platforms);
+  }
+  if (Array.isArray(tpl.goals)) setCurrentGoals(tpl.goals);
+  if (Array.isArray(tpl.keywords)) setCurrentKeywords(tpl.keywords);
+  syncPreferredPlatformButtons();
+  refreshReelOptionsVisibility();
+  lastGeneratorState = Object.assign({}, tpl, { planLength: getCurrentPlanLength() });
+  persistTemplateLibraryState();
+  showToast('Template applied.');
+}
+
+function setupOneClickGeneration() {
+  const btn = document.getElementById('one-click-generate');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (lastGeneratorState) {
+      applyGeneratorState(lastGeneratorState, { sync: true });
+    } else {
+      applyProfileDefaultsToGenerator(Object.assign({}, profileDefaults, { force: true }));
+    }
+    await executeContentGeneration();
+  });
+}
+
 function updateGeneratorShortcut(days, opts = {}){
   const select = document.getElementById('gen-days');
   if (select){
@@ -790,6 +974,159 @@ function dedupePlatforms(list = []) {
     out.push(key);
   });
   return out;
+}
+
+function parseCommaList(value = '') {
+  return String(value || '')
+    .split(/[\n,]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function getActiveProfileKey() {
+  return templateLibraryState.profileKey || profileDefaults.id || (window.CURRENT_USER && window.CURRENT_USER.id) || 'anon';
+}
+
+function setTemplateProfileKey(key) {
+  templateLibraryState.profileKey = key || 'anon';
+}
+
+function getTemplateStorageKey() {
+  return `${TEMPLATE_LIBRARY_STORAGE_KEY}:${getActiveProfileKey()}`;
+}
+
+function getCurrentGoals() {
+  const input = document.getElementById('gen-goals');
+  return parseCommaList(input ? input.value : '');
+}
+
+function setCurrentGoals(list = []) {
+  const input = document.getElementById('gen-goals');
+  if (input) {
+    input.value = (list || []).join(', ');
+  }
+  try {
+    answers.goals = list;
+  } catch (err) {
+    /* ignore */
+  }
+}
+
+function getCurrentKeywords() {
+  const input = document.getElementById('gen-keywords');
+  return parseCommaList(input ? input.value : '');
+}
+
+function setCurrentKeywords(list = []) {
+  const input = document.getElementById('gen-keywords');
+  if (input) {
+    input.value = (list || []).join(', ');
+  }
+  try {
+    answers.brand_keywords = list;
+  } catch (err) {
+    /* ignore */
+  }
+}
+
+function persistTemplateLibraryState() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const payload = {
+      templates: templateLibraryState.templates || [],
+      lastUsed: lastGeneratorState
+    };
+    localStorage.setItem(getTemplateStorageKey(), JSON.stringify(payload));
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function loadTemplateLibraryState() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(getTemplateStorageKey());
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.templates)) {
+      templateLibraryState.templates = parsed.templates;
+    }
+    if (parsed.lastUsed) {
+      lastGeneratorState = parsed.lastUsed;
+    }
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function renderProfileDefaultsSummary(defaults = {}) {
+  const target = document.getElementById('profile-defaults-summary');
+  if (!target) return;
+  const tone = defaults.tone || 'friendly';
+  const industry = defaults.industry || 'Business';
+  const keywords = (defaults.keywords || []).slice(0, 4);
+  const goalSnippet = (defaults.goals || []).slice(0, 2);
+  const details = [];
+  details.push(`Tone: ${tone}`);
+  details.push(`Industry: ${industry}`);
+  if (keywords.length) details.push(`Keywords: ${keywords.join(', ')}`);
+  if (goalSnippet.length) details.push(`Goals: ${goalSnippet.join(', ')}`);
+  target.textContent = details.join(' • ');
+}
+
+function applyProfileDefaultsToGenerator(defaults = {}) {
+  if (generatorHydratedFromProfile && !defaults.force) return;
+  const toneField = document.getElementById('gen-tone');
+  if (toneField && defaults.tone) {
+    toneField.value = defaults.tone;
+  }
+  if (defaults.industry) {
+    try { answers.industry = defaults.industry; } catch (err) { /* ignore */ }
+  }
+  if (Array.isArray(defaults.keywords)) {
+    setCurrentKeywords(defaults.keywords);
+  }
+  if (Array.isArray(defaults.goals)) {
+    setCurrentGoals(defaults.goals);
+  }
+  generatorHydratedFromProfile = true;
+}
+
+function applyGeneratorState(state = {}, opts = {}) {
+  if (!state || typeof state !== 'object') return;
+  if (state.tone) {
+    const toneField = document.getElementById('gen-tone');
+    if (toneField) toneField.value = state.tone;
+  }
+  if (Array.isArray(state.platforms) && state.platforms.length) {
+    setGeneratorPlatformSelections(state.platforms);
+  }
+  if (Array.isArray(state.goals)) {
+    setCurrentGoals(state.goals);
+  }
+  if (Array.isArray(state.keywords)) {
+    setCurrentKeywords(state.keywords);
+  }
+  if (state.planLength) {
+    updateGeneratorShortcut(state.planLength, { skipFocus: true, skipScroll: true });
+  }
+  if (opts.sync) {
+    syncPlanLengthButtons();
+    refreshReelOptionsVisibility();
+    syncPreferredPlatformButtons();
+  }
+}
+
+function hydrateStoredGeneratorState(opts = {}) {
+  loadTemplateLibraryState();
+  if (lastGeneratorState && opts.apply) {
+    if (opts.preferProfile) {
+      const merged = Object.assign({}, profileDefaults || {}, lastGeneratorState);
+      applyGeneratorState(merged, { sync: true });
+    } else {
+      applyGeneratorState(lastGeneratorState, { sync: true });
+    }
+  }
 }
 
 function getWizardDefaultPlatforms() {
@@ -1306,6 +1643,14 @@ function renderPostCard(post) {
     ${post.reel ? renderReelSection(post.reel) : ''}
 
     ${hasVariants ? variantsMarkup : ''}
+
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button class="btn-ghost btn-sm" data-generate-variants>Generate variants</button>
+      <button class="btn-ghost btn-sm" data-regenerate-hook>Regenerate hook</button>
+      <button class="btn-ghost btn-sm" data-regenerate-cta>Regenerate CTA</button>
+    </div>
+    <div class="grid md:grid-cols-3 gap-3 mt-2 hidden" data-variant-wrap></div>
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mt-3" data-quality-hints></div>
   `;
 
   card.querySelectorAll('textarea.post-editor').forEach(area => {
@@ -1320,6 +1665,37 @@ function renderPostCard(post) {
       clearCopyState(area, card);
     });
   });
+
+  const editor = card.querySelector(`#${editorId}`);
+  const qualityWrap = card.querySelector('[data-quality-hints]');
+  if (editor && qualityWrap) {
+    renderQualityHints(qualityWrap, editor, post, card);
+    editor.addEventListener('input', () => renderQualityHints(qualityWrap, editor, post, card));
+  }
+
+  const variantsWrap = card.querySelector('[data-variant-wrap]');
+  const variantBtn = card.querySelector('[data-generate-variants]');
+  if (variantBtn && editor) {
+    variantBtn.addEventListener('click', () => handleGenerateVariants(post, card, editor, variantsWrap));
+  }
+  const hookBtn = card.querySelector('[data-regenerate-hook]');
+  if (hookBtn && editor) {
+    hookBtn.addEventListener('click', () => {
+      editor.value = regenerateHookText(editor.value, post);
+      autoSizeEditor(editor);
+      clearCopyState(editor, card);
+      if (qualityWrap) renderQualityHints(qualityWrap, editor, post, card);
+    });
+  }
+  const ctaBtn = card.querySelector('[data-regenerate-cta]');
+  if (ctaBtn && editor) {
+    ctaBtn.addEventListener('click', () => {
+      editor.value = regenerateCtaText(editor.value, post);
+      autoSizeEditor(editor);
+      clearCopyState(editor, card);
+      if (qualityWrap) renderQualityHints(qualityWrap, editor, post, card);
+    });
+  }
 
   card.querySelectorAll('[data-copy-target], [data-copy-text]').forEach(btn => {
     const targetId = btn.getAttribute('data-copy-target');
@@ -1614,6 +1990,209 @@ function clearCopyState(editor, card){
     const stamp = card.querySelector(`#${stampId}`);
     if (stamp) stamp.textContent = '';
   }
+}
+
+function buildVariantCardContent(variants, editor, card) {
+  if (!variants || !variants.length) return '';
+  return variants.map((variant, idx) => {
+    const stampId = `${editor.id}-variant-${idx}`;
+    return `
+      <div class="p-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-semibold text-slate-600">Option ${idx + 1}</div>
+          <button class="btn-ghost btn-xs" data-variant-apply="${idx}" data-stamp-target="${stampId}">Use</button>
+        </div>
+        <textarea class="post-editor post-editor--compact" data-variant-index="${idx}">${escapeHtml(variant.caption || variant.text || '')}</textarea>
+        <div class="flex items-center gap-2 mt-2">
+          <button class="btn-ghost btn-xs" data-copy-variant="${idx}" data-stamp-target="${stampId}">Copy</button>
+          <span id="${stampId}" class="copy-timestamp"></span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function handleGenerateVariants(post, card, editor, wrap){
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="text-sm text-slate-600">Generating variants…</div>';
+  wrap.classList.remove('hidden');
+  try {
+    const payload = {
+      platform: post.platform || 'instagram',
+      tone: document.getElementById('gen-tone')?.value || profileDefaults.tone,
+      industry: profileDefaults.industry || answers?.industry || 'Business',
+      brand_keywords: getCurrentKeywords(),
+      goals: getCurrentGoals(),
+      count: 3
+    };
+    const res = await fetch('/api/generate-variants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to generate variants');
+    const data = await res.json();
+    const variants = data?.variants || [];
+    wrap.innerHTML = buildVariantCardContent(variants, editor, card);
+    wrap.querySelectorAll('[data-variant-apply]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.variantApply || '0', 10);
+        const textArea = wrap.querySelector(`textarea[data-variant-index="${idx}"]`);
+        if (textArea) {
+          editor.value = textArea.value;
+          autoSizeEditor(editor);
+          clearCopyState(editor, card);
+          const qualityWrap = card?.querySelector('[data-quality-hints]');
+          if (qualityWrap) renderQualityHints(qualityWrap, editor, post, card);
+        }
+      });
+    });
+    wrap.querySelectorAll('[data-copy-variant]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt(btn.dataset.copyVariant || '0', 10);
+        const textArea = wrap.querySelector(`textarea[data-variant-index="${idx}"]`);
+        const stampTarget = btn.dataset.stampTarget ? wrap.querySelector(`#${btn.dataset.stampTarget}`) : null;
+        const ok = await copyToClipboard(textArea?.value || '');
+        if (ok && stampTarget) stampTarget.textContent = 'Copied';
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    wrap.innerHTML = '<div class="text-sm text-red-600">Could not generate variants right now.</div>';
+  }
+}
+
+function regenerateHookText(text = '', post = {}) {
+  const sentences = (text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+  const rest = sentences.slice(1).join(' ');
+  const keywords = getCurrentKeywords();
+  const platform = formatPlatformLabel(post.platform || '');
+  const pillar = post.pillar || 'Update';
+  const hook = `Fresh ${platform} ${pillar.toLowerCase()}: ${keywords[0] || 'see what’s new'}${keywords[1] ? ' + ' + keywords[1] : ''}`;
+  return [hook, rest || sentences[0] || ''].filter(Boolean).join(' ');
+}
+
+function regenerateCtaText(text = '', post = {}) {
+  const ctaVariants = (post.cta_variants || []).map(v => v.text).filter(Boolean);
+  if (post?.reel?.cta) ctaVariants.push(post.reel.cta);
+  ctaVariants.push('Tap the link to learn more.', 'Comment with your question and we will DM you.', 'Save this for later and share with a friend.');
+  const chosen = ctaVariants[Math.floor(Math.random() * ctaVariants.length)] || 'Let us know what you think.';
+  const parts = (text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+  const body = parts.slice(0, -1).join(' ') || text;
+  return `${body.trim()} ${chosen}`.trim();
+}
+
+function readabilityMetrics(text = '') {
+  const sentences = (text.match(/[^.!?]+[.!?]*/g) || []).filter(Boolean);
+  const words = (text.match(/\b[\w']+\b/g) || []);
+  const syllables = words.reduce((total, word) => total + countSyllables(word), 0);
+  const sentenceCount = sentences.length || 1;
+  const wordCount = words.length || 1;
+  const wordsPerSentence = wordCount / sentenceCount;
+  const syllablesPerWord = syllables / wordCount;
+  const readingEase = Math.max(0, Math.min(121, 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord));
+  let grade = '10+';
+  if (readingEase >= 90) grade = '5';
+  else if (readingEase >= 80) grade = '6';
+  else if (readingEase >= 70) grade = '7';
+  else if (readingEase >= 60) grade = '8';
+  else if (readingEase >= 50) grade = '10';
+  else if (readingEase >= 40) grade = '12';
+  return { readingEase: Math.round(readingEase), grade, wordsPerSentence, syllablesPerWord };
+}
+
+function countSyllables(word = '') {
+  const sanitized = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!sanitized) return 1;
+  const matches = sanitized.match(/[aeiouy]+/g);
+  const count = matches ? matches.length : 1;
+  return Math.max(1, count);
+}
+
+function analyzeDraftQuality(text = '') {
+  const checks = [];
+  const metrics = readabilityMetrics(text);
+  checks.push({
+    type: 'readability',
+    label: `Readability grade ~${metrics.grade}`,
+    detail: `Flesch score ${metrics.readingEase}`,
+    apply: (current) => simplifySentences(current)
+  });
+
+  const ctaRegex = /(buy|shop|click|tap|sign up|join|book|register|dm|comment|link in bio|learn more|download)/i;
+  if (!ctaRegex.test(text)) {
+    const suggestion = 'Add a clear CTA like “Tap to claim your spot.”';
+    checks.push({
+      type: 'cta',
+      label: 'CTA missing',
+      detail: suggestion,
+      apply: (current) => `${current.trim()} Tap to claim your spot.`.trim()
+    });
+  }
+
+  const inclusiveMap = {
+    guys: 'everyone',
+    chairman: 'chair',
+    manpower: 'team',
+    insane: 'incredible',
+    crazy: 'unexpected'
+  };
+  Object.entries(inclusiveMap).forEach(([term, replacement]) => {
+    const regex = new RegExp(`\b${term}\b`, 'i');
+    if (regex.test(text)) {
+      checks.push({
+        type: 'inclusive',
+        label: 'Inclusive wording',
+        detail: `Swap “${term}” for “${replacement}”.`,
+        apply: (current) => current.replace(regex, replacement)
+      });
+    }
+  });
+
+  return { metrics, checks };
+}
+
+function simplifySentences(text = '') {
+  return (text || '').split(/(?<=[.!?])\s+/).map(sentence => {
+    const words = sentence.trim().split(/\s+/);
+    if (words.length > 24) {
+      return words.slice(0, 20).join(' ') + '…';
+    }
+    return sentence;
+  }).join(' ');
+}
+
+function renderQualityHints(container, editor, post, card) {
+  if (!container || !editor) return;
+  const { metrics, checks } = analyzeDraftQuality(editor.value || '');
+  const hintItems = checks.map((check, idx) => {
+    const actionLabel = check.type === 'cta' ? 'Insert CTA' : 'Apply fix';
+    return `
+      <div class="flex items-start gap-3 py-2 border-b border-slate-100 last:border-0">
+        <div class="text-sm font-semibold text-slate-800">${check.label}</div>
+        <div class="text-xs text-slate-600 flex-1">${check.detail}</div>
+        <button class="btn-ghost btn-xs" data-quality-apply="${idx}">${actionLabel}</button>
+      </div>`;
+  }).join('');
+  container.innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-xs font-semibold text-slate-700">Readability: Grade ${metrics.grade} • Score ${metrics.readingEase}</div>
+      <div class="text-[10px] text-slate-500">${metrics.wordsPerSentence.toFixed(1)} words / sentence</div>
+    </div>
+    ${hintItems || '<p class="text-xs text-slate-500">No issues detected.</p>'}
+  `;
+  container.querySelectorAll('[data-quality-apply]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.qualityApply || '0', 10);
+      const check = checks[idx];
+      if (!check || typeof check.apply !== 'function') return;
+      editor.value = check.apply(editor.value || '');
+      autoSizeEditor(editor);
+      clearCopyState(editor, card);
+      renderQualityHints(container, editor, post, card);
+    });
+  });
 }
 
 function autoSizeEditor(editor){
