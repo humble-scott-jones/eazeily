@@ -598,8 +598,13 @@ def init_db():
             owner_user_id TEXT NOT NULL,
             title TEXT,
             campaign TEXT,
+            channel TEXT,
             status TEXT DEFAULT 'draft',
             assignee_email TEXT,
+            reviewer_email TEXT,
+            review_open_to_any INTEGER DEFAULT 0,
+            review_requested_at DATETIME,
+            review_nudged_at DATETIME,
             due_date DATETIME,
             content TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -626,9 +631,29 @@ def init_db():
             kind TEXT DEFAULT 'revision',
             details TEXT,
             content_snapshot TEXT,
+            changelog_note TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_team_draft_revisions_draft ON team_draft_revisions(draft_id);
+
+        CREATE TABLE IF NOT EXISTS team_approver_defaults (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            campaign TEXT,
+            channel TEXT,
+            approver_email TEXT,
+            allow_any INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_approver_defaults_owner ON team_approver_defaults(owner_user_id);
+
+        CREATE TABLE IF NOT EXISTS team_draft_notifications (
+            id TEXT PRIMARY KEY,
+            draft_id TEXT NOT NULL,
+            channel TEXT,
+            message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
     # Backfill for upgrades
@@ -665,6 +690,28 @@ def init_db():
                 db.execute("ALTER TABLE users ADD COLUMN subscription_tier TEXT;")
             except Exception:
                 pass
+    except Exception:
+        pass
+    # backfill team_drafts columns for review routing
+    try:
+        dcols = [r[1] for r in db.execute("PRAGMA table_info(team_drafts)").fetchall()]
+        if "channel" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN channel TEXT;")
+        if "reviewer_email" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN reviewer_email TEXT;")
+        if "review_open_to_any" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN review_open_to_any INTEGER DEFAULT 0;")
+        if "review_requested_at" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN review_requested_at DATETIME;")
+        if "review_nudged_at" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN review_nudged_at DATETIME;")
+    except Exception:
+        pass
+    # backfill changelog column on revisions
+    try:
+        rcols = [r[1] for r in db.execute("PRAGMA table_info(team_draft_revisions)").fetchall()]
+        if "changelog_note" not in rcols:
+            db.execute("ALTER TABLE team_draft_revisions ADD COLUMN changelog_note TEXT;")
     except Exception:
         pass
     db.commit()
@@ -1552,6 +1599,16 @@ def _serialize_draft_row(row):
         return None
     data = row_to_mapping(row) or {}
     data['content'] = _deserialize_json(data.get('content'), [])
+    for flag in ('review_open_to_any',):
+        if flag in data:
+            data[flag] = bool(data.get(flag))
+    for ts_field in ('review_requested_at', 'review_nudged_at'):
+        val = data.get(ts_field)
+        if val and not isinstance(val, str):
+            try:
+                data[ts_field] = val.isoformat()
+            except Exception:
+                data[ts_field] = str(val)
     due_date = data.get('due_date')
     if due_date:
         try:
@@ -1578,6 +1635,36 @@ def _serialize_revision_row(row):
     return data
 
 
+def _compute_content_diff(previous_snapshot, current_snapshot):
+    """Return a lightweight diff between two revision snapshots."""
+    try:
+        prev_sections = _deserialize_json(previous_snapshot, [])
+    except Exception:
+        prev_sections = []
+    try:
+        new_sections = _deserialize_json(current_snapshot, [])
+    except Exception:
+        new_sections = []
+    prev_map = {str(s.get('id')): s for s in (prev_sections or []) if isinstance(s, dict)}
+    new_map = {str(s.get('id')): s for s in (new_sections or []) if isinstance(s, dict)}
+    added = []
+    removed = []
+    changed = []
+    for sec_id, section in new_map.items():
+        if sec_id not in prev_map:
+            added.append({'id': sec_id, 'heading': section.get('heading'), 'text': section.get('text')})
+        else:
+            prev_text = (prev_map[sec_id] or {}).get('text')
+            if (section.get('text') or '') != (prev_text or ''):
+                changed.append({'id': sec_id, 'from': prev_text, 'to': section.get('text')})
+    for sec_id, section in prev_map.items():
+        if sec_id not in new_map:
+            removed.append({'id': sec_id, 'heading': section.get('heading'), 'text': section.get('text')})
+    if not (added or removed or changed):
+        return {'summary': 'No content changes', 'added': [], 'removed': [], 'changed': []}
+    return {'summary': 'Content updated', 'added': added, 'removed': removed, 'changed': changed}
+
+
 def _build_comment_threads(comments):
     threads = {}
     for c in comments:
@@ -1591,6 +1678,80 @@ def _build_comment_threads(comments):
             }
         threads[tid]['comments'].append(cm)
     return list(threads.values())
+
+
+def _lookup_approver_default(owner_id: str, campaign: Optional[str], channel: Optional[str]):
+    """Return the most specific approver default for an owner/campaign/channel."""
+    db = get_db()
+    candidates = [
+        (campaign, channel),
+        (campaign, None),
+        (None, channel),
+        (None, None),
+    ]
+    for camp_val, chan_val in candidates:
+        row = db.execute(
+            'SELECT * FROM team_approver_defaults WHERE owner_user_id = ? AND COALESCE(campaign, "") = ? AND COALESCE(channel, "") = ? ORDER BY created_at DESC LIMIT 1',
+            (owner_id, camp_val or '', chan_val or ''),
+        ).fetchone()
+        if row:
+            return row_to_mapping(row)
+    return None
+
+
+def _record_draft_notification(draft_id: str, channels: list, message: str):
+    db = get_db()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for ch in channels:
+        db.execute(
+            'INSERT INTO team_draft_notifications (id, draft_id, channel, message, created_at) VALUES (?, ?, ?, ?, ?)',
+            (str(uuid.uuid4()), draft_id, ch, message, now_iso),
+        )
+    return now_iso
+
+
+def _sweep_stale_reviews(owner_id: str, hours_idle: int = 24):
+    """Find drafts stuck in review and emit reminder notifications."""
+    db = get_db()
+    threshold = datetime.now(timezone.utc) - timedelta(hours=hours_idle)
+    rows = db.execute(
+        """
+        SELECT * FROM team_drafts
+        WHERE owner_user_id = ?
+          AND LOWER(status) = 'in_review'
+          AND review_requested_at IS NOT NULL
+          AND review_requested_at <= ?
+          AND (review_nudged_at IS NULL OR review_nudged_at <= ?)
+        """,
+        (owner_id, threshold.isoformat(), threshold.isoformat()),
+    ).fetchall()
+    nudged = []
+    for row in rows:
+        draft = row_to_mapping(row)
+        message = (
+            f"Draft '{draft.get('title') or draft.get('id')}' has been in review for more than {hours_idle}h."
+        )
+        now_iso = _record_draft_notification(draft['id'], ['in_app', 'slack', 'email'], message)
+        db.execute(
+            'UPDATE team_drafts SET review_nudged_at = ? WHERE id = ?',
+            (now_iso, draft['id']),
+        )
+        db.execute(
+            'INSERT INTO team_draft_revisions (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                str(uuid.uuid4()),
+                draft['id'],
+                owner_id,
+                'Nudge sent to reviewers',
+                'nudge',
+                json.dumps({'channels': ['in_app', 'slack', 'email'], 'reason': 'idle_in_review'}),
+                draft.get('content'),
+                now_iso,
+            ),
+        )
+        nudged.append(draft['id'])
+    db.commit()
+    return nudged
 
 
 def _ensure_demo_drafts(owner_id: str):
@@ -1787,6 +1948,51 @@ def api_team_approvals_transition(approval_id: str):
     return jsonify({'ok': True, 'approval': _serialize_approval_row(updated), 'events': [dict(e) for e in events]})
 
 
+@app.get('/api/team/approver-defaults')
+def api_team_approver_defaults_list():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    db = get_db()
+    rows = db.execute('SELECT * FROM team_approver_defaults WHERE owner_user_id = ? ORDER BY created_at DESC', (user_row['id'],)).fetchall()
+    return jsonify({'ok': True, 'defaults': [row_to_mapping(r) for r in rows]})
+
+
+@app.post('/api/team/approver-defaults')
+def api_team_approver_defaults_upsert():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    data = request.get_json(force=True) or {}
+    campaign = (data.get('campaign') or '').strip()
+    channel = (data.get('channel') or '').strip()
+    approver_email = (data.get('approver_email') or '').strip()
+    allow_any = bool(data.get('allow_any'))
+    if not approver_email and not allow_any:
+        return jsonify({'ok': False, 'error': 'approver_email is required unless allow_any=true'}), 400
+    db = get_db()
+    existing = db.execute(
+        'SELECT id FROM team_approver_defaults WHERE owner_user_id = ? AND COALESCE(campaign, "") = ? AND COALESCE(channel, "") = ? LIMIT 1',
+        (user_row['id'], campaign, channel),
+    ).fetchone()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if existing:
+        db.execute(
+            'UPDATE team_approver_defaults SET approver_email = ?, allow_any = ?, created_at = ? WHERE id = ?',
+            (approver_email, 1 if allow_any else 0, now_iso, existing['id']),
+        )
+        default_id = existing['id']
+    else:
+        default_id = str(uuid.uuid4())
+        db.execute(
+            'INSERT INTO team_approver_defaults (id, owner_user_id, campaign, channel, approver_email, allow_any, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (default_id, user_row['id'], campaign or None, channel or None, approver_email, 1 if allow_any else 0, now_iso),
+        )
+    db.commit()
+    row = db.execute('SELECT * FROM team_approver_defaults WHERE id = ?', (default_id,)).fetchone()
+    return jsonify({'ok': True, 'default': row_to_mapping(row)})
+
+
 @app.get('/api/team/drafts')
 def api_team_drafts_list():
     user_row = _current_team_user()
@@ -1833,6 +2039,15 @@ def api_team_drafts_list():
             'statuses': statuses or ['draft', 'in_review', 'approved', 'scheduled']
         }
     })
+
+
+@app.post('/api/team/drafts/nudge-stale')
+def api_team_drafts_nudge_stale():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    nudged = _sweep_stale_reviews(user_row['id'], hours_idle=24)
+    return jsonify({'ok': True, 'nudged': nudged, 'count': len(nudged)})
 
 
 @app.get('/api/team/drafts/<draft_id>')
@@ -1906,22 +2121,26 @@ def api_team_draft_status(draft_id: str):
     data = request.get_json(force=True) or {}
     action = (data.get('action') or '').strip().lower()
     explicit_status = (data.get('status') or '').strip().lower()
+    changelog_note = (data.get('changelog_note') or '').strip()
     db = get_db()
     owner_id = user_row['id']
     _ensure_demo_drafts(owner_id)
     draft = db.execute('SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
     if not draft:
         return jsonify({'ok': False, 'error': 'Draft not found'}), 404
-    previous_status = (draft['status'] or 'draft').lower()
+    draft_map = row_to_mapping(draft)
+    previous_status = (draft_map.get('status') or 'draft').lower()
     target_status = explicit_status
     if action == 'approve':
         target_status = 'approved'
     elif action == 'request_changes':
         target_status = 'draft'
+    elif action in ('submit_review', 'submit_for_review'):
+        target_status = 'in_review'
     elif action == 'undo':
         last_change = db.execute(
             "SELECT details FROM team_draft_revisions WHERE draft_id = ? AND kind = 'status' ORDER BY created_at DESC LIMIT 1",
-            (draft_id,)
+            (draft_id,),
         ).fetchone()
         if last_change:
             details = _deserialize_json(last_change['details'], {})
@@ -1930,17 +2149,62 @@ def api_team_draft_status(draft_id: str):
     if target_status not in allowed_statuses:
         return jsonify({'ok': False, 'error': 'Invalid status'}), 400
     now_iso = datetime.now(timezone.utc).isoformat()
-    db.execute('UPDATE team_drafts SET status = ?, updated_at = ? WHERE id = ?', (target_status, now_iso, draft_id))
+    last_rev = db.execute(
+        'SELECT content_snapshot FROM team_draft_revisions WHERE draft_id = ? ORDER BY created_at DESC LIMIT 1',
+        (draft_id,),
+    ).fetchone()
+    previous_snapshot = last_rev['content_snapshot'] if last_rev else None
+    diff = _compute_content_diff(previous_snapshot, draft['content'])
+    reviewer_email = draft_map.get('reviewer_email')
+    review_open_to_any = bool(draft_map.get('review_open_to_any'))
+    review_requested_at = draft_map.get('review_requested_at')
+    review_nudged_at = draft_map.get('review_nudged_at')
+    routing_details = None
+    if target_status == 'in_review':
+        route = _lookup_approver_default(owner_id, draft_map.get('campaign'), draft_map.get('channel'))
+        if route:
+            reviewer_email = route.get('approver_email') or None
+            review_open_to_any = bool(route.get('allow_any'))
+            routing_details = {
+                'campaign': route.get('campaign'),
+                'channel': route.get('channel'),
+                'approver_email': reviewer_email,
+                'allow_any': review_open_to_any,
+            }
+        else:
+            routing_details = {
+                'campaign': draft_map.get('campaign'),
+                'channel': draft_map.get('channel'),
+                'approver_email': reviewer_email,
+                'allow_any': review_open_to_any or reviewer_email is None,
+            }
+            if reviewer_email:
+                review_open_to_any = False
+            else:
+                review_open_to_any = True
+        review_requested_at = now_iso
+        review_nudged_at = None
     db.execute(
-        'INSERT INTO team_draft_revisions (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        'UPDATE team_drafts SET status = ?, reviewer_email = ?, review_open_to_any = ?, review_requested_at = ?, review_nudged_at = ?, updated_at = ? WHERE id = ?',
+        (target_status, reviewer_email, 1 if review_open_to_any else 0, review_requested_at, review_nudged_at, now_iso, draft_id),
+    )
+    db.execute(
+        'INSERT INTO team_draft_revisions (id, draft_id, author_user_id, summary, kind, details, content_snapshot, changelog_note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         (
             str(uuid.uuid4()),
             draft_id,
             owner_id,
-            f"Status changed to {target_status.title()}",
+            'Submitted for review' if target_status == 'in_review' else f"Status changed to {target_status.title()}",
             'status',
-            json.dumps({'from': previous_status, 'to': target_status}),
+            json.dumps({
+                'from': previous_status,
+                'to': target_status,
+                'changelog_note': changelog_note or None,
+                'diff': diff,
+                'review_routing': routing_details,
+            }),
             draft['content'],
+            changelog_note or None,
             now_iso,
         ),
     )
