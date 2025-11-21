@@ -1142,8 +1142,11 @@ function buildQueueEntryFromPost(post = {}, keyOverride = null) {
 function buildQueueKey(post = {}) {
   const platform = normalizePlatformKey(post.platform || '');
   const day = post.day_index || 0;
-  const captionHash = hashCaption(post.caption || '');
-  return `${day}-${platform}-${captionHash}`;
+  // If post.id exists, use it for uniqueness; otherwise, use day and platform
+  if (post.id) {
+    return `${post.id}`;
+  }
+  return `${day}-${platform}`;
 }
 
 function hashCaption(value = '') {
