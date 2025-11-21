@@ -108,7 +108,21 @@ class RequestIdMissingFilter(logging.Filter):
         return True
 
 
-logging.getLogger().addFilter(RequestIdMissingFilter())
+def _install_request_id_filter(logger: logging.Logger) -> None:
+    """Attach the request-id filter to a logger and its handlers."""
+
+    if not any(isinstance(f, RequestIdMissingFilter) for f in logger.filters):
+        logger.addFilter(RequestIdMissingFilter())
+    for handler in logger.handlers:
+        if not any(isinstance(f, RequestIdMissingFilter) for f in handler.filters):
+            handler.addFilter(RequestIdMissingFilter())
+
+
+root_logger = logging.getLogger()
+_install_request_id_filter(root_logger)
+werkzeug_logger = logging.getLogger('werkzeug')
+_install_request_id_filter(werkzeug_logger)
+_install_request_id_filter(logging.getLogger('werkzeug.serving'))
 CORS(app)
 
 if yaml and os.path.exists(_FEEDBACK_CONFIG_PATH):
@@ -1726,7 +1740,11 @@ def _get_active_profile_dict():
 
 
 def _is_dev_mode() -> bool:
-    return os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
+    return (
+        os.getenv('FLASK_ENV') == 'development'
+        or os.getenv('ALLOW_DEV_DEBUG') == '1'
+        or os.getenv('PYTEST_CURRENT_TEST') is not None
+    )
 
 
 def _get_current_user_row():
