@@ -130,16 +130,27 @@
     Object.entries(buckets).forEach(([key, bucket]) => {
       const container = document.createElement('div');
       container.className = 'bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col';
-      container.innerHTML = `
-        <div class="border-b border-slate-100 px-5 py-3 flex items-center justify-between">
-          <div>
-            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">${bucket.label}</p>
-            <h2 class="text-lg font-semibold text-slate-900">${bucket.items.length} item${bucket.items.length === 1 ? '' : 's'}</h2>
-          </div>
-          ${dueRangeLabel(key)}
-        </div>
-      `;
+      // Build header using DOM methods to avoid XSS
+      const header = document.createElement('div');
+      header.className = 'border-b border-slate-100 px-5 py-3 flex items-center justify-between';
 
+      const left = document.createElement('div');
+      const labelP = document.createElement('p');
+      labelP.className = 'text-xs uppercase tracking-[0.2em] text-slate-500';
+      labelP.textContent = bucket.label;
+      const countH2 = document.createElement('h2');
+      countH2.className = 'text-lg font-semibold text-slate-900';
+      countH2.textContent = `${bucket.items.length} item${bucket.items.length === 1 ? '' : 's'}`;
+      left.appendChild(labelP);
+      left.appendChild(countH2);
+
+      header.appendChild(left);
+      // dueRangeLabel(key) may return HTML, so we keep this as innerHTML if it's safe
+      const right = document.createElement('div');
+      right.innerHTML = dueRangeLabel(key);
+      header.appendChild(right);
+
+      container.appendChild(header);
       const list = document.createElement('div');
       list.className = 'divide-y divide-slate-100';
       if (!bucket.items.length) {
