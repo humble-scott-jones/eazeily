@@ -1798,10 +1798,10 @@ def api_team_drafts_list():
         query += " AND " + " AND ".join(clauses)
     query += " ORDER BY COALESCE(due_date, created_at) ASC"
     rows = db.execute(query, params).fetchall()
-    filter_rows = db.execute('SELECT campaign, assignee_email, status FROM team_drafts WHERE owner_user_id = ?', (owner_id,)).fetchall()
-    campaigns = sorted(set([row['campaign'] or 'Uncategorized' for row in filter_rows]))
-    assignees = sorted(set([(row['assignee_email'] or '').strip() for row in filter_rows if (row['assignee_email'] or '').strip()]))
-    statuses = sorted(set([(row['status'] or 'draft').lower() for row in filter_rows]))
+    # Compute filter options from the already-fetched rows to avoid a second query
+    campaigns = sorted(set([row['campaign'] or 'Uncategorized' for row in rows]))
+    assignees = sorted(set([(row['assignee_email'] or '').strip() for row in rows if (row['assignee_email'] or '').strip()]))
+    statuses = sorted(set([(row['status'] or 'draft').lower() for row in rows]))
     return jsonify({
         'ok': True,
         'drafts': [_serialize_draft_row(r) for r in rows],
