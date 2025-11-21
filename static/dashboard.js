@@ -1306,7 +1306,7 @@ function buildActivityItem(evt) {
   const platforms = Array.isArray(evt.platforms) && evt.platforms.length ? `<div class="activity-platforms">${evt.platforms.map(formatPlatformLabel).join(' • ')}</div>` : '';
   item.innerHTML = `
     <div class="activity-item__header">
-      <span class="activity-type-badge activity-type-${meta.color}">${meta.icon} ${meta.label}</span>
+      <span class="activity-type-badge activity-type-${meta.color}">${escapeHtml(meta.icon)} ${escapeHtml(meta.label)}</span>
       <span class="activity-time">${escapeHtml(evt.time || '')}</span>
     </div>
     <div class="activity-item__body">
