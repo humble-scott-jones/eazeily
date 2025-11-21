@@ -1828,7 +1828,10 @@ def api_team_draft_detail(draft_id: str):
         'threads': list(threads.values()),
         'revisions': [_serialize_revision_row(r) for r in revisions]
     })
-
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    rl = _enforce_rate_limit(f"{request.remote_addr}:team-draft-comment", capacity=30, refill_seconds=60)
+    if rl:
+        return rl
 
 @app.post('/api/team/drafts/<draft_id>/comment')
 def api_team_draft_comment(draft_id: str):
