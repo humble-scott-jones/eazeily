@@ -238,6 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
   hydrateVoiceSummary({});
   hydrateSeedPosts();
   seedPresetStateFromWizardDefaults();
+  loadPublishingQueueFromStorage();
+  renderPublishingQueue();
+  updateQueueTimezoneLabel();
 });
 
 async function loadUserProfile() {
@@ -1549,6 +1552,331 @@ function refreshDayEmptyStates() {
   });
 }
 
+function loadPublishingQueueFromStorage() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(PUBLISHING_QUEUE_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      publishingQueueState.entries = parsed.map(normalizeQueueEntry).filter(Boolean);
+    }
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function persistPublishingQueue() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(PUBLISHING_QUEUE_STORAGE_KEY, JSON.stringify(publishingQueueState.entries));
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function normalizeQueueEntry(entry = {}) {
+  if (!entry || typeof entry !== 'object') return null;
+  const normalizedPlatform = normalizePlatformKey(entry.platform || DEFAULT_GENERATOR_PLATFORM);
+  return {
+    key: entry.key || '',
+    platform: normalizedPlatform,
+    platformLabel: entry.platformLabel || formatPlatformLabel(normalizedPlatform),
+    day: entry.day || 0,
+    pillar: entry.pillar || '',
+    caption: entry.caption || '',
+    status: entry.status || 'draft',
+    scheduledAt: entry.scheduledAt || null,
+    lastUpdated: entry.lastUpdated || Date.now(),
+    error: entry.error || '',
+    timezoneLabel: entry.timezoneLabel || getTimezoneLabel()
+  };
+}
+
+function ensureQueueEntryForPost(post = {}) {
+  const key = buildQueueKey(post);
+  let existing = findQueueEntry(key);
+  if (existing) return existing;
+  const created = buildQueueEntryFromPost(post, key);
+  publishingQueueState.entries.push(created);
+  persistPublishingQueue();
+  return created;
+}
+
+function buildQueueEntryFromPost(post = {}, keyOverride = null) {
+  const key = keyOverride || buildQueueKey(post);
+  const platform = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  return normalizeQueueEntry({
+    key,
+    platform,
+    platformLabel: formatPlatformLabel(platform),
+    day: post.day_index || 0,
+    pillar: post.pillar || '',
+    caption: post.caption || '',
+    status: 'draft',
+    scheduledAt: null,
+    lastUpdated: Date.now()
+  });
+}
+
+function buildQueueKey(post = {}) {
+  const platform = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const day = post.day_index || 0;
+  const captionHash = hashCaption(post.caption || '');
+  return `${day}-${platform}-${captionHash}`;
+}
+
+function hashCaption(value = '') {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(16);
+}
+
+function updatePublishingQueueEntry(key, updates = {}) {
+  if (!key) return null;
+  const existing = findQueueEntry(key);
+  if (!existing) return null;
+  Object.assign(existing, updates, {
+    lastUpdated: updates.lastUpdated || Date.now(),
+    timezoneLabel: existing.timezoneLabel || getTimezoneLabel()
+  });
+  persistPublishingQueue();
+  return existing;
+}
+
+function findQueueEntry(key) {
+  return publishingQueueState.entries.find(entry => entry.key === key);
+}
+
+function renderPublishingQueue() {
+  const wrap = document.getElementById('publishing-queue');
+  const list = document.getElementById('publishing-queue-list');
+  const empty = document.getElementById('publishing-queue-empty');
+  if (!wrap || !list || !empty) return;
+
+  list.innerHTML = '';
+  if (!publishingQueueState.entries.length) {
+    wrap.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  empty.classList.add('hidden');
+
+  const sorted = [...publishingQueueState.entries].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+  sorted.forEach(entry => list.appendChild(renderQueueItem(entry)));
+}
+
+function renderQueueItem(entry) {
+  const item = document.createElement('div');
+  item.className = 'border border-slate-200 rounded-xl p-4 bg-white/80 flex flex-col gap-2';
+
+  const header = document.createElement('div');
+  header.className = 'flex flex-wrap items-center justify-between gap-3';
+
+  const left = document.createElement('div');
+  left.className = 'flex items-center gap-2';
+  const badge = document.createElement('span');
+  badge.className = `text-[11px] font-semibold px-2 py-1 rounded-full border ${queueStatusClass(entry.status)}`;
+  badge.textContent = formatQueueStatusLabel(entry.status);
+  const label = document.createElement('div');
+  label.className = 'text-sm text-slate-700';
+  label.textContent = `${entry.platformLabel || formatPlatformLabel(entry.platform)} • Day ${entry.day || 0}`;
+
+  const detail = document.createElement('div');
+  detail.className = 'text-xs text-slate-500';
+  detail.textContent = formatQueueDetail(entry);
+
+  left.appendChild(badge);
+  left.appendChild(label);
+
+  const actions = document.createElement('div');
+  actions.className = 'flex items-center gap-2';
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = `btn-secondary btn-xs ${entry.status === 'failed' ? '' : 'hidden'}`;
+  retry.textContent = 'Retry publish';
+  retry.addEventListener('click', () => {
+    const updated = updatePublishingQueueEntry(entry.key, {
+      status: entry.scheduledAt ? 'scheduled' : 'published',
+      error: '',
+      lastUpdated: Date.now()
+    });
+    renderPublishingQueue();
+    applyQueueStatusToCards(updated);
+    showToast('Retry saved to the queue.');
+  });
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'btn-ghost btn-xs';
+  copyBtn.textContent = 'Copy text';
+  copyBtn.addEventListener('click', async () => {
+    const ok = await copyToClipboard(entry.caption || '');
+    if (ok) {
+      showToast('Copied caption from queue');
+    } else {
+      showToast('Clipboard unavailable — you can still select the text.');
+    }
+  });
+
+  actions.appendChild(copyBtn);
+  actions.appendChild(retry);
+
+  header.appendChild(left);
+  header.appendChild(actions);
+
+  const body = document.createElement('div');
+  body.className = 'text-sm text-slate-600';
+  const preview = (entry.caption || '').slice(0, 140) || 'No caption saved yet.';
+  body.textContent = preview;
+
+  item.appendChild(header);
+  item.appendChild(detail);
+  item.appendChild(body);
+
+  return item;
+}
+
+function queueStatusClass(status) {
+  switch (status) {
+    case 'published':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    case 'scheduled':
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'failed':
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    default:
+      return 'bg-slate-50 text-slate-700 border-slate-200';
+  }
+}
+
+function formatQueueStatusLabel(status) {
+  if (status === 'published') return 'Published';
+  if (status === 'scheduled') return 'Scheduled';
+  if (status === 'failed') return 'Failed';
+  return 'Ready';
+}
+
+function formatQueueDetail(entry = {}) {
+  if (entry.status === 'scheduled' && entry.scheduledAt) {
+    return `Scheduled for ${formatScheduleLabel(entry.scheduledAt)}`;
+  }
+  if (entry.status === 'published') {
+    return `Published ${formatRelativeTime(entry.lastUpdated || Date.now())}`;
+  }
+  if (entry.status === 'failed') {
+    return entry.error || 'Needs attention';
+  }
+  return entry.pillar ? `Queued from ${entry.pillar}` : 'Queued from generator';
+}
+
+function formatScheduleLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  const tz = getTimezoneLabel();
+  return `${date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${tz ? ` (${tz})` : ''}`;
+}
+
+function formatDateTimeLocal(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mi = pad(date.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+}
+
+function formatTimezoneOffset(date = new Date()) {
+  const offsetMinutes = date.getTimezoneOffset();
+  const sign = offsetMinutes <= 0 ? '+' : '-';
+  const abs = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(abs / 60)).padStart(2, '0');
+  const minutes = String(abs % 60).padStart(2, '0');
+  return `UTC${sign}${hours}:${minutes}`;
+}
+
+function getTimezoneLabel() {
+  try {
+    const { timeZone } = Intl.DateTimeFormat().resolvedOptions();
+    return timeZone ? `${timeZone} (${formatTimezoneOffset()})` : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function updateQueueTimezoneLabel() {
+  const el = document.getElementById('queue-timezone');
+  if (!el) return;
+  el.textContent = getTimezoneLabel() || 'Timezone unavailable';
+}
+
+function syncQueueWithPosts(posts = []) {
+  let changed = false;
+  posts.forEach(post => {
+    const entry = ensureQueueEntryForPost(post);
+    if (entry && !entry.caption && post.caption) {
+      entry.caption = post.caption;
+      changed = true;
+    }
+  });
+  if (changed) persistPublishingQueue();
+}
+
+function applyQueueStatusToCard(card, entry) {
+  if (!card || !entry) return;
+  const badge = card.querySelector(`[data-queue-badge="${entry.key}"]`);
+  const note = card.querySelector(`[data-queue-note="${entry.key}"]`);
+  if (badge) {
+    badge.textContent = formatQueueStatusLabel(entry.status);
+    badge.className = `text-[11px] font-semibold px-2 py-1 rounded-full border ${queueStatusClass(entry.status)}`;
+  }
+  if (note) {
+    note.textContent = formatQueueDetail(entry);
+  }
+}
+
+function applyQueueStatusToCards(entry) {
+  if (!entry) return;
+  const cards = Array.from(document.querySelectorAll(`[data-queue-key="${entry.key}"]`));
+  cards.forEach(card => applyQueueStatusToCard(card, entry));
+}
+
+function formatRelativeTime(ts) {
+  const diffMs = Date.now() - ts;
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hr ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+}
+
+function buildPlatformMetadata(post = {}) {
+  const normalized = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const limit = PLATFORM_CHARACTER_LIMITS[normalized] || 0;
+  const caption = post.caption || '';
+  const charCount = caption.length;
+  const hashtags = extractHashtags(post) || [];
+  const preview = (caption.split('\n')[0] || '').trim() || 'First line will show here.';
+  return { limit, charCount, hashtags, preview, platform: normalized };
+}
+
+function extractHashtags(post = {}) {
+  if (Array.isArray(post.hashtags) && post.hashtags.length) return post.hashtags;
+  const caption = post.caption || '';
+  const matches = caption.match(/#[\w-]+/g);
+  return matches || [];
+}
+
 // Generate review response using the API
 async function generateReviewResponse(reviewText, tone, companyName = '') {
   try {
@@ -1751,6 +2079,9 @@ function renderPosts(data) {
     return;
   }
 
+  syncQueueWithPosts(posts);
+  renderPublishingQueue();
+
   // Group posts by day
   const byDay = posts.reduce((acc, post) => {
     (acc[post.day_index] ||= []).push(post);
@@ -1760,9 +2091,9 @@ function renderPosts(data) {
   const sortedDays = Object.keys(byDay).sort((a, b) => +a - +b);
   const platformMetaMap = new Map();
   posts.forEach(post => {
-    const key = String(post.platform || '').toLowerCase();
+    const key = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
     if (!key || platformMetaMap.has(key)) return;
-    platformMetaMap.set(key, formatPlatformLabel(post.platform));
+    platformMetaMap.set(key, formatPlatformLabel(key));
   });
   const platforms = Array.from(platformMetaMap.entries()).map(([key, label]) => ({ key, label }));
   ensureGeneratedViewPrefsLoaded();
@@ -1844,7 +2175,8 @@ function renderPosts(data) {
 
 function buildPostSnapshot(post = {}) {
   const lines = [];
-  const platformLabel = formatPlatformLabel(post.platform || '');
+  const platformKey = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const platformLabel = formatPlatformLabel(platformKey);
   lines.push(`Platform: ${platformLabel || 'Unknown'}`);
   if (post.pillar) lines.push(`Pillar: ${post.pillar}`);
   if (post.day_index) lines.push(`Day: ${post.day_index}`);
@@ -1876,7 +2208,8 @@ function buildPostSnapshot(post = {}) {
 }
 
 function buildPostSummary(post = {}) {
-  const platformLabel = formatPlatformLabel(post.platform || '');
+  const platformKey = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const platformLabel = formatPlatformLabel(platformKey);
   const day = post.day_index ? `day ${post.day_index}` : '';
   const pillar = post.pillar ? ` • ${post.pillar}` : '';
   const firstLine = (post.caption || '').split('\n')[0].trim();
@@ -1901,21 +2234,26 @@ function renderPostCard(post) {
     short_video: 'from-purple-600 to-pink-500'
   };
 
-  const platformColor = platformColors[post.platform.toLowerCase()] || 'from-gray-500 to-gray-600';
-  const editorId = `post-editor-${post.day_index}-${post.platform}-${Math.random().toString(36).slice(2,7)}`;
+  const platformKey = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const platformColor = platformColors[platformKey] || 'from-gray-500 to-gray-600';
+  const editorId = `post-editor-${post.day_index}-${platformKey}-${Math.random().toString(36).slice(2,7)}`;
   const stampId = `${editorId}-stamp`;
   const variantsMarkup = post.variants ? renderPlatformVariants(post.variants, post.platform) : '';
 
   // Check if this post has variants (multiple platforms)
   const hasVariants = post.variants && Object.keys(post.variants).length > 1;
+  const queueEntry = ensureQueueEntryForPost(post);
+  const metadata = buildPlatformMetadata(post);
+  const queueStatus = queueStatusClass(queueEntry.status);
+  const fallbackStampId = `${stampId}-fallback`;
 
   card.innerHTML = `
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 bg-gradient-to-r ${platformColor} rounded-full flex items-center justify-center">
-          <span class="text-white text-xs font-bold">${post.platform.charAt(0).toUpperCase()}</span>
+          <span class="text-white text-xs font-bold">${(platformKey.charAt(0) || 'S').toUpperCase()}</span>
         </div>
-        <span class="font-medium text-slate-900">${formatPlatformLabel(post.platform)}</span>
+        <span class="font-medium text-slate-900">${formatPlatformLabel(platformKey)}</span>
         ${hasVariants ? '<span class="text-xs text-purple-600 font-medium">• Multi-platform</span>' : ''}
       </div>
       <div class="flex gap-2">
@@ -2032,7 +2370,85 @@ function renderPostCard(post) {
     });
   });
 
+  card.dataset.queueKey = queueEntry.key;
+  wirePublishingControls(card, queueEntry, editorId);
+  applyQueueStatusToCard(card, queueEntry);
+
   return card;
+}
+
+function wirePublishingControls(card, queueEntry, editorId) {
+  const publishBtn = card.querySelector(`[data-publish-now="${queueEntry.key}"]`);
+  const scheduleBtn = card.querySelector(`[data-schedule-btn="${queueEntry.key}"]`);
+  const retryBtn = card.querySelector(`[data-retry-btn="${queueEntry.key}"]`);
+  const scheduleInput = card.querySelector(`[data-schedule-input="${queueEntry.key}"]`);
+  const editor = card.querySelector(`#${editorId}`);
+
+  if (scheduleInput && !scheduleInput.value) {
+    const defaultDate = queueEntry.scheduledAt ? new Date(queueEntry.scheduledAt) : new Date(Date.now() + 60 * 60 * 1000);
+    scheduleInput.value = formatDateTimeLocal(defaultDate);
+  }
+
+  const refreshStatus = (entry) => {
+    if (!entry) return;
+    applyQueueStatusToCard(card, entry);
+    if (retryBtn) retryBtn.classList.toggle('hidden', entry.status !== 'failed');
+    renderPublishingQueue();
+  };
+
+  publishBtn?.addEventListener('click', () => {
+    const updated = updatePublishingQueueEntry(queueEntry.key, {
+      status: 'published',
+      scheduledAt: new Date().toISOString(),
+      caption: editor?.value || queueEntry.caption,
+      error: ''
+    });
+    refreshStatus(updated);
+    showToast('Marked as published in your queue.');
+  });
+
+  scheduleBtn?.addEventListener('click', () => {
+    const value = scheduleInput?.value;
+    if (!value) {
+      const failed = updatePublishingQueueEntry(queueEntry.key, { status: 'failed', error: 'Add a schedule time to continue.' });
+      refreshStatus(failed);
+      showToast('Add a schedule time before scheduling.');
+      return;
+    }
+    const scheduledDate = new Date(value);
+    if (Number.isNaN(scheduledDate.getTime()) || scheduledDate.getTime() < Date.now()) {
+      const failed = updatePublishingQueueEntry(queueEntry.key, { status: 'failed', error: 'Pick a time in the future.' });
+      refreshStatus(failed);
+      showToast('Pick a time in the future.');
+      return;
+    }
+    const updated = updatePublishingQueueEntry(queueEntry.key, {
+      status: 'scheduled',
+      scheduledAt: scheduledDate.toISOString(),
+      caption: editor?.value || queueEntry.caption,
+      error: ''
+    });
+    refreshStatus(updated);
+    showToast('Scheduled from this card.');
+  });
+
+  retryBtn?.addEventListener('click', () => {
+    const fallbackDate = scheduleInput?.value ? new Date(scheduleInput.value) : new Date();
+    const status = scheduleInput?.value ? 'scheduled' : 'published';
+    const updated = updatePublishingQueueEntry(queueEntry.key, {
+      status,
+      scheduledAt: fallbackDate.toISOString(),
+      caption: editor?.value || queueEntry.caption,
+      error: ''
+    });
+    refreshStatus(updated);
+    showToast('Retry saved.');
+  });
+
+  editor?.addEventListener('blur', () => {
+    updatePublishingQueueEntry(queueEntry.key, { caption: editor.value });
+    renderPublishingQueue();
+  });
 }
 
 // Render reel section for video content
@@ -2599,6 +3015,14 @@ function escapeAttr(text) {
 const PLATFORM_LABEL_OVERRIDES = {
   twitter: 'X / Twitter',
   short_video: 'Reels / Shorts'
+};
+const PLATFORM_CHARACTER_LIMITS = {
+  twitter: 280,
+  instagram: 2200,
+  facebook: 63206,
+  linkedin: 3000,
+  tiktok: 2200,
+  short_video: 2200
 };
 
 function getCachedIndustries(){
