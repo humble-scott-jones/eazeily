@@ -83,16 +83,24 @@
       { label: 'In Review', count: counts.in_review || 0, accent: 'bg-amber-50 text-amber-800 border-amber-200' },
       { label: 'Approved/Scheduled', count: (counts.approved || 0) + (counts.scheduled || 0), accent: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
     ];
-    summaryEl.innerHTML = cards
-      .map(
-        (card) => `
-        <div class="border ${card.accent} rounded-2xl p-4 shadow-sm">
-          <p class="text-xs uppercase tracking-[0.2em]">${card.label}</p>
-          <p class="text-3xl font-bold mt-1">${card.count}</p>
-        </div>
-      `
-      )
-      .join('');
+    // Clear previous content
+    summaryEl.innerHTML = '';
+    cards.forEach((card) => {
+      const cardDiv = document.createElement('div');
+      cardDiv.className = `border ${card.accent} rounded-2xl p-4 shadow-sm`;
+
+      const labelP = document.createElement('p');
+      labelP.className = 'text-xs uppercase tracking-[0.2em]';
+      labelP.textContent = card.label;
+
+      const countP = document.createElement('p');
+      countP.className = 'text-3xl font-bold mt-1';
+      countP.textContent = card.count;
+
+      cardDiv.appendChild(labelP);
+      cardDiv.appendChild(countP);
+      summaryEl.appendChild(cardDiv);
+    });
   }
 
   function renderBuckets(drafts) {
