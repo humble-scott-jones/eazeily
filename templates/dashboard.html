@@ -420,6 +420,22 @@
             <button type="button" class="btn-ghost btn-sm" id="collapse-all-days">Collapse all days</button>
           </div>
         </div>
+
+        <div id="publishing-queue" class="hidden mb-6 bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl p-5 shadow">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-[0.35em] text-slate-500">Unified queue</p>
+              <h3 class="text-lg font-semibold text-slate-900">Publish now or schedule without leaving this page</h3>
+              <p class="text-sm text-slate-600">Badges track each platform’s status. Retry failed posts or copy the text anytime.</p>
+            </div>
+            <div class="text-right">
+              <p id="queue-timezone" class="text-xs text-slate-500">—</p>
+              <p class="text-[11px] text-slate-400">Times are shown in your browser timezone.</p>
+            </div>
+          </div>
+          <div id="publishing-queue-list" class="mt-4 space-y-3"></div>
+          <div id="publishing-queue-empty" class="mt-4 text-sm text-slate-500">Use “Publish now” or “Schedule” on any card to add it to the queue.</div>
+        </div>
         <div id="content-results" class="space-y-4"></div>
       </div>
     </div>
