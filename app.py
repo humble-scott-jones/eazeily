@@ -1886,10 +1886,10 @@ def api_team_draft_status(draft_id: str):
     explicit_status = (data.get('status') or '').strip().lower()
     db = get_db()
     owner_id = user_row['id']
+    _ensure_demo_drafts(owner_id)
     draft = db.execute('SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
     if not draft:
         return jsonify({'ok': False, 'error': 'Draft not found'}), 404
-    _ensure_demo_drafts(owner_id)
     previous_status = (draft['status'] or 'draft').lower()
     target_status = explicit_status
     if action == 'approve':
