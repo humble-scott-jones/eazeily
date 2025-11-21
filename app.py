@@ -734,15 +734,13 @@ def launch_page():
 @app.get("/app")
 def index():
     """Main application page for authenticated users."""
-    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
-    return render_template("index.html", is_dev=is_dev, initial_user=_initial_user_payload())
+    return render_template("index.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
 
 @app.get("/generate")
 def generate_page():
     """Dashboard for generating content after onboarding completes."""
-    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
-    return render_template("dashboard.html", is_dev=is_dev, initial_user=_initial_user_payload())
+    return render_template("dashboard.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
 
 def _ensure_admin_csrf_token() -> Optional[str]:
