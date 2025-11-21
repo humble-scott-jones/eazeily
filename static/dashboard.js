@@ -1303,7 +1303,7 @@ function buildActivityItem(evt) {
   const needsInput = evt.status === 'draft' && evt.needsInputFrom ? `<span class="needs-input-pill">Needs input from ${escapeHtml(evt.needsInputFrom)}</span>` : '';
   const campaignTag = evt.campaign ? `<span class="activity-pill">${escapeHtml(evt.campaign)}</span>` : '';
   const assigneeTag = evt.assignee ? `<span class="activity-pill">Assignee: ${escapeHtml(evt.assignee)}</span>` : '';
-  const platforms = Array.isArray(evt.platforms) && evt.platforms.length ? `<div class="activity-platforms">${evt.platforms.map(formatPlatformLabel).join(' • ')}</div>` : '';
+  const platforms = Array.isArray(evt.platforms) && evt.platforms.length ? `<div class="activity-platforms">${evt.platforms.map(p => escapeHtml(formatPlatformLabel(p))).join(' • ')}</div>` : '';
   item.innerHTML = `
     <div class="activity-item__header">
       <span class="activity-type-badge activity-type-${meta.color}">${escapeHtml(meta.icon)} ${escapeHtml(meta.label)}</span>
