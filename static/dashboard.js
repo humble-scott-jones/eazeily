@@ -14,6 +14,82 @@ const generatedViewPrefs = {
   hiddenPlatforms: new Set(),
   loaded: false
 };
+const ACTIVITY_TYPE_META = {
+  generated: { label: 'Generated', icon: '✨', color: 'emerald' },
+  edited: { label: 'Edited', icon: '✏️', color: 'blue' },
+  commented: { label: 'Commented', icon: '💬', color: 'purple' },
+  approved: { label: 'Approved', icon: '✅', color: 'emerald' },
+  scheduled: { label: 'Scheduled', icon: '📅', color: 'amber' }
+};
+const activityEvents = [
+  {
+    id: 'act-1',
+    type: 'generated',
+    title: '3-day draft generated',
+    summary: 'IG + TikTok plan using “evergreen nurture” voice.',
+    campaign: 'Evergreen nurture',
+    assignee: 'Mia Nguyen',
+    actor: { name: 'Mia Nguyen', role: 'Strategist' },
+    time: '2m ago',
+    status: 'draft',
+    needsInputFrom: 'Tyler (client)',
+    platforms: ['instagram', 'short_video']
+  },
+  {
+    id: 'act-2',
+    type: 'edited',
+    title: 'Caption tightened for LinkedIn',
+    summary: 'Removed extra hashtags and added CTA for newsletter.',
+    campaign: 'Evergreen nurture',
+    assignee: 'Priya Shah',
+    actor: { name: 'Priya Shah', role: 'Editor' },
+    time: '8m ago',
+    status: 'in_progress',
+    platforms: ['linkedin']
+  },
+  {
+    id: 'act-3',
+    type: 'commented',
+    title: 'Client comment on carousel',
+    summary: '“Swap frame 1 hook for pain-point first.”',
+    campaign: 'Q4 product launch',
+    assignee: 'Mia Nguyen',
+    actor: { name: 'Daniel Brooks', role: 'Client' },
+    time: '24m ago',
+    status: 'draft',
+    needsInputFrom: 'Mia',
+    platforms: ['instagram']
+  },
+  {
+    id: 'act-4',
+    type: 'approved',
+    title: 'Legal approval granted',
+    summary: 'Scripts cleared for reels with promo language.',
+    campaign: 'Q4 product launch',
+    assignee: 'Tyler James',
+    actor: { name: 'Amelia Chen', role: 'Legal reviewer' },
+    time: '1h ago',
+    status: 'approved',
+    platforms: ['short_video']
+  },
+  {
+    id: 'act-5',
+    type: 'scheduled',
+    title: 'Two posts scheduled',
+    summary: 'Queued for Wed 9am and Fri 3pm with UTM swap.',
+    campaign: 'Retail holiday',
+    assignee: 'Priya Shah',
+    actor: { name: 'Jonas Lee', role: 'Marketing ops' },
+    time: '3h ago',
+    status: 'scheduled',
+    platforms: ['facebook', 'instagram']
+  }
+];
+const activityFilterState = {
+  types: new Set(Object.keys(ACTIVITY_TYPE_META)),
+  campaign: 'all',
+  assignee: 'all'
+};
 const planCacheState = {
   meta: null
 };
@@ -155,6 +231,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Feedback form in sidebar
   setupFeedbackForm();
+
+  // Activity and ownership feed
+  hydrateActivityFeed();
 
   hydrateVoiceSummary({});
   hydrateSeedPosts();
@@ -1510,6 +1589,154 @@ function showToast(message) {
   document.body.appendChild(toast);
   setTimeout(() => toast.classList.add('opacity-0'), 2200);
   setTimeout(() => toast.remove(), 2800);
+}
+
+function hydrateActivityFeed() {
+  const wrap = document.getElementById('activity-panel');
+  if (!wrap) return;
+  renderActivityTypeChips();
+  populateActivityFilterSelects();
+  bindActivityReset();
+  renderActivityFeed();
+}
+
+function renderActivityTypeChips() {
+  const wrap = document.getElementById('activity-type-filters');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  Object.entries(ACTIVITY_TYPE_META).forEach(([key, meta]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.activityType = key;
+    btn.className = 'activity-chip';
+    btn.innerHTML = `<span class="activity-chip__icon">${meta.icon}</span><span>${meta.label}</span>`;
+    btn.classList.toggle('activity-chip--active', activityFilterState.types.has(key));
+    btn.setAttribute('aria-pressed', activityFilterState.types.has(key) ? 'true' : 'false');
+    btn.addEventListener('click', () => {
+      if (activityFilterState.types.has(key)) {
+        activityFilterState.types.delete(key);
+        btn.classList.remove('activity-chip--active');
+      } else {
+        activityFilterState.types.add(key);
+        btn.classList.add('activity-chip--active');
+      }
+      renderActivityFeed();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function populateActivityFilterSelects() {
+  const campaignSelect = document.getElementById('activity-campaign-filter');
+  const assigneeSelect = document.getElementById('activity-assignee-filter');
+  const campaigns = Array.from(new Set(activityEvents.map(evt => evt.campaign).filter(Boolean)));
+  const assignees = Array.from(new Set(activityEvents.map(evt => evt.assignee).filter(Boolean)));
+
+  if (campaignSelect) {
+    campaignSelect.innerHTML = '<option value="all">All campaigns</option>' + campaigns.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+    campaignSelect.value = activityFilterState.campaign;
+    if (!campaignSelect.dataset.bound) {
+      campaignSelect.addEventListener('change', () => {
+        activityFilterState.campaign = campaignSelect.value;
+        renderActivityFeed();
+      });
+      campaignSelect.dataset.bound = '1';
+    }
+  }
+
+  if (assigneeSelect) {
+    assigneeSelect.innerHTML = '<option value="all">All teammates</option>' + assignees.map(a => `<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('');
+    assigneeSelect.value = activityFilterState.assignee;
+    if (!assigneeSelect.dataset.bound) {
+      assigneeSelect.addEventListener('change', () => {
+        activityFilterState.assignee = assigneeSelect.value;
+        renderActivityFeed();
+      });
+      assigneeSelect.dataset.bound = '1';
+    }
+  }
+}
+
+function bindActivityReset() {
+  const btn = document.getElementById('activity-reset');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    activityFilterState.types = new Set(Object.keys(ACTIVITY_TYPE_META));
+    activityFilterState.campaign = 'all';
+    activityFilterState.assignee = 'all';
+    syncActivitySelects();
+    renderActivityTypeChips();
+    renderActivityFeed();
+  });
+}
+
+function syncActivitySelects() {
+  const campaignSelect = document.getElementById('activity-campaign-filter');
+  const assigneeSelect = document.getElementById('activity-assignee-filter');
+  if (campaignSelect) campaignSelect.value = activityFilterState.campaign;
+  if (assigneeSelect) assigneeSelect.value = activityFilterState.assignee;
+}
+
+function renderActivityFeed() {
+  const list = document.getElementById('activity-feed');
+  const empty = document.getElementById('activity-empty');
+  if (!list) return;
+  list.innerHTML = '';
+  const filtered = activityEvents.filter(evt => {
+    if (activityFilterState.types.size && !activityFilterState.types.has(evt.type)) return false;
+    if (activityFilterState.campaign !== 'all' && evt.campaign !== activityFilterState.campaign) return false;
+    if (activityFilterState.assignee !== 'all' && evt.assignee !== activityFilterState.assignee) return false;
+    return true;
+  });
+
+  filtered.forEach(evt => {
+    list.appendChild(buildActivityItem(evt));
+  });
+
+  if (empty) {
+    empty.classList.toggle('hidden', filtered.length > 0);
+  }
+}
+
+function buildActivityItem(evt) {
+  const meta = ACTIVITY_TYPE_META[evt.type] || { label: 'Update', icon: '•', color: 'slate' };
+  const item = document.createElement('article');
+  item.className = 'activity-item';
+  const role = evt.actor?.role ? `<span class="activity-role">${escapeHtml(evt.actor.role)}</span>` : '';
+  const needsInput = evt.status === 'draft' && evt.needsInputFrom ? `<span class="needs-input-pill">Needs input from ${escapeHtml(evt.needsInputFrom)}</span>` : '';
+  const campaignTag = evt.campaign ? `<span class="activity-pill">${escapeHtml(evt.campaign)}</span>` : '';
+  const assigneeTag = evt.assignee ? `<span class="activity-pill">Assignee: ${escapeHtml(evt.assignee)}</span>` : '';
+  const platforms = Array.isArray(evt.platforms) && evt.platforms.length ? `<div class="activity-platforms">${evt.platforms.map(p => escapeHtml(formatPlatformLabel(p))).join(' • ')}</div>` : '';
+  item.innerHTML = `
+    <div class="activity-item__header">
+      <span class="activity-type-badge activity-type-${meta.color}">${escapeHtml(meta.icon)} ${escapeHtml(meta.label)}</span>
+      <span class="activity-time">${escapeHtml(evt.time || '')}</span>
+    </div>
+    <div class="activity-item__body">
+      <div class="activity-avatar" aria-hidden="true">${escapeHtml(getInitials(evt.actor?.name))}</div>
+      <div class="activity-item__content">
+        <div class="activity-item__title">${escapeHtml(evt.title || 'Untitled update')}</div>
+        <div class="activity-item__meta">
+          <span class="activity-actor">${escapeHtml(evt.actor?.name || 'Unassigned')}</span>
+          ${role}
+          ${campaignTag}
+          ${assigneeTag}
+          ${needsInput}
+        </div>
+        <p class="activity-item__summary">${escapeHtml(evt.summary || '')}</p>
+        ${platforms}
+      </div>
+    </div>
+  `;
+  return item;
+}
+
+function getInitials(name = '') {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '•';
+  const first = parts[0].charAt(0) || '';
+  const last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+  return (first + last).toUpperCase();
 }
 
 // Render generated posts with enhanced features
