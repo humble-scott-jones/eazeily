@@ -2227,6 +2227,15 @@ function countSyllables(word = '') {
   return Math.max(1, count);
 }
 
+// Utility to escape HTML special characters
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 function analyzeDraftQuality(text = '') {
   const checks = [];
   const metrics = readabilityMetrics(text);
