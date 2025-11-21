@@ -764,9 +764,15 @@ def generate_page():
 
 @app.get('/inbox')
 def inbox_page():
-    """Team inbox for generated drafts and approvals."""
+    """Legacy inbox route retained for backward compatibility."""
+    return redirect(url_for('planner_page'), code=302)
+
+
+@app.get('/planner')
+def planner_page():
+    """Content planner for generated drafts and approvals."""
     is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
-    return render_template('inbox.html', is_dev=is_dev, initial_user=_initial_user_payload())
+    return render_template('planner.html', is_dev=is_dev, initial_user=_initial_user_payload())
 
 
 @app.get('/drafts/<draft_id>')

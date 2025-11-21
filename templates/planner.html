@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Team Inbox - Swelly</title>
+  <title>Content Planner - Swelly</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/swelly-theme.css" />
@@ -13,11 +13,11 @@
     <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
       <a href="/" class="flex items-center gap-3">
         <img src="/static/logo.svg" alt="Swelly" class="h-8" />
-        <span class="font-semibold text-slate-800 hidden sm:inline">Swelly Team Inbox</span>
+        <span class="font-semibold text-slate-800 hidden sm:inline">Swelly Content Planner</span>
       </a>
       <nav class="flex items-center gap-4 text-sm text-slate-600">
         <a href="/generate" class="hover:text-brand">Generate</a>
-        <a href="/inbox" class="text-brand font-semibold">Inbox</a>
+        <a href="/planner" class="text-brand font-semibold">Planner</a>
         <a href="/account" class="hover:text-brand">Account</a>
       </nav>
     </div>
@@ -25,15 +25,15 @@
 
   <main class="max-w-7xl mx-auto px-6 py-10 space-y-6">
     <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-      <div>
-        <p class="text-xs uppercase tracking-[0.25em] text-slate-500">Team Inbox</p>
-        <h1 class="text-3xl font-bold text-slate-900 mt-2">Campaign-ready drafts</h1>
-        <p class="text-slate-600 mt-1">Filter by campaign, assignee, or status, then jump straight into the draft detail.</p>
+      <div class="space-y-2">
+        <p class="text-xs uppercase tracking-[0.25em] text-slate-500">Content Planner</p>
+        <h1 class="text-3xl font-bold text-slate-900">Coordinate campaigns and drafts</h1>
+        <p class="text-slate-600">See upcoming pieces by due date, owners, and review status—all in one shared view.</p>
       </div>
       <div class="flex gap-3">
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-2 rounded-xl text-sm flex items-center gap-2">
-          <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
-          <span>Live syncing</span>
+        <div class="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-xl text-sm flex items-center gap-2">
+          <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+          <span>Collaboration-ready</span>
         </div>
       </div>
     </div>
@@ -65,10 +65,12 @@
       </div>
     </section>
 
-    <section id="inbox-list" class="space-y-4"></section>
+    <section id="planner-summary" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"></section>
+
+    <section id="planner-grid" class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3"></section>
   </main>
 
-  <script>window.INBOX_VIEW = { fetchUrl: '/api/team/drafts' };</script>
-  <script src="/static/inbox.js"></script>
+  <script>window.PLANNER_VIEW = { fetchUrl: '/api/team/drafts' };</script>
+  <script src="/static/planner.js"></script>
 </body>
 </html>
