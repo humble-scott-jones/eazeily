@@ -211,20 +211,58 @@
     });
 
     const dueDate = draft.due_date ? formatDate(draft.due_date) : 'No due date';
-    card.innerHTML = `
-      <div class="flex-1 space-y-1">
-        <div class="flex items-center gap-3 flex-wrap">
-          <p class="font-semibold text-slate-900">${draft.title || 'Untitled draft'}</p>
-          <span class="px-2 py-1 rounded-full text-xs font-medium ${status.classes}">${status.label}</span>
-        </div>
-        <p class="text-sm text-slate-600">Campaign: ${draft.campaign || 'Uncategorized'} • Assignee: ${draft.assignee_email || 'Unassigned'}</p>
-        <p class="text-xs text-slate-500">${draft.comment_count || 0} comment${draft.comment_count === 1 ? '' : 's'} • Due ${dueDate}</p>
-      </div>
-      <div class="text-right text-sm text-slate-500">
-        <p>${formatDate(draft.updated_at || draft.created_at)}</p>
-        <p class="text-xs">Updated</p>
-      </div>
-    `;
+
+    // Main flex container
+    const flexContainer = document.createElement('div');
+    flexContainer.className = 'flex-1 space-y-1';
+
+    // Title and status row
+    const titleRow = document.createElement('div');
+    titleRow.className = 'flex items-center gap-3 flex-wrap';
+
+    const titleP = document.createElement('p');
+    titleP.className = 'font-semibold text-slate-900';
+    titleP.textContent = draft.title || 'Untitled draft';
+    titleRow.appendChild(titleP);
+
+    const statusSpan = document.createElement('span');
+    statusSpan.className = `px-2 py-1 rounded-full text-xs font-medium ${status.classes}`;
+    statusSpan.textContent = status.label;
+    titleRow.appendChild(statusSpan);
+
+    flexContainer.appendChild(titleRow);
+
+    // Campaign and assignee
+    const campaignAssigneeP = document.createElement('p');
+    campaignAssigneeP.className = 'text-sm text-slate-600';
+    const campaign = draft.campaign || 'Uncategorized';
+    const assignee = draft.assignee_email || 'Unassigned';
+    campaignAssigneeP.textContent = `Campaign: ${campaign} • Assignee: ${assignee}`;
+    flexContainer.appendChild(campaignAssigneeP);
+
+    // Comment count and due date
+    const commentDueP = document.createElement('p');
+    commentDueP.className = 'text-xs text-slate-500';
+    const commentCount = draft.comment_count || 0;
+    commentDueP.textContent = `${commentCount} comment${commentCount === 1 ? '' : 's'} • Due ${dueDate}`;
+    flexContainer.appendChild(commentDueP);
+
+    // Right side: updated date
+    const rightDiv = document.createElement('div');
+    rightDiv.className = 'text-right text-sm text-slate-500';
+
+    const updatedP = document.createElement('p');
+    updatedP.textContent = formatDate(draft.updated_at || draft.created_at);
+    rightDiv.appendChild(updatedP);
+
+    const updatedLabelP = document.createElement('p');
+    updatedLabelP.className = 'text-xs';
+    updatedLabelP.textContent = 'Updated';
+    rightDiv.appendChild(updatedLabelP);
+
+    // Card layout: flex row
+    card.appendChild(flexContainer);
+    card.appendChild(rightDiv);
     return card;
   }
 
