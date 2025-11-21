@@ -2149,6 +2149,57 @@ function regenerateCtaText(text = '', post = {}) {
   return `${body.trim()} ${chosen}`.trim();
 }
 
+// --- Inclusive Language Batch Fix UX Improvement ---
+// Assumes: inclusiveLanguageIssues is an array of detected issues for the current text,
+// and applyInclusiveLanguageFix(issue) applies a single fix.
+// The following adds a "Fix all" button and handler.
+
+function renderInclusiveLanguageIssues(issues, text, onTextUpdate) {
+  const container = document.createElement('div');
+  container.className = 'inclusive-language-issues';
+
+  if (issues.length > 1) {
+    const fixAllBtn = document.createElement('button');
+    fixAllBtn.textContent = 'Fix all';
+    fixAllBtn.className = 'btn btn-sm btn-primary';
+    fixAllBtn.onclick = function() {
+      let newText = text;
+      // Apply all fixes in order, updating the text each time
+      issues.forEach(issue => {
+        newText = applyInclusiveLanguageFix(issue, newText);
+      });
+      onTextUpdate(newText);
+    };
+    container.appendChild(fixAllBtn);
+  }
+
+  issues.forEach((issue, idx) => {
+    const issueDiv = document.createElement('div');
+    issueDiv.className = 'inclusive-language-issue';
+    issueDiv.textContent = issue.message;
+    const fixBtn = document.createElement('button');
+    fixBtn.textContent = 'Apply fix';
+    fixBtn.className = 'btn btn-xs btn-secondary';
+    fixBtn.onclick = function() {
+      const newText = applyInclusiveLanguageFix(issue, text);
+      onTextUpdate(newText);
+    };
+    issueDiv.appendChild(fixBtn);
+    container.appendChild(issueDiv);
+  });
+  return container;
+}
+
+// Helper: applies a single inclusive language fix to the text
+function applyInclusiveLanguageFix(issue, text) {
+  // Example: replace the problematic word/phrase with the suggested fix
+  // Assumes issue has {start, end, replacement}
+  if (typeof issue.start === 'number' && typeof issue.end === 'number' && issue.replacement) {
+    return text.slice(0, issue.start) + issue.replacement + text.slice(issue.end);
+  }
+  // Fallback: return text unchanged
+  return text;
+}
 function readabilityMetrics(text = '') {
   const sentences = (text.match(/[^.!?]+[.!?]*/g) || []).filter(Boolean);
   const words = (text.match(/\b[\w']+\b/g) || []);
