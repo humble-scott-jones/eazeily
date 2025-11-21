@@ -1876,10 +1876,10 @@ def api_team_draft_comment(draft_id: str):
 def api_team_draft_status(draft_id: str):
     user_row = _current_team_user()
     if not user_row:
-        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
-    data = request.get_json(force=True) or {}
-    action = (data.get('action') or '').strip().lower()
-    explicit_status = (data.get('status') or '').strip().lower()
+    _ensure_demo_drafts(owner_id)
+    draft = db.execute('SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
+    if not draft:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
     db = get_db()
     owner_id = user_row['id']
     draft = db.execute('SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
