@@ -37,6 +37,24 @@ let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], go
 let lastGeneratorState = null;
 let generatorHydratedFromProfile = false;
 
+function getCurrentUserName() {
+  const user = window.CURRENT_USER || {};
+  return user.name || user.full_name || user.fullName || user.email || '';
+}
+
+function formatRelativeTimestamp(ts) {
+  if (!ts) return '';
+  const now = Date.now();
+  const diff = now - ts;
+  if (diff < 60 * 1000) return 'Just now';
+  const minutes = Math.floor(diff / (60 * 1000));
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
 async function getDashboardConfig() {
   if (dashboardConfigCache) return dashboardConfigCache;
   if (window.CFG && typeof window.CFG === 'object') {
@@ -161,9 +179,10 @@ async function loadUserProfile() {
     };
     setTemplateProfileKey(profileDefaults.id);
     renderProfileDefaultsSummary(profileDefaults);
+    hydrateTemplateLibrary();
+    renderCollaborationSummary();
     applyProfileDefaultsToGenerator(profileDefaults);
     hydrateStoredGeneratorState({ apply: true, preferProfile: true });
-    hydrateTemplateLibrary();
     hydrateVoiceSummary(profile || {});
   } catch (error) {
     console.error('Failed to load user profile:', error);
@@ -723,6 +742,7 @@ function hydrateTemplateLibrary() {
   loadTemplateLibraryState();
   renderTemplatePicker();
   renderPresetButtons();
+  renderCollaborationSummary();
 }
 
 function setupTemplateLibrary() {
@@ -746,13 +766,39 @@ function renderTemplatePicker() {
   placeholder.textContent = 'Choose saved template';
   picker.appendChild(placeholder);
   (templateLibraryState.templates || []).forEach(tpl => {
+    const template = Object.assign({ updatedAt: Date.now() }, tpl);
     const opt = document.createElement('option');
-    opt.value = tpl.id;
-    opt.textContent = tpl.name;
-    opt.dataset.platforms = (tpl.platforms || []).join(',');
+    opt.value = template.id;
+    opt.textContent = template.author ? `${template.name} • ${template.author}` : template.name;
+    opt.dataset.platforms = (template.platforms || []).join(',');
     picker.appendChild(opt);
   });
   updateTemplateEmptyState(emptyState);
+}
+
+function renderCollaborationSummary() {
+  const presence = document.getElementById('collab-presence');
+  const nameEl = document.getElementById('collab-template-name');
+  const authorEl = document.getElementById('collab-template-author');
+  const timeEl = document.getElementById('collab-template-time');
+  const templates = Array.isArray(templateLibraryState.templates) ? templateLibraryState.templates : [];
+  const latest = templates.reduce((acc, tpl) => {
+    const updated = tpl.updatedAt || 0;
+    if (!acc || updated > (acc.updatedAt || 0)) return tpl;
+    return acc;
+  }, null);
+  const active = (lastGeneratorState && lastGeneratorState.updatedAt) ? lastGeneratorState : latest;
+  const authorName = active?.author || getCurrentUserName() || 'Shared profile';
+  const timeLabel = active?.updatedAt ? `Updated ${formatRelativeTimestamp(active.updatedAt)}` : 'Waiting for your first save.';
+
+  if (presence) {
+    presence.textContent = templates.length
+      ? `${templates.length} shared preset${templates.length === 1 ? '' : 's'} ready for the team`
+      : 'No shared presets yet—save one to match the solo flow.';
+  }
+  if (nameEl) nameEl.textContent = active?.name || 'No presets yet';
+  if (authorEl) authorEl.textContent = active ? `Saved by ${authorName}` : 'Save one to see it here.';
+  if (timeEl) timeEl.textContent = timeLabel;
 }
 
 function renderPresetButtons() {
@@ -785,23 +831,29 @@ function saveCurrentTemplate() {
     nameField?.focus();
     return;
   }
-  const template = {
+  const baseTemplate = {
     id: `tpl-${Date.now()}`,
     name,
     tone: document.getElementById('gen-tone')?.value || 'friendly',
     platforms: getGeneratorPlatformSelections(),
     goals: getCurrentGoals(),
-    keywords: getCurrentKeywords()
+    keywords: getCurrentKeywords(),
+    author: getCurrentUserName() || 'Shared profile',
+    updatedAt: Date.now()
   };
   const existingIdx = (templateLibraryState.templates || []).findIndex(t => t.name.toLowerCase() === name.toLowerCase());
   if (existingIdx >= 0) {
-    templateLibraryState.templates[existingIdx] = template;
+    const existing = templateLibraryState.templates[existingIdx] || {};
+    templateLibraryState.templates[existingIdx] = Object.assign({}, existing, baseTemplate, {
+      id: existing.id || baseTemplate.id
+    });
   } else {
-    templateLibraryState.templates = [...(templateLibraryState.templates || []), template];
+    templateLibraryState.templates = [...(templateLibraryState.templates || []), baseTemplate];
   }
-  lastGeneratorState = Object.assign({}, template, { planLength: getCurrentPlanLength() });
+  lastGeneratorState = Object.assign({}, baseTemplate, { planLength: getCurrentPlanLength() });
   persistTemplateLibraryState();
   renderTemplatePicker();
+  renderCollaborationSummary();
   showToast('Template saved for this profile.');
 }
 
@@ -815,6 +867,7 @@ function applySelectedTemplate() {
     return;
   }
   applyTemplateToGenerator(tpl);
+  renderCollaborationSummary();
 }
 
 function applyPresetTemplate(preset) {
@@ -824,9 +877,12 @@ function applyPresetTemplate(preset) {
     tone: preset.tone,
     platforms: getGeneratorPlatformSelections(),
     goals: preset.goals,
-    keywords: preset.keywords
+    keywords: preset.keywords,
+    author: 'Team preset',
+    updatedAt: Date.now()
   };
   applyTemplateToGenerator(tpl, { skipPlatform: false });
+  renderCollaborationSummary();
 }
 
 function applyTemplateToGenerator(tpl, opts = {}) {
@@ -842,7 +898,11 @@ function applyTemplateToGenerator(tpl, opts = {}) {
   if (Array.isArray(tpl.keywords)) setCurrentKeywords(tpl.keywords);
   syncPreferredPlatformButtons();
   refreshReelOptionsVisibility();
-  lastGeneratorState = Object.assign({}, tpl, { planLength: getCurrentPlanLength() });
+  lastGeneratorState = Object.assign({}, tpl, {
+    planLength: getCurrentPlanLength(),
+    updatedAt: tpl.updatedAt || Date.now(),
+    author: tpl.author || getCurrentUserName() || 'Shared profile'
+  });
   persistTemplateLibraryState();
   showToast('Template applied.');
 }
@@ -1032,8 +1092,11 @@ function setCurrentKeywords(list = []) {
 function persistTemplateLibraryState() {
   if (typeof localStorage === 'undefined') return;
   try {
+    const templates = (templateLibraryState.templates || []).map(tpl => Object.assign({
+      updatedAt: tpl.updatedAt || Date.now()
+    }, tpl));
     const payload = {
-      templates: templateLibraryState.templates || [],
+      templates,
       lastUsed: lastGeneratorState
     };
     localStorage.setItem(getTemplateStorageKey(), JSON.stringify(payload));
@@ -1049,10 +1112,13 @@ function loadTemplateLibraryState() {
     if (!raw) return;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed.templates)) {
-      templateLibraryState.templates = parsed.templates;
+      templateLibraryState.templates = parsed.templates.map(tpl => Object.assign({
+        updatedAt: tpl.updatedAt || Date.now(),
+        author: tpl.author || 'Shared profile'
+      }, tpl));
     }
     if (parsed.lastUsed) {
-      lastGeneratorState = parsed.lastUsed;
+      lastGeneratorState = Object.assign({ updatedAt: parsed.lastUsed.updatedAt || Date.now() }, parsed.lastUsed);
     }
   } catch (error) {
     /* ignore */
