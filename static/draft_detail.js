@@ -183,15 +183,34 @@
     (thread.comments || []).forEach((comment) => {
       const block = document.createElement('div');
       block.className = 'bg-white rounded-lg border border-slate-200 px-3 py-2 text-sm';
-      const mentions = (comment.mentions || []).length ? ` • Mentions: ${(comment.mentions || []).join(', ')}` : '';
-      block.innerHTML = `
-        <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-          <span>${comment.author_user_id || 'You'}</span>
-          <span>${formatDate(comment.created_at || '')}</span>
-        </div>
-        <p class="text-slate-800">${comment.body}</p>
-        <p class="text-xs text-slate-500">${mentions}</p>
-      `;
+
+      // Meta row
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'flex items-center justify-between text-xs text-slate-500 mb-1';
+      const authorSpan = document.createElement('span');
+      authorSpan.textContent = comment.author_user_id || 'You';
+      const dateSpan = document.createElement('span');
+      dateSpan.textContent = formatDate(comment.created_at || '');
+      metaDiv.appendChild(authorSpan);
+      metaDiv.appendChild(dateSpan);
+
+      // Comment body
+      const bodyP = document.createElement('p');
+      bodyP.className = 'text-slate-800';
+      bodyP.textContent = comment.body;
+
+      // Mentions
+      const mentionsP = document.createElement('p');
+      mentionsP.className = 'text-xs text-slate-500';
+      if ((comment.mentions || []).length) {
+        mentionsP.textContent = '• Mentions: ' + (comment.mentions || []).join(', ');
+      } else {
+        mentionsP.textContent = '';
+      }
+
+      block.appendChild(metaDiv);
+      block.appendChild(bodyP);
+      block.appendChild(mentionsP);
       commentsWrap.appendChild(block);
     });
     return clone;
