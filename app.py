@@ -41,6 +41,9 @@ except Exception:
 
 IMAGE_DATA_URL_MAX_BYTES = 2_500_000  # ~2.5MB encoded payload cap for inline uploads
 MAX_FEEDBACK_NOTE_LEN = 1500
+VOICE_SAMPLE_MIN_LEN = 8  # Minimum character length for voice profile samples
+VOICE_SAMPLE_MIN_COUNT = 5  # Minimum number of samples required
+VOICE_SAMPLE_MAX_COUNT = 10  # Maximum number of samples allowed
 try:
     TEAM_MEMBER_LIMIT = int(os.getenv('TEAM_MEMBER_LIMIT', '10'))
 except (TypeError, ValueError):
@@ -2120,15 +2123,17 @@ def api_save_voice_profile():
     data = request.get_json(force=True) or {}
     samples = data.get('samples') if isinstance(data.get('samples'), list) else []
     cleaned = [str(s).strip() for s in samples if isinstance(s, str) and str(s).strip()]
-    # Enforce minimum and maximum sample length per sample.
-    cleaned = [
-        s for s in cleaned
-        if VOICE_SAMPLE_MIN_LEN <= len(s) <= VOICE_SAMPLE_MAX_LEN
-    ]
-    if len(cleaned) < 5 or len(cleaned) > 10:
-        return jsonify({'ok': False, 'error': f'Provide between 5 and 10 recent posts to train your voice. Each post must be {VOICE_SAMPLE_MIN_LEN}-{VOICE_SAMPLE_MAX_LEN} characters.'}), 400
-    if len(cleaned) != len(samples):
-        return jsonify({'ok': False, 'error': f'Each post must be {VOICE_SAMPLE_MIN_LEN}-{VOICE_SAMPLE_MAX_LEN} characters.'}), 400
+    
+    # Validate initial sample count before filtering
+    if len(cleaned) < VOICE_SAMPLE_MIN_COUNT or len(cleaned) > VOICE_SAMPLE_MAX_COUNT:
+        return jsonify({'ok': False, 'error': f'Provide between {VOICE_SAMPLE_MIN_COUNT} and {VOICE_SAMPLE_MAX_COUNT} recent posts to train your voice.'}), 400
+    
+    # Filter out samples that are too short
+    cleaned = [s for s in cleaned if len(s) >= VOICE_SAMPLE_MIN_LEN]
+    
+    # Validate final sample count after filtering
+    if len(cleaned) < VOICE_SAMPLE_MIN_COUNT:
+        return jsonify({'ok': False, 'error': f'After removing very short posts, only {len(cleaned)} valid samples remain. Please provide longer posts (at least {VOICE_SAMPLE_MIN_LEN} characters each).'}), 400
     voice_blob = voice_profile.profile_from_samples(cleaned)
     if not voice_blob:
         return jsonify({'ok': False, 'error': 'Samples must contain text. Please provide valid post content.'}), 400
