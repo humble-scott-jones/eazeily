@@ -653,7 +653,8 @@ def generate_posts(
     niche_keywords = list(niche_keywords or [])
     goals = list(goals or [])
     details = dict(details or {})
-    voice_profile = dict(voice_profile or details.get('voice_profile') or {}) if isinstance(voice_profile or details.get('voice_profile'), Mapping) else {}
+    voice_profile = voice_profile or details.get('voice_profile') or {}
+    voice_profile = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
     company = company or ""
 
     posts: list[dict[str, Any]] = []
