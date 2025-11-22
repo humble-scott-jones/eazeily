@@ -235,6 +235,7 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
     goals = goals or []
     niche_keywords = niche_keywords or []
     length_seconds = int(length_seconds or 30)
+    overlay_safe_chars = 42  # keep overlays within vertical safe zones
 
     # industry-specific modifiers to make outputs more relevant to the professional
     industry_key = (industry or "").lower()
@@ -408,6 +409,20 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
     elif industry_key == 'artisan':
         industry_shots = ["Hands-on process close-ups, product reveal"]
 
+    variant = 'resource_light' if str(production_tier).lower() in {'solo', 'phone', 'resource-light'} else 'upgraded'
+    broll_suggestions = {
+        'resource_light': [
+            "Phone-only: handheld A-roll with window light",
+            "Quick pans of space/product; avoid gimbal for speed",
+            "Screen recordings or printed photos for cutaways"
+        ],
+        'upgraded': [
+            "Stabilized gimbal walk-through with slider cutaways",
+            "Library clips for ambience and establishing shots",
+            "Macro/detail inserts with shallow depth of field"
+        ]
+    }
+
     # convert simple descriptions into structured shots aligned to beats
     shot_list = []
     combined_shots = industry_shots + style_shots
@@ -421,11 +436,16 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
             "notes": "Match cuts to spoken lines; stable framing; consider jump cuts for energy."
         })
 
-    hashtags_all = default_hashtags(industry, brand_keywords + niche_keywords)
-    hashtags = {"primary": hashtags_all[:3], "optional": hashtags_all[3:8]}
-    thumb_prompt = f"Portrait thumbnail: {industry} • {style}. {mods.get('thumb_extra')}"
+    caption_overlays = []
+    for b in beats:
+        text = (b.get("line") or "").strip()
+        trimmed = text if len(text) <= overlay_safe_chars else text[:overlay_safe_chars - 1].rstrip() + "…"
+        caption_overlays.append({
+            "beat": b.get("osd"),
+            "text": trimmed,
+            "safe_chars": overlay_safe_chars
+        })
 
-    # generate SRT text from beats
     def fmt_ts(s):
         ms = int(s * 1000)
         h = ms // 3600000
@@ -436,6 +456,96 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
         ms = ms % 1000
         return f"{h:02d}:{m:02d}:{sec:02d},{ms:03d}"
 
+    hashtags_all = default_hashtags(industry, brand_keywords + niche_keywords)
+    hashtags = {"primary": hashtags_all[:3], "optional": hashtags_all[3:8]}
+    thumb_prompt = f"Portrait thumbnail: {industry} • {style}. {mods.get('thumb_extra')}"
+
+    first_frame_map = {
+        "Face-camera tips": "Begin mid-sentence with the hook on-screen; add a quick gesture to stop the scroll.",
+        "Property b-roll + captions": "Lead with the strongest room/feature; hold 1s before moving to the next shot.",
+        "Product b-roll + captions": "Hero close-up with brand color card behind the product for contrast.",
+        "Local hotspot montage": "Fast exterior sign shot with a quick zoom toward the entrance.",
+        "Story + before/after": "Start on the 'after' for intrigue, then rewind to the 'before'.",
+        "Workout montage": "First frame shows the hardest move with timer overlay.",
+    }
+    first_frame_idea = first_frame_map.get(style, "Lead with movement and an on-screen question to earn the first 3 seconds.")
+
+    platform_specs = [
+        {"platform": "instagram", "aspect_ratio": "9:16", "title_safe_chars": 38, "note": "Keep overlays away from bottom UI."},
+        {"platform": "tiktok", "aspect_ratio": "9:16", "title_safe_chars": 38, "note": "Safe zones top/bottom; trim overlays."},
+        {"platform": "youtube_short", "aspect_ratio": "9:16", "title_safe_chars": 45, "note": "Leave space for scrub bar."},
+    ]
+
+    thumbnail_title_ideas = [
+        {"platform": spec["platform"], "title": truncate_hook(hook, spec.get("title_safe_chars", 38)), "aspect_ratio": spec["aspect_ratio"]}
+        for spec in platform_specs
+    ]
+
+    engagement_prompts = [
+        {
+            "type": "comment",
+            "prompt": f"Comment '{industry[:3].upper() or 'YES'}' if you want the checklist/links."
+        },
+        {
+            "type": "poll",
+            "prompt": "Poll: Which part was most helpful? Hook / Tip / Example"
+        },
+        {
+            "type": "sticker",
+            "prompt": "Add a Q&A sticker: 'What should we cover next?'"
+        }
+    ]
+
+    shoot_list = []
+    for idx, (b, shot) in enumerate(zip(beats, shot_list)):
+        overlay = caption_overlays[idx] if idx < len(caption_overlays) else {"text": "", "safe_chars": overlay_safe_chars}
+        shoot_list.append({
+            "beat": b.get("osd"),
+            "start_s": b.get("start_s"),
+            "end_s": b.get("end_s"),
+            "duration_s": shot.get("duration_s"),
+            "shot": shot.get("shot_type"),
+            "overlay": overlay.get("text"),
+            "aspect_ratio": "9:16",
+            "variant": variant,
+            "timing_cue": f"{fmt_ts(b.get('start_s', 0))} → {fmt_ts(b.get('end_s', 0))}"
+        })
+
+    csv_lines = ["Beat,Overlay,Shot,Timing,Aspect Ratio,Variant"]
+    for item in shoot_list:
+        csv_lines.append(
+            ",".join([
+                (item.get("beat") or "" ).replace(",", ";"),
+                (item.get("overlay") or "" ).replace(",", ";"),
+                (item.get("shot") or "" ).replace(",", ";"),
+                (item.get("timing_cue") or "" ),
+                item.get("aspect_ratio") or "",
+                item.get("variant") or ""
+            ])
+        )
+    shoot_list_exports = {
+        "csv": "\n".join(csv_lines),
+        "pdf_text": "\n".join([
+            f"Shoot list for {style} ({variant.replace('_', ' ')})",
+            "",
+            "Aspect ratio: 9:16 (IG/TikTok/Shorts)",
+            "Timing cues include start/end stamps for each beat.",
+            "",
+            *[f"{idx+1}. {item['beat']}: {item['shot']} [{item['timing_cue']}] • Overlay: {item['overlay']}" for idx, item in enumerate(shoot_list)]
+        ])
+    }
+
+    posting_checklist = [
+        "Pin the strongest overlay as first frame text.",
+        "Trim dead air between beats; keep cuts aligned to the cues above.",
+        "Add auto-captions and double-check spelling of brand/locations.",
+        "Test placement in IG/TikTok editors to avoid UI crop in the safe zones.",
+        "Publish with the primary hashtags; reuse optional tags for comments."
+    ]
+
+    looping_hint = "End on the first frame or a question so the loop feels seamless."
+
+    # generate SRT text from beats
     srt_lines = []
     for i, b in enumerate(beats, start=1):
         start = fmt_ts(b["start_s"])
@@ -464,14 +574,35 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
         "script_beats": [b.get('line') for b in beats],
         "shot_list": shot_list,
         "on_screen_text": [b.get('osd') for b in beats],
+        "caption_overlays": caption_overlays,
+        "shoot_list": shoot_list,
+        "shoot_list_exports": shoot_list_exports,
+        "broll_suggestions": broll_suggestions.get(variant, []),
+        "first_frame_idea": first_frame_idea,
+        "engagement_prompts": engagement_prompts,
+        "posting_checklist": posting_checklist,
+        "looping_hint": looping_hint,
         "hashtags": hashtags,
         "cta": cta_line,
         "cta_variants": cta_variants,
         "thumbnail_prompt": thumb_prompt,
+        "thumbnail_title_ideas": thumbnail_title_ideas,
+        "platform_specs": platform_specs,
         "srt": srt_text,
         "music_suggestion": music,
-        "production_tier": production_tier
+        "production_tier": production_tier,
+        "variant": variant
     }
+
+
+def truncate_hook(text: str, limit: int) -> str:
+    """Shorten hook/title ideas for safe thumbnail crops."""
+    if not text:
+        return "Quick tip"
+    text = text.strip()
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
 
 def unsplash_link(industry: str, pillar_name: str):
     q = f"{industry} {pillar_name}".replace(" ", "+")
