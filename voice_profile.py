@@ -82,6 +82,28 @@ def profile_from_samples(samples: list[str]) -> dict:
 
 
 def assess_text(profile: Mapping[str, object], text: str, *, threshold: float = 0.72) -> dict:
+    """Evaluate how well a text sample matches the given voice profile.
+    
+    This function performs drift detection by comparing the text's word-frequency
+    embedding against the profile's baseline embedding using cosine similarity.
+    When the similarity falls below the threshold, the text is flagged as drifting
+    from the expected voice.
+    
+    Args:
+        profile: A voice profile dict containing 'embedding', 'include_phrases',
+            and 'avoid_phrases' keys (typically from profile_from_samples).
+        text: The text sample to evaluate against the profile.
+        threshold: Minimum cosine similarity (0.0 to 1.0) required to avoid drift.
+            Default 0.72 is calibrated for typical brand voice detection.
+            Lower values are more permissive; higher values are stricter.
+    
+    Returns:
+        A dict with keys:
+            - 'score': Cosine similarity score between 0.0 and 1.0.
+            - 'drift': Boolean indicating if score < threshold (voice drift detected).
+            - 'message': A hint for how to realign with the voice (or None if no drift).
+            - 'suggestions': List of phrase recommendations based on profile data.
+    """
     embedding = profile.get('embedding') if isinstance(profile, Mapping) else None
     score = cosine_similarity(embedding or {}, build_embedding(text))
     include_phrases = list(profile.get('include_phrases') or []) if isinstance(profile, Mapping) else []
@@ -104,6 +126,21 @@ def assess_text(profile: Mapping[str, object], text: str, *, threshold: float = 
 
 
 def evaluate_prompts(profile: Mapping[str, object], prompts: list[str], *, threshold: float = 0.72) -> list[dict]:
+    """Batch evaluate multiple text samples against a voice profile.
+    
+    This is a convenience wrapper around assess_text that processes a list of
+    prompts and returns individual assessment results for each.
+    
+    Args:
+        profile: A voice profile dict (typically from profile_from_samples).
+        prompts: List of text samples to evaluate.
+        threshold: Minimum cosine similarity (0.0 to 1.0) to avoid drift.
+            Default 0.72. See assess_text for details.
+    
+    Returns:
+        A list of assessment dicts (one per prompt), each in the format returned
+        by assess_text.
+    """
     results = []
     for text in prompts:
         results.append(assess_text(profile, text, threshold=threshold))
