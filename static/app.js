@@ -2124,7 +2124,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Floating Action Button functionality - REMOVED: All generation now happens on /generate dashboard
 
 // Review Insights functionality
-document.addEventListener('DOMContentLoaded', () => {
+function initReviewInsights() {
   const toggleBtn = document.getElementById('toggle-review-insights');
   const reviewSection = document.getElementById('review-insights-section');
   const reviewText = document.getElementById('review-text');
@@ -2196,7 +2196,7 @@ document.addEventListener('DOMContentLoaded', () => {
       reviewLoading.classList.add('hidden');
     }
   });
-});
+}
 
 
 
@@ -2232,7 +2232,8 @@ function parseWizardSamples(raw = '') {
     .filter(Boolean);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Wizard Voice Profile functionality
+function initWizardVoiceProfile() {
   const btn = document.getElementById('wizard-train-voice');
   const input = document.getElementById('wizard-voice-samples');
   const toast = document.getElementById('wizard-voice-toast');
@@ -2269,4 +2270,10 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.textContent = 'Save voice samples';
     }
   });
+}
+
+// Consolidated DOMContentLoaded handler
+document.addEventListener('DOMContentLoaded', () => {
+  initReviewInsights();
+  initWizardVoiceProfile();
 });
