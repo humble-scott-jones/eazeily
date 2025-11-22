@@ -258,19 +258,43 @@ def build_caption_body(industry: str, tone: str, pillar_name: str, pillar_hint: 
     brand_line = f" ({', '.join(brand_keywords)})" if brand_keywords else ""
     goal_line = f"Focus: {', '.join(goals)}." if goals else ""
 
+    voice_hint = ""
+    signature_example = ""
+    if isinstance(voice_profile, dict):
+        phrases = voice_profile.get('include_phrases') or []
+        if phrases:
+            voice_hint = f"Voice: weave in {', '.join(list(phrases)[:3])}."
+        examples = voice_profile.get('example_lines') or []
+        if examples:
+            signature_example = f"Example cadence: {examples[0][:120]}"
+
     company_line = f"From {company}." if company else ""
     theme_line = f"Theme: {theme}." if theme else ""
-    body = (
-        f"{pillar_name} • {industry}{brand_line}\n"
-        f"{pillar_hint}\n\n"
-        f"{company_line}\n"
-        f"{theme_line}\n"
-        f"{goal_line}\n"
-        f"Tone: {tone_blurb}\n"
-        f"Platform tip: {platform_hint}\n\n"
-        f"CTA: Tell us what you think below 👇"
-    )
-    return body
+    
+    # Build body, only including non-empty lines
+    lines = [
+        f"{pillar_name} • {industry}{brand_line}",
+        pillar_hint,
+        ""  # blank line
+    ]
+    if company_line:
+        lines.append(company_line)
+    if theme_line:
+        lines.append(theme_line)
+    if goal_line:
+        lines.append(goal_line)
+    lines.append(f"Tone: {tone_blurb}")
+    if voice_hint:
+        lines.append(voice_hint)
+    if signature_example:
+        lines.append(signature_example)
+    lines.extend([
+        f"Platform tip: {platform_hint}",
+        "",  # blank line
+        "CTA: Tell us what you think below 👇"
+    ])
+    
+    body = "\n".join(lines)
 
 
 def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
@@ -675,6 +699,7 @@ def generate_posts(
     goals: Optional[list[str]] = None,
     company: str = "",
     details: Optional[Mapping[str, Any]] = None,
+    voice_profile: Optional[Mapping[str, Any]] = None,
 ) -> list[dict[str, Any]]:
     """Generate a list of posts for the requested period.
 
@@ -707,6 +732,8 @@ def generate_posts(
     niche_keywords = list(niche_keywords or [])
     goals = list(goals or [])
     details = dict(details or {})
+    voice_profile = voice_profile or details.get('voice_profile') or {}
+    voice_profile = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
     company = company or ""
 
     posts: list[dict[str, Any]] = []
@@ -718,20 +745,22 @@ def generate_posts(
         pillar_name, pillar_hint = next(pillar_stream)
 
         # Generate platform-specific variants for this day
-        variant_platforms = sorted(set(list(DEFAULT_VARIANT_PLATFORMS) + list(platforms)))
-        variants = build_platform_variants(
-            industry=to_sentence_case(industry),
-            tone=tone,
-            pillar_name=pillar_name,
-            pillar_hint=pillar_hint,
-            base_platform=platforms[0],
-            brand_keywords=brand_keywords,
-            hashtags=hashtags,
-            goals=goals,
-            company=company,
-            theme=details.get("note"),
-            platforms=variant_platforms
-        )
+        variants = {}
+        for p in platforms:
+            caption = make_caption(
+                industry=to_sentence_case(industry),
+                tone=tone,
+                pillar_name=pillar_name,
+                pillar_hint=pillar_hint,
+                platform=p,
+                brand_keywords=brand_keywords,
+                hashtags=hashtags,
+                goals=goals,
+                company=company,
+                theme=details.get("note"),
+                voice_profile=voice_profile
+            )
+            variants[p] = caption
 
         # Create one post per platform (maintains backward compatibility)
         for p in platforms:

@@ -232,6 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Feedback form in sidebar
   setupFeedbackForm();
 
+  // Voice coach panel
+  setupVoiceCoach();
   // Activity and ownership feed
   hydrateActivityFeed();
 
@@ -797,6 +799,97 @@ async function setupFeedbackForm() {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Send to team';
       }
+    }
+  });
+}
+
+async function fetchVoiceCoachProfile() {
+  try {
+    const res = await fetch('/api/voice-profile', { credentials: 'include' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('voice profile fetch failed', err);
+    return null;
+  }
+}
+
+function renderVoiceCoachPanel(payload = {}) {
+  const status = document.getElementById('voice-coach-status');
+  const include = document.getElementById('voice-coach-include');
+  const avoid = document.getElementById('voice-coach-avoid');
+  const example = document.getElementById('voice-coach-example');
+  const toast = document.getElementById('voice-coach-toast');
+  if (toast) toast.textContent = '';
+  const vp = payload.voice_profile || payload.profile || null;
+  voiceCoachState.profile = vp;
+  voiceCoachState.samples = payload.samples || [];
+
+  if (status) {
+    const sampleCount = Array.isArray(payload.samples) ? payload.samples.length : 0;
+    status.textContent = vp ? `Trained • ${sampleCount} samples` : 'Not trained';
+    status.className = vp
+      ? 'px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700'
+      : 'px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700';
+  }
+
+  if (include) {
+    const phrases = (vp?.include_phrases || []).slice(0, 3).join(', ');
+    include.textContent = phrases || 'Add samples to see your top phrases.';
+  }
+  if (avoid) {
+    const phrases = (vp?.avoid_phrases || []).slice(0, 3).join(', ');
+    avoid.textContent = phrases || 'We’ll flag repeated filler once trained.';
+  }
+  if (example) {
+    const line = (vp?.example_lines || [])[0];
+    example.textContent = line || 'Save samples to generate a reference line.';
+  }
+}
+
+function parseVoiceSamples(raw = '') {
+  return (raw || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+async function setupVoiceCoach() {
+  const input = document.getElementById('voice-sample-input');
+  const btn = document.getElementById('save-voice-samples');
+  if (!input || !btn) return;
+
+  const data = await fetchVoiceCoachProfile();
+  if (data) renderVoiceCoachPanel(data);
+
+  btn.addEventListener('click', async () => {
+    const toast = document.getElementById('voice-coach-toast');
+    const samples = parseVoiceSamples(input.value || '');
+    if (samples.length < 5 || samples.length > 10) {
+      if (toast) toast.textContent = 'Add between 5 and 10 samples so we can train your voice.';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Training…';
+    try {
+      const res = await fetch('/api/voice-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ samples })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) {
+        throw new Error(body.error || 'Unable to save voice samples');
+      }
+      renderVoiceCoachPanel(body);
+      if (toast) toast.textContent = 'Voice updated—new generations will stay on-brand.';
+    } catch (error) {
+      console.error('voice coach save failed', error);
+      if (toast) toast.textContent = 'Could not train right now. Please try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Train voice';
     }
   });
 }
@@ -2258,6 +2351,18 @@ function renderPostCard(post) {
   const editorId = `post-editor-${post.day_index}-${platformKey}-${Math.random().toString(36).slice(2,7)}`;
   const stampId = `${editorId}-stamp`;
   const variantsMarkup = post.variants ? renderPlatformVariants(post.variants, post.platform) : '';
+  const voiceScore = typeof post.voice_match_score === 'number' ? post.voice_match_score : null;
+  const guardrail = post.voice_guardrail || '';
+  const voiceSuggestions = Array.isArray(post.voice_suggestions) ? post.voice_suggestions : [];
+  const guardrailBlock = guardrail
+    ? `<div class="p-3 mb-3 bg-amber-50 border border-amber-200 rounded">
+        <p class="text-xs font-semibold text-amber-900">${escapeHtml(guardrail)}</p>
+        ${voiceSuggestions.map(s => `<p class="text-xs text-amber-800 mt-1">${escapeHtml(s)}</p>`).join('')}
+      </div>`
+    : '';
+  const voiceScoreBlock = voiceScore !== null
+    ? `<div class="text-xs text-slate-500 mb-1">Voice match: ${(voiceScore * 100).toFixed(0)}%</div>`
+    : '';
   const warningMarkup = renderWarningList(post.warnings);
 
   // Check if this post has variants (multiple platforms)
@@ -2285,6 +2390,9 @@ function renderPostCard(post) {
     </div>
 
     ${post.image_url ? `<img class="w-full h-32 object-cover rounded mb-3" src="${post.image_url}" alt="Suggested image" />` : ''}
+
+    ${voiceScoreBlock}
+    ${guardrailBlock}
 
     <div class="text-xs text-slate-500 mb-2"><strong>Image prompt:</strong> ${escapeHtml(post.image_prompt)}</div>
 
