@@ -845,7 +845,7 @@ def inbox_page():
 @app.get('/planner')
 def planner_page():
     """Content planner for generated drafts and approvals."""
-    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
+    is_dev = _is_dev_mode()
     return render_template('planner.html', is_dev=is_dev, initial_user=_initial_user_payload())
 
 
