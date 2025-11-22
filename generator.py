@@ -6,6 +6,8 @@ from datetime import timedelta, date
 from pathlib import Path
 from typing import Optional, Any, Mapping, Sequence
 
+from platform_rules import DEFAULT_VARIANT_PLATFORMS, apply_platform_rules
+
 PILLARS_BY_DEFAULT = [
     ("Educational", "Share a quick tip that solves a common problem for your audience."),
     ("Behind-the-Scenes", "Show a candid look at your process, team, or workspace."),
@@ -180,13 +182,24 @@ def default_hashtags(industry: str, niche_keywords: list[str]):
             seen.add(t_low)
     return tags[:12]
 
+
+def build_platform_variants(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                            base_platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str],
+                            company: str = "", theme: Optional[str] = None, platforms: Optional[list[str]] = None):
+    body = build_caption_body(industry, tone, pillar_name, pillar_hint, base_platform, brand_keywords, goals, company, theme)
+    variant_targets = list(platforms or DEFAULT_VARIANT_PLATFORMS)
+    variants = {}
+    for platform in variant_targets:
+        variants[platform] = apply_platform_rules(body, platform, hashtags, pillar_name=pillar_name, goals=goals, company=company)
+    return variants
+
 def to_sentence_case(s: str):
     if not s:
         return s
     return s[0].upper() + s[1:]
 
-def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
+def build_caption_body(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                       platform: str, brand_keywords: list[str], goals: list[str], company: str = "", theme: Optional[str] = None) -> str:
     tone_blurb = {
         "friendly": "Warm, encouraging, and conversational.",
         "professional": "Clear, confident, and value-focused.",
@@ -210,9 +223,16 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
         f"Platform tip: {platform_hint}\n\n"
         f"CTA: Tell us what you think below 👇"
     )
+    return body
 
+
+def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
+    body = build_caption_body(industry, tone, pillar_name, pillar_hint, platform, brand_keywords, goals, company, theme)
     tags = " ".join(hashtags)
-    return f"{body}\n\n{tags}"
+    if tags:
+        return f"{body}\n\n{tags}"
+    return body
 
 def make_full_post(industry: str, tone: str, pillar_name: str, pillar_hint: str,
                    platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
@@ -651,25 +671,25 @@ def generate_posts(
         pillar_name, pillar_hint = next(pillar_stream)
 
         # Generate platform-specific variants for this day
-        variants = {}
-        for p in platforms:
-            caption = make_caption(
-                industry=to_sentence_case(industry),
-                tone=tone,
-                pillar_name=pillar_name,
-                pillar_hint=pillar_hint,
-                platform=p,
-                brand_keywords=brand_keywords,
-                hashtags=hashtags,
-                goals=goals,
-                company=company,
-                theme=details.get("note")
-            )
-            variants[p] = caption
+        variant_platforms = sorted(set(list(DEFAULT_VARIANT_PLATFORMS) + list(platforms)))
+        variants = build_platform_variants(
+            industry=to_sentence_case(industry),
+            tone=tone,
+            pillar_name=pillar_name,
+            pillar_hint=pillar_hint,
+            base_platform=platforms[0],
+            brand_keywords=brand_keywords,
+            hashtags=hashtags,
+            goals=goals,
+            company=company,
+            theme=details.get("note"),
+            platforms=variant_platforms
+        )
 
         # Create one post per platform (maintains backward compatibility)
         for p in platforms:
-            caption = variants[p]
+            variant_payload = variants.get(p, {}) if isinstance(variants, dict) else {}
+            caption = variant_payload.get('text') if isinstance(variant_payload, dict) else variant_payload
             iprompt = image_prompt(industry, pillar_name, brand_keywords, company)
             img_url = unsplash_link(industry, pillar_name) if include_images else None
 
@@ -701,10 +721,13 @@ def generate_posts(
                 "platform": p,
                 "pillar": pillar_name,
                 "caption": caption,
+                "warnings": variant_payload.get('warnings') if isinstance(variant_payload, dict) else None,
+                "cta": variant_payload.get('cta') if isinstance(variant_payload, dict) else None,
+                "thumbnail_note": variant_payload.get('thumbnail_note') if isinstance(variant_payload, dict) else None,
                 "image_prompt": iprompt,
                 "image_url": img_url,
                 "reel": reel_obj,
-                "variants": variants if len(platforms) > 1 else None
+                "variants": variants
             })
 
     return posts

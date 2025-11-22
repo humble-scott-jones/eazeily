@@ -1,0 +1,186 @@
+"""Shared platform rules and heuristics for generating channel-specific copy."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Iterable, List, Tuple
+
+
+@dataclass
+class PlatformRule:
+    key: str
+    label: str
+    max_length: int
+    max_hashtags: int
+    cta: str
+    hashtag_prefix: str = "#"
+    hashtag_position: str = "end"
+    link_note: str | None = None
+    thumbnail_note: str | None = None
+
+
+PLATFORM_RULES: dict[str, PlatformRule] = {
+    "twitter": PlatformRule(
+        key="twitter",
+        label="X / Twitter",
+        max_length=260,
+        max_hashtags=3,
+        cta="Reply with your take or tag a friend",
+        link_note="Keep URLs short; avoid more than one link.",
+        thumbnail_note="Lead with the hook in frame 1 for the preview",
+    ),
+    "linkedin": PlatformRule(
+        key="linkedin",
+        label="LinkedIn",
+        max_length=1100,
+        max_hashtags=5,
+        cta="Add your perspective below or DM for details",
+        link_note="Link after the first 1–2 lines so the intro hooks readers.",
+        thumbnail_note="Use a bold headline overlay that matches the hook",
+    ),
+    "instagram": PlatformRule(
+        key="instagram",
+        label="Instagram",
+        max_length=2000,
+        max_hashtags=12,
+        cta="Save + share if this helps; link in bio for more",
+        hashtag_prefix="#",
+        hashtag_position="end",
+        thumbnail_note="Cover text: 3–5 words, high contrast, subject centered",
+    ),
+    "facebook": PlatformRule(
+        key="facebook",
+        label="Facebook",
+        max_length=1200,
+        max_hashtags=4,
+        cta="Drop a comment or share with someone who needs this",
+        thumbnail_note="Use a friendly face and a single bold line of text",
+    ),
+    "tiktok": PlatformRule(
+        key="tiktok",
+        label="TikTok",
+        max_length=1500,
+        max_hashtags=5,
+        cta="Try it and tell us how it goes in the comments",
+        hashtag_prefix="#",
+        link_note="Keep the CTA verbal—links are less visible here.",
+        thumbnail_note="Hook in 4 words max. High-contrast caption on frame 1.",
+    ),
+    "youtube": PlatformRule(
+        key="youtube",
+        label="YouTube Shorts",
+        max_length=5000,
+        max_hashtags=6,
+        cta="Subscribe for more and check the pinned link",
+        hashtag_prefix="#",
+        hashtag_position="end",
+        thumbnail_note="Thumbnail: bold promise + clear subject, avoid clutter",
+    ),
+}
+
+
+DEFAULT_VARIANT_PLATFORMS: Tuple[str, ...] = (
+    "twitter",
+    "linkedin",
+    "instagram",
+    "facebook",
+    "tiktok",
+    "youtube",
+)
+
+
+def truncate_with_ellipsis(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    if limit <= 1:
+        return text[:limit]
+    return text[: max(limit - 1, 0)].rstrip() + "…"
+
+
+def format_hashtags(raw: Iterable[str], max_count: int, prefix: str = "#") -> Tuple[List[str], bool]:
+    cleaned: List[str] = []
+    seen = set()
+    for tag in raw:
+        if not tag:
+            continue
+        tag_str = str(tag).strip()
+        if not tag_str:
+            continue
+        if not tag_str.startswith(prefix):
+            tag_str = f"{prefix}{tag_str}"
+        tag_key = tag_str.lower()
+        if tag_key in seen:
+            continue
+        seen.add(tag_key)
+        cleaned.append(tag_str)
+    trimmed = False
+    if len(cleaned) > max_count:
+        cleaned = cleaned[:max_count]
+        trimmed = True
+    return cleaned, trimmed
+
+
+def apply_platform_rules(
+    body: str,
+    platform: str,
+    hashtags: Iterable[str],
+    pillar_name: str | None = None,
+    goals: Iterable[str] | None = None,
+    company: str | None = None,
+) -> dict:
+    platform_key = (platform or "").lower()
+    rule = PLATFORM_RULES.get(platform_key)
+    if not rule:
+        rule = PlatformRule(
+            key=platform_key or "default",
+            label=platform or "Default",
+            max_length=1500,
+            max_hashtags=5,
+            cta="Comment or share if this resonates",
+            thumbnail_note=None,
+        )
+
+    warnings: List[str] = []
+    cleaned_hashtags, trimmed = format_hashtags(hashtags, rule.max_hashtags, rule.hashtag_prefix)
+    if trimmed:
+        warnings.append(f"Trimmed hashtags to {rule.max_hashtags} for {rule.label}.")
+
+    goal_hint = ", ".join(goals or [])
+    cta_line = rule.cta
+    if goal_hint:
+        cta_line = f"{cta_line} ({goal_hint})."
+    if rule.link_note:
+        cta_line = f"{cta_line} {rule.link_note}"
+
+    hashtag_block = " ".join(cleaned_hashtags)
+    parts = [body.strip(), "", cta_line]
+    if rule.hashtag_position == "end" and hashtag_block:
+        parts.extend(["", hashtag_block])
+    composed = "\n".join([p for p in parts if p != ""])
+
+    if len(composed) > rule.max_length:
+        allowed_body = max(rule.max_length - len(cta_line) - len(hashtag_block) - 4, 80)
+        trimmed_body = truncate_with_ellipsis(body.strip(), allowed_body)
+        warnings.append(f"Trimmed copy to fit {rule.label} limit of {rule.max_length} characters.")
+        parts = [trimmed_body, "", cta_line]
+        if rule.hashtag_position == "end" and hashtag_block:
+            parts.extend(["", hashtag_block])
+        composed = "\n".join([p for p in parts if p != ""])
+
+    variant_payload = {
+        "text": composed,
+        "warnings": warnings,
+        "hashtags": cleaned_hashtags,
+        "cta": cta_line,
+        "thumbnail_note": rule.thumbnail_note,
+        "platform": platform_key,
+        "platform_label": rule.label,
+    }
+
+    if rule.thumbnail_note:
+        context_hint = pillar_name or company
+        if context_hint and "{" not in rule.thumbnail_note:
+            variant_payload["thumbnail_note"] = f"{rule.thumbnail_note} ({context_hint})"
+
+    return variant_payload
+
