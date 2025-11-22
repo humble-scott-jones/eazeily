@@ -33,20 +33,21 @@ def test_generate_posts_with_variants():
     # Should have 3 posts (one per platform)
     assert len(posts) == 3
     
-    # Each post should have variants
+    # Each post should have variants for all supported platforms
     for post in posts:
         assert 'variants' in post
         assert post['variants'] is not None
-        assert len(post['variants']) == 3
         assert 'instagram' in post['variants']
         assert 'facebook' in post['variants']
         assert 'linkedin' in post['variants']
-        # Each variant should be a string with content
-        assert isinstance(post['variants']['instagram'], str)
-        assert len(post['variants']['instagram']) > 0
+        assert 'twitter' in post['variants']
+        assert 'youtube' in post['variants']
+        insta_variant = post['variants']['instagram']
+        assert isinstance(insta_variant, dict)
+        assert len(insta_variant.get('text', '')) > 0
 
-def test_generate_posts_single_platform_no_variants():
-    """Test that posts don't include variants for single platform"""
+def test_generate_posts_single_platform_includes_variants():
+    """Even single-platform plans should include cross-platform variants"""
     posts = generate_posts(
         days=1,
         start_day=date(2025, 1, 1),
@@ -63,5 +64,6 @@ def test_generate_posts_single_platform_no_variants():
     # Should have 1 post
     assert len(posts) == 1
     
-    # Should not have variants (or variants is None) for single platform
-    assert posts[0].get('variants') is None
+    # Variants should still be present for downstream UI
+    assert isinstance(posts[0].get('variants'), dict)
+    assert 'instagram' in posts[0]['variants']

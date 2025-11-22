@@ -14,8 +14,89 @@ const generatedViewPrefs = {
   hiddenPlatforms: new Set(),
   loaded: false
 };
+const ACTIVITY_TYPE_META = {
+  generated: { label: 'Generated', icon: '✨', color: 'emerald' },
+  edited: { label: 'Edited', icon: '✏️', color: 'blue' },
+  commented: { label: 'Commented', icon: '💬', color: 'purple' },
+  approved: { label: 'Approved', icon: '✅', color: 'emerald' },
+  scheduled: { label: 'Scheduled', icon: '📅', color: 'amber' }
+};
+const activityEvents = [
+  {
+    id: 'act-1',
+    type: 'generated',
+    title: '3-day draft generated',
+    summary: 'IG + TikTok plan using “evergreen nurture” voice.',
+    campaign: 'Evergreen nurture',
+    assignee: 'Mia Nguyen',
+    actor: { name: 'Mia Nguyen', role: 'Strategist' },
+    time: '2m ago',
+    status: 'draft',
+    needsInputFrom: 'Tyler (client)',
+    platforms: ['instagram', 'short_video']
+  },
+  {
+    id: 'act-2',
+    type: 'edited',
+    title: 'Caption tightened for LinkedIn',
+    summary: 'Removed extra hashtags and added CTA for newsletter.',
+    campaign: 'Evergreen nurture',
+    assignee: 'Priya Shah',
+    actor: { name: 'Priya Shah', role: 'Editor' },
+    time: '8m ago',
+    status: 'in_progress',
+    platforms: ['linkedin']
+  },
+  {
+    id: 'act-3',
+    type: 'commented',
+    title: 'Client comment on carousel',
+    summary: '“Swap frame 1 hook for pain-point first.”',
+    campaign: 'Q4 product launch',
+    assignee: 'Mia Nguyen',
+    actor: { name: 'Daniel Brooks', role: 'Client' },
+    time: '24m ago',
+    status: 'draft',
+    needsInputFrom: 'Mia',
+    platforms: ['instagram']
+  },
+  {
+    id: 'act-4',
+    type: 'approved',
+    title: 'Legal approval granted',
+    summary: 'Scripts cleared for reels with promo language.',
+    campaign: 'Q4 product launch',
+    assignee: 'Tyler James',
+    actor: { name: 'Amelia Chen', role: 'Legal reviewer' },
+    time: '1h ago',
+    status: 'approved',
+    platforms: ['short_video']
+  },
+  {
+    id: 'act-5',
+    type: 'scheduled',
+    title: 'Two posts scheduled',
+    summary: 'Queued for Wed 9am and Fri 3pm with UTM swap.',
+    campaign: 'Retail holiday',
+    assignee: 'Priya Shah',
+    actor: { name: 'Jonas Lee', role: 'Marketing ops' },
+    time: '3h ago',
+    status: 'scheduled',
+    platforms: ['facebook', 'instagram']
+  }
+];
+const activityFilterState = {
+  types: new Set(Object.keys(ACTIVITY_TYPE_META)),
+  campaign: 'all',
+  assignee: 'all'
+};
 const planCacheState = {
   meta: null
+};
+const templateLibraryState = {
+  templates: [],
+  lastUsed: null,
+  profileKey: 'anon'
 };
 const platformPresetState = {
   wizard: [],
@@ -23,6 +104,32 @@ const platformPresetState = {
 };
 const DEFAULT_GENERATOR_PLATFORM = 'instagram';
 const VIDEO_PLATFORM_KEYS = new Set(['instagram', 'short_video', 'tiktok']);
+const TEMPLATE_LIBRARY_STORAGE_KEY = 'swelly_template_library';
+const DEFAULT_PRESETS = [
+  { id: 'product-launch', label: 'Product launch', goals: ['Product launch'], tone: 'inspirational', keywords: ['launch', 'new feature'] },
+  { id: 'weekly-update', label: 'Weekly update', goals: ['Weekly update'], tone: 'friendly', keywords: ['community', 'newsletter'] }
+];
+let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], goals: [], id: 'anon' };
+let lastGeneratorState = null;
+let generatorHydratedFromProfile = false;
+
+function getCurrentUserName() {
+  const user = window.CURRENT_USER || {};
+  return user.name || user.full_name || user.fullName || user.email || '';
+}
+
+function formatRelativeTimestamp(ts) {
+  if (!ts) return '';
+  const now = Date.now();
+  const diff = now - ts;
+  if (diff < 60 * 1000) return 'Just now';
+  const minutes = Math.floor(diff / (60 * 1000));
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
 
 async function getDashboardConfig() {
   if (dashboardConfigCache) return dashboardConfigCache;
@@ -113,15 +220,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // Quick Actions
   setupQuickActions();
 
+  // Template library and presets
+  setupTemplateLibrary();
+
+  // One-click generation defaults
+  setupOneClickGeneration();
+
   // Inspiration image uploads
   setupImageUpload();
 
   // Feedback form in sidebar
   setupFeedbackForm();
 
+  // Voice coach panel
+  setupVoiceCoach();
+  // Activity and ownership feed
+  hydrateActivityFeed();
+
   hydrateVoiceSummary({});
   hydrateSeedPosts();
   seedPresetStateFromWizardDefaults();
+  loadPublishingQueueFromStorage();
+  renderPublishingQueue();
+  updateQueueTimezoneLabel();
 });
 
 async function loadUserProfile() {
@@ -133,6 +254,19 @@ async function loadUserProfile() {
       profile = await response.json();
       applyProfileToAccountForm(profile);
     }
+    profileDefaults = {
+      tone: profile.tone || 'friendly',
+      industry: profile.industry || profile.industry_key || 'Business',
+      keywords: Array.isArray(profile.brand_keywords) ? profile.brand_keywords : [],
+      goals: Array.isArray(profile.goals) ? profile.goals : [],
+      id: profile.id || (window.CURRENT_USER && window.CURRENT_USER.id) || 'anon'
+    };
+    setTemplateProfileKey(profileDefaults.id);
+    renderProfileDefaultsSummary(profileDefaults);
+    hydrateTemplateLibrary();
+    renderCollaborationSummary();
+    applyProfileDefaultsToGenerator(profileDefaults);
+    hydrateStoredGeneratorState({ apply: true, preferProfile: true });
     hydrateVoiceSummary(profile || {});
   } catch (error) {
     console.error('Failed to load user profile:', error);
@@ -180,6 +314,12 @@ function applyProfileToAccountForm(profile = {}) {
       }
     } else {
       setPlatformFieldValues([]);
+    }
+    if (Array.isArray(profile.brand_keywords)) {
+      setCurrentKeywords(profile.brand_keywords);
+    }
+    if (Array.isArray(profile.goals)) {
+      setCurrentGoals(profile.goals);
     }
   } catch (err) {
     console.error('applyProfileToAccountForm failed', err);
@@ -438,6 +578,8 @@ async function executeContentGeneration(options = {}){
   }
   const platforms = getGeneratorPlatformSelections();
   const tone = document.getElementById('gen-tone').value;
+  const goals = getCurrentGoals();
+  const keywords = getCurrentKeywords();
   if (!platforms.length) {
     showToast('Pick at least one platform to keep going.');
     return;
@@ -460,7 +602,9 @@ async function executeContentGeneration(options = {}){
     const overrides = {
       platforms,
       tone,
-      details
+      details,
+      goals,
+      brand_keywords: keywords
     };
     if (imageAttachmentState.dataUrl) {
       overrides.image_data_url = imageAttachmentState.dataUrl;
@@ -473,6 +617,8 @@ async function executeContentGeneration(options = {}){
   renderPosts(data);
   const meta = buildPlanMetadataFromPayload(data);
   cacheGeneratedPlan(data, meta);
+  lastGeneratorState = { platforms, tone, goals, keywords, planLength: days };
+  persistTemplateLibraryState();
   applyPlanMetadata(meta);
     resultsDiv?.classList.remove('hidden');
     resultsDiv?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -657,6 +803,97 @@ async function setupFeedbackForm() {
   });
 }
 
+async function fetchVoiceCoachProfile() {
+  try {
+    const res = await fetch('/api/voice-profile', { credentials: 'include' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('voice profile fetch failed', err);
+    return null;
+  }
+}
+
+function renderVoiceCoachPanel(payload = {}) {
+  const status = document.getElementById('voice-coach-status');
+  const include = document.getElementById('voice-coach-include');
+  const avoid = document.getElementById('voice-coach-avoid');
+  const example = document.getElementById('voice-coach-example');
+  const toast = document.getElementById('voice-coach-toast');
+  if (toast) toast.textContent = '';
+  const vp = payload.voice_profile || payload.profile || null;
+  voiceCoachState.profile = vp;
+  voiceCoachState.samples = payload.samples || [];
+
+  if (status) {
+    const sampleCount = Array.isArray(payload.samples) ? payload.samples.length : 0;
+    status.textContent = vp ? `Trained • ${sampleCount} samples` : 'Not trained';
+    status.className = vp
+      ? 'px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700'
+      : 'px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700';
+  }
+
+  if (include) {
+    const phrases = (vp?.include_phrases || []).slice(0, 3).join(', ');
+    include.textContent = phrases || 'Add samples to see your top phrases.';
+  }
+  if (avoid) {
+    const phrases = (vp?.avoid_phrases || []).slice(0, 3).join(', ');
+    avoid.textContent = phrases || 'We’ll flag repeated filler once trained.';
+  }
+  if (example) {
+    const line = (vp?.example_lines || [])[0];
+    example.textContent = line || 'Save samples to generate a reference line.';
+  }
+}
+
+function parseVoiceSamples(raw = '') {
+  return (raw || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+async function setupVoiceCoach() {
+  const input = document.getElementById('voice-sample-input');
+  const btn = document.getElementById('save-voice-samples');
+  if (!input || !btn) return;
+
+  const data = await fetchVoiceCoachProfile();
+  if (data) renderVoiceCoachPanel(data);
+
+  btn.addEventListener('click', async () => {
+    const toast = document.getElementById('voice-coach-toast');
+    const samples = parseVoiceSamples(input.value || '');
+    if (samples.length < 5 || samples.length > 10) {
+      if (toast) toast.textContent = 'Add between 5 and 10 samples so we can train your voice.';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Training…';
+    try {
+      const res = await fetch('/api/voice-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ samples })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.ok) {
+        throw new Error(body.error || 'Unable to save voice samples');
+      }
+      renderVoiceCoachPanel(body);
+      if (toast) toast.textContent = 'Voice updated—new generations will stay on-brand.';
+    } catch (error) {
+      console.error('voice coach save failed', error);
+      if (toast) toast.textContent = 'Could not train right now. Please try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Train voice';
+    }
+  });
+}
+
 function setupQuickActions() {
   const quickSample = document.getElementById('quick-sample');
   const quick7Day = document.getElementById('quick-7day');
@@ -674,6 +911,188 @@ function setupQuickActions() {
   quickSample?.addEventListener('click', () => handleShortcut(1, 'Create a free account to see sample content.'));
   quick7Day?.addEventListener('click', () => handleShortcut(7, 'Create a free account to unlock plans.'));
   quick30Day?.addEventListener('click', () => handleShortcut(30, 'Create a free account to unlock plans.'));
+}
+
+function hydrateTemplateLibrary() {
+  loadTemplateLibraryState();
+  renderTemplatePicker();
+  renderPresetButtons();
+  renderCollaborationSummary();
+}
+
+function setupTemplateLibrary() {
+  const saveBtn = document.getElementById('save-template');
+  const applyBtn = document.getElementById('apply-template');
+  const picker = document.getElementById('template-picker');
+  hydrateTemplateLibrary();
+
+  saveBtn?.addEventListener('click', () => saveCurrentTemplate());
+  applyBtn?.addEventListener('click', () => applySelectedTemplate());
+  picker?.addEventListener('change', () => updateTemplateEmptyState());
+}
+
+function renderTemplatePicker() {
+  const picker = document.getElementById('template-picker');
+  const emptyState = document.getElementById('template-empty');
+  if (!picker) return;
+  picker.innerHTML = '';
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Choose saved template';
+  picker.appendChild(placeholder);
+  (templateLibraryState.templates || []).forEach(tpl => {
+    const template = Object.assign({ updatedAt: Date.now() }, tpl);
+    const opt = document.createElement('option');
+    opt.value = template.id;
+    opt.textContent = template.author ? `${template.name} • ${template.author}` : template.name;
+    opt.dataset.platforms = (template.platforms || []).join(',');
+    picker.appendChild(opt);
+  });
+  updateTemplateEmptyState(emptyState);
+}
+
+function renderCollaborationSummary() {
+  const presence = document.getElementById('collab-presence');
+  const nameEl = document.getElementById('collab-template-name');
+  const authorEl = document.getElementById('collab-template-author');
+  const timeEl = document.getElementById('collab-template-time');
+  const templates = Array.isArray(templateLibraryState.templates) ? templateLibraryState.templates : [];
+  const latest = templates.reduce((acc, tpl) => {
+    const updated = tpl.updatedAt || 0;
+    if (!acc || updated > (acc.updatedAt || 0)) return tpl;
+    return acc;
+  }, null);
+  const active = (lastGeneratorState && lastGeneratorState.updatedAt) ? lastGeneratorState : latest;
+  const authorName = active?.author || getCurrentUserName() || 'Shared profile';
+  const timeLabel = active?.updatedAt ? `Updated ${formatRelativeTimestamp(active.updatedAt)}` : 'Waiting for your first save.';
+
+  if (presence) {
+    presence.textContent = templates.length
+      ? `${templates.length} shared preset${templates.length === 1 ? '' : 's'} ready for the team`
+      : 'No shared presets yet—save one to match the solo flow.';
+  }
+  if (nameEl) nameEl.textContent = active?.name || 'No presets yet';
+  if (authorEl) authorEl.textContent = active ? `Saved by ${authorName}` : 'Save one to see it here.';
+  if (timeEl) timeEl.textContent = timeLabel;
+}
+
+function renderPresetButtons() {
+  const wrap = document.getElementById('template-preset-buttons');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  DEFAULT_PRESETS.forEach(preset => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip chip--ghost';
+    btn.dataset.templatePreset = preset.id;
+    btn.textContent = preset.label;
+    btn.addEventListener('click', () => applyPresetTemplate(preset));
+    wrap.appendChild(btn);
+  });
+}
+
+function updateTemplateEmptyState(target) {
+  const emptyState = target || document.getElementById('template-empty');
+  if (!emptyState) return;
+  const hasItems = Array.isArray(templateLibraryState.templates) && templateLibraryState.templates.length;
+  emptyState.classList.toggle('hidden', !!hasItems);
+}
+
+function saveCurrentTemplate() {
+  const nameField = document.getElementById('template-name');
+  const name = (nameField?.value || '').trim();
+  if (!name) {
+    showToast('Name your template first.');
+    nameField?.focus();
+    return;
+  }
+  const baseTemplate = {
+    id: `tpl-${Date.now()}`,
+    name,
+    tone: document.getElementById('gen-tone')?.value || 'friendly',
+    platforms: getGeneratorPlatformSelections(),
+    goals: getCurrentGoals(),
+    keywords: getCurrentKeywords(),
+    author: getCurrentUserName() || 'Shared profile',
+    updatedAt: Date.now()
+  };
+  const existingIdx = (templateLibraryState.templates || []).findIndex(t => t.name.toLowerCase() === name.toLowerCase());
+  if (existingIdx >= 0) {
+    const existing = templateLibraryState.templates[existingIdx] || {};
+    templateLibraryState.templates[existingIdx] = Object.assign({}, existing, baseTemplate, {
+      id: existing.id || baseTemplate.id
+    });
+  } else {
+    templateLibraryState.templates = [...(templateLibraryState.templates || []), baseTemplate];
+  }
+  lastGeneratorState = Object.assign({}, baseTemplate, { planLength: getCurrentPlanLength() });
+  persistTemplateLibraryState();
+  renderTemplatePicker();
+  renderCollaborationSummary();
+  showToast('Template saved for this profile.');
+}
+
+function applySelectedTemplate() {
+  const picker = document.getElementById('template-picker');
+  if (!picker) return;
+  const selectedId = picker.value;
+  const tpl = (templateLibraryState.templates || []).find(t => t.id === selectedId);
+  if (!tpl) {
+    showToast('Pick a template to apply.');
+    return;
+  }
+  applyTemplateToGenerator(tpl);
+  renderCollaborationSummary();
+}
+
+function applyPresetTemplate(preset) {
+  const tpl = {
+    id: preset.id,
+    name: preset.label,
+    tone: preset.tone,
+    platforms: getGeneratorPlatformSelections(),
+    goals: preset.goals,
+    keywords: preset.keywords,
+    author: 'Team preset',
+    updatedAt: Date.now()
+  };
+  applyTemplateToGenerator(tpl, { skipPlatform: false });
+  renderCollaborationSummary();
+}
+
+function applyTemplateToGenerator(tpl, opts = {}) {
+  if (!tpl) return;
+  if (tpl.tone) {
+    const toneField = document.getElementById('gen-tone');
+    if (toneField) toneField.value = tpl.tone;
+  }
+  if (!opts.skipPlatform && Array.isArray(tpl.platforms) && tpl.platforms.length) {
+    setGeneratorPlatformSelections(tpl.platforms);
+  }
+  if (Array.isArray(tpl.goals)) setCurrentGoals(tpl.goals);
+  if (Array.isArray(tpl.keywords)) setCurrentKeywords(tpl.keywords);
+  syncPreferredPlatformButtons();
+  refreshReelOptionsVisibility();
+  lastGeneratorState = Object.assign({}, tpl, {
+    planLength: getCurrentPlanLength(),
+    updatedAt: tpl.updatedAt || Date.now(),
+    author: tpl.author || getCurrentUserName() || 'Shared profile'
+  });
+  persistTemplateLibraryState();
+  showToast('Template applied.');
+}
+
+function setupOneClickGeneration() {
+  const btn = document.getElementById('one-click-generate');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (lastGeneratorState) {
+      applyGeneratorState(lastGeneratorState, { sync: true });
+    } else {
+      applyProfileDefaultsToGenerator(Object.assign({}, profileDefaults, { force: true }));
+    }
+    await executeContentGeneration();
+  });
 }
 
 function updateGeneratorShortcut(days, opts = {}){
@@ -790,6 +1209,165 @@ function dedupePlatforms(list = []) {
     out.push(key);
   });
   return out;
+}
+
+function parseCommaList(value = '') {
+  return String(value || '')
+    .split(/[\n,]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function getActiveProfileKey() {
+  return templateLibraryState.profileKey || profileDefaults.id || (window.CURRENT_USER && window.CURRENT_USER.id) || 'anon';
+}
+
+function setTemplateProfileKey(key) {
+  templateLibraryState.profileKey = key || 'anon';
+}
+
+function getTemplateStorageKey() {
+  return `${TEMPLATE_LIBRARY_STORAGE_KEY}:${getActiveProfileKey()}`;
+}
+
+function getCurrentGoals() {
+  const input = document.getElementById('gen-goals');
+  return parseCommaList(input ? input.value : '');
+}
+
+function setCurrentGoals(list = []) {
+  const input = document.getElementById('gen-goals');
+  if (input) {
+    input.value = (list || []).join(', ');
+  }
+  try {
+    answers.goals = list;
+  } catch (err) {
+    /* ignore */
+  }
+}
+
+function getCurrentKeywords() {
+  const input = document.getElementById('gen-keywords');
+  return parseCommaList(input ? input.value : '');
+}
+
+function setCurrentKeywords(list = []) {
+  const input = document.getElementById('gen-keywords');
+  if (input) {
+    input.value = (list || []).join(', ');
+  }
+  try {
+    answers.brand_keywords = list;
+  } catch (err) {
+    /* ignore */
+  }
+}
+
+function persistTemplateLibraryState() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const templates = (templateLibraryState.templates || []).map(tpl => Object.assign({
+      updatedAt: tpl.updatedAt || Date.now()
+    }, tpl));
+    const payload = {
+      templates,
+      lastUsed: lastGeneratorState
+    };
+    localStorage.setItem(getTemplateStorageKey(), JSON.stringify(payload));
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function loadTemplateLibraryState() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(getTemplateStorageKey());
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.templates)) {
+      templateLibraryState.templates = parsed.templates.map(tpl => Object.assign({
+        updatedAt: tpl.updatedAt || Date.now(),
+        author: tpl.author || 'Shared profile'
+      }, tpl));
+    }
+    if (parsed.lastUsed) {
+      lastGeneratorState = Object.assign({ updatedAt: parsed.lastUsed.updatedAt || Date.now() }, parsed.lastUsed);
+    }
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function renderProfileDefaultsSummary(defaults = {}) {
+  const target = document.getElementById('profile-defaults-summary');
+  if (!target) return;
+  const tone = defaults.tone || 'friendly';
+  const industry = defaults.industry || 'Business';
+  const keywords = (defaults.keywords || []).slice(0, 4);
+  const goalSnippet = (defaults.goals || []).slice(0, 2);
+  const details = [];
+  details.push(`Tone: ${tone}`);
+  details.push(`Industry: ${industry}`);
+  if (keywords.length) details.push(`Keywords: ${keywords.join(', ')}`);
+  if (goalSnippet.length) details.push(`Goals: ${goalSnippet.join(', ')}`);
+  target.textContent = details.join(' • ');
+}
+
+function applyProfileDefaultsToGenerator(defaults = {}) {
+  if (generatorHydratedFromProfile && !defaults.force) return;
+  const toneField = document.getElementById('gen-tone');
+  if (toneField && defaults.tone) {
+    toneField.value = defaults.tone;
+  }
+  if (defaults.industry) {
+    try { answers.industry = defaults.industry; } catch (err) { /* ignore */ }
+  }
+  if (Array.isArray(defaults.keywords)) {
+    setCurrentKeywords(defaults.keywords);
+  }
+  if (Array.isArray(defaults.goals)) {
+    setCurrentGoals(defaults.goals);
+  }
+  generatorHydratedFromProfile = true;
+}
+
+function applyGeneratorState(state = {}, opts = {}) {
+  if (!state || typeof state !== 'object') return;
+  if (state.tone) {
+    const toneField = document.getElementById('gen-tone');
+    if (toneField) toneField.value = state.tone;
+  }
+  if (Array.isArray(state.platforms) && state.platforms.length) {
+    setGeneratorPlatformSelections(state.platforms);
+  }
+  if (Array.isArray(state.goals)) {
+    setCurrentGoals(state.goals);
+  }
+  if (Array.isArray(state.keywords)) {
+    setCurrentKeywords(state.keywords);
+  }
+  if (state.planLength) {
+    updateGeneratorShortcut(state.planLength, { skipFocus: true, skipScroll: true });
+  }
+  if (opts.sync) {
+    syncPlanLengthButtons();
+    refreshReelOptionsVisibility();
+    syncPreferredPlatformButtons();
+  }
+}
+
+function hydrateStoredGeneratorState(opts = {}) {
+  loadTemplateLibraryState();
+  if (lastGeneratorState && opts.apply) {
+    if (opts.preferProfile) {
+      const merged = Object.assign({}, profileDefaults || {}, lastGeneratorState);
+      applyGeneratorState(merged, { sync: true });
+    } else {
+      applyGeneratorState(lastGeneratorState, { sync: true });
+    }
+  }
 }
 
 function getWizardDefaultPlatforms() {
@@ -1067,6 +1645,331 @@ function refreshDayEmptyStates() {
   });
 }
 
+function loadPublishingQueueFromStorage() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(PUBLISHING_QUEUE_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      publishingQueueState.entries = parsed.map(normalizeQueueEntry).filter(Boolean);
+    }
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function persistPublishingQueue() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(PUBLISHING_QUEUE_STORAGE_KEY, JSON.stringify(publishingQueueState.entries));
+  } catch (error) {
+    /* ignore */
+  }
+}
+
+function normalizeQueueEntry(entry = {}) {
+  if (!entry || typeof entry !== 'object') return null;
+  const normalizedPlatform = normalizePlatformKey(entry.platform || DEFAULT_GENERATOR_PLATFORM);
+  return {
+    key: entry.key || '',
+    platform: normalizedPlatform,
+    platformLabel: entry.platformLabel || formatPlatformLabel(normalizedPlatform),
+    day: entry.day || 0,
+    pillar: entry.pillar || '',
+    caption: entry.caption || '',
+    status: entry.status || 'draft',
+    scheduledAt: entry.scheduledAt || null,
+    lastUpdated: entry.lastUpdated || Date.now(),
+    error: entry.error || '',
+    timezoneLabel: entry.timezoneLabel || getTimezoneLabel()
+  };
+}
+
+function ensureQueueEntryForPost(post = {}) {
+  const key = buildQueueKey(post);
+  let existing = findQueueEntry(key);
+  if (existing) return existing;
+  const created = buildQueueEntryFromPost(post, key);
+  publishingQueueState.entries.push(created);
+  persistPublishingQueue();
+  return created;
+}
+
+function buildQueueEntryFromPost(post = {}, keyOverride = null) {
+  const key = keyOverride || buildQueueKey(post);
+  const platform = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  return normalizeQueueEntry({
+    key,
+    platform,
+    platformLabel: formatPlatformLabel(platform),
+    day: post.day_index || 0,
+    pillar: post.pillar || '',
+    caption: post.caption || '',
+    status: 'draft',
+    scheduledAt: null,
+    lastUpdated: Date.now()
+  });
+}
+
+function buildQueueKey(post = {}) {
+  const platform = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const day = post.day_index || 0;
+  const captionHash = hashCaption(post.caption || '');
+  return `${day}-${platform}-${captionHash}`;
+}
+
+function hashCaption(value = '') {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(16);
+}
+
+function updatePublishingQueueEntry(key, updates = {}) {
+  if (!key) return null;
+  const existing = findQueueEntry(key);
+  if (!existing) return null;
+  Object.assign(existing, updates, {
+    lastUpdated: updates.lastUpdated || Date.now(),
+    timezoneLabel: existing.timezoneLabel || getTimezoneLabel()
+  });
+  persistPublishingQueue();
+  return existing;
+}
+
+function findQueueEntry(key) {
+  return publishingQueueState.entries.find(entry => entry.key === key);
+}
+
+function renderPublishingQueue() {
+  const wrap = document.getElementById('publishing-queue');
+  const list = document.getElementById('publishing-queue-list');
+  const empty = document.getElementById('publishing-queue-empty');
+  if (!wrap || !list || !empty) return;
+
+  list.innerHTML = '';
+  if (!publishingQueueState.entries.length) {
+    wrap.classList.add('hidden');
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  wrap.classList.remove('hidden');
+  empty.classList.add('hidden');
+
+  const sorted = [...publishingQueueState.entries].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+  sorted.forEach(entry => list.appendChild(renderQueueItem(entry)));
+}
+
+function renderQueueItem(entry) {
+  const item = document.createElement('div');
+  item.className = 'border border-slate-200 rounded-xl p-4 bg-white/80 flex flex-col gap-2';
+
+  const header = document.createElement('div');
+  header.className = 'flex flex-wrap items-center justify-between gap-3';
+
+  const left = document.createElement('div');
+  left.className = 'flex items-center gap-2';
+  const badge = document.createElement('span');
+  badge.className = `text-[11px] font-semibold px-2 py-1 rounded-full border ${queueStatusClass(entry.status)}`;
+  badge.textContent = formatQueueStatusLabel(entry.status);
+  const label = document.createElement('div');
+  label.className = 'text-sm text-slate-700';
+  label.textContent = `${entry.platformLabel || formatPlatformLabel(entry.platform)} • Day ${entry.day || 0}`;
+
+  const detail = document.createElement('div');
+  detail.className = 'text-xs text-slate-500';
+  detail.textContent = formatQueueDetail(entry);
+
+  left.appendChild(badge);
+  left.appendChild(label);
+
+  const actions = document.createElement('div');
+  actions.className = 'flex items-center gap-2';
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = `btn-secondary btn-xs ${entry.status === 'failed' ? '' : 'hidden'}`;
+  retry.textContent = 'Retry publish';
+  retry.addEventListener('click', () => {
+    const updated = updatePublishingQueueEntry(entry.key, {
+      status: entry.scheduledAt ? 'scheduled' : 'published',
+      error: '',
+      lastUpdated: Date.now()
+    });
+    renderPublishingQueue();
+    applyQueueStatusToCards(updated);
+    showToast('Retry saved to the queue.');
+  });
+
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'btn-ghost btn-xs';
+  copyBtn.textContent = 'Copy text';
+  copyBtn.addEventListener('click', async () => {
+    const ok = await copyToClipboard(entry.caption || '');
+    if (ok) {
+      showToast('Copied caption from queue');
+    } else {
+      showToast('Clipboard unavailable — you can still select the text.');
+    }
+  });
+
+  actions.appendChild(copyBtn);
+  actions.appendChild(retry);
+
+  header.appendChild(left);
+  header.appendChild(actions);
+
+  const body = document.createElement('div');
+  body.className = 'text-sm text-slate-600';
+  const preview = (entry.caption || '').slice(0, 140) || 'No caption saved yet.';
+  body.textContent = preview;
+
+  item.appendChild(header);
+  item.appendChild(detail);
+  item.appendChild(body);
+
+  return item;
+}
+
+function queueStatusClass(status) {
+  switch (status) {
+    case 'published':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    case 'scheduled':
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'failed':
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    default:
+      return 'bg-slate-50 text-slate-700 border-slate-200';
+  }
+}
+
+function formatQueueStatusLabel(status) {
+  if (status === 'published') return 'Published';
+  if (status === 'scheduled') return 'Scheduled';
+  if (status === 'failed') return 'Failed';
+  return 'Ready';
+}
+
+function formatQueueDetail(entry = {}) {
+  if (entry.status === 'scheduled' && entry.scheduledAt) {
+    return `Scheduled for ${formatScheduleLabel(entry.scheduledAt)}`;
+  }
+  if (entry.status === 'published') {
+    return `Published ${formatRelativeTime(entry.lastUpdated || Date.now())}`;
+  }
+  if (entry.status === 'failed') {
+    return entry.error || 'Needs attention';
+  }
+  return entry.pillar ? `Queued from ${entry.pillar}` : 'Queued from generator';
+}
+
+function formatScheduleLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  const tz = getTimezoneLabel();
+  return `${date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}${tz ? ` (${tz})` : ''}`;
+}
+
+function formatDateTimeLocal(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const mm = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mi = pad(date.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+}
+
+function formatTimezoneOffset(date = new Date()) {
+  const offsetMinutes = date.getTimezoneOffset();
+  const sign = offsetMinutes <= 0 ? '+' : '-';
+  const abs = Math.abs(offsetMinutes);
+  const hours = String(Math.floor(abs / 60)).padStart(2, '0');
+  const minutes = String(abs % 60).padStart(2, '0');
+  return `UTC${sign}${hours}:${minutes}`;
+}
+
+function getTimezoneLabel() {
+  try {
+    const { timeZone } = Intl.DateTimeFormat().resolvedOptions();
+    return timeZone ? `${timeZone} (${formatTimezoneOffset()})` : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function updateQueueTimezoneLabel() {
+  const el = document.getElementById('queue-timezone');
+  if (!el) return;
+  el.textContent = getTimezoneLabel() || 'Timezone unavailable';
+}
+
+function syncQueueWithPosts(posts = []) {
+  let changed = false;
+  posts.forEach(post => {
+    const entry = ensureQueueEntryForPost(post);
+    if (entry && !entry.caption && post.caption) {
+      entry.caption = post.caption;
+      changed = true;
+    }
+  });
+  if (changed) persistPublishingQueue();
+}
+
+function applyQueueStatusToCard(card, entry) {
+  if (!card || !entry) return;
+  const badge = card.querySelector(`[data-queue-badge="${entry.key}"]`);
+  const note = card.querySelector(`[data-queue-note="${entry.key}"]`);
+  if (badge) {
+    badge.textContent = formatQueueStatusLabel(entry.status);
+    badge.className = `text-[11px] font-semibold px-2 py-1 rounded-full border ${queueStatusClass(entry.status)}`;
+  }
+  if (note) {
+    note.textContent = formatQueueDetail(entry);
+  }
+}
+
+function applyQueueStatusToCards(entry) {
+  if (!entry) return;
+  const cards = Array.from(document.querySelectorAll(`[data-queue-key="${entry.key}"]`));
+  cards.forEach(card => applyQueueStatusToCard(card, entry));
+}
+
+function formatRelativeTime(ts) {
+  const diffMs = Date.now() - ts;
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hr ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+}
+
+function buildPlatformMetadata(post = {}) {
+  const normalized = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const limit = PLATFORM_CHARACTER_LIMITS[normalized] || 0;
+  const caption = post.caption || '';
+  const charCount = caption.length;
+  const hashtags = extractHashtags(post) || [];
+  const preview = (caption.split('\n')[0] || '').trim() || 'First line will show here.';
+  return { limit, charCount, hashtags, preview, platform: normalized };
+}
+
+function extractHashtags(post = {}) {
+  if (Array.isArray(post.hashtags) && post.hashtags.length) return post.hashtags;
+  const caption = post.caption || '';
+  const matches = caption.match(/#[\w-]+/g);
+  return matches || [];
+}
+
 // Generate review response using the API
 async function generateReviewResponse(reviewText, tone, companyName = '') {
   try {
@@ -1109,6 +2012,154 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 2800);
 }
 
+function hydrateActivityFeed() {
+  const wrap = document.getElementById('activity-panel');
+  if (!wrap) return;
+  renderActivityTypeChips();
+  populateActivityFilterSelects();
+  bindActivityReset();
+  renderActivityFeed();
+}
+
+function renderActivityTypeChips() {
+  const wrap = document.getElementById('activity-type-filters');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  Object.entries(ACTIVITY_TYPE_META).forEach(([key, meta]) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.activityType = key;
+    btn.className = 'activity-chip';
+    btn.innerHTML = `<span class="activity-chip__icon">${meta.icon}</span><span>${meta.label}</span>`;
+    btn.classList.toggle('activity-chip--active', activityFilterState.types.has(key));
+    btn.setAttribute('aria-pressed', activityFilterState.types.has(key) ? 'true' : 'false');
+    btn.addEventListener('click', () => {
+      if (activityFilterState.types.has(key)) {
+        activityFilterState.types.delete(key);
+        btn.classList.remove('activity-chip--active');
+      } else {
+        activityFilterState.types.add(key);
+        btn.classList.add('activity-chip--active');
+      }
+      renderActivityFeed();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+function populateActivityFilterSelects() {
+  const campaignSelect = document.getElementById('activity-campaign-filter');
+  const assigneeSelect = document.getElementById('activity-assignee-filter');
+  const campaigns = Array.from(new Set(activityEvents.map(evt => evt.campaign).filter(Boolean)));
+  const assignees = Array.from(new Set(activityEvents.map(evt => evt.assignee).filter(Boolean)));
+
+  if (campaignSelect) {
+    campaignSelect.innerHTML = '<option value="all">All campaigns</option>' + campaigns.map(c => `<option value="${escapeAttr(c)}">${escapeHtml(c)}</option>`).join('');
+    campaignSelect.value = activityFilterState.campaign;
+    if (!campaignSelect.dataset.bound) {
+      campaignSelect.addEventListener('change', () => {
+        activityFilterState.campaign = campaignSelect.value;
+        renderActivityFeed();
+      });
+      campaignSelect.dataset.bound = '1';
+    }
+  }
+
+  if (assigneeSelect) {
+    assigneeSelect.innerHTML = '<option value="all">All teammates</option>' + assignees.map(a => `<option value="${escapeAttr(a)}">${escapeHtml(a)}</option>`).join('');
+    assigneeSelect.value = activityFilterState.assignee;
+    if (!assigneeSelect.dataset.bound) {
+      assigneeSelect.addEventListener('change', () => {
+        activityFilterState.assignee = assigneeSelect.value;
+        renderActivityFeed();
+      });
+      assigneeSelect.dataset.bound = '1';
+    }
+  }
+}
+
+function bindActivityReset() {
+  const btn = document.getElementById('activity-reset');
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    activityFilterState.types = new Set(Object.keys(ACTIVITY_TYPE_META));
+    activityFilterState.campaign = 'all';
+    activityFilterState.assignee = 'all';
+    syncActivitySelects();
+    renderActivityTypeChips();
+    renderActivityFeed();
+  });
+}
+
+function syncActivitySelects() {
+  const campaignSelect = document.getElementById('activity-campaign-filter');
+  const assigneeSelect = document.getElementById('activity-assignee-filter');
+  if (campaignSelect) campaignSelect.value = activityFilterState.campaign;
+  if (assigneeSelect) assigneeSelect.value = activityFilterState.assignee;
+}
+
+function renderActivityFeed() {
+  const list = document.getElementById('activity-feed');
+  const empty = document.getElementById('activity-empty');
+  if (!list) return;
+  list.innerHTML = '';
+  const filtered = activityEvents.filter(evt => {
+    if (activityFilterState.types.size && !activityFilterState.types.has(evt.type)) return false;
+    if (activityFilterState.campaign !== 'all' && evt.campaign !== activityFilterState.campaign) return false;
+    if (activityFilterState.assignee !== 'all' && evt.assignee !== activityFilterState.assignee) return false;
+    return true;
+  });
+
+  filtered.forEach(evt => {
+    list.appendChild(buildActivityItem(evt));
+  });
+
+  if (empty) {
+    empty.classList.toggle('hidden', filtered.length > 0);
+  }
+}
+
+function buildActivityItem(evt) {
+  const meta = ACTIVITY_TYPE_META[evt.type] || { label: 'Update', icon: '•', color: 'slate' };
+  const item = document.createElement('article');
+  item.className = 'activity-item';
+  const role = evt.actor?.role ? `<span class="activity-role">${escapeHtml(evt.actor.role)}</span>` : '';
+  const needsInput = evt.status === 'draft' && evt.needsInputFrom ? `<span class="needs-input-pill">Needs input from ${escapeHtml(evt.needsInputFrom)}</span>` : '';
+  const campaignTag = evt.campaign ? `<span class="activity-pill">${escapeHtml(evt.campaign)}</span>` : '';
+  const assigneeTag = evt.assignee ? `<span class="activity-pill">Assignee: ${escapeHtml(evt.assignee)}</span>` : '';
+  const platforms = Array.isArray(evt.platforms) && evt.platforms.length ? `<div class="activity-platforms">${evt.platforms.map(p => escapeHtml(formatPlatformLabel(p))).join(' • ')}</div>` : '';
+  item.innerHTML = `
+    <div class="activity-item__header">
+      <span class="activity-type-badge activity-type-${meta.color}">${escapeHtml(meta.icon)} ${escapeHtml(meta.label)}</span>
+      <span class="activity-time">${escapeHtml(evt.time || '')}</span>
+    </div>
+    <div class="activity-item__body">
+      <div class="activity-avatar" aria-hidden="true">${escapeHtml(getInitials(evt.actor?.name))}</div>
+      <div class="activity-item__content">
+        <div class="activity-item__title">${escapeHtml(evt.title || 'Untitled update')}</div>
+        <div class="activity-item__meta">
+          <span class="activity-actor">${escapeHtml(evt.actor?.name || 'Unassigned')}</span>
+          ${role}
+          ${campaignTag}
+          ${assigneeTag}
+          ${needsInput}
+        </div>
+        <p class="activity-item__summary">${escapeHtml(evt.summary || '')}</p>
+        ${platforms}
+      </div>
+    </div>
+  `;
+  return item;
+}
+
+function getInitials(name = '') {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '•';
+  const first = parts[0].charAt(0) || '';
+  const last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+  return (first + last).toUpperCase();
+}
+
 // Render generated posts with enhanced features
 function renderPosts(data) {
   const posts = data.posts || [];
@@ -1121,6 +2172,9 @@ function renderPosts(data) {
     return;
   }
 
+  syncQueueWithPosts(posts);
+  renderPublishingQueue();
+
   // Group posts by day
   const byDay = posts.reduce((acc, post) => {
     (acc[post.day_index] ||= []).push(post);
@@ -1130,9 +2184,9 @@ function renderPosts(data) {
   const sortedDays = Object.keys(byDay).sort((a, b) => +a - +b);
   const platformMetaMap = new Map();
   posts.forEach(post => {
-    const key = String(post.platform || '').toLowerCase();
+    const key = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
     if (!key || platformMetaMap.has(key)) return;
-    platformMetaMap.set(key, formatPlatformLabel(post.platform));
+    platformMetaMap.set(key, formatPlatformLabel(key));
   });
   const platforms = Array.from(platformMetaMap.entries()).map(([key, label]) => ({ key, label }));
   ensureGeneratedViewPrefsLoaded();
@@ -1214,7 +2268,8 @@ function renderPosts(data) {
 
 function buildPostSnapshot(post = {}) {
   const lines = [];
-  const platformLabel = formatPlatformLabel(post.platform || '');
+  const platformKey = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const platformLabel = formatPlatformLabel(platformKey);
   lines.push(`Platform: ${platformLabel || 'Unknown'}`);
   if (post.pillar) lines.push(`Pillar: ${post.pillar}`);
   if (post.day_index) lines.push(`Day: ${post.day_index}`);
@@ -1239,19 +2294,39 @@ function buildPostSnapshot(post = {}) {
     lines.push('Platform variants:');
     Object.keys(post.variants).forEach(key => {
       lines.push(`- ${formatPlatformLabel(key)}:`);
-      lines.push(post.variants[key]);
+      const entry = normalizeVariantPayload(post.variants[key]);
+      lines.push(entry.text || '');
     });
   }
   return lines.join('\n');
 }
 
+function normalizeVariantPayload(entry) {
+  if (!entry) return { text: '', warnings: [] };
+  if (typeof entry === 'string') return { text: entry, warnings: [] };
+  return {
+    text: entry.text || '',
+    warnings: Array.isArray(entry.warnings) ? entry.warnings : [],
+    cta: entry.cta || '',
+    thumbnail_note: entry.thumbnail_note || '',
+    platform: entry.platform || '',
+    platform_label: entry.platform_label || formatPlatformLabel(entry.platform || '')
+  };
+}
+
 function buildPostSummary(post = {}) {
-  const platformLabel = formatPlatformLabel(post.platform || '');
+  const platformKey = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const platformLabel = formatPlatformLabel(platformKey);
   const day = post.day_index ? `day ${post.day_index}` : '';
   const pillar = post.pillar ? ` • ${post.pillar}` : '';
   const firstLine = (post.caption || '').split('\n')[0].trim();
   const snippet = firstLine.length > 60 ? `${firstLine.slice(0, 57)}…` : firstLine;
   return `${platformLabel} ${day}`.trim() + (pillar || '') + (snippet ? ` • ${snippet}` : '');
+}
+
+function renderWarningList(warnings) {
+  if (!warnings || !warnings.length) return '';
+  return `<div class="flex flex-col gap-1 my-2">${warnings.map(note => `<div class=\"flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2\"><span aria-hidden=\"true\">⚠️</span><span>${escapeHtml(note)}</span></div>`).join('')}</div>`;
 }
 
 // Render individual post card with enhanced features
@@ -1271,21 +2346,39 @@ function renderPostCard(post) {
     short_video: 'from-purple-600 to-pink-500'
   };
 
-  const platformColor = platformColors[post.platform.toLowerCase()] || 'from-gray-500 to-gray-600';
-  const editorId = `post-editor-${post.day_index}-${post.platform}-${Math.random().toString(36).slice(2,7)}`;
+  const platformKey = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
+  const platformColor = platformColors[platformKey] || 'from-gray-500 to-gray-600';
+  const editorId = `post-editor-${post.day_index}-${platformKey}-${Math.random().toString(36).slice(2,7)}`;
   const stampId = `${editorId}-stamp`;
   const variantsMarkup = post.variants ? renderPlatformVariants(post.variants, post.platform) : '';
+  const voiceScore = typeof post.voice_match_score === 'number' ? post.voice_match_score : null;
+  const guardrail = post.voice_guardrail || '';
+  const voiceSuggestions = Array.isArray(post.voice_suggestions) ? post.voice_suggestions : [];
+  const guardrailBlock = guardrail
+    ? `<div class="p-3 mb-3 bg-amber-50 border border-amber-200 rounded">
+        <p class="text-xs font-semibold text-amber-900">${escapeHtml(guardrail)}</p>
+        ${voiceSuggestions.map(s => `<p class="text-xs text-amber-800 mt-1">${escapeHtml(s)}</p>`).join('')}
+      </div>`
+    : '';
+  const voiceScoreBlock = voiceScore !== null
+    ? `<div class="text-xs text-slate-500 mb-1">Voice match: ${(voiceScore * 100).toFixed(0)}%</div>`
+    : '';
+  const warningMarkup = renderWarningList(post.warnings);
 
   // Check if this post has variants (multiple platforms)
   const hasVariants = post.variants && Object.keys(post.variants).length > 1;
+  const queueEntry = ensureQueueEntryForPost(post);
+  const metadata = buildPlatformMetadata(post);
+  const queueStatus = queueStatusClass(queueEntry.status);
+  const fallbackStampId = `${stampId}-fallback`;
 
   card.innerHTML = `
     <div class="flex items-center justify-between mb-3">
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 bg-gradient-to-r ${platformColor} rounded-full flex items-center justify-center">
-          <span class="text-white text-xs font-bold">${post.platform.charAt(0).toUpperCase()}</span>
+          <span class="text-white text-xs font-bold">${(platformKey.charAt(0) || 'S').toUpperCase()}</span>
         </div>
-        <span class="font-medium text-slate-900">${formatPlatformLabel(post.platform)}</span>
+        <span class="font-medium text-slate-900">${formatPlatformLabel(platformKey)}</span>
         ${hasVariants ? '<span class="text-xs text-purple-600 font-medium">• Multi-platform</span>' : ''}
       </div>
       <div class="flex gap-2">
@@ -1298,14 +2391,26 @@ function renderPostCard(post) {
 
     ${post.image_url ? `<img class="w-full h-32 object-cover rounded mb-3" src="${post.image_url}" alt="Suggested image" />` : ''}
 
+    ${voiceScoreBlock}
+    ${guardrailBlock}
+
     <div class="text-xs text-slate-500 mb-2"><strong>Image prompt:</strong> ${escapeHtml(post.image_prompt)}</div>
 
     <label class="text-xs font-semibold text-slate-500 tracking-wide">Caption</label>
+    ${warningMarkup}
     <textarea id="${editorId}" class="post-editor mb-3" data-platform="${post.platform}">${escapeHtml(post.caption)}</textarea>
 
     ${post.reel ? renderReelSection(post.reel) : ''}
 
     ${hasVariants ? variantsMarkup : ''}
+
+    <div class="flex flex-wrap gap-2 mt-3">
+      <button class="btn-ghost btn-sm" data-generate-variants>Generate variants</button>
+      <button class="btn-ghost btn-sm" data-regenerate-hook>Regenerate hook</button>
+      <button class="btn-ghost btn-sm" data-regenerate-cta>Regenerate CTA</button>
+    </div>
+    <div class="grid md:grid-cols-3 gap-3 mt-2 hidden" data-variant-wrap></div>
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mt-3" data-quality-hints></div>
   `;
 
   card.querySelectorAll('textarea.post-editor').forEach(area => {
@@ -1321,6 +2426,37 @@ function renderPostCard(post) {
     });
   });
 
+  const editor = card.querySelector(`#${editorId}`);
+  const qualityWrap = card.querySelector('[data-quality-hints]');
+  if (editor && qualityWrap) {
+    renderQualityHints(qualityWrap, editor, post, card);
+    editor.addEventListener('input', () => renderQualityHints(qualityWrap, editor, post, card));
+  }
+
+  const variantsWrap = card.querySelector('[data-variant-wrap]');
+  const variantBtn = card.querySelector('[data-generate-variants]');
+  if (variantBtn && editor) {
+    variantBtn.addEventListener('click', () => handleGenerateVariants(post, card, editor, variantsWrap));
+  }
+  const hookBtn = card.querySelector('[data-regenerate-hook]');
+  if (hookBtn && editor) {
+    hookBtn.addEventListener('click', () => {
+      editor.value = regenerateHookText(editor.value, post);
+      autoSizeEditor(editor);
+      clearCopyState(editor, card);
+      if (qualityWrap) renderQualityHints(qualityWrap, editor, post, card);
+    });
+  }
+  const ctaBtn = card.querySelector('[data-regenerate-cta]');
+  if (ctaBtn && editor) {
+    ctaBtn.addEventListener('click', () => {
+      editor.value = regenerateCtaText(editor.value, post);
+      autoSizeEditor(editor);
+      clearCopyState(editor, card);
+      if (qualityWrap) renderQualityHints(qualityWrap, editor, post, card);
+    });
+  }
+
   card.querySelectorAll('[data-copy-target], [data-copy-text]').forEach(btn => {
     const targetId = btn.getAttribute('data-copy-target');
     const stampTarget = btn.getAttribute('data-stamp-target');
@@ -1331,6 +2467,23 @@ function renderPostCard(post) {
 
   card.querySelectorAll('[data-download-ref]').forEach(btn => {
     bindDownloadButton(btn, card);
+  card.querySelectorAll('[data-export-variants]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const chunks = [];
+      card.querySelectorAll('[data-variant-text]').forEach(area => {
+        const platform = area.getAttribute('data-variant-platform') || 'Platform';
+        const label = formatPlatformLabel(platform) || platform;
+        chunks.push(`${label}:\n${area.value.trim()}`);
+      });
+      const exportText = chunks.join('\n\n');
+      try {
+        await navigator.clipboard.writeText(exportText);
+        showToast('Copied all variants to clipboard');
+      } catch (err) {
+        console.error('Failed to export variants', err);
+        showToast('Unable to copy variants right now.');
+      }
+    });
   });
 
   card.querySelectorAll('[data-like]').forEach(btn => {
@@ -1367,7 +2520,85 @@ function renderPostCard(post) {
     });
   });
 
+  card.dataset.queueKey = queueEntry.key;
+  wirePublishingControls(card, queueEntry, editorId);
+  applyQueueStatusToCard(card, queueEntry);
+
   return card;
+}
+
+function wirePublishingControls(card, queueEntry, editorId) {
+  const publishBtn = card.querySelector(`[data-publish-now="${queueEntry.key}"]`);
+  const scheduleBtn = card.querySelector(`[data-schedule-btn="${queueEntry.key}"]`);
+  const retryBtn = card.querySelector(`[data-retry-btn="${queueEntry.key}"]`);
+  const scheduleInput = card.querySelector(`[data-schedule-input="${queueEntry.key}"]`);
+  const editor = card.querySelector(`#${editorId}`);
+
+  if (scheduleInput && !scheduleInput.value) {
+    const defaultDate = queueEntry.scheduledAt ? new Date(queueEntry.scheduledAt) : new Date(Date.now() + 60 * 60 * 1000);
+    scheduleInput.value = formatDateTimeLocal(defaultDate);
+  }
+
+  const refreshStatus = (entry) => {
+    if (!entry) return;
+    applyQueueStatusToCard(card, entry);
+    if (retryBtn) retryBtn.classList.toggle('hidden', entry.status !== 'failed');
+    renderPublishingQueue();
+  };
+
+  publishBtn?.addEventListener('click', () => {
+    const updated = updatePublishingQueueEntry(queueEntry.key, {
+      status: 'published',
+      scheduledAt: new Date().toISOString(),
+      caption: editor?.value || queueEntry.caption,
+      error: ''
+    });
+    refreshStatus(updated);
+    showToast('Marked as published in your queue.');
+  });
+
+  scheduleBtn?.addEventListener('click', () => {
+    const value = scheduleInput?.value;
+    if (!value) {
+      const failed = updatePublishingQueueEntry(queueEntry.key, { status: 'failed', error: 'Add a schedule time to continue.' });
+      refreshStatus(failed);
+      showToast('Add a schedule time before scheduling.');
+      return;
+    }
+    const scheduledDate = new Date(value);
+    if (Number.isNaN(scheduledDate.getTime()) || scheduledDate.getTime() < Date.now()) {
+      const failed = updatePublishingQueueEntry(queueEntry.key, { status: 'failed', error: 'Pick a time in the future.' });
+      refreshStatus(failed);
+      showToast('Pick a time in the future.');
+      return;
+    }
+    const updated = updatePublishingQueueEntry(queueEntry.key, {
+      status: 'scheduled',
+      scheduledAt: scheduledDate.toISOString(),
+      caption: editor?.value || queueEntry.caption,
+      error: ''
+    });
+    refreshStatus(updated);
+    showToast('Scheduled from this card.');
+  });
+
+  retryBtn?.addEventListener('click', () => {
+    const fallbackDate = scheduleInput?.value ? new Date(scheduleInput.value) : new Date();
+    const status = scheduleInput?.value ? 'scheduled' : 'published';
+    const updated = updatePublishingQueueEntry(queueEntry.key, {
+      status,
+      scheduledAt: fallbackDate.toISOString(),
+      caption: editor?.value || queueEntry.caption,
+      error: ''
+    });
+    refreshStatus(updated);
+    showToast('Retry saved.');
+  });
+
+  editor?.addEventListener('blur', () => {
+    updatePublishingQueueEntry(queueEntry.key, { caption: editor.value });
+    renderPublishingQueue();
+  });
 }
 
 // Render reel section for video content
@@ -1551,24 +2782,43 @@ function renderReelSection(reel) {
 function renderPlatformVariants(variants, currentPlatform) {
   if (!variants) return '';
 
-  const otherPlatforms = Object.keys(variants).filter(p => p !== currentPlatform);
-  if (otherPlatforms.length === 0) return '';
+  const entries = Object.entries(variants).map(([platform, value]) => {
+    return { platform, data: normalizeVariantPayload(value) };
+  });
+  if (!entries.length) return '';
 
   return `
-    <div class="mt-3 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
-      <div class="text-sm font-medium text-blue-900 mb-2">Platform Variants:</div>
-      <div class="space-y-2">
-        ${otherPlatforms.map(platform => {
+    <div class="mt-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div class="flex items-center gap-2 text-sm font-medium text-blue-900">
+          <span>Platform variants</span>
+          <span class="text-xs text-blue-700">Tuned for each channel</span>
+        </div>
+        <button type="button" class="btn-ghost text-xs" data-export-variants>Export all</button>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        ${entries.map(({ platform, data }) => {
           const editorId = `variant-${platform}-${Math.random().toString(36).slice(2,8)}`;
           const stampId = `${editorId}-stamp`;
+          const warnings = renderWarningList(data.warnings);
+          const badge = platform === currentPlatform ? '<span class="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Selected</span>' : '';
+          const thumb = data.thumbnail_note ? `<p class="text-[11px] text-blue-800 bg-blue-100 rounded px-2 py-1">Thumbnail: ${escapeHtml(data.thumbnail_note)}</p>` : '';
           return `
-            <div class="space-y-1">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-medium text-blue-700 capitalize">${platform}:</span>
-                <button class="btn-ghost text-xs" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
-                <span id="${stampId}" class="copy-timestamp"></span>
+            <div class="bg-white rounded-xl border border-blue-100 p-3 shadow-sm" data-variant-card>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold text-blue-900">${formatPlatformLabel(platform)}</span>
+                  ${badge}
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="btn-ghost text-[11px]" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
+                  <span id="${stampId}" class="copy-timestamp"></span>
+                </div>
               </div>
-              <textarea id="${editorId}" class="post-editor post-editor--compact">${escapeHtml(variants[platform])}</textarea>
+              ${thumb}
+              ${warnings}
+              <textarea id="${editorId}" class="post-editor post-editor--compact" data-variant-text data-variant-platform="${platform}">${escapeHtml(data.text)}</textarea>
+              ${data.cta ? `<p class="text-[11px] text-slate-600 mt-2">CTA: ${escapeHtml(data.cta)}</p>` : ''}
             </div>
           `;
         }).join('')}
@@ -1766,6 +3016,266 @@ function clearCopyState(editor, card){
   }
 }
 
+function buildVariantCardContent(variants, editor, card) {
+  if (!variants || !variants.length) return '';
+  return variants.map((variant, idx) => {
+    const stampId = `${editor.id}-variant-${idx}`;
+    return `
+      <div class="p-3 rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-semibold text-slate-600">Option ${idx + 1}</div>
+          <button class="btn-ghost btn-xs" data-variant-apply="${idx}" data-stamp-target="${stampId}">Use</button>
+        </div>
+        <textarea class="post-editor post-editor--compact" data-variant-index="${idx}">${escapeHtml(variant.caption || variant.text || '')}</textarea>
+        <div class="flex items-center gap-2 mt-2">
+          <button class="btn-ghost btn-xs" data-copy-variant="${idx}" data-stamp-target="${stampId}">Copy</button>
+          <span id="${stampId}" class="copy-timestamp"></span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function handleGenerateVariants(post, card, editor, wrap){
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="text-sm text-slate-600">Generating variants…</div>';
+  wrap.classList.remove('hidden');
+  try {
+    const payload = {
+      platform: post.platform || 'instagram',
+      tone: document.getElementById('gen-tone')?.value || profileDefaults.tone,
+      industry: profileDefaults.industry || answers?.industry || 'Business',
+      brand_keywords: getCurrentKeywords(),
+      goals: getCurrentGoals(),
+      count: 3
+    };
+    const res = await fetch('/api/generate-variants', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to generate variants');
+    const data = await res.json();
+    const variants = data?.variants || [];
+    wrap.innerHTML = buildVariantCardContent(variants, editor, card);
+    wrap.querySelectorAll('[data-variant-apply]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.variantApply || '0', 10);
+        const textArea = wrap.querySelector(`textarea[data-variant-index="${idx}"]`);
+        if (textArea) {
+          editor.value = textArea.value;
+          autoSizeEditor(editor);
+          clearCopyState(editor, card);
+          const qualityWrap = card?.querySelector('[data-quality-hints]');
+          if (qualityWrap) renderQualityHints(qualityWrap, editor, post, card);
+        }
+      });
+    });
+    wrap.querySelectorAll('[data-copy-variant]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idx = parseInt(btn.dataset.copyVariant || '0', 10);
+        const textArea = wrap.querySelector(`textarea[data-variant-index="${idx}"]`);
+        const stampTarget = btn.dataset.stampTarget ? wrap.querySelector(`#${btn.dataset.stampTarget}`) : null;
+        const ok = await copyToClipboard(textArea?.value || '');
+        if (ok && stampTarget) stampTarget.textContent = 'Copied';
+      });
+    });
+  } catch (err) {
+    console.error(err);
+    wrap.innerHTML = '<div class="text-sm text-red-600">Could not generate variants right now.</div>';
+  }
+}
+
+function regenerateHookText(text = '', post = {}) {
+  const sentences = (text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+  const rest = sentences.slice(1).join(' ');
+  const keywords = getCurrentKeywords();
+  const platform = formatPlatformLabel(post.platform || '');
+  const pillar = post.pillar || 'Update';
+  const hook = `Fresh ${platform} ${pillar.toLowerCase()}: ${keywords[0] || 'see what’s new'}${keywords[1] ? ' + ' + keywords[1] : ''}`;
+  return [hook, rest || sentences[0] || ''].filter(Boolean).join(' ');
+}
+
+function regenerateCtaText(text = '', post = {}) {
+  const ctaVariants = (post.cta_variants || []).map(v => v.text).filter(Boolean);
+  if (post?.reel?.cta) ctaVariants.push(post.reel.cta);
+  ctaVariants.push('Tap the link to learn more.', 'Comment with your question and we will DM you.', 'Save this for later and share with a friend.');
+  const chosen = ctaVariants[Math.floor(Math.random() * ctaVariants.length)] || 'Let us know what you think.';
+  const parts = (text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+  const body = parts.slice(0, -1).join(' ') || text;
+  return `${body.trim()} ${chosen}`.trim();
+}
+
+// --- Inclusive Language Batch Fix UX Improvement ---
+// Assumes: inclusiveLanguageIssues is an array of detected issues for the current text,
+// and applyInclusiveLanguageFix(issue) applies a single fix.
+// The following adds a "Fix all" button and handler.
+
+function renderInclusiveLanguageIssues(issues, text, onTextUpdate) {
+  const container = document.createElement('div');
+  container.className = 'inclusive-language-issues';
+
+  if (issues.length > 1) {
+    const fixAllBtn = document.createElement('button');
+    fixAllBtn.textContent = 'Fix all';
+    fixAllBtn.className = 'btn btn-sm btn-primary';
+    fixAllBtn.onclick = function() {
+      let newText = text;
+      // Apply all fixes in order, updating the text each time
+      issues.forEach(issue => {
+        newText = applyInclusiveLanguageFix(issue, newText);
+      });
+      onTextUpdate(newText);
+    };
+    container.appendChild(fixAllBtn);
+  }
+
+  issues.forEach((issue, idx) => {
+    const issueDiv = document.createElement('div');
+    issueDiv.className = 'inclusive-language-issue';
+    issueDiv.textContent = issue.message;
+    const fixBtn = document.createElement('button');
+    fixBtn.textContent = 'Apply fix';
+    fixBtn.className = 'btn btn-xs btn-secondary';
+    fixBtn.onclick = function() {
+      const newText = applyInclusiveLanguageFix(issue, text);
+      onTextUpdate(newText);
+    };
+    issueDiv.appendChild(fixBtn);
+    container.appendChild(issueDiv);
+  });
+  return container;
+}
+
+// Helper: applies a single inclusive language fix to the text
+function applyInclusiveLanguageFix(issue, text) {
+  // Example: replace the problematic word/phrase with the suggested fix
+  // Assumes issue has {start, end, replacement}
+  if (typeof issue.start === 'number' && typeof issue.end === 'number' && issue.replacement) {
+    return text.slice(0, issue.start) + issue.replacement + text.slice(issue.end);
+  }
+  // Fallback: return text unchanged
+  return text;
+}
+function readabilityMetrics(text = '') {
+  const sentences = (text.match(/[^.!?]+[.!?]*/g) || []).filter(Boolean);
+  const words = (text.match(/\b[\w']+\b/g) || []);
+  const syllables = words.reduce((total, word) => total + countSyllables(word), 0);
+  const sentenceCount = sentences.length || 1;
+  const wordCount = words.length || 1;
+  const wordsPerSentence = wordCount / sentenceCount;
+  const syllablesPerWord = syllables / wordCount;
+  const readingEase = Math.max(0, Math.min(121, 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord));
+  let grade = '10+';
+  if (readingEase >= 90) grade = '5';
+  else if (readingEase >= 80) grade = '6';
+  else if (readingEase >= 70) grade = '7';
+  else if (readingEase >= 60) grade = '8';
+  else if (readingEase >= 50) grade = '10';
+  else if (readingEase >= 40) grade = '12';
+  return { readingEase: Math.round(readingEase), grade, wordsPerSentence, syllablesPerWord };
+}
+
+function countSyllables(word = '') {
+  const sanitized = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (!sanitized) return 1;
+  const matches = sanitized.match(/[aeiouy]+/g);
+  const count = matches ? matches.length : 1;
+  return Math.max(1, count);
+}
+
+// Utility to escape HTML special characters
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+function analyzeDraftQuality(text = '') {
+  const checks = [];
+  const metrics = readabilityMetrics(text);
+  checks.push({
+    type: 'readability',
+    label: `Readability grade ~${metrics.grade}`,
+    detail: `Flesch score ${metrics.readingEase}`,
+    apply: (current) => simplifySentences(current)
+  });
+
+  const ctaRegex = /(buy|shop|click|tap|sign up|join|book|register|dm|comment|link in bio|learn more|download)/i;
+  if (!ctaRegex.test(text)) {
+    const suggestion = 'Add a clear CTA like “Tap to claim your spot.”';
+    checks.push({
+      type: 'cta',
+      label: 'CTA missing',
+      detail: suggestion,
+      apply: (current) => `${current.trim()} Tap to claim your spot.`.trim()
+    });
+  }
+
+  const inclusiveMap = {
+    guys: 'everyone',
+    chairman: 'chair',
+    manpower: 'team',
+    insane: 'incredible',
+    crazy: 'unexpected'
+  };
+  Object.entries(inclusiveMap).forEach(([term, replacement]) => {
+    const regex = new RegExp(`\b${term}\b`, 'i');
+    if (regex.test(text)) {
+      checks.push({
+        type: 'inclusive',
+        label: 'Inclusive wording',
+        detail: `Swap “${term}” for “${replacement}”.`,
+        apply: (current) => current.replace(regex, replacement)
+      });
+    }
+  });
+
+  return { metrics, checks };
+}
+
+function simplifySentences(text = '') {
+  return (text || '').split(/(?<=[.!?])\s+/).map(sentence => {
+    const words = sentence.trim().split(/\s+/);
+    if (words.length > 24) {
+      return words.slice(0, 20).join(' ') + '…';
+    }
+    return sentence;
+  }).join(' ');
+}
+
+function renderQualityHints(container, editor, post, card) {
+  if (!container || !editor) return;
+  const { metrics, checks } = analyzeDraftQuality(editor.value || '');
+  const hintItems = checks.map((check, idx) => {
+    const actionLabel = check.type === 'cta' ? 'Insert CTA' : 'Apply fix';
+    return `
+      <div class="flex items-start gap-3 py-2 border-b border-slate-100 last:border-0">
+        <div class="text-sm font-semibold text-slate-800">${check.label}</div>
+        <div class="text-xs text-slate-600 flex-1">${check.detail}</div>
+        <button class="btn-ghost btn-xs" data-quality-apply="${idx}">${actionLabel}</button>
+      </div>`;
+  }).join('');
+  container.innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <div class="text-xs font-semibold text-slate-700">Readability: Grade ${metrics.grade} • Score ${metrics.readingEase}</div>
+      <div class="text-[10px] text-slate-500">${metrics.wordsPerSentence.toFixed(1)} words / sentence</div>
+    </div>
+    ${hintItems || '<p class="text-xs text-slate-500">No issues detected.</p>'}
+  `;
+  container.querySelectorAll('[data-quality-apply]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.qualityApply || '0', 10);
+      const check = checks[idx];
+      if (!check || typeof check.apply !== 'function') return;
+      editor.value = check.apply(editor.value || '');
+      autoSizeEditor(editor);
+      clearCopyState(editor, card);
+      renderQualityHints(container, editor, post, card);
+    });
+  });
+}
+
 function autoSizeEditor(editor){
   if (!editor) return;
   editor.style.height = 'auto';
@@ -1817,6 +3327,14 @@ function escapeAttr(text) {
 const PLATFORM_LABEL_OVERRIDES = {
   twitter: 'X / Twitter',
   short_video: 'Reels / Shorts'
+};
+const PLATFORM_CHARACTER_LIMITS = {
+  twitter: 280,
+  instagram: 2200,
+  facebook: 63206,
+  linkedin: 3000,
+  tiktok: 2200,
+  short_video: 2200
 };
 
 function getCachedIndustries(){
