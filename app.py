@@ -2125,7 +2125,7 @@ def api_save_voice_profile():
         return jsonify({'ok': False, 'error': 'Provide between 5 and 10 recent posts to train your voice.'}), 400
     voice_blob = voice_profile.profile_from_samples(cleaned)
     if not voice_blob:
-        return jsonify({'ok': False, 'error': 'Unable to read those samples. Please try again.'}), 400
+        return jsonify({'ok': False, 'error': 'Samples must contain text. Please provide valid post content.'}), 400
     _persist_voice_profile(pid, cleaned, voice_blob)
     return jsonify({'ok': True, 'voice_profile': voice_blob, 'samples': cleaned})
 
