@@ -210,18 +210,31 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
 
     company_line = f"From {company}." if company else ""
     theme_line = f"Theme: {theme}." if theme else ""
-    body = (
-        f"{pillar_name} • {industry}{brand_line}\n"
-        f"{pillar_hint}\n\n"
-        f"{company_line}\n"
-        f"{theme_line}\n"
-        f"{goal_line}\n"
-        f"Tone: {tone_blurb}\n"
-        f"{voice_hint}\n"
-        f"{signature_example}\n"
-        f"Platform tip: {platform_hint}\n\n"
-        f"CTA: Tell us what you think below 👇"
-    )
+    
+    # Build body, only including non-empty lines
+    lines = [
+        f"{pillar_name} • {industry}{brand_line}",
+        pillar_hint,
+        ""  # blank line
+    ]
+    if company_line:
+        lines.append(company_line)
+    if theme_line:
+        lines.append(theme_line)
+    if goal_line:
+        lines.append(goal_line)
+    lines.append(f"Tone: {tone_blurb}")
+    if voice_hint:
+        lines.append(voice_hint)
+    if signature_example:
+        lines.append(signature_example)
+    lines.extend([
+        f"Platform tip: {platform_hint}",
+        "",  # blank line
+        "CTA: Tell us what you think below 👇"
+    ])
+    
+    body = "\n".join(lines)
 
     tags = " ".join(hashtags)
     return f"{body}\n\n{tags}"
@@ -653,7 +666,8 @@ def generate_posts(
     niche_keywords = list(niche_keywords or [])
     goals = list(goals or [])
     details = dict(details or {})
-    voice_profile = dict(voice_profile or details.get('voice_profile') or {}) if isinstance(voice_profile or details.get('voice_profile'), Mapping) else {}
+    voice_profile = voice_profile or details.get('voice_profile') or {}
+    voice_profile = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
     company = company or ""
 
     posts: list[dict[str, Any]] = []

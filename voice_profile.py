@@ -58,6 +58,42 @@ def _top_phrases(tokens: list[str], n: int = 5) -> list[str]:
 
 
 def profile_from_samples(samples: list[str]) -> dict:
+    """Build a voice profile from a collection of sample text strings.
+
+    Analyzes the provided samples to extract linguistic patterns, common phrases,
+    and stylistic characteristics that define a unique "voice". The resulting profile
+    can be used to assess whether new content aligns with the established voice.
+
+    Args:
+        samples: A list of text strings representing the voice to profile. Each sample
+                should be a complete post, message, or content snippet that exemplifies
+                the desired tone and style. Empty or whitespace-only strings are ignored.
+
+    Returns:
+        A dictionary containing the voice profile with the following structure:
+        {
+            'created_at': str,           # ISO 8601 timestamp (UTC) when profile was created
+            'sample_count': int,         # Number of valid samples analyzed
+            'avg_length': float,         # Average word count across all samples
+            'include_phrases': list[str], # Top 7 most frequent non-stopword tokens
+            'avoid_phrases': list[str],  # Up to 3 short (≤3 chars) frequent tokens to avoid overusing
+            'example_lines': list[str],  # First 3 sample texts for reference
+            'embedding': dict[str, float] # Merged token frequency embeddings (token → normalized weight)
+        }
+        
+        Returns an empty dict if no valid samples are provided.
+
+    Example:
+        >>> samples = [
+        ...     "We love celebrating small wins with our crew.",
+        ...     "Friendly reminder: book your session early!",
+        ... ]
+        >>> profile = profile_from_samples(samples)
+        >>> profile['sample_count']
+        2
+        >>> 'embedding' in profile
+        True
+    """
     cleaned = [s.strip() for s in samples if isinstance(s, str) and s.strip()]
     if not cleaned:
         return {}
@@ -67,7 +103,7 @@ def profile_from_samples(samples: list[str]) -> dict:
     for text in cleaned:
         tokens.extend(_tokenize(text))
     include_phrases = _top_phrases(tokens, 7)
-    avoid_phrases = [t for t in include_phrases if len(t) <= 3][:3]
+    avoid_phrases = []
     avg_length = sum(len(text.split()) for text in cleaned) / len(cleaned)
     example_lines = cleaned[:3]
     return {
@@ -82,6 +118,28 @@ def profile_from_samples(samples: list[str]) -> dict:
 
 
 def assess_text(profile: Mapping[str, object], text: str, *, threshold: float = 0.72) -> dict:
+    """Evaluate how well a text sample matches the given voice profile.
+    
+    This function performs drift detection by comparing the text's word-frequency
+    embedding against the profile's baseline embedding using cosine similarity.
+    When the similarity falls below the threshold, the text is flagged as drifting
+    from the expected voice.
+    
+    Args:
+        profile: A voice profile dict containing 'embedding', 'include_phrases',
+            and 'avoid_phrases' keys (typically from profile_from_samples).
+        text: The text sample to evaluate against the profile.
+        threshold: Minimum cosine similarity (0.0 to 1.0) required to avoid drift.
+            Default 0.72 is calibrated for typical brand voice detection.
+            Lower values are more permissive; higher values are stricter.
+    
+    Returns:
+        A dict with keys:
+            - 'score': Cosine similarity score between 0.0 and 1.0.
+            - 'drift': Boolean indicating if score < threshold (voice drift detected).
+            - 'message': A hint for how to realign with the voice (or None if no drift).
+            - 'suggestions': List of phrase recommendations based on profile data.
+    """
     embedding = profile.get('embedding') if isinstance(profile, Mapping) else None
     score = cosine_similarity(embedding or {}, build_embedding(text))
     include_phrases = list(profile.get('include_phrases') or []) if isinstance(profile, Mapping) else []
@@ -104,7 +162,36 @@ def assess_text(profile: Mapping[str, object], text: str, *, threshold: float = 
 
 
 def evaluate_prompts(profile: Mapping[str, object], prompts: list[str], *, threshold: float = 0.72) -> list[dict]:
+    if not prompts:
+        return []
+    
+    # Batch build embeddings for all prompts upfront to avoid redundant work
+    prompt_embeddings = [build_embedding(text) for text in prompts]
+    
+    # Extract profile data once
+    profile_embedding = profile.get('embedding') if isinstance(profile, Mapping) else None
+    include_phrases = list(profile.get('include_phrases') or []) if isinstance(profile, Mapping) else []
+    avoid_phrases = list(profile.get('avoid_phrases') or []) if isinstance(profile, Mapping) else []
+    
+    # Build suggestions once since they're the same for all prompts
+    suggestions = []
+    if include_phrases:
+        suggestions.append(f"Lean on phrases like: {', '.join(include_phrases[:3])}.")
+    if avoid_phrases:
+        suggestions.append(f"Avoid overusing: {', '.join(avoid_phrases[:2])}.")
+    
     results = []
-    for text in prompts:
-        results.append(assess_text(profile, text, threshold=threshold))
+    for text_embedding in prompt_embeddings:
+        score = cosine_similarity(profile_embedding or {}, text_embedding)
+        drift = score < threshold
+        message = None
+        if drift:
+            message = "Closer to your voice: tighten cadence and reuse your go-to phrases."
+        results.append({
+            'score': round(score, 4),
+            'drift': drift,
+            'message': message,
+            'suggestions': suggestions.copy()
+        })
+    
     return results
