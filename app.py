@@ -2383,7 +2383,6 @@ def api_generate_variants():
     data = request.get_json(force=True) or {}
     industry = (data.get('industry') or 'Business').strip() or 'Business'
     tone = (data.get('tone') or 'friendly').strip() or 'friendly'
-    platform = (data.get('platform') or 'instagram').strip() or 'instagram'
     try:
         count = int(data.get('count') or 3)
     except Exception:
@@ -2391,12 +2390,25 @@ def api_generate_variants():
     count = max(1, min(count, 10))
     brand_keywords = _coerce_str_list(data.get('brand_keywords'), [])
     goals = _coerce_str_list(data.get('goals'), [])
-    variants = []
+    variant_groups = []
+    hashtags = gen_mod.default_hashtags(industry, brand_keywords)
     for idx in range(count):
         pillar_name, pillar_hint = gen_mod.PILLARS_BY_DEFAULT[idx % len(gen_mod.PILLARS_BY_DEFAULT)]
-        caption = gen_mod.make_caption(industry, tone, pillar_name, pillar_hint, platform, brand_keywords, gen_mod.default_hashtags(industry, brand_keywords), goals)
-        variants.append({'platform': platform, 'pillar': pillar_name, 'caption': caption})
-    return jsonify({'ok': True, 'variants': variants})
+        variants = gen_mod.build_platform_variants(
+            industry=industry,
+            tone=tone,
+            pillar_name=pillar_name,
+            pillar_hint=pillar_hint,
+            base_platform='instagram',
+            brand_keywords=brand_keywords,
+            hashtags=hashtags,
+            goals=goals,
+            company=data.get('company') or '',
+            theme=data.get('theme'),
+            platforms=list(gen_mod.DEFAULT_VARIANT_PLATFORMS)
+        )
+        variant_groups.append({'pillar': pillar_name, 'variants': variants})
+    return jsonify({'ok': True, 'variants': variant_groups})
 
 
 @app.post('/api/feedback')

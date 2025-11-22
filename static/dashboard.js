@@ -1239,10 +1239,24 @@ function buildPostSnapshot(post = {}) {
     lines.push('Platform variants:');
     Object.keys(post.variants).forEach(key => {
       lines.push(`- ${formatPlatformLabel(key)}:`);
-      lines.push(post.variants[key]);
+      const entry = normalizeVariantPayload(post.variants[key]);
+      lines.push(entry.text || '');
     });
   }
   return lines.join('\n');
+}
+
+function normalizeVariantPayload(entry) {
+  if (!entry) return { text: '', warnings: [] };
+  if (typeof entry === 'string') return { text: entry, warnings: [] };
+  return {
+    text: entry.text || '',
+    warnings: Array.isArray(entry.warnings) ? entry.warnings : [],
+    cta: entry.cta || '',
+    thumbnail_note: entry.thumbnail_note || '',
+    platform: entry.platform || '',
+    platform_label: entry.platform_label || formatPlatformLabel(entry.platform || '')
+  };
 }
 
 function buildPostSummary(post = {}) {
@@ -1252,6 +1266,11 @@ function buildPostSummary(post = {}) {
   const firstLine = (post.caption || '').split('\n')[0].trim();
   const snippet = firstLine.length > 60 ? `${firstLine.slice(0, 57)}…` : firstLine;
   return `${platformLabel} ${day}`.trim() + (pillar || '') + (snippet ? ` • ${snippet}` : '');
+}
+
+function renderWarningList(warnings) {
+  if (!warnings || !warnings.length) return '';
+  return `<div class="flex flex-col gap-1 my-2">${warnings.map(note => `<div class=\"flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2\"><span aria-hidden=\"true\">⚠️</span><span>${escapeHtml(note)}</span></div>`).join('')}</div>`;
 }
 
 // Render individual post card with enhanced features
@@ -1275,6 +1294,7 @@ function renderPostCard(post) {
   const editorId = `post-editor-${post.day_index}-${post.platform}-${Math.random().toString(36).slice(2,7)}`;
   const stampId = `${editorId}-stamp`;
   const variantsMarkup = post.variants ? renderPlatformVariants(post.variants, post.platform) : '';
+  const warningMarkup = renderWarningList(post.warnings);
 
   // Check if this post has variants (multiple platforms)
   const hasVariants = post.variants && Object.keys(post.variants).length > 1;
@@ -1301,6 +1321,7 @@ function renderPostCard(post) {
     <div class="text-xs text-slate-500 mb-2"><strong>Image prompt:</strong> ${escapeHtml(post.image_prompt)}</div>
 
     <label class="text-xs font-semibold text-slate-500 tracking-wide">Caption</label>
+    ${warningMarkup}
     <textarea id="${editorId}" class="post-editor mb-3" data-platform="${post.platform}">${escapeHtml(post.caption)}</textarea>
 
     ${post.reel ? renderReelSection(post.reel) : ''}
@@ -1327,6 +1348,25 @@ function renderPostCard(post) {
     const targetEditor = targetId ? card.querySelector(`#${targetId}`) : null;
     const stampEl = stampTarget ? card.querySelector(`#${stampTarget}`) : null;
     bindCopyButton(btn, targetEditor, stampEl, card);
+  });
+
+  card.querySelectorAll('[data-export-variants]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const chunks = [];
+      card.querySelectorAll('[data-variant-text]').forEach(area => {
+        const platform = area.getAttribute('data-variant-platform') || 'Platform';
+        const label = formatPlatformLabel(platform) || platform;
+        chunks.push(`${label}:\n${area.value.trim()}`);
+      });
+      const exportText = chunks.join('\n\n');
+      try {
+        await navigator.clipboard.writeText(exportText);
+        showToast('Copied all variants to clipboard');
+      } catch (err) {
+        console.error('Failed to export variants', err);
+        showToast('Unable to copy variants right now.');
+      }
+    });
   });
 
   card.querySelectorAll('[data-like]').forEach(btn => {
@@ -1425,24 +1465,43 @@ function renderReelSection(reel) {
 function renderPlatformVariants(variants, currentPlatform) {
   if (!variants) return '';
 
-  const otherPlatforms = Object.keys(variants).filter(p => p !== currentPlatform);
-  if (otherPlatforms.length === 0) return '';
+  const entries = Object.entries(variants).map(([platform, value]) => {
+    return { platform, data: normalizeVariantPayload(value) };
+  });
+  if (!entries.length) return '';
 
   return `
-    <div class="mt-3 p-3 bg-blue-50 rounded border-l-4 border-blue-400">
-      <div class="text-sm font-medium text-blue-900 mb-2">Platform Variants:</div>
-      <div class="space-y-2">
-        ${otherPlatforms.map(platform => {
+    <div class="mt-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div class="flex items-center gap-2 text-sm font-medium text-blue-900">
+          <span>Platform variants</span>
+          <span class="text-xs text-blue-700">Tuned for each channel</span>
+        </div>
+        <button type="button" class="btn-ghost text-xs" data-export-variants>Export all</button>
+      </div>
+      <div class="grid gap-3 md:grid-cols-2">
+        ${entries.map(({ platform, data }) => {
           const editorId = `variant-${platform}-${Math.random().toString(36).slice(2,8)}`;
           const stampId = `${editorId}-stamp`;
+          const warnings = renderWarningList(data.warnings);
+          const badge = platform === currentPlatform ? '<span class="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Selected</span>' : '';
+          const thumb = data.thumbnail_note ? `<p class="text-[11px] text-blue-800 bg-blue-100 rounded px-2 py-1">Thumbnail: ${escapeHtml(data.thumbnail_note)}</p>` : '';
           return `
-            <div class="space-y-1">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-medium text-blue-700 capitalize">${platform}:</span>
-                <button class="btn-ghost text-xs" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
-                <span id="${stampId}" class="copy-timestamp"></span>
+            <div class="bg-white rounded-xl border border-blue-100 p-3 shadow-sm" data-variant-card>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold text-blue-900">${formatPlatformLabel(platform)}</span>
+                  ${badge}
+                </div>
+                <div class="flex items-center gap-2">
+                  <button class="btn-ghost text-[11px]" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
+                  <span id="${stampId}" class="copy-timestamp"></span>
+                </div>
               </div>
-              <textarea id="${editorId}" class="post-editor post-editor--compact">${escapeHtml(variants[platform])}</textarea>
+              ${thumb}
+              ${warnings}
+              <textarea id="${editorId}" class="post-editor post-editor--compact" data-variant-text data-variant-platform="${platform}">${escapeHtml(data.text)}</textarea>
+              ${data.cta ? `<p class="text-[11px] text-slate-600 mt-2">CTA: ${escapeHtml(data.cta)}</p>` : ''}
             </div>
           `;
         }).join('')}
