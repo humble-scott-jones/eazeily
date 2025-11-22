@@ -126,22 +126,36 @@ def assess_text(profile: Mapping[str, object], text: str, *, threshold: float = 
 
 
 def evaluate_prompts(profile: Mapping[str, object], prompts: list[str], *, threshold: float = 0.72) -> list[dict]:
-    """Batch evaluate multiple text samples against a voice profile.
+    if not prompts:
+        return []
     
-    This is a convenience wrapper around assess_text that processes a list of
-    prompts and returns individual assessment results for each.
+    # Batch build embeddings for all prompts upfront to avoid redundant work
+    prompt_embeddings = [build_embedding(text) for text in prompts]
     
-    Args:
-        profile: A voice profile dict (typically from profile_from_samples).
-        prompts: List of text samples to evaluate.
-        threshold: Minimum cosine similarity (0.0 to 1.0) to avoid drift.
-            Default 0.72. See assess_text for details.
+    # Extract profile data once
+    profile_embedding = profile.get('embedding') if isinstance(profile, Mapping) else None
+    include_phrases = list(profile.get('include_phrases') or []) if isinstance(profile, Mapping) else []
+    avoid_phrases = list(profile.get('avoid_phrases') or []) if isinstance(profile, Mapping) else []
     
-    Returns:
-        A list of assessment dicts (one per prompt), each in the format returned
-        by assess_text.
-    """
+    # Build suggestions once since they're the same for all prompts
+    suggestions = []
+    if include_phrases:
+        suggestions.append(f"Lean on phrases like: {', '.join(include_phrases[:3])}.")
+    if avoid_phrases:
+        suggestions.append(f"Avoid overusing: {', '.join(avoid_phrases[:2])}.")
+    
     results = []
-    for text in prompts:
-        results.append(assess_text(profile, text, threshold=threshold))
+    for text_embedding in prompt_embeddings:
+        score = cosine_similarity(profile_embedding or {}, text_embedding)
+        drift = score < threshold
+        message = None
+        if drift:
+            message = "Closer to your voice: tighten cadence and reuse your go-to phrases."
+        results.append({
+            'score': round(score, 4),
+            'drift': drift,
+            'message': message,
+            'suggestions': suggestions.copy()
+        })
+    
     return results
