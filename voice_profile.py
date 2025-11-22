@@ -58,6 +58,42 @@ def _top_phrases(tokens: list[str], n: int = 5) -> list[str]:
 
 
 def profile_from_samples(samples: list[str]) -> dict:
+    """Build a voice profile from a collection of sample text strings.
+
+    Analyzes the provided samples to extract linguistic patterns, common phrases,
+    and stylistic characteristics that define a unique "voice". The resulting profile
+    can be used to assess whether new content aligns with the established voice.
+
+    Args:
+        samples: A list of text strings representing the voice to profile. Each sample
+                should be a complete post, message, or content snippet that exemplifies
+                the desired tone and style. Empty or whitespace-only strings are ignored.
+
+    Returns:
+        A dictionary containing the voice profile with the following structure:
+        {
+            'created_at': str,           # ISO 8601 timestamp (UTC) when profile was created
+            'sample_count': int,         # Number of valid samples analyzed
+            'avg_length': float,         # Average word count across all samples
+            'include_phrases': list[str], # Top 7 most frequent non-stopword tokens
+            'avoid_phrases': list[str],  # Up to 3 short (≤3 chars) frequent tokens to avoid overusing
+            'example_lines': list[str],  # First 3 sample texts for reference
+            'embedding': dict[str, float] # Merged token frequency embeddings (token → normalized weight)
+        }
+        
+        Returns an empty dict if no valid samples are provided.
+
+    Example:
+        >>> samples = [
+        ...     "We love celebrating small wins with our crew.",
+        ...     "Friendly reminder: book your session early!",
+        ... ]
+        >>> profile = profile_from_samples(samples)
+        >>> profile['sample_count']
+        2
+        >>> 'embedding' in profile
+        True
+    """
     cleaned = [s.strip() for s in samples if isinstance(s, str) and s.strip()]
     if not cleaned:
         return {}
