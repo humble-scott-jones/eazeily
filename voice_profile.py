@@ -133,7 +133,7 @@ def evaluate_prompts(profile: Mapping[str, object], prompts: list[str], *, thres
             'score': round(score, 4),
             'drift': drift,
             'message': message,
-            'suggestions': suggestions
+            'suggestions': suggestions.copy()
         })
     
     return results
