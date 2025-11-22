@@ -497,7 +497,7 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
     ]
 
     shoot_list = []
-    for idx, (b, shot) in enumerate(zip(beats, shot_list)):
+    for idx, (b, shot) in enumerate(zip(beats, shot_list, strict=True)):
         overlay = caption_overlays[idx] if idx < len(caption_overlays) else {"text": "", "safe_chars": overlay_safe_chars}
         shoot_list.append({
             "beat": b.get("osd"),
