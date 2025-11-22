@@ -2071,19 +2071,31 @@ def api_get_profile():
 
 def _persist_voice_profile(pid: str, samples: list[str], voice_blob: dict):
     db = get_db()
-    row = db.execute('SELECT details FROM profiles WHERE id = ?', (pid,)).fetchone()
-    base_details = _deserialize_json(row['details'], {}) if row else {}
-    if not isinstance(base_details, dict):
-        base_details = {}
-    merged_details = dict(base_details)
-    merged_details['voice_samples'] = samples
-    merged_details['voice_profile'] = voice_blob
-    db.execute(
-        '''INSERT INTO profiles (id, details)
-           VALUES (?, ?)
-           ON CONFLICT(id) DO UPDATE SET details=excluded.details''',
-        (pid, json.dumps(merged_details))
-    )
+    # Check if the profile exists
+    row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
+    if row:
+        base_details = _deserialize_json(row['details'], {}) if row['details'] else {}
+        if not isinstance(base_details, dict):
+            base_details = {}
+        merged_details = dict(base_details)
+        merged_details['voice_samples'] = samples
+        merged_details['voice_profile'] = voice_blob
+        db.execute(
+            'UPDATE profiles SET details = ? WHERE id = ?',
+            (json.dumps(merged_details), pid)
+        )
+    else:
+        # Insert a new profile row with at least required columns
+        merged_details = {
+            'voice_samples': samples,
+            'voice_profile': voice_blob
+        }
+        # Set sensible defaults for required columns
+        created_at = datetime.utcnow().isoformat()
+        db.execute(
+            'INSERT INTO profiles (id, details, created_at) VALUES (?, ?, ?)',
+            (pid, json.dumps(merged_details), created_at)
+        )
     db.commit()
 
 
