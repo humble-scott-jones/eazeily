@@ -309,6 +309,8 @@
         document.getElementById('team-approval-list')?.addEventListener('click', handleApprovalListClick);
       } else if (approvalsSection && !hasTeamAccess) {
         setApprovalStatus('Upgrade to a team plan to use approvals.', 'muted');
+        const submitBtn = document.getElementById('team-approval-submit');
+        if (submitBtn) submitBtn.disabled = true;
         document.getElementById('team-approval-form')?.setAttribute('aria-disabled', 'true');
       }
 
