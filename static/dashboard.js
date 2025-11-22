@@ -1329,6 +1329,10 @@ function renderPostCard(post) {
     bindCopyButton(btn, targetEditor, stampEl, card);
   });
 
+  card.querySelectorAll('[data-download-ref]').forEach(btn => {
+    bindDownloadButton(btn, card);
+  });
+
   card.querySelectorAll('[data-like]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (btn.disabled) return;
@@ -1380,10 +1384,19 @@ function renderReelSection(reel) {
   const scriptText = scriptTextParts.join('\n');
   const srtText = reel.srt_prompt || reel.srt || '';
   const thumbText = reel.thumbnail_prompt || reel.thumbnail || '';
+  const overlays = Array.isArray(reel.caption_overlays) ? reel.caption_overlays : [];
+  const broll = Array.isArray(reel.broll_suggestions) ? reel.broll_suggestions : [];
+  const shootList = Array.isArray(reel.shoot_list) ? reel.shoot_list : [];
+  const platformSpecs = Array.isArray(reel.platform_specs) ? reel.platform_specs : [];
+  const thumbnailIdeas = Array.isArray(reel.thumbnail_title_ideas) ? reel.thumbnail_title_ideas : [];
+  const exportsCsv = reel.shoot_list_exports && reel.shoot_list_exports.csv;
+  const exportsPdf = reel.shoot_list_exports && reel.shoot_list_exports.pdf_text;
 
   const stampScript = `reel-stamp-script-${Math.random().toString(36).slice(2,8)}`;
   const stampSrt = `reel-stamp-srt-${Math.random().toString(36).slice(2,8)}`;
   const stampThumb = `reel-stamp-thumb-${Math.random().toString(36).slice(2,8)}`;
+  const exportCsvId = `shoot-csv-${Math.random().toString(36).slice(2,8)}`;
+  const exportPdfId = `shoot-pdf-${Math.random().toString(36).slice(2,8)}`;
 
   return `
     <div class="mt-3 p-3 bg-slate-50 rounded border-l-4 border-purple-400">
@@ -1417,6 +1430,80 @@ function renderReelSection(reel) {
           <span id="${stampThumb}" class="copy-timestamp"></span>
         </div>
       </div>
+
+      ${overlays.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Caption overlays (safe for crops)</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${overlays.map(item => `<li><span class="text-slate-500">${escapeHtml(item.beat || 'Beat')}:</span> ${escapeHtml(item.text || '')} <span class="text-slate-400">(${item.safe_chars || 0} chars)</span></li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${shootList.length ? `
+        <div class="mt-4 text-xs text-slate-700 border border-purple-100 rounded-lg p-3 bg-white">
+          <div class="flex items-center justify-between mb-2">
+            <div class="font-semibold text-slate-900">Shoot list (${escapeHtml(reel.variant || 'resource_light')})</div>
+            <div class="flex gap-2 flex-wrap">
+              ${exportsCsv ? `<button class="btn-ghost text-xs" data-download-ref="${exportCsvId}" data-download-filename="shoot-list.csv" data-download-type="text/csv">Download CSV</button>` : ''}
+              ${exportsPdf ? `<button class="btn-ghost text-xs" data-download-ref="${exportPdfId}" data-download-filename="shoot-list.pdf" data-download-type="application/pdf">Export PDF</button>` : ''}
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-[11px]">
+              <thead>
+                <tr class="text-slate-500 text-left">
+                  <th class="py-1 pr-2">Beat</th>
+                  <th class="py-1 pr-2">Shot</th>
+                  <th class="py-1 pr-2">Overlay</th>
+                  <th class="py-1 pr-2">Timing</th>
+                  <th class="py-1 pr-2">Aspect</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${shootList.map(item => `
+                  <tr>
+                    <td class="py-1 pr-2 text-slate-700">${escapeHtml(item.beat || '')}</td>
+                    <td class="py-1 pr-2 text-slate-700">${escapeHtml(item.shot || '')}</td>
+                    <td class="py-1 pr-2 text-slate-700">${escapeHtml(item.overlay || '')}</td>
+                    <td class="py-1 pr-2 text-slate-500">${escapeHtml(item.timing_cue || '')}</td>
+                    <td class="py-1 pr-2 text-slate-500">${escapeHtml(item.aspect_ratio || '9:16')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <textarea id="${exportCsvId}" class="hidden">${escapeHtml(exportsCsv || '')}</textarea>
+        <textarea id="${exportPdfId}" class="hidden">${escapeHtml(exportsPdf || '')}</textarea>
+      ` : ''}
+
+      ${broll.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">B-roll / supporting shots</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${broll.map(line => `<li>${escapeHtml(line)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${platformSpecs.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Platform sizing</div>
+          <div class="flex flex-wrap gap-2">
+            ${platformSpecs.map(spec => `<span class="px-2 py-1 bg-slate-100 rounded-full">${escapeHtml(spec.platform || '')}: ${escapeHtml(spec.aspect_ratio || '')}</span>`).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${thumbnailIdeas.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Thumbnail / title ideas</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${thumbnailIdeas.map(t => `<li><span class="text-slate-500">${escapeHtml(t.platform || '')}:</span> ${escapeHtml(t.title || '')} <span class="text-slate-400">(${escapeHtml(t.aspect_ratio || '9:16')})</span></li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -1586,6 +1673,30 @@ function bindCopyButton(btn, editor, timestampEl, card){
     const original = btn.textContent;
     btn.textContent = 'Copied!';
     setTimeout(() => { btn.textContent = original || 'Copy'; }, 1500);
+  });
+}
+
+function bindDownloadButton(btn, card){
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const ref = btn.getAttribute('data-download-ref');
+    const filename = btn.getAttribute('data-download-filename') || 'shoot-list.txt';
+    const mime = btn.getAttribute('data-download-type') || 'text/plain';
+    const refNode = ref ? card.querySelector(`#${ref}`) : null;
+    const content = refNode ? (refNode.value || refNode.textContent || '') : '';
+    if (!content || !content.trim()) {
+      showToast('Nothing to download yet');
+      return;
+    }
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   });
 }
 
