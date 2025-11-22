@@ -23,6 +23,12 @@ def test_generate_variants_fallback(monkeypatch):
     assert data and data.get('ok') is True
     assert 'variants' in data
     assert len(data['variants']) == 3
+    first_group = data['variants'][0]
+    assert 'variants' in first_group
+    payload = first_group['variants']
+    assert 'twitter' in payload and 'youtube' in payload
+    assert isinstance(payload['twitter'], dict)
+    assert payload['twitter'].get('text')
 
 
 def test_generate_variants_requires_auth_in_prod(monkeypatch):

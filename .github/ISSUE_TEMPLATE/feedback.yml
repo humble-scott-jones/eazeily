@@ -1,0 +1,22 @@
+---
+name: 💬 User Feedback
+description: Share your thoughts, suggestions, or issues you encountered with the app.
+title: "[Feedback]: <Provide a Feedback Title>"
+labels: ["feedback"]
+
+fields:
+  - name: User Experience
+    description: Describe your experience.
+    required: true
+  - name: Suggestions
+    description: Do you have specific suggestions to improve this?
+    required: true
+  - name: Area/Component
+    description: Which part of the application does this feedback relate to?
+    required: false
+  - name: Why It’s Important
+    description: Explain why this feedback is valuable for improving the app.
+    required: false
+  - name: Context or Additional Notes
+    description: Additional details to add more clarity like feature suggestions.
+    required: false

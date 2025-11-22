@@ -6,6 +6,8 @@ from datetime import timedelta, date
 from pathlib import Path
 from typing import Optional, Any, Mapping, Sequence
 
+from platform_rules import DEFAULT_VARIANT_PLATFORMS, apply_platform_rules
+
 PILLARS_BY_DEFAULT = [
     ("Educational", "Share a quick tip that solves a common problem for your audience."),
     ("Behind-the-Scenes", "Show a candid look at your process, team, or workspace."),
@@ -180,13 +182,71 @@ def default_hashtags(industry: str, niche_keywords: list[str]):
             seen.add(t_low)
     return tags[:12]
 
+
+def build_platform_variants(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                            base_platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str],
+                            company: str = "", theme: Optional[str] = None, platforms: Optional[list[str]] = None):
+    """
+    Generate platform-specific variants of a caption by applying platform rules to a base caption body.
+
+    This function first generates a base caption body using the specified `base_platform` (which determines
+    the style and structure of the initial text). It then applies platform-specific formatting and rules
+    to produce variants for each target platform in `platforms`.
+
+    Parameters:
+        industry (str): The industry or business type for which the caption is generated.
+        tone (str): The desired tone of the caption (e.g., friendly, professional).
+        pillar_name (str): The content pillar name (e.g., "Educational", "Testimonial").
+        pillar_hint (str): A hint or prompt for the content pillar.
+        base_platform (str): The platform whose style is used to generate the initial caption body.
+        brand_keywords (list[str]): List of keywords or phrases relevant to the brand.
+        hashtags (list[str]): List of hashtags to include in the variants.
+        goals (list[str]): List of business or post goals.
+        company (str, optional): The company or brand name. Defaults to "".
+        theme (str, optional): An optional theme for the post. Defaults to None.
+        platforms (list[str], optional): List of platform keys for which to generate variants.
+            If None, uses DEFAULT_VARIANT_PLATFORMS.
+
+    Returns:
+        dict[str, Any]: A dictionary mapping each platform key to its variant payload (caption text and metadata).
+    """
+    body = build_caption_body(industry, tone, pillar_name, pillar_hint, base_platform, brand_keywords, goals, company, theme)
+    variant_targets = list(platforms or DEFAULT_VARIANT_PLATFORMS)
+    variants = {}
+    for platform in variant_targets:
+        variants[platform] = apply_platform_rules(body, platform, hashtags, pillar_name=pillar_name, goals=goals, company=company)
+    return variants
+
 def to_sentence_case(s: str):
     if not s:
         return s
     return s[0].upper() + s[1:]
 
-def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None, voice_profile: Optional[dict] = None):
+def build_caption_body(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                       platform: str, brand_keywords: list[str], goals: list[str], company: str = "", theme: Optional[str] = None) -> str:
+    """
+    Generate the main body content for a social media caption, without hashtags.
+
+    This function is used as an intermediate step before applying platform-specific rules
+    (such as formatting or hashtag insertion). It returns a formatted string containing
+    the core caption content, ready for further processing.
+
+    Differs from `make_caption`, which adds hashtags and may apply additional formatting.
+
+    Args:
+        industry: The industry or business type.
+        tone: The desired tone for the caption.
+        pillar_name: The content pillar (e.g., "Educational").
+        pillar_hint: A hint or prompt for the pillar.
+        platform: The target platform (used for platform hints).
+        brand_keywords: List of brand or business keywords.
+        goals: List of business or post goals.
+        company: (Optional) Company name.
+        theme: (Optional) Theme for the post.
+
+    Returns:
+        str: The formatted caption body, ready for platform-specific rule application.
+    """
     tone_blurb = {
         "friendly": "Warm, encouraging, and conversational.",
         "professional": "Clear, confident, and value-focused.",
@@ -236,8 +296,14 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
     
     body = "\n".join(lines)
 
+
+def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
+                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
+    body = build_caption_body(industry, tone, pillar_name, pillar_hint, platform, brand_keywords, goals, company, theme)
     tags = " ".join(hashtags)
-    return f"{body}\n\n{tags}"
+    if tags:
+        return f"{body}\n\n{tags}"
+    return body
 
 def make_full_post(industry: str, tone: str, pillar_name: str, pillar_hint: str,
                    platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
@@ -698,7 +764,8 @@ def generate_posts(
 
         # Create one post per platform (maintains backward compatibility)
         for p in platforms:
-            caption = variants[p]
+            variant_payload = variants.get(p, {}) if isinstance(variants, dict) else {}
+            caption = variant_payload.get('text') if isinstance(variant_payload, dict) else variant_payload
             iprompt = image_prompt(industry, pillar_name, brand_keywords, company)
             img_url = unsplash_link(industry, pillar_name) if include_images else None
 
@@ -730,10 +797,13 @@ def generate_posts(
                 "platform": p,
                 "pillar": pillar_name,
                 "caption": caption,
+                "warnings": variant_payload.get('warnings') if isinstance(variant_payload, dict) else None,
+                "cta": variant_payload.get('cta') if isinstance(variant_payload, dict) else None,
+                "thumbnail_note": variant_payload.get('thumbnail_note') if isinstance(variant_payload, dict) else None,
                 "image_prompt": iprompt,
                 "image_url": img_url,
                 "reel": reel_obj,
-                "variants": variants if len(platforms) > 1 else None
+                "variants": variants
             })
 
     return posts
