@@ -150,7 +150,10 @@ def apply_platform_rules(
     if goal_hint:
         cta_line = f"{cta_line} ({goal_hint})."
     if rule.link_note:
-        cta_line = f"{cta_line} {rule.link_note}"
+        # Ensure there is a space after the period if needed
+        if not cta_line.endswith(('.', '!', '?')):
+            cta_line += '.'
+        cta_line = f"{cta_line} {rule.link_note.strip()}"
 
     hashtag_block = " ".join(cleaned_hashtags)
     parts = [body.strip(), "", cta_line]
