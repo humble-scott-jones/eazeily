@@ -2120,9 +2120,17 @@ def api_save_voice_profile():
     data = request.get_json(force=True) or {}
     samples = data.get('samples') if isinstance(data.get('samples'), list) else []
     cleaned = [str(s).strip() for s in samples if isinstance(s, str) and str(s).strip()]
-    cleaned = [s for s in cleaned if len(s) >= 8]
+    
+    # Validate initial sample count before filtering
     if len(cleaned) < 5 or len(cleaned) > 10:
         return jsonify({'ok': False, 'error': 'Provide between 5 and 10 recent posts to train your voice.'}), 400
+    
+    # Filter out samples that are too short (< 8 characters)
+    cleaned = [s for s in cleaned if len(s) >= 8]
+    
+    # Validate final sample count after filtering
+    if len(cleaned) < 5 or len(cleaned) > 10:
+        return jsonify({'ok': False, 'error': 'After removing very short posts, only {} valid samples remain. Please provide longer posts (at least 8 characters each).'.format(len(cleaned))}), 400
     voice_blob = voice_profile.profile_from_samples(cleaned)
     if not voice_blob:
         return jsonify({'ok': False, 'error': 'Samples must contain text. Please provide valid post content.'}), 400
