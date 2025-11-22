@@ -17,6 +17,10 @@ def test_make_reel_plan_structure():
     assert 'srt' in plan and isinstance(plan['srt'], str) and len(plan['srt']) > 0
     assert 'thumbnail_prompt' in plan
     assert plan.get('caption_overlays') and all(len(item['text']) <= item['safe_chars'] for item in plan['caption_overlays'])
+    assert plan.get('first_frame_idea')
+    assert plan.get('engagement_prompts')
+    assert plan.get('posting_checklist')
+    assert plan.get('looping_hint')
 
 
 def test_reel_plan_platform_and_variant_metadata():
@@ -36,3 +40,5 @@ def test_reel_plan_platform_and_variant_metadata():
 
     overlays = light_plan.get('caption_overlays') or []
     assert overlays and all(len(item.get('text', '')) <= item.get('safe_chars', 0) for item in overlays)
+    assert light_plan.get('first_frame_idea') and light_plan.get('looping_hint')
+    assert light_plan.get('engagement_prompts') and light_plan.get('posting_checklist')

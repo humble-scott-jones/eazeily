@@ -460,6 +460,16 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
     hashtags = {"primary": hashtags_all[:3], "optional": hashtags_all[3:8]}
     thumb_prompt = f"Portrait thumbnail: {industry} • {style}. {mods.get('thumb_extra')}"
 
+    first_frame_map = {
+        "Face-camera tips": "Begin mid-sentence with the hook on-screen; add a quick gesture to stop the scroll.",
+        "Property b-roll + captions": "Lead with the strongest room/feature; hold 1s before moving to the next shot.",
+        "Product b-roll + captions": "Hero close-up with brand color card behind the product for contrast.",
+        "Local hotspot montage": "Fast exterior sign shot with a quick zoom toward the entrance.",
+        "Story + before/after": "Start on the 'after' for intrigue, then rewind to the 'before'.",
+        "Workout montage": "First frame shows the hardest move with timer overlay.",
+    }
+    first_frame_idea = first_frame_map.get(style, "Lead with movement and an on-screen question to earn the first 3 seconds.")
+
     platform_specs = [
         {"platform": "instagram", "aspect_ratio": "9:16", "title_safe_chars": 38, "note": "Keep overlays away from bottom UI."},
         {"platform": "tiktok", "aspect_ratio": "9:16", "title_safe_chars": 38, "note": "Safe zones top/bottom; trim overlays."},
@@ -469,6 +479,21 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
     thumbnail_title_ideas = [
         {"platform": spec["platform"], "title": truncate_hook(hook, spec.get("title_safe_chars", 38)), "aspect_ratio": spec["aspect_ratio"]}
         for spec in platform_specs
+    ]
+
+    engagement_prompts = [
+        {
+            "type": "comment",
+            "prompt": f"Comment '{industry[:3].upper() or 'YES'}' if you want the checklist/links."
+        },
+        {
+            "type": "poll",
+            "prompt": "Poll: Which part was most helpful? Hook / Tip / Example"
+        },
+        {
+            "type": "sticker",
+            "prompt": "Add a Q&A sticker: 'What should we cover next?'"
+        }
     ]
 
     shoot_list = []
@@ -510,6 +535,16 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
         ])
     }
 
+    posting_checklist = [
+        "Pin the strongest overlay as first frame text.",
+        "Trim dead air between beats; keep cuts aligned to the cues above.",
+        "Add auto-captions and double-check spelling of brand/locations.",
+        "Test placement in IG/TikTok editors to avoid UI crop in the safe zones.",
+        "Publish with the primary hashtags; reuse optional tags for comments."
+    ]
+
+    looping_hint = "End on the first frame or a question so the loop feels seamless."
+
     # generate SRT text from beats
     srt_lines = []
     for i, b in enumerate(beats, start=1):
@@ -543,6 +578,10 @@ def make_reel_plan(industry: str, pillar_name: str, brand_keywords: list[str], t
         "shoot_list": shoot_list,
         "shoot_list_exports": shoot_list_exports,
         "broll_suggestions": broll_suggestions.get(variant, []),
+        "first_frame_idea": first_frame_idea,
+        "engagement_prompts": engagement_prompts,
+        "posting_checklist": posting_checklist,
+        "looping_hint": looping_hint,
         "hashtags": hashtags,
         "cta": cta_line,
         "cta_variants": cta_variants,

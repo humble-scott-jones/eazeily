@@ -1387,6 +1387,10 @@ function renderReelSection(reel) {
   const overlays = Array.isArray(reel.caption_overlays) ? reel.caption_overlays : [];
   const broll = Array.isArray(reel.broll_suggestions) ? reel.broll_suggestions : [];
   const shootList = Array.isArray(reel.shoot_list) ? reel.shoot_list : [];
+  const firstFrame = reel.first_frame_idea || '';
+  const engagementPrompts = Array.isArray(reel.engagement_prompts) ? reel.engagement_prompts : [];
+  const postingChecklist = Array.isArray(reel.posting_checklist) ? reel.posting_checklist : [];
+  const loopHint = reel.looping_hint || '';
   const platformSpecs = Array.isArray(reel.platform_specs) ? reel.platform_specs : [];
   const thumbnailIdeas = Array.isArray(reel.thumbnail_title_ideas) ? reel.thumbnail_title_ideas : [];
   const exportsCsv = reel.shoot_list_exports && reel.shoot_list_exports.csv;
@@ -1409,6 +1413,8 @@ function renderReelSection(reel) {
       </div>
 
       <div class="text-sm mb-2"><strong>Hook:</strong> ${escapeHtml(hook)}</div>
+
+      ${firstFrame ? `<div class="text-xs text-slate-700 mb-2"><span class="font-semibold text-slate-800">First frame:</span> ${escapeHtml(firstFrame)}</div>` : ''}
 
       <div class="text-sm mb-2"><strong>Script:</strong>
         <ol class="list-decimal ml-5 text-xs text-slate-700">
@@ -1436,6 +1442,15 @@ function renderReelSection(reel) {
           <div class="font-semibold text-slate-800 mb-1">Caption overlays (safe for crops)</div>
           <ul class="list-disc ml-4 space-y-1">
             ${overlays.map(item => `<li><span class="text-slate-500">${escapeHtml(item.beat || 'Beat')}:</span> ${escapeHtml(item.text || '')} <span class="text-slate-400">(${item.safe_chars || 0} chars)</span></li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${engagementPrompts.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Engagement prompts</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${engagementPrompts.map(item => `<li><span class="text-slate-500">${escapeHtml(item.type || '')}:</span> ${escapeHtml(item.prompt || '')}</li>`).join('')}
           </ul>
         </div>
       ` : ''}
@@ -1477,6 +1492,17 @@ function renderReelSection(reel) {
         <textarea id="${exportCsvId}" class="hidden">${escapeHtml(exportsCsv || '')}</textarea>
         <textarea id="${exportPdfId}" class="hidden">${escapeHtml(exportsPdf || '')}</textarea>
       ` : ''}
+
+      ${postingChecklist.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Posting checklist</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${postingChecklist.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${loopHint ? `<div class="mt-2 text-[11px] text-slate-500">Looping tip: ${escapeHtml(loopHint)}</div>` : ''}
 
       ${broll.length ? `
         <div class="mt-3 text-xs text-slate-700">
