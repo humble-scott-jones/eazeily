@@ -186,6 +186,30 @@ def default_hashtags(industry: str, niche_keywords: list[str]):
 def build_platform_variants(industry: str, tone: str, pillar_name: str, pillar_hint: str,
                             base_platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str],
                             company: str = "", theme: Optional[str] = None, platforms: Optional[list[str]] = None):
+    """
+    Generate platform-specific variants of a caption by applying platform rules to a base caption body.
+
+    This function first generates a base caption body using the specified `base_platform` (which determines
+    the style and structure of the initial text). It then applies platform-specific formatting and rules
+    to produce variants for each target platform in `platforms`.
+
+    Parameters:
+        industry (str): The industry or business type for which the caption is generated.
+        tone (str): The desired tone of the caption (e.g., friendly, professional).
+        pillar_name (str): The content pillar name (e.g., "Educational", "Testimonial").
+        pillar_hint (str): A hint or prompt for the content pillar.
+        base_platform (str): The platform whose style is used to generate the initial caption body.
+        brand_keywords (list[str]): List of keywords or phrases relevant to the brand.
+        hashtags (list[str]): List of hashtags to include in the variants.
+        goals (list[str]): List of business or post goals.
+        company (str, optional): The company or brand name. Defaults to "".
+        theme (str, optional): An optional theme for the post. Defaults to None.
+        platforms (list[str], optional): List of platform keys for which to generate variants.
+            If None, uses DEFAULT_VARIANT_PLATFORMS.
+
+    Returns:
+        dict[str, Any]: A dictionary mapping each platform key to its variant payload (caption text and metadata).
+    """
     body = build_caption_body(industry, tone, pillar_name, pillar_hint, base_platform, brand_keywords, goals, company, theme)
     variant_targets = list(platforms or DEFAULT_VARIANT_PLATFORMS)
     variants = {}
