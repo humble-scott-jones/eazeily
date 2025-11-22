@@ -50,6 +50,17 @@ def test_make_reel_plan_structure():
     assert isinstance(srt, str)
     assert beats[0]['line'] in srt
 
+    overlays = plan.get('caption_overlays') or []
+    assert overlays and all(len(item['text']) <= item['safe_chars'] for item in overlays)
+
+    shoot_list = plan.get('shoot_list') or []
+    assert shoot_list and all(item.get('aspect_ratio') == '9:16' for item in shoot_list)
+
+    assert plan.get('first_frame_idea')
+    assert plan.get('engagement_prompts')
+    assert plan.get('posting_checklist')
+    assert plan.get('looping_hint')
+
 
 if __name__ == '__main__':
     # allow running directly
