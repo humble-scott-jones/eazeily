@@ -67,7 +67,7 @@ def profile_from_samples(samples: list[str]) -> dict:
     for text in cleaned:
         tokens.extend(_tokenize(text))
     include_phrases = _top_phrases(tokens, 7)
-    avoid_phrases = [t for t in include_phrases if len(t) <= 3][:3]
+    avoid_phrases = []
     avg_length = sum(len(text.split()) for text in cleaned) / len(cleaned)
     example_lines = cleaned[:3]
     return {
