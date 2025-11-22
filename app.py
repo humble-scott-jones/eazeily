@@ -2132,7 +2132,7 @@ def api_save_voice_profile():
     cleaned = [s for s in cleaned if len(s) >= VOICE_SAMPLE_MIN_LEN]
     
     # Validate final sample count after filtering
-    if len(cleaned) < VOICE_SAMPLE_MIN_COUNT or len(cleaned) > VOICE_SAMPLE_MAX_COUNT:
+    if len(cleaned) < VOICE_SAMPLE_MIN_COUNT:
         return jsonify({'ok': False, 'error': f'After removing very short posts, only {len(cleaned)} valid samples remain. Please provide longer posts (at least {VOICE_SAMPLE_MIN_LEN} characters each).'}), 400
     voice_blob = voice_profile.profile_from_samples(cleaned)
     if not voice_blob:
