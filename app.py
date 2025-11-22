@@ -2121,8 +2121,9 @@ def api_login():
 
 @app.post('/api/logout')
 def api_logout():
-    session.pop('user_id', None)
-    session.pop('profile_id', None)
+    # Clear all session state instead of removing only auth keys to avoid
+    # leaving behind admin CSRF tokens or feature flags between accounts.
+    session.clear()
     return jsonify({'ok': True})
 
 

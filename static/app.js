@@ -330,7 +330,9 @@ let skipStep2 = false;
 
 // load optional flags then config (share promise for later waits)
 const bootPromise = loadFlags().then(loadConfig).catch(err => { console.error(err); });
-bootPromise.then(() => hydrateWizardPreview());
+bootPromise
+  .then(() => hydrateWizardPreview())
+  .catch(() => hydrateWizardPreview());
 
 // attempt to load saved profile for this session and prefill fields
 async function loadSavedProfile(){

@@ -233,6 +233,7 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      const hasTeamAccess = (document.body?.dataset.teamAccess === '1') || (document.body?.dataset.isAdmin === '1');
       const manage = document.getElementById('manage-sub');
       const subscribe = document.getElementById('subscribe-now');
       if (manage) manage.addEventListener('click', async () => {
@@ -301,11 +302,14 @@
 
       const approvalsSection = document.getElementById('team-approvals');
       const approvalsState = { items: [] };
-      if (approvalsSection) {
+      if (approvalsSection && hasTeamAccess) {
         loadTeamApprovals();
         document.getElementById('team-approvals-refresh')?.addEventListener('click', () => loadTeamApprovals());
         document.getElementById('team-approval-form')?.addEventListener('submit', handleApprovalSubmit);
         document.getElementById('team-approval-list')?.addEventListener('click', handleApprovalListClick);
+      } else if (approvalsSection && !hasTeamAccess) {
+        setApprovalStatus('Upgrade to a team plan to use approvals.', 'muted');
+        document.getElementById('team-approval-form')?.setAttribute('aria-disabled', 'true');
       }
 
       async function hydrateAdminPanel(){
