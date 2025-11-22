@@ -36,7 +36,7 @@ def test_reel_plan_platform_and_variant_metadata():
 
     specs = light_plan.get('platform_specs') or []
     assert any(s.get('platform') == 'instagram' for s in specs)
-    assert any('csv' in (light_plan.get('shoot_list_exports') or {}) for _ in [0])
+    assert 'csv' in (light_plan.get('shoot_list_exports') or {})
 
     overlays = light_plan.get('caption_overlays') or []
     assert overlays and all(len(item.get('text', '')) <= item.get('safe_chars', 0) for item in overlays)
