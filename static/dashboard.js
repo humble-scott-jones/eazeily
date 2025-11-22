@@ -1329,6 +1329,10 @@ function renderPostCard(post) {
     bindCopyButton(btn, targetEditor, stampEl, card);
   });
 
+  card.querySelectorAll('[data-download-ref]').forEach(btn => {
+    bindDownloadButton(btn, card);
+  });
+
   card.querySelectorAll('[data-like]').forEach(btn => {
     btn.addEventListener('click', async () => {
       if (btn.disabled) return;
@@ -1380,10 +1384,36 @@ function renderReelSection(reel) {
   const scriptText = scriptTextParts.join('\n');
   const srtText = reel.srt_prompt || reel.srt || '';
   const thumbText = reel.thumbnail_prompt || reel.thumbnail || '';
+  const overlays = Array.isArray(reel.caption_overlays) ? reel.caption_overlays : [];
+  const broll = Array.isArray(reel.broll_suggestions) ? reel.broll_suggestions : [];
+  const shootList = Array.isArray(reel.shoot_list) ? reel.shoot_list : [];
+  const firstFrame = reel.first_frame_idea || '';
+  const engagementPrompts = Array.isArray(reel.engagement_prompts) ? reel.engagement_prompts : [];
+  const postingChecklist = Array.isArray(reel.posting_checklist) ? reel.posting_checklist : [];
+  const loopHint = reel.looping_hint || '';
+  const platformSpecs = Array.isArray(reel.platform_specs) ? reel.platform_specs : [];
+  const formatSpecChip = (spec = {}) => {
+    const name = formatPlatformLabel(spec.platform || '') || (spec.platform || '').replace('_', ' ');
+    const ratio = spec.aspect_ratio || '';
+    const safeChars = spec.title_safe_chars || spec.safe_title_chars;
+    const note = spec.note || '';
+    const safeLabel = safeChars ? ` • title ≤ ${safeChars} chars` : '';
+    return `<div class="px-2 py-1 bg-slate-100 rounded-full text-[11px] text-slate-700 border border-slate-200">${escapeHtml(name)}${ratio ? `: ${escapeHtml(ratio)}` : ''}${safeLabel}${note ? ` • ${escapeHtml(note)}` : ''}</div>`;
+  };
+  const thumbnailIdeas = Array.isArray(reel.thumbnail_title_ideas) ? reel.thumbnail_title_ideas : [];
+  const exportsCsv = reel.shoot_list_exports && reel.shoot_list_exports.csv;
+  const exportsPdf = reel.shoot_list_exports && reel.shoot_list_exports.pdf_text;
 
   const stampScript = `reel-stamp-script-${Math.random().toString(36).slice(2,8)}`;
   const stampSrt = `reel-stamp-srt-${Math.random().toString(36).slice(2,8)}`;
   const stampThumb = `reel-stamp-thumb-${Math.random().toString(36).slice(2,8)}`;
+  const exportCsvId = `shoot-csv-${Math.random().toString(36).slice(2,8)}`;
+  const exportPdfId = `shoot-pdf-${Math.random().toString(36).slice(2,8)}`;
+
+  const reelMeta = [
+    reel.length_seconds ? `${reel.length_seconds}s` : null,
+    reel.style || ''
+  ].filter(Boolean).join(' • ');
 
   return `
     <div class="mt-3 p-3 bg-slate-50 rounded border-l-4 border-purple-400">
@@ -1392,10 +1422,12 @@ function renderReelSection(reel) {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
         </svg>
         <span class="text-sm font-medium text-purple-900">Reel Plan</span>
-        <span class="text-xs text-purple-600">(${reel.length_seconds}s • ${reel.style})</span>
+        ${reelMeta ? `<span class="text-xs text-purple-600">(${escapeHtml(reelMeta)})</span>` : ''}
       </div>
 
       <div class="text-sm mb-2"><strong>Hook:</strong> ${escapeHtml(hook)}</div>
+
+      ${firstFrame ? `<div class="text-xs text-slate-700 mb-2"><span class="font-semibold text-slate-800">First frame:</span> ${escapeHtml(firstFrame)}</div>` : ''}
 
       <div class="text-sm mb-2"><strong>Script:</strong>
         <ol class="list-decimal ml-5 text-xs text-slate-700">
@@ -1417,6 +1449,100 @@ function renderReelSection(reel) {
           <span id="${stampThumb}" class="copy-timestamp"></span>
         </div>
       </div>
+
+      ${overlays.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Caption overlays (safe for crops)</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${overlays.map(item => `<li><span class="text-slate-500">${escapeHtml(item.beat || 'Beat')}:</span> ${escapeHtml(item.text || '')} <span class="text-slate-400">(${item.safe_chars || 0} chars)</span></li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${engagementPrompts.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Engagement prompts</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${engagementPrompts.map(item => `<li><span class="text-slate-500">${escapeHtml(item.type || '')}:</span> ${escapeHtml(item.prompt || '')}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${shootList.length ? `
+        <div class="mt-4 text-xs text-slate-700 border border-purple-100 rounded-lg p-3 bg-white">
+          <div class="flex items-center justify-between mb-2">
+            <div class="font-semibold text-slate-900">Shoot list (${escapeHtml(reel.variant || 'resource_light')})</div>
+            <div class="flex gap-2 flex-wrap">
+              ${exportsCsv ? `<button class="btn-ghost text-xs" data-download-ref="${exportCsvId}" data-download-filename="shoot-list.csv" data-download-type="text/csv">Download CSV</button>` : ''}
+              ${exportsPdf ? `<button class="btn-ghost text-xs" data-download-ref="${exportPdfId}" data-download-filename="shoot-list.pdf" data-download-type="application/pdf">Export PDF</button>` : ''}
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-[11px]">
+              <thead>
+                <tr class="text-slate-500 text-left">
+                  <th class="py-1 pr-2">Beat</th>
+                  <th class="py-1 pr-2">Shot</th>
+                  <th class="py-1 pr-2">Overlay</th>
+                  <th class="py-1 pr-2">Timing</th>
+                  <th class="py-1 pr-2">Aspect</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${shootList.map(item => `
+                  <tr>
+                    <td class="py-1 pr-2 text-slate-700">${escapeHtml(item.beat || '')}</td>
+                    <td class="py-1 pr-2 text-slate-700">${escapeHtml(item.shot || '')}</td>
+                    <td class="py-1 pr-2 text-slate-700">${escapeHtml(item.overlay || '')}</td>
+                    <td class="py-1 pr-2 text-slate-500">${escapeHtml(item.timing_cue || '')}</td>
+                    <td class="py-1 pr-2 text-slate-500">${escapeHtml(item.aspect_ratio || '9:16')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <textarea id="${exportCsvId}" class="hidden">${escapeHtml(exportsCsv || '')}</textarea>
+        <textarea id="${exportPdfId}" class="hidden">${escapeHtml(exportsPdf || '')}</textarea>
+      ` : ''}
+
+      ${postingChecklist.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Posting checklist</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${postingChecklist.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${loopHint ? `<div class="mt-2 text-[11px] text-slate-500">Looping tip: ${escapeHtml(loopHint)}</div>` : ''}
+
+      ${broll.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">B-roll / supporting shots</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${broll.map(line => `<li>${escapeHtml(line)}</li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
+
+      ${platformSpecs.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Platform sizing</div>
+          <div class="flex flex-wrap gap-2">
+            ${platformSpecs.map(formatSpecChip).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      ${thumbnailIdeas.length ? `
+        <div class="mt-3 text-xs text-slate-700">
+          <div class="font-semibold text-slate-800 mb-1">Thumbnail / title ideas</div>
+          <ul class="list-disc ml-4 space-y-1">
+            ${thumbnailIdeas.map(t => `<li><span class="text-slate-500">${escapeHtml(t.platform || '')}:</span> ${escapeHtml(t.title || '')} <span class="text-slate-400">(${escapeHtml(t.aspect_ratio || '9:16')})</span></li>`).join('')}
+          </ul>
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -1586,6 +1712,30 @@ function bindCopyButton(btn, editor, timestampEl, card){
     const original = btn.textContent;
     btn.textContent = 'Copied!';
     setTimeout(() => { btn.textContent = original || 'Copy'; }, 1500);
+  });
+}
+
+function bindDownloadButton(btn, card){
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    const ref = btn.getAttribute('data-download-ref');
+    const filename = btn.getAttribute('data-download-filename') || 'shoot-list.txt';
+    const mime = btn.getAttribute('data-download-type') || 'text/plain';
+    const refNode = ref ? card.querySelector(`#${ref}`) : null;
+    const content = refNode ? (refNode.value || refNode.textContent || '') : '';
+    if (!content || !content.trim()) {
+      showToast('Nothing to download yet');
+      return;
+    }
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   });
 }
 
