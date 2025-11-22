@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from datetime import timedelta
 from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context, url_for
 import logging
+import voice_profile
 import threading
 import time
 import math
@@ -349,10 +350,18 @@ def _generate_posts_via_openai(spec: dict):
         start_day = payload.get('start_day')
         if isinstance(start_day, date):
             payload['start_day'] = start_day.isoformat()
+        voice_profile_ctx = payload.get('voice_profile') or None
         prompt = {
             'instruction': 'Create social media posts as structured JSON.',
             'requirements': payload
         }
+        if voice_profile_ctx:
+            prompt['voice_profile'] = {
+                'include_phrases': voice_profile_ctx.get('include_phrases'),
+                'avoid_phrases': voice_profile_ctx.get('avoid_phrases'),
+                'examples': voice_profile_ctx.get('example_lines'),
+                'avg_length': voice_profile_ctx.get('avg_length'),
+            }
         response = openai_client.chat.completions.create(  # type: ignore[attr-defined]
             model=OPENAI_GENERATE_MODEL,
             messages=[
@@ -420,6 +429,20 @@ def _generate_posts_from_image(spec: dict):
         return _parse_posts_payload(content)
     except Exception:
         return None
+
+
+def _apply_voice_guardrails(posts: list[dict], voice_profile_ctx: Optional[dict]):
+    if not voice_profile_ctx or not isinstance(posts, list):
+        return
+    for post in posts:
+        if not isinstance(post, dict):
+            continue
+        caption = post.get('caption') or ''
+        assessment = voice_profile.assess_text(voice_profile_ctx, caption)
+        post['voice_match_score'] = assessment['score']
+        if assessment.get('drift'):
+            post['voice_guardrail'] = assessment.get('message')
+            post['voice_suggestions'] = assessment.get('suggestions')
 
 class _PgConnectionWrapper:
     """Lightweight wrapper to normalize Postgres connection to sqlite-style API."""
@@ -1720,6 +1743,18 @@ def _profile_row_to_dict(row):
     }
 
 
+def _extract_voice_profile(details: Optional[dict]) -> Optional[dict]:
+    if not isinstance(details, dict):
+        return None
+    vp = details.get('voice_profile')
+    return vp if isinstance(vp, dict) else None
+
+
+def _active_voice_profile() -> Optional[dict]:
+    profile = _get_active_profile_dict() or {}
+    return _extract_voice_profile(profile.get('details') if isinstance(profile, dict) else {})
+
+
 def _get_active_profile_dict():
     """Return the current profile (if any) as a plain dict."""
     pid = session.get('user_id') or session.get('profile_id')
@@ -1994,6 +2029,7 @@ def _merge_generation_payload(payload: dict, profile: Optional[dict]) -> dict:
         'goals': _coerce_str_list(payload.get('goals'), profile.get('goals') or []),
         'include_images': bool(include_images),
         'details': details,
+        'voice_profile': _extract_voice_profile(details),
         'company': _normalize_company(company),
     }
     image_context = (payload.get('image_context') or '').strip()
@@ -2010,6 +2046,55 @@ def api_get_profile():
     if not row:
         return jsonify({'id': pid})
     return jsonify(_profile_row_to_dict(row))
+
+
+def _persist_voice_profile(pid: str, samples: list[str], voice_blob: dict):
+    db = get_db()
+    row = db.execute('SELECT details FROM profiles WHERE id = ?', (pid,)).fetchone()
+    base_details = _deserialize_json(row['details'], {}) if row else {}
+    if not isinstance(base_details, dict):
+        base_details = {}
+    merged_details = dict(base_details)
+    merged_details['voice_samples'] = samples
+    merged_details['voice_profile'] = voice_blob
+    db.execute(
+        '''INSERT INTO profiles (id, details)
+           VALUES (?, ?)
+           ON CONFLICT(id) DO UPDATE SET details=excluded.details''',
+        (pid, json.dumps(merged_details))
+    )
+    db.commit()
+
+
+@app.get('/api/voice-profile')
+def api_voice_profile():
+    pid = _ensure_profile_id()
+    profile = _get_active_profile_dict() or {}
+    details = profile.get('details') if isinstance(profile, dict) else {}
+    vp = _extract_voice_profile(details)
+    samples = details.get('voice_samples') if isinstance(details, dict) else None
+    return jsonify({
+        'ok': True,
+        'id': pid,
+        'voice_profile': vp,
+        'samples': samples if isinstance(samples, list) else [],
+    })
+
+
+@app.post('/api/voice-profile')
+def api_save_voice_profile():
+    pid = _ensure_profile_id()
+    data = request.get_json(force=True) or {}
+    samples = data.get('samples') if isinstance(data.get('samples'), list) else []
+    cleaned = [str(s).strip() for s in samples if isinstance(s, str) and str(s).strip()]
+    cleaned = [s for s in cleaned if len(s) >= 8]
+    if len(cleaned) < 5 or len(cleaned) > 10:
+        return jsonify({'ok': False, 'error': 'Provide between 5 and 10 recent posts to train your voice.'}), 400
+    voice_blob = voice_profile.profile_from_samples(cleaned)
+    if not voice_blob:
+        return jsonify({'ok': False, 'error': 'Unable to read those samples. Please try again.'}), 400
+    _persist_voice_profile(pid, cleaned, voice_blob)
+    return jsonify({'ok': True, 'voice_profile': voice_blob, 'samples': cleaned})
 
 
 @app.post('/api/profile')
@@ -2056,6 +2141,13 @@ def api_save_profile():
         details.setdefault('_content_version', content_version)
 
     db = get_db()
+    existing_row = db.execute('SELECT details FROM profiles WHERE id = ?', (pid,)).fetchone()
+    if existing_row:
+        existing_details = _deserialize_json(existing_row['details'], {}) if existing_row else {}
+        if isinstance(existing_details, dict):
+            for key, val in existing_details.items():
+                if key.startswith('voice_') and key not in details:
+                    details[key] = val
     db.execute(
         '''INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -2354,10 +2446,13 @@ def api_generate():
                 niche_keywords=generation['niche_keywords'],
                 goals=generation['goals'],
                 details=generation['details'],
-                company=generation['company']
+                company=generation['company'],
+                voice_profile=generation.get('voice_profile')
             )
         except Exception:
             return jsonify({'ok': False, 'error': 'Failed to generate content'}), 500
+
+    _apply_voice_guardrails(posts, generation.get('voice_profile') or _active_voice_profile())
 
     if days == 1 and user_row and uid and not is_paid and not free_sample_used:
         _mark_free_sample_used(uid)

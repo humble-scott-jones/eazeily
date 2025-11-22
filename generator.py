@@ -186,7 +186,7 @@ def to_sentence_case(s: str):
     return s[0].upper() + s[1:]
 
 def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
+                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None, voice_profile: Optional[dict] = None):
     tone_blurb = {
         "friendly": "Warm, encouraging, and conversational.",
         "professional": "Clear, confident, and value-focused.",
@@ -198,6 +198,16 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
     brand_line = f" ({', '.join(brand_keywords)})" if brand_keywords else ""
     goal_line = f"Focus: {', '.join(goals)}." if goals else ""
 
+    voice_hint = ""
+    signature_example = ""
+    if isinstance(voice_profile, dict):
+        phrases = voice_profile.get('include_phrases') or []
+        if phrases:
+            voice_hint = f"Voice: weave in {', '.join(list(phrases)[:3])}."
+        examples = voice_profile.get('example_lines') or []
+        if examples:
+            signature_example = f"Example cadence: {examples[0][:120]}"
+
     company_line = f"From {company}." if company else ""
     theme_line = f"Theme: {theme}." if theme else ""
     body = (
@@ -207,6 +217,8 @@ def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
         f"{theme_line}\n"
         f"{goal_line}\n"
         f"Tone: {tone_blurb}\n"
+        f"{voice_hint}\n"
+        f"{signature_example}\n"
         f"Platform tip: {platform_hint}\n\n"
         f"CTA: Tell us what you think below 👇"
     )
@@ -608,6 +620,7 @@ def generate_posts(
     goals: Optional[list[str]] = None,
     company: str = "",
     details: Optional[Mapping[str, Any]] = None,
+    voice_profile: Optional[Mapping[str, Any]] = None,
 ) -> list[dict[str, Any]]:
     """Generate a list of posts for the requested period.
 
@@ -640,6 +653,7 @@ def generate_posts(
     niche_keywords = list(niche_keywords or [])
     goals = list(goals or [])
     details = dict(details or {})
+    voice_profile = dict(voice_profile or details.get('voice_profile') or {}) if isinstance(voice_profile or details.get('voice_profile'), Mapping) else {}
     company = company or ""
 
     posts: list[dict[str, Any]] = []
@@ -663,7 +677,8 @@ def generate_posts(
                 hashtags=hashtags,
                 goals=goals,
                 company=company,
-                theme=details.get("note")
+                theme=details.get("note"),
+                voice_profile=voice_profile
             )
             variants[p] = caption
 

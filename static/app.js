@@ -2199,3 +2199,74 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+
+async function hydrateWizardVoicePanel() {
+  const status = document.getElementById('wizard-voice-status');
+  const helper = document.getElementById('wizard-voice-helper');
+  const toast = document.getElementById('wizard-voice-toast');
+  if (toast) toast.textContent = '';
+  try {
+    const res = await fetch('/api/voice-profile', { credentials: 'include' });
+    if (!res.ok) return;
+    const data = await res.json();
+    const vp = data.voice_profile || null;
+    const sampleCount = Array.isArray(data.samples) ? data.samples.length : 0;
+    if (status) {
+      status.textContent = vp ? `Trained • ${sampleCount} samples` : 'Optional';
+      status.className = vp
+        ? 'px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700'
+        : 'px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700';
+    }
+    if (helper && vp) {
+      helper.textContent = 'We’ll keep tone, cadence, and vocab synced with these samples.';
+    }
+  } catch (err) {
+    console.error('Wizard voice panel fetch failed', err);
+  }
+}
+
+function parseWizardSamples(raw = '') {
+  return (raw || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('wizard-train-voice');
+  const input = document.getElementById('wizard-voice-samples');
+  const toast = document.getElementById('wizard-voice-toast');
+  if (!btn || !input) return;
+
+  hydrateWizardVoicePanel();
+
+  btn.addEventListener('click', async () => {
+    const samples = parseWizardSamples(input.value || '');
+    if (samples.length < 5 || samples.length > 10) {
+      if (toast) toast.textContent = 'Add between 5 and 10 posts so we can map your voice.';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/voice-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ samples })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Unable to save samples');
+      }
+      if (toast) toast.textContent = 'Voice saved. Future plans will use this cadence.';
+      hydrateWizardVoicePanel();
+    } catch (err) {
+      console.error('Wizard voice training failed', err);
+      if (toast) toast.textContent = 'Could not save samples right now.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save voice samples';
+    }
+  });
+});
