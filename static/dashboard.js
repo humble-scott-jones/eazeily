@@ -23,7 +23,6 @@ const platformPresetState = {
 };
 const DEFAULT_GENERATOR_PLATFORM = 'instagram';
 const VIDEO_PLATFORM_KEYS = new Set(['instagram', 'short_video', 'tiktok']);
-const voiceCoachState = { profile: null, samples: [] };
 
 async function getDashboardConfig() {
   if (dashboardConfigCache) return dashboardConfigCache;

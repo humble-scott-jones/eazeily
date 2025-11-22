@@ -67,7 +67,7 @@ def profile_from_samples(samples: list[str]) -> dict:
     for text in cleaned:
         tokens.extend(_tokenize(text))
     include_phrases = _top_phrases(tokens, 7)
-    avoid_phrases = [t for t in include_phrases if len(t) <= 3][:3]
+    avoid_phrases = []
     avg_length = sum(len(text.split()) for text in cleaned) / len(cleaned)
     example_lines = cleaned[:3]
     return {
@@ -82,6 +82,28 @@ def profile_from_samples(samples: list[str]) -> dict:
 
 
 def assess_text(profile: Mapping[str, object], text: str, *, threshold: float = 0.72) -> dict:
+    """Evaluate how well a text sample matches the given voice profile.
+    
+    This function performs drift detection by comparing the text's word-frequency
+    embedding against the profile's baseline embedding using cosine similarity.
+    When the similarity falls below the threshold, the text is flagged as drifting
+    from the expected voice.
+    
+    Args:
+        profile: A voice profile dict containing 'embedding', 'include_phrases',
+            and 'avoid_phrases' keys (typically from profile_from_samples).
+        text: The text sample to evaluate against the profile.
+        threshold: Minimum cosine similarity (0.0 to 1.0) required to avoid drift.
+            Default 0.72 is calibrated for typical brand voice detection.
+            Lower values are more permissive; higher values are stricter.
+    
+    Returns:
+        A dict with keys:
+            - 'score': Cosine similarity score between 0.0 and 1.0.
+            - 'drift': Boolean indicating if score < threshold (voice drift detected).
+            - 'message': A hint for how to realign with the voice (or None if no drift).
+            - 'suggestions': List of phrase recommendations based on profile data.
+    """
     embedding = profile.get('embedding') if isinstance(profile, Mapping) else None
     score = cosine_similarity(embedding or {}, build_embedding(text))
     include_phrases = list(profile.get('include_phrases') or []) if isinstance(profile, Mapping) else []
