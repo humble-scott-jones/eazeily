@@ -2872,12 +2872,9 @@ function countSyllables(word = '') {
 
 // Utility to escape HTML special characters
 function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
 }
 function analyzeDraftQuality(text = '') {
   const checks = [];
