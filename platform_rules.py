@@ -159,13 +159,33 @@ def apply_platform_rules(
     composed = "\n".join([p for p in parts if p != ""])
 
     if len(composed) > rule.max_length:
-        allowed_body = max(rule.max_length - len(cta_line) - len(hashtag_block) - 4, 80)
+        # Calculate the fixed length of non-body parts (CTA, hashtags, separators)
+        sep_cta = 1 if cta_line else 0  # newline before CTA
+        sep_hash = 1 if (rule.hashtag_position == "end" and hashtag_block) else 0  # newline before hashtags
+        # Number of newlines: between body and CTA, and between CTA and hashtags if present
+        non_body_parts = ""
+        if cta_line:
+            non_body_parts += ("\n" if non_body_parts else "") + cta_line
+        if rule.hashtag_position == "end" and hashtag_block:
+            non_body_parts += "\n" + hashtag_block
+        non_body_length = len(non_body_parts)
+        # Also account for the newline after the body if CTA or hashtags are present
+        if non_body_parts:
+            non_body_length += 1  # newline after body
+        allowed_body = rule.max_length - non_body_length
+        if allowed_body < 0:
+            allowed_body = 0
         trimmed_body = truncate_with_ellipsis(body.strip(), allowed_body)
         warnings.append(f"Trimmed copy to fit {rule.label} limit of {rule.max_length} characters.")
-        parts = [trimmed_body, "", cta_line]
+        parts = [trimmed_body] if trimmed_body else []
+        if cta_line:
+            parts.append(cta_line)
         if rule.hashtag_position == "end" and hashtag_block:
-            parts.extend(["", hashtag_block])
-        composed = "\n".join([p for p in parts if p != ""])
+            parts.append(hashtag_block)
+        composed = "\n".join(parts)
+        # As a last resort, if composed is still too long (due to unexpected formatting), truncate the whole thing
+        if len(composed) > rule.max_length:
+            composed = truncate_with_ellipsis(composed, rule.max_length)
 
     variant_payload = {
         "text": composed,
