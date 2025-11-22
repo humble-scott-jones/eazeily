@@ -104,7 +104,36 @@ def assess_text(profile: Mapping[str, object], text: str, *, threshold: float = 
 
 
 def evaluate_prompts(profile: Mapping[str, object], prompts: list[str], *, threshold: float = 0.72) -> list[dict]:
+    if not prompts:
+        return []
+    
+    # Batch build embeddings for all prompts upfront to avoid redundant work
+    prompt_embeddings = [build_embedding(text) for text in prompts]
+    
+    # Extract profile data once
+    profile_embedding = profile.get('embedding') if isinstance(profile, Mapping) else None
+    include_phrases = list(profile.get('include_phrases') or []) if isinstance(profile, Mapping) else []
+    avoid_phrases = list(profile.get('avoid_phrases') or []) if isinstance(profile, Mapping) else []
+    
+    # Build suggestions once since they're the same for all prompts
+    suggestions = []
+    if include_phrases:
+        suggestions.append(f"Lean on phrases like: {', '.join(include_phrases[:3])}.")
+    if avoid_phrases:
+        suggestions.append(f"Avoid overusing: {', '.join(avoid_phrases[:2])}.")
+    
     results = []
-    for text in prompts:
-        results.append(assess_text(profile, text, threshold=threshold))
+    for text_embedding in prompt_embeddings:
+        score = cosine_similarity(profile_embedding or {}, text_embedding)
+        drift = score < threshold
+        message = None
+        if drift:
+            message = "Closer to your voice: tighten cadence and reuse your go-to phrases."
+        results.append({
+            'score': round(score, 4),
+            'drift': drift,
+            'message': message,
+            'suggestions': suggestions
+        })
+    
     return results
