@@ -389,6 +389,7 @@ def _generate_posts_from_image(spec: dict):
             payload['start_day'] = start_day.isoformat()
         # keep context separate so we can emphasize it in the prompt
         image_context = (payload.get('image_context') or '').strip()
+        voice_profile_ctx = payload.get('voice_profile') or None
         requirements = {
             'days': payload.get('days'),
             'platforms': payload.get('platforms'),
@@ -400,11 +401,31 @@ def _generate_posts_from_image(spec: dict):
             'details': payload.get('details'),
             'start_day': payload.get('start_day'),
         }
+        if voice_profile_ctx:
+            requirements['voice_profile'] = {
+                'include_phrases': voice_profile_ctx.get('include_phrases'),
+                'avoid_phrases': voice_profile_ctx.get('avoid_phrases'),
+                'examples': voice_profile_ctx.get('example_lines'),
+                'avg_length': voice_profile_ctx.get('avg_length'),
+            }
         instructions = [
             "Look at the attached inspiration image and craft polished social posts that reference what you see.",
             "Blend the visual cues with the requirements JSON below.",
             "Respond with ONLY a JSON array of post objects (same schema as other generation responses).",
         ]
+        if voice_profile_ctx:
+            include = voice_profile_ctx.get('include_phrases') or []
+            avoid = voice_profile_ctx.get('avoid_phrases') or []
+            examples = voice_profile_ctx.get('example_lines') or []
+            voice_hints = []
+            if include:
+                voice_hints.append(f"Use phrases like: {', '.join(include[:3])}.")
+            if avoid:
+                voice_hints.append(f"Avoid overusing: {', '.join(avoid[:3])}.")
+            if examples:
+                voice_hints.append(f"Match cadence: {examples[0][:140]}")
+            if voice_hints:
+                instructions.append("Voice profile: " + " ".join(voice_hints))
         if image_context:
             instructions.insert(1, f"Emphasize this guidance from the user: {image_context.strip()[:500]}")
         user_content = [
