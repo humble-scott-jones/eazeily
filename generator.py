@@ -200,6 +200,29 @@ def to_sentence_case(s: str):
 
 def build_caption_body(industry: str, tone: str, pillar_name: str, pillar_hint: str,
                        platform: str, brand_keywords: list[str], goals: list[str], company: str = "", theme: Optional[str] = None) -> str:
+    """
+    Generate the main body content for a social media caption, without hashtags.
+
+    This function is used as an intermediate step before applying platform-specific rules
+    (such as formatting or hashtag insertion). It returns a formatted string containing
+    the core caption content, ready for further processing.
+
+    Differs from `make_caption`, which adds hashtags and may apply additional formatting.
+
+    Args:
+        industry: The industry or business type.
+        tone: The desired tone for the caption.
+        pillar_name: The content pillar (e.g., "Educational").
+        pillar_hint: A hint or prompt for the pillar.
+        platform: The target platform (used for platform hints).
+        brand_keywords: List of brand or business keywords.
+        goals: List of business or post goals.
+        company: (Optional) Company name.
+        theme: (Optional) Theme for the post.
+
+    Returns:
+        str: The formatted caption body, ready for platform-specific rule application.
+    """
     tone_blurb = {
         "friendly": "Warm, encouraging, and conversational.",
         "professional": "Clear, confident, and value-focused.",
