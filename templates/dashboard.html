@@ -270,6 +270,75 @@
             </div>
           </div>
 
+          <div class="planner-row">
+            <div class="planner-label">4. Templates & goals</div>
+            <div class="planner-body space-y-4">
+              <div class="grid md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label for="template-picker" class="block text-xs uppercase tracking-wide text-slate-500">Template library</label>
+                  <div class="flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                    <div class="flex items-center gap-2">
+                      <select id="template-picker" class="planner-select flex-1"></select>
+                      <button id="apply-template" class="btn-secondary btn-sm" type="button">Apply</button>
+                    </div>
+                    <div class="flex flex-wrap gap-2" id="template-preset-buttons" aria-label="Quick presets"></div>
+                    <p id="template-empty" class="planner-hint">Save combinations per profile to reuse launch or update prompts.</p>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <label for="template-name" class="block text-xs uppercase tracking-wide text-slate-500">Save current as</label>
+                  <div class="flex items-center gap-2">
+                    <input id="template-name" class="planner-select flex-1" placeholder="e.g. Instagram launch push" />
+                    <button id="save-template" class="btn-primary btn-sm" type="button">Save</button>
+                  </div>
+                  <p class="planner-hint">Templates capture tone, platforms, goals, and keywords for the active profile.</p>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-4 grid gap-4 md:grid-cols-[1.1fr,0.9fr]">
+                <div class="flex items-start gap-3">
+                  <div class="flex -space-x-2" aria-hidden="true">
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">A</span>
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">B</span>
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-emerald-500 to-lime-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">C</span>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Team workspace</p>
+                    <p class="text-sm text-slate-700" id="collab-presence">Syncing team presets…</p>
+                    <p class="text-xs text-slate-500 mt-1">Matches the solo generator visuals but keeps a shared library so teammates can hand off faster.</p>
+                  </div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <div class="rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 p-3">
+                    <p class="text-xs uppercase tracking-wide text-purple-700">Latest team preset</p>
+                    <p class="text-sm font-semibold text-slate-900" id="collab-template-name">No presets yet</p>
+                    <p class="text-xs text-slate-600" id="collab-template-author">Save one to see it here.</p>
+                  </div>
+                  <div class="rounded-xl border border-slate-200 p-3 bg-white/60">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
+                    <p class="text-sm text-slate-700" id="collab-template-time">Waiting for your first save.</p>
+                    <p class="text-xs text-slate-500 mt-1">Aligned to the solo planner flow, but built for collaborative use.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label for="gen-goals" class="block text-xs uppercase tracking-wide text-slate-500 mb-1">Goals</label>
+                  <input id="gen-goals" class="planner-select" placeholder="Product launch, Weekly update" />
+                </div>
+                <div>
+                  <label for="gen-keywords" class="block text-xs uppercase tracking-wide text-slate-500 mb-1">Keywords</label>
+                  <input id="gen-keywords" class="planner-select" placeholder="SaaS, AI, productivity" />
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                  <p class="text-xs uppercase tracking-wide text-slate-500">Profile defaults</p>
+                  <div class="text-sm text-slate-700 mt-1" id="profile-defaults-summary">Loading profile…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Advanced Reel Options (shown for video platforms) -->
           <div id="reel-options" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 border border-purple-100">
             <div class="flex items-center gap-3 mb-4">
@@ -323,7 +392,7 @@
           </div>
 
           <div class="planner-row">
-            <div class="planner-label">4. Visual inspiration</div>
+            <div class="planner-label">5. Visual inspiration</div>
             <div class="planner-body">
               <div class="rounded-2xl border border-dashed border-purple-200 bg-gradient-to-r from-white to-purple-50 p-5">
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -352,6 +421,9 @@
           <div class="flex gap-3">
             <button id="generate-content" class="btn-primary text-base py-3 px-6 rounded-xl flex-1">
               Generate Content
+            </button>
+            <button id="one-click-generate" class="btn-secondary text-base py-3 px-6 rounded-xl flex-1" type="button">
+              One-click generate
             </button>
             <div id="content-loading" class="hidden text-sm text-purple-600 flex items-center gap-2 flex-1">
               <div class="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
@@ -420,6 +492,22 @@
             <button type="button" class="btn-ghost btn-sm" id="collapse-all-days">Collapse all days</button>
           </div>
         </div>
+
+        <div id="publishing-queue" class="hidden mb-6 bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl p-5 shadow">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-[0.35em] text-slate-500">Unified queue</p>
+              <h3 class="text-lg font-semibold text-slate-900">Publish now or schedule without leaving this page</h3>
+              <p class="text-sm text-slate-600">Badges track each platform’s status. Retry failed posts or copy the text anytime.</p>
+            </div>
+            <div class="text-right">
+              <p id="queue-timezone" class="text-xs text-slate-500">—</p>
+              <p class="text-[11px] text-slate-400">Times are shown in your browser timezone.</p>
+            </div>
+          </div>
+          <div id="publishing-queue-list" class="mt-4 space-y-3"></div>
+          <div id="publishing-queue-empty" class="mt-4 text-sm text-slate-500">Use “Publish now” or “Schedule” on any card to add it to the queue.</div>
+        </div>
         <div id="content-results" class="space-y-4"></div>
       </div>
     </div>
@@ -472,6 +560,38 @@
             Save Settings
           </button>
         </div>
+      </div>
+
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200" id="activity-panel">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <p class="planner-eyebrow mb-1">Team signals</p>
+            <h4 class="text-lg font-semibold text-slate-900">Activity feed</h4>
+            <p class="text-sm text-slate-600">Trace ownership and approvals without leaving the planner.</p>
+          </div>
+          <button type="button" class="btn-ghost btn-sm" id="activity-reset">Reset</button>
+        </div>
+
+        <div class="space-y-3">
+          <fieldset>
+            <legend class="activity-label">Event types</legend>
+            <div id="activity-type-filters" class="activity-type-chips"></div>
+          </fieldset>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="text-xs font-semibold text-slate-600 flex flex-col gap-1">
+              Campaign
+              <select id="activity-campaign-filter" class="input text-sm"></select>
+            </label>
+            <label class="text-xs font-semibold text-slate-600 flex flex-col gap-1">
+              Assignee
+              <select id="activity-assignee-filter" class="input text-sm"></select>
+            </label>
+          </div>
+        </div>
+
+        <div id="activity-feed" class="activity-feed space-y-3 mt-4"></div>
+        <div id="activity-empty" class="activity-empty hidden">No activity matches these filters yet.</div>
       </div>
 
       <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200">

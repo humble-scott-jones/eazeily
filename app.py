@@ -29,13 +29,18 @@ except ImportError:
     pass  # python-dotenv not installed, continue with system env vars
 
 # optional stripe import (only used if STRIPE_SECRET_KEY is set)
-try:
-    if TYPE_CHECKING:
-        # ensure type-checkers know about stripe without requiring it at runtime
-        import stripe  # type: ignore
-    else:
-        import stripe
-except Exception:
+stripe_secret = os.getenv("STRIPE_SECRET_KEY")
+stripe: Optional[Any]
+if stripe_secret:
+    try:
+        if TYPE_CHECKING:
+            # ensure type-checkers know about stripe without requiring it at runtime
+            import stripe  # type: ignore
+        else:
+            import stripe
+    except Exception:
+        stripe = None
+else:
     stripe = None
 
 IMAGE_DATA_URL_MAX_BYTES = 2_500_000  # ~2.5MB encoded payload cap for inline uploads
@@ -69,6 +74,27 @@ PASSWORD_HASH_METHOD = _resolve_password_hash_method()
 
 def _hash_password(secret: str) -> str:
     return generate_password_hash(secret, method=PASSWORD_HASH_METHOD)
+
+
+def _env_flag_enabled(var_name: str) -> bool:
+    raw = os.getenv(var_name)
+    if raw is None:
+        return False
+    return raw.strip().lower() in {'1', 'true', 't', 'yes', 'y', 'on'}
+
+
+def _is_dev_mode() -> bool:
+    env_value = (os.getenv('FLASK_ENV') or '').strip().lower()
+    if env_value.startswith('dev'):
+        return True
+    if _env_flag_enabled('ALLOW_DEV_DEBUG'):
+        return True
+    # allow dev helpers when running under automated tests/CI
+    if os.getenv('PYTEST_CURRENT_TEST'):
+        return True
+    if _env_flag_enabled('CI'):
+        return True
+    return False
 
 GITHUB_FEEDBACK_TOKEN = os.getenv('GITHUB_FEEDBACK_TOKEN')
 GITHUB_FEEDBACK_REPO = os.getenv('GITHUB_FEEDBACK_REPO')
@@ -104,6 +130,9 @@ class RequestIdMissingFilter(logging.Filter):
 
 
 logging.getLogger().addFilter(RequestIdMissingFilter())
+# ensure werkzeug/WSGI logs also carry request_id placeholder to satisfy formatter
+for _logger_name in ("werkzeug", "werkzeug.error", "werkzeug.serving"):
+    logging.getLogger(_logger_name).addFilter(RequestIdMissingFilter())
 CORS(app)
 
 if yaml and os.path.exists(_FEEDBACK_CONFIG_PATH):
@@ -574,6 +603,67 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_team_approvals_owner_state ON team_approvals(owner_user_id, state);
+        CREATE TABLE IF NOT EXISTS team_drafts (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            title TEXT,
+            campaign TEXT,
+            channel TEXT,
+            status TEXT DEFAULT 'draft',
+            assignee_email TEXT,
+            reviewer_email TEXT,
+            review_open_to_any INTEGER DEFAULT 0,
+            review_requested_at DATETIME,
+            review_nudged_at DATETIME,
+            due_date DATETIME,
+            content TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_drafts_owner_status ON team_drafts(owner_user_id, status);
+        CREATE TABLE IF NOT EXISTS team_draft_comments (
+            id TEXT PRIMARY KEY,
+            draft_id TEXT NOT NULL,
+            paragraph_id TEXT,
+            author_user_id TEXT NOT NULL,
+            body TEXT,
+            thread_id TEXT NOT NULL,
+            parent_id TEXT,
+            mentions TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_draft_comments_draft ON team_draft_comments(draft_id);
+        CREATE TABLE IF NOT EXISTS team_draft_revisions (
+            id TEXT PRIMARY KEY,
+            draft_id TEXT NOT NULL,
+            author_user_id TEXT NOT NULL,
+            summary TEXT,
+            kind TEXT DEFAULT 'revision',
+            details TEXT,
+            content_snapshot TEXT,
+            changelog_note TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_draft_revisions_draft ON team_draft_revisions(draft_id);
+
+        CREATE TABLE IF NOT EXISTS team_approver_defaults (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            campaign TEXT,
+            channel TEXT,
+            approver_email TEXT,
+            allow_any INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_team_approver_defaults_owner ON team_approver_defaults(owner_user_id);
+
+        CREATE TABLE IF NOT EXISTS team_draft_notifications (
+            id TEXT PRIMARY KEY,
+            draft_id TEXT NOT NULL,
+            channel TEXT,
+            message TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
     # Backfill for upgrades
@@ -612,11 +702,33 @@ def init_db():
                 pass
     except Exception:
         pass
+    # backfill team_drafts columns for review routing
+    try:
+        dcols = [r[1] for r in db.execute("PRAGMA table_info(team_drafts)").fetchall()]
+        if "channel" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN channel TEXT;")
+        if "reviewer_email" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN reviewer_email TEXT;")
+        if "review_open_to_any" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN review_open_to_any INTEGER DEFAULT 0;")
+        if "review_requested_at" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN review_requested_at DATETIME;")
+        if "review_nudged_at" not in dcols:
+            db.execute("ALTER TABLE team_drafts ADD COLUMN review_nudged_at DATETIME;")
+    except Exception:
+        pass
+    # backfill changelog column on revisions
+    try:
+        rcols = [r[1] for r in db.execute("PRAGMA table_info(team_draft_revisions)").fetchall()]
+        if "changelog_note" not in rcols:
+            db.execute("ALTER TABLE team_draft_revisions ADD COLUMN changelog_note TEXT;")
+    except Exception:
+        pass
     db.commit()
 
     # Dev-only: seed a known admin user for local development to simplify testing
     try:
-        if os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1':
+        if _is_dev_mode():
             dev_email = 'hi.scott.jones@gmail.com'
             dev_pw = os.getenv('DEV_ADMIN_PW') or 'OHsj1984'
             # create or update user with admin flag
@@ -710,18 +822,42 @@ def landing():
     """Landing page with marketing content, pricing, and waitlist signup."""
     return render_template("landing.html", initial_user=_initial_user_payload())
 
+
+@app.get("/launch")
+def launch_page():
+    """Public launch page with waitlist form and FAQs."""
+    return render_template("launch.html", initial_user=_initial_user_payload())
+
+
 @app.get("/app")
 def index():
     """Main application page for authenticated users."""
-    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
-    return render_template("index.html", is_dev=is_dev, initial_user=_initial_user_payload())
+    return render_template("index.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
 
 @app.get("/generate")
 def generate_page():
     """Dashboard for generating content after onboarding completes."""
-    is_dev = os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
-    return render_template("dashboard.html", is_dev=is_dev, initial_user=_initial_user_payload())
+    return render_template("dashboard.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
+
+
+@app.get('/inbox')
+def inbox_page():
+    """Legacy inbox route retained for backward compatibility."""
+    return redirect(url_for('planner_page'), code=302)
+
+
+@app.get('/planner')
+def planner_page():
+    """Content planner for generated drafts and approvals."""
+    is_dev = _is_dev_mode()
+    return render_template('planner.html', is_dev=is_dev, initial_user=_initial_user_payload())
+
+
+@app.get('/drafts/<draft_id>')
+def draft_detail_page(draft_id: str):
+    """Detailed draft view with comments and approvals."""
+    return render_template('draft_detail.html', draft_id=draft_id, initial_user=_initial_user_payload())
 
 
 def _ensure_admin_csrf_token() -> Optional[str]:
@@ -1490,6 +1626,272 @@ def _serialize_approval_row(row):
     return raw
 
 
+def _serialize_draft_row(row):
+    if not row:
+        return None
+    data = row_to_mapping(row) or {}
+    data['content'] = _deserialize_json(data.get('content'), [])
+    for flag in ('review_open_to_any',):
+        if flag in data:
+            data[flag] = bool(data.get(flag))
+    for ts_field in ('review_requested_at', 'review_nudged_at'):
+        val = data.get(ts_field)
+        if val and not isinstance(val, str):
+            try:
+                data[ts_field] = val.isoformat()
+            except Exception:
+                data[ts_field] = str(val)
+    due_date = data.get('due_date')
+    if due_date:
+        try:
+            # sqlite returns strings while Postgres may return datetime
+            data['due_date'] = due_date if isinstance(due_date, str) else due_date.isoformat()
+        except Exception:
+            data['due_date'] = str(due_date)
+    return data
+
+
+def _serialize_comment_row(row):
+    if not row:
+        return None
+    data = row_to_mapping(row) or {}
+    data['mentions'] = _deserialize_json(data.get('mentions'), [])
+    return data
+
+
+def _serialize_revision_row(row):
+    if not row:
+        return None
+    data = row_to_mapping(row) or {}
+    data['details'] = _deserialize_json(data.get('details'), {})
+    return data
+
+
+def _compute_content_diff(previous_snapshot, current_snapshot):
+    """Return a lightweight diff between two revision snapshots."""
+    try:
+        prev_sections = _deserialize_json(previous_snapshot, [])
+    except Exception:
+        prev_sections = []
+    try:
+        new_sections = _deserialize_json(current_snapshot, [])
+    except Exception:
+        new_sections = []
+    prev_map = {str(s.get('id')): s for s in (prev_sections or []) if isinstance(s, dict)}
+    new_map = {str(s.get('id')): s for s in (new_sections or []) if isinstance(s, dict)}
+    added = []
+    removed = []
+    changed = []
+    for sec_id, section in new_map.items():
+        if sec_id not in prev_map:
+            added.append({'id': sec_id, 'heading': section.get('heading'), 'text': section.get('text')})
+        else:
+            prev_text = (prev_map[sec_id] or {}).get('text')
+            if (section.get('text') or '') != (prev_text or ''):
+                changed.append({'id': sec_id, 'from': prev_text, 'to': section.get('text')})
+    for sec_id, section in prev_map.items():
+        if sec_id not in new_map:
+            removed.append({'id': sec_id, 'heading': section.get('heading'), 'text': section.get('text')})
+    if not (added or removed or changed):
+        return {'summary': 'No content changes', 'added': [], 'removed': [], 'changed': []}
+    return {'summary': 'Content updated', 'added': added, 'removed': removed, 'changed': changed}
+
+
+def _build_comment_threads(comments):
+    threads = {}
+    for c in comments:
+        cm = _serialize_comment_row(c)
+        tid = cm.get('thread_id') or cm.get('id')
+        if tid not in threads:
+            threads[tid] = {
+                'thread_id': tid,
+                'paragraph_id': cm.get('paragraph_id') or '',
+                'comments': [],
+            }
+        threads[tid]['comments'].append(cm)
+    return list(threads.values())
+
+
+def _lookup_approver_default(owner_id: str, campaign: Optional[str], channel: Optional[str]):
+    """Return the most specific approver default for an owner/campaign/channel."""
+    db = get_db()
+    candidates = [
+        (campaign, channel),
+        (campaign, None),
+        (None, channel),
+        (None, None),
+    ]
+    for camp_val, chan_val in candidates:
+        row = db.execute(
+            'SELECT * FROM team_approver_defaults WHERE owner_user_id = ? AND COALESCE(campaign, "") = ? AND COALESCE(channel, "") = ? ORDER BY created_at DESC LIMIT 1',
+            (owner_id, camp_val or '', chan_val or ''),
+        ).fetchone()
+        if row:
+            return row_to_mapping(row)
+    return None
+
+
+def _record_draft_notification(draft_id: str, channels: list, message: str):
+    db = get_db()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for ch in channels:
+        db.execute(
+            'INSERT INTO team_draft_notifications (id, draft_id, channel, message, created_at) VALUES (?, ?, ?, ?, ?)',
+            (str(uuid.uuid4()), draft_id, ch, message, now_iso),
+        )
+    return now_iso
+
+
+def _sweep_stale_reviews(owner_id: str, hours_idle: int = 24):
+    """Find drafts stuck in review and emit reminder notifications."""
+    db = get_db()
+    threshold = datetime.now(timezone.utc) - timedelta(hours=hours_idle)
+    rows = db.execute(
+        """
+        SELECT * FROM team_drafts
+        WHERE owner_user_id = ?
+          AND LOWER(status) = 'in_review'
+          AND review_requested_at IS NOT NULL
+          AND review_requested_at <= ?
+          AND (review_nudged_at IS NULL OR review_nudged_at <= ?)
+        """,
+        (owner_id, threshold.isoformat(), threshold.isoformat()),
+    ).fetchall()
+    nudged = []
+    for row in rows:
+        draft = row_to_mapping(row)
+        message = (
+            f"Draft '{draft.get('title') or draft.get('id')}' has been in review for more than {hours_idle}h."
+        )
+        now_iso = _record_draft_notification(draft['id'], ['in_app', 'slack', 'email'], message)
+        db.execute(
+            'UPDATE team_drafts SET review_nudged_at = ? WHERE id = ?',
+            (now_iso, draft['id']),
+        )
+        db.execute(
+            'INSERT INTO team_draft_revisions (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                str(uuid.uuid4()),
+                draft['id'],
+                owner_id,
+                'Nudge sent to reviewers',
+                'nudge',
+                json.dumps({'channels': ['in_app', 'slack', 'email'], 'reason': 'idle_in_review'}),
+                draft.get('content'),
+                now_iso,
+            ),
+        )
+        nudged.append(draft['id'])
+    db.commit()
+    return nudged
+
+
+def _ensure_demo_drafts(owner_id: str):
+    if not owner_id:
+        return
+    db = get_db()
+    existing = db.execute('SELECT id FROM team_drafts WHERE owner_user_id = ? LIMIT 1', (owner_id,)).fetchone()
+    if existing:
+        return
+    now = datetime.now(timezone.utc)
+    drafts = [
+        {
+            'title': 'Community drip campaign',
+            'campaign': 'Fall Product Drop',
+            'status': 'in_review',
+            'assignee_email': 'alex@brandco.com',
+            'due_date': now + timedelta(days=2),
+            'content': [
+                {'id': 'hook', 'heading': 'Hook', 'text': 'Introduce the collection with a community-first hook.'},
+                {'id': 'body', 'heading': 'Body', 'text': 'Highlight the new colors and preorder bonus for waitlist members.'},
+                {'id': 'cta', 'heading': 'CTA', 'text': 'Push to RSVP for the livestream reveal with a shortlink.'},
+            ],
+        },
+        {
+            'title': 'Founder note',
+            'campaign': 'Monthly Newsletter',
+            'status': 'draft',
+            'assignee_email': 'taylor@brandco.com',
+            'due_date': now + timedelta(days=4),
+            'content': [
+                {'id': 'intro', 'heading': 'Intro', 'text': 'Open with the behind-the-scenes from the studio build.'},
+                {'id': 'update', 'heading': 'Update', 'text': 'Share metrics from the early access cohort and lessons learned.'},
+                {'id': 'close', 'heading': 'Close', 'text': 'Reaffirm the mission and invite replies for Q4 topics.'},
+            ],
+        },
+        {
+            'title': 'UGC round-up',
+            'campaign': 'Community Highlights',
+            'status': 'approved',
+            'assignee_email': 'sam@brandco.com',
+            'due_date': now + timedelta(days=1),
+            'content': [
+                {'id': 'lead', 'heading': 'Lead', 'text': 'Feature the creator spotlights with their @handles.'},
+                {'id': 'proof', 'heading': 'Proof', 'text': 'Add short quotes from comments to show social proof.'},
+                {'id': 'cta', 'heading': 'CTA', 'text': 'Invite more submissions with the branded hashtag.'},
+            ],
+        },
+        {
+            'title': 'Paid social carousel',
+            'campaign': 'Fall Product Drop',
+            'status': 'scheduled',
+            'assignee_email': 'casey@brandco.com',
+            'due_date': now + timedelta(days=6),
+            'content': [
+                {'id': 'slide1', 'heading': 'Hook', 'text': 'Lead with the customer stat and a bold headline.'},
+                {'id': 'slide2', 'heading': 'Story', 'text': 'Walk through the before/after problem set with visuals.'},
+                {'id': 'slide3', 'heading': 'CTA', 'text': 'Close with preorder CTA and shipping date.'},
+            ],
+        },
+    ]
+    for item in drafts:
+        did = str(uuid.uuid4())
+        due_iso = item['due_date'].isoformat()
+        now_iso = now.isoformat()
+        db.execute(
+            'INSERT INTO team_drafts (id, owner_user_id, title, campaign, status, assignee_email, due_date, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                did,
+                owner_id,
+                item['title'],
+                item['campaign'],
+                item['status'],
+                item['assignee_email'],
+                due_iso,
+                json.dumps(item['content']),
+                now_iso,
+                now_iso,
+            ),
+        )
+        db.execute(
+            'INSERT INTO team_draft_revisions (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                str(uuid.uuid4()),
+                did,
+                owner_id,
+                'Draft created',
+                'status',
+                json.dumps({'from': None, 'to': item['status']}),
+                json.dumps(item['content']),
+                now_iso,
+            ),
+        )
+        db.execute(
+            'INSERT INTO team_draft_comments (id, draft_id, paragraph_id, author_user_id, body, thread_id, parent_id, mentions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (
+                str(uuid.uuid4()),
+                did,
+                item['content'][0]['id'],
+                owner_id,
+                'Kickoff note: keep the voice tight and actionable.',
+                str(uuid.uuid4()),
+                None,
+                json.dumps(['alex@brandco.com']),
+                now_iso,
+            ),
+        )
+    db.commit()
+
 def _current_team_user():
     user_row = _get_current_user_row()
     if not user_row:
@@ -1578,12 +1980,291 @@ def api_team_approvals_transition(approval_id: str):
     return jsonify({'ok': True, 'approval': _serialize_approval_row(updated), 'events': [dict(e) for e in events]})
 
 
+@app.get('/api/team/approver-defaults')
+def api_team_approver_defaults_list():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    db = get_db()
+    rows = db.execute('SELECT * FROM team_approver_defaults WHERE owner_user_id = ? ORDER BY created_at DESC', (user_row['id'],)).fetchall()
+    return jsonify({'ok': True, 'defaults': [row_to_mapping(r) for r in rows]})
+
+
+@app.post('/api/team/approver-defaults')
+def api_team_approver_defaults_upsert():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    data = request.get_json(force=True) or {}
+    campaign = (data.get('campaign') or '').strip()
+    channel = (data.get('channel') or '').strip()
+    approver_email = (data.get('approver_email') or '').strip()
+    allow_any = bool(data.get('allow_any'))
+    if not approver_email and not allow_any:
+        return jsonify({'ok': False, 'error': 'approver_email is required unless allow_any=true'}), 400
+    db = get_db()
+    existing = db.execute(
+        'SELECT id FROM team_approver_defaults WHERE owner_user_id = ? AND COALESCE(campaign, "") = ? AND COALESCE(channel, "") = ? LIMIT 1',
+        (user_row['id'], campaign, channel),
+    ).fetchone()
+    now_iso = datetime.now(timezone.utc).isoformat()
+    if existing:
+        db.execute(
+            'UPDATE team_approver_defaults SET approver_email = ?, allow_any = ?, created_at = ? WHERE id = ?',
+            (approver_email, 1 if allow_any else 0, now_iso, existing['id']),
+        )
+        default_id = existing['id']
+    else:
+        default_id = str(uuid.uuid4())
+        db.execute(
+            'INSERT INTO team_approver_defaults (id, owner_user_id, campaign, channel, approver_email, allow_any, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            (default_id, user_row['id'], campaign or None, channel or None, approver_email, 1 if allow_any else 0, now_iso),
+        )
+    db.commit()
+    row = db.execute('SELECT * FROM team_approver_defaults WHERE id = ?', (default_id,)).fetchone()
+    return jsonify({'ok': True, 'default': row_to_mapping(row)})
+
+
+@app.get('/api/team/drafts')
+def api_team_drafts_list():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    owner_id = user_row['id']
+    _ensure_demo_drafts(owner_id)
+    db = get_db()
+    campaign_filter = (request.args.get('campaign') or '').strip()
+    assignee_filter = (request.args.get('assignee') or '').strip()
+    status_filter = (request.args.get('status') or '').strip().lower()
+    clauses = []
+    params = [owner_id]
+    if campaign_filter:
+        clauses.append('campaign = ?')
+        params.append(campaign_filter)
+    if assignee_filter:
+        clauses.append('assignee_email = ?')
+        params.append(assignee_filter)
+    if status_filter:
+        clauses.append('LOWER(status) = ?')
+        params.append(status_filter)
+    query = """
+        SELECT d.*, (
+            SELECT COUNT(*) FROM team_draft_comments c WHERE c.draft_id = d.id
+        ) AS comment_count
+        FROM team_drafts d
+        WHERE d.owner_user_id = ?
+    """
+    if clauses:
+        query += " AND " + " AND ".join(clauses)
+    query += " ORDER BY COALESCE(due_date, created_at) ASC"
+    rows = db.execute(query, params).fetchall()
+    # Compute filter options from the already-fetched rows to avoid a second query
+    campaigns = sorted(set([row['campaign'] or 'Uncategorized' for row in rows]))
+    assignees = sorted(set([(row['assignee_email'] or '').strip() for row in rows if (row['assignee_email'] or '').strip()]))
+    statuses = sorted(set([(row['status'] or 'draft').lower() for row in rows]))
+    return jsonify({
+        'ok': True,
+        'drafts': [_serialize_draft_row(r) for r in rows],
+        'filters': {
+            'campaigns': campaigns,
+            'assignees': assignees,
+            'statuses': statuses or ['draft', 'in_review', 'approved', 'scheduled']
+        }
+    })
+
+
+@app.post('/api/team/drafts/nudge-stale')
+def api_team_drafts_nudge_stale():
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    nudged = _sweep_stale_reviews(user_row['id'], hours_idle=24)
+    return jsonify({'ok': True, 'nudged': nudged, 'count': len(nudged)})
+
+
+@app.get('/api/team/drafts/<draft_id>')
+def api_team_draft_detail(draft_id: str):
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    owner_id = user_row['id']
+    _ensure_demo_drafts(owner_id)
+    db = get_db()
+    draft = db.execute('SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
+    if not draft:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+    comments = db.execute('SELECT * FROM team_draft_comments WHERE draft_id = ? ORDER BY created_at ASC', (draft_id,)).fetchall()
+    threads = _build_comment_threads(comments)
+    revisions = db.execute('SELECT * FROM team_draft_revisions WHERE draft_id = ? ORDER BY created_at DESC', (draft_id,)).fetchall()
+    return jsonify({
+        'ok': True,
+        'draft': _serialize_draft_row(draft),
+        'threads': threads,
+        'revisions': [_serialize_revision_row(r) for r in revisions]
+    })
+
+
+@app.post('/api/team/drafts/<draft_id>/comment')
+def api_team_draft_comment(draft_id: str):
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    data = request.get_json(force=True) or {}
+    body = (data.get('body') or '').strip()
+    paragraph_id = (data.get('paragraph_id') or '').strip()
+    parent_id = (data.get('parent_id') or '').strip() or None
+    mentions = data.get('mentions') or []
+    if not body:
+        return jsonify({'ok': False, 'error': 'Comment text is required'}), 400
+    if len(body) > 10000:
+        return jsonify({'ok': False, 'error': 'Comment is too long (max 10,000 characters)'}), 400
+    if not isinstance(mentions, list):
+        mentions = []
+    mentions = [str(m).strip() for m in mentions if str(m).strip()]
+    owner_id = user_row['id']
+    db = get_db()
+    draft = db.execute('SELECT id FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
+    if not draft:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+    thread_id = None
+    if parent_id:
+        parent = db.execute('SELECT thread_id FROM team_draft_comments WHERE id = ? AND draft_id = ?', (parent_id, draft_id)).fetchone()
+        if not parent:
+            return jsonify({'ok': False, 'error': 'Parent comment not found'}), 404
+        thread_id = parent['thread_id'] or parent_id
+    if not thread_id:
+        thread_id = str(uuid.uuid4())
+    cid = str(uuid.uuid4())
+    now_iso = datetime.now(timezone.utc).isoformat()
+    db.execute(
+        'INSERT INTO team_draft_comments (id, draft_id, paragraph_id, author_user_id, body, thread_id, parent_id, mentions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (cid, draft_id, paragraph_id, owner_id, body, thread_id, parent_id, json.dumps(mentions), now_iso)
+    )
+    db.commit()
+    row = db.execute('SELECT * FROM team_draft_comments WHERE id = ?', (cid,)).fetchone()
+    return jsonify({'ok': True, 'comment': _serialize_comment_row(row), 'thread_id': thread_id})
+
+
+@app.post('/api/team/drafts/<draft_id>/status')
+def api_team_draft_status(draft_id: str):
+    user_row = _current_team_user()
+    if not user_row:
+        return jsonify({'ok': False, 'error': 'Team plan required'}), 403
+    data = request.get_json(force=True) or {}
+    action = (data.get('action') or '').strip().lower()
+    explicit_status = (data.get('status') or '').strip().lower()
+    changelog_note = (data.get('changelog_note') or '').strip()
+    db = get_db()
+    owner_id = user_row['id']
+    _ensure_demo_drafts(owner_id)
+    draft = db.execute('SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?', (draft_id, owner_id)).fetchone()
+    if not draft:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+    draft_map = row_to_mapping(draft)
+    previous_status = (draft_map.get('status') or 'draft').lower()
+    target_status = explicit_status
+    if action == 'approve':
+        target_status = 'approved'
+    elif action == 'request_changes':
+        target_status = 'draft'
+    elif action in ('submit_review', 'submit_for_review'):
+        target_status = 'in_review'
+    elif action == 'undo':
+        last_change = db.execute(
+            "SELECT details FROM team_draft_revisions WHERE draft_id = ? AND kind = 'status' ORDER BY created_at DESC LIMIT 1",
+            (draft_id,),
+        ).fetchone()
+        if last_change:
+            details = _deserialize_json(last_change['details'], {})
+            target_status = (details.get('from') or 'draft').lower()
+    allowed_statuses = {'draft', 'in_review', 'approved', 'scheduled'}
+    if target_status not in allowed_statuses:
+        return jsonify({'ok': False, 'error': 'Invalid status'}), 400
+    now_iso = datetime.now(timezone.utc).isoformat()
+    last_rev = db.execute(
+        'SELECT content_snapshot FROM team_draft_revisions WHERE draft_id = ? ORDER BY created_at DESC LIMIT 1',
+        (draft_id,),
+    ).fetchone()
+    previous_snapshot = last_rev['content_snapshot'] if last_rev else None
+    diff = _compute_content_diff(previous_snapshot, draft['content'])
+    reviewer_email = draft_map.get('reviewer_email')
+    review_open_to_any = bool(draft_map.get('review_open_to_any'))
+    review_requested_at = draft_map.get('review_requested_at')
+    review_nudged_at = draft_map.get('review_nudged_at')
+    routing_details = None
+    if target_status == 'in_review':
+        route = _lookup_approver_default(owner_id, draft_map.get('campaign'), draft_map.get('channel'))
+        if route:
+            reviewer_email = route.get('approver_email') or None
+            review_open_to_any = bool(route.get('allow_any'))
+            routing_details = {
+                'campaign': route.get('campaign'),
+                'channel': route.get('channel'),
+                'approver_email': reviewer_email,
+                'allow_any': review_open_to_any,
+            }
+        else:
+            routing_details = {
+                'campaign': draft_map.get('campaign'),
+                'channel': draft_map.get('channel'),
+                'approver_email': reviewer_email,
+                'allow_any': review_open_to_any or reviewer_email is None,
+            }
+            if reviewer_email:
+                review_open_to_any = False
+            else:
+                review_open_to_any = True
+        review_requested_at = now_iso
+        review_nudged_at = None
+    db.execute(
+        'UPDATE team_drafts SET status = ?, reviewer_email = ?, review_open_to_any = ?, review_requested_at = ?, review_nudged_at = ?, updated_at = ? WHERE id = ?',
+        (target_status, reviewer_email, 1 if review_open_to_any else 0, review_requested_at, review_nudged_at, now_iso, draft_id),
+    )
+    db.execute(
+        'INSERT INTO team_draft_revisions (id, draft_id, author_user_id, summary, kind, details, content_snapshot, changelog_note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (
+            str(uuid.uuid4()),
+            draft_id,
+            owner_id,
+            'Submitted for review' if target_status == 'in_review' else f"Status changed to {target_status.title()}",
+            'status',
+            json.dumps({
+                'from': previous_status,
+                'to': target_status,
+                'changelog_note': changelog_note or None,
+                'diff': diff,
+                'review_routing': routing_details,
+            }),
+            draft['content'],
+            changelog_note or None,
+            now_iso,
+        ),
+    )
+    db.commit()
+    updated = db.execute('SELECT * FROM team_drafts WHERE id = ?', (draft_id,)).fetchone()
+    comments = db.execute('SELECT * FROM team_draft_comments WHERE draft_id = ? ORDER BY created_at ASC', (draft_id,)).fetchall()
+    threads = _build_comment_threads(comments)
+    revisions = db.execute('SELECT * FROM team_draft_revisions WHERE draft_id = ? ORDER BY created_at DESC', (draft_id,)).fetchall()
+    return jsonify({
+        'ok': True,
+        'draft': _serialize_draft_row(updated),
+        'threads': threads,
+        'revisions': [_serialize_revision_row(r) for r in revisions],
+        'previous_status': previous_status
+    })
+
+
 ### DB helpers
 def get_user_by_email(email: str):
     # Helper used in tests; prefer using the app context DB when available.
     # If not in an application context, open a direct sqlite connection to DB_PATH
     try:
         if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
+        # if we aren't in an app context, temporarily create one so the lookup uses
+        # the same connection helpers and DB_PATH overrides used elsewhere in tests
+        with app.app_context():
             db = get_db()
             return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
     except Exception:
@@ -1602,6 +2283,9 @@ def get_user_by_email(email: str):
 def get_user_by_id(uid: str):
     try:
         if has_app_context():
+            db = get_db()
+            return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+        with app.app_context():
             db = get_db()
             return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
     except Exception:
@@ -1733,7 +2417,11 @@ def _get_active_profile_dict():
 
 
 def _is_dev_mode() -> bool:
-    return os.getenv('FLASK_ENV') == 'development' or os.getenv('ALLOW_DEV_DEBUG') == '1'
+    return (
+        os.getenv('FLASK_ENV') == 'development'
+        or os.getenv('ALLOW_DEV_DEBUG') == '1'
+        or os.getenv('PYTEST_CURRENT_TEST') is not None
+    )
 
 
 def _get_current_user_row():
