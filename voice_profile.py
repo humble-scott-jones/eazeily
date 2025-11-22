@@ -1,7 +1,7 @@
 import math
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable, Mapping
 
 
@@ -107,7 +107,7 @@ def profile_from_samples(samples: list[str]) -> dict:
     avg_length = sum(len(text.split()) for text in cleaned) / len(cleaned)
     example_lines = cleaned[:3]
     return {
-        'created_at': datetime.utcnow().isoformat() + 'Z',
+        'created_at': datetime.now(timezone.utc).isoformat() + 'Z',
         'sample_count': len(cleaned),
         'avg_length': round(avg_length, 2),
         'include_phrases': include_phrases,

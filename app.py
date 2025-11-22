@@ -2094,7 +2094,7 @@ def _persist_voice_profile(pid: str, samples: list[str], voice_blob: dict):
             'voice_profile': voice_blob
         }
         # Set sensible defaults for required columns
-        created_at = datetime.utcnow().isoformat()
+        created_at = datetime.now(timezone.utc).isoformat()
         db.execute(
             'INSERT INTO profiles (id, details, created_at) VALUES (?, ?, ?)',
             (pid, json.dumps(merged_details), created_at)
