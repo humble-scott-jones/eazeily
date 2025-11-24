@@ -3,9 +3,8 @@ name: Deploy (Railway)
 on:
   push:
     branches:
+      - staging
       - main
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       environment:
@@ -24,7 +23,7 @@ concurrency:
 jobs:
   deploy-staging:
     name: Deploy staging (Railway)
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/staging') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
     runs-on: ubuntu-latest
     environment: staging
     permissions:
@@ -58,7 +57,7 @@ jobs:
 
   deploy-production:
     name: Deploy production (Railway)
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
     runs-on: ubuntu-latest
     environment: production
     permissions:
