@@ -31,6 +31,6 @@ This repository uses `integration/2025-11-sync` as the primary integration branc
 - [ ] Rollback noted or unchanged; if changed, link to runbook entry
 
 # Notes for Reviewer
-
-- [ ] CI green and branch rebased on latest `main`
+#
+# [ ] CI green and branch rebased on latest `integration/2025-11-sync`
 - [ ] Any flags/toggles that should stay off in production?

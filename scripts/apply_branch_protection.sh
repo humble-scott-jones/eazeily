@@ -17,7 +17,7 @@ if [[ -z "${REPO}" ]]; then
   exit 1
 fi
 
-BRANCH=${BRANCH_PROTECTION_BRANCH:-main}
+BRANCH=${BRANCH_PROTECTION_BRANCH:-integration/2025-11-sync}
 
 # Default checks mirror the jobs in .github/workflows/ci.yml. Override by setting
 # BRANCH_PROTECTION_CHECKS="CI / secret-scan,CI / tests" or a space-separated list.

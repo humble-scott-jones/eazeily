@@ -1,6 +1,8 @@
 # Branch protection quick setup
 
-Use the provided script to enable the "CI gating on `main`" step without clicking through the GitHub UI. It applies protection with required checks that match `.github/workflows/ci.yml` and prevents force-pushes or direct pushes to `main`.
+Use the provided script to enable the "CI gating" step without clicking through the GitHub UI. It applies protection with required checks that match `.github/workflows/ci.yml` and prevents force-pushes or direct pushes to protected branches.
+
+By default the script now targets the integration branch (`integration/2025-11-sync`) so you can enable CI gating on the integration branch for developer PRs; you can still apply protection to `main` or another branch by providing `BRANCH_PROTECTION_BRANCH`.
 
 ## Prerequisites
 - GitHub CLI installed (`https://cli.github.com/`) and authenticated: `gh auth login`
@@ -12,7 +14,7 @@ Use the provided script to enable the "CI gating on `main`" step without clickin
 # From the repo root
 ./scripts/apply_branch_protection.sh
 ```
-This applies protection to `main` with required checks:
+This applies protection to the target branch with required checks (defaults to `integration/2025-11-sync`):
 - `CI / secret-scan`
 - `CI / tests`
 - `CI / triage-smoke`
