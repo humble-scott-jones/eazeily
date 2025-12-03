@@ -1,3 +1,17 @@
+<!-- Please use this template to create PRs against the integration branch by default -->
+
+## Summary
+
+Brief description of changes and the motivation.
+
+## Notes about base branch
+
+This repository uses `integration/2025-11-sync` as the primary integration branch where CI and acceptance tests run. When creating a PR please set the base branch to `integration/2025-11-sync` unless you specifically intend to target `main` or `staging` for a release.
+
+## Checklist
+- [ ] Tests pass locally
+- [ ] CI is green
+- [ ] If this affects deploys, coordinate with the infra owner before merging
 # Summary
 
 - [ ] What changed and why? Keep it tight (bullets, not paragraphs).
@@ -17,6 +31,6 @@
 - [ ] Rollback noted or unchanged; if changed, link to runbook entry
 
 # Notes for Reviewer
-
-- [ ] CI green and branch rebased on latest `main`
+#
+# [ ] CI green and branch rebased on latest `integration/2025-11-sync`
 - [ ] Any flags/toggles that should stay off in production?

@@ -6,7 +6,7 @@ This repository already includes PR templates and extensive testing docs. The ch
 - Protect `main` with required status checks and at least one approving review; enable "Require branches to be up to date" so PRs auto-update before merge.
 - Create a short-lived feature branch per task (e.g., `feature/<ticket>`). Keep one PR per branch; push review feedback commits to the same branch rather than opening new PRs.
 - Prefer **squash-merge** for a clean history. Enable **auto-merge** so GitHub merges as soon as checks + approvals pass.
-- Rebase your branch onto `main` before requesting review (or enable GitHub's "Update branch" button) to avoid drift.
+-- Rebase your branch onto `integration/2025-11-sync` before requesting review (or enable GitHub's "Update branch" button) to avoid drift.
 - Close stale branches after merge to reduce accidental rebases against old work.
 
 ## Review settings and quality gates
@@ -22,7 +22,7 @@ This repository already includes PR templates and extensive testing docs. The ch
 
 ## Minimizing merge conflicts
 - Keep PRs scoped and small; avoid unrelated refactors alongside feature work.
-- Rebase frequently against `main` (or enable auto-branch updates) when the branch lives for more than a day.
+-- Rebase frequently against `integration/2025-11-sync` (or enable auto-branch updates) when the branch lives for more than a day.
 - Update lockfiles and generated artifacts in separate PRs when possible to avoid noisy conflicts.
 - Document new config or scripts in the repo so teammates do not recreate divergent local setups.
 
@@ -33,6 +33,6 @@ This repository already includes PR templates and extensive testing docs. The ch
 - Before deploying, run the full suite (including optional UI smoke tests) and verify staging manually if the change is user-facing.
 
 ## Deployment workflow
-- Use the existing deployment scripts (`deploy.sh`, `deploy-to-railway.sh`, or platform-specific guides) from a clean `main` after CI passes.
+-- Use the existing deployment scripts (`deploy.sh`, `deploy-to-railway.sh`, or platform-specific guides) from a clean `main` or a release branch after CI passes.
 - Tag releases after successful production deploys; include links to the PR and test evidence in the release notes.
 - Roll back by redeploying the previous tag or reverting the PR if a regression is found.

@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - integration/2025-11-sync
   pull_request:
     branches:
       - main
+      - integration/2025-11-sync
 
 jobs:
   secret-scan:
