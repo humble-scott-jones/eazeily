@@ -2994,6 +2994,27 @@ def dev_ping():
     return ('pong', 200)
 
 
+@app.get('/__dev__/routes')
+def dev_routes():
+    """Return a JSON list of registered routes for dev/acceptance tests.
+
+    This endpoint is intentionally gated to development mode or when
+    ALLOW_DEV_DEBUG is enabled so it isn't exposed in production.
+    """
+    if not _is_dev_mode():
+        return jsonify({'ok': False, 'error': 'Not available'}), 404
+
+    routes = []
+    for rule in app.url_map.iter_rules():
+        try:
+            methods = sorted([m for m in (rule.methods or []) if m not in ('HEAD', 'OPTIONS')])
+        except Exception:
+            methods = list(rule.methods or [])
+        routes.append({'rule': str(rule), 'endpoint': rule.endpoint, 'methods': methods})
+
+    return jsonify({'ok': True, 'routes': routes})
+
+
 @app.get('/__demo__/start')
 def demo_start():
     """Seed a lightweight demo user/profile and redirect to the app landing.
