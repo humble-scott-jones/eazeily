@@ -183,9 +183,20 @@ def default_hashtags(industry: str, niche_keywords: list[str]):
     return tags[:12]
 
 
-def build_platform_variants(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                            base_platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str],
-                            company: str = "", theme: Optional[str] = None, platforms: Optional[list[str]] = None):
+def build_platform_variants(
+    industry: str,
+    tone: str,
+    pillar_name: str,
+    pillar_hint: str,
+    base_platform: str,
+    brand_keywords: list[str],
+    hashtags: list[str],
+    goals: list[str],
+    company: str = "",
+    theme: Optional[str] = None,
+    platforms: Optional[list[str]] = None,
+    voice_profile: Optional[Mapping[str, Any]] = None,
+):
     """
     Generate platform-specific variants of a caption by applying platform rules to a base caption body.
 
@@ -210,7 +221,18 @@ def build_platform_variants(industry: str, tone: str, pillar_name: str, pillar_h
     Returns:
         dict[str, Any]: A dictionary mapping each platform key to its variant payload (caption text and metadata).
     """
-    body = build_caption_body(industry, tone, pillar_name, pillar_hint, base_platform, brand_keywords, goals, company, theme)
+    body = build_caption_body(
+        industry,
+        tone,
+        pillar_name,
+        pillar_hint,
+        base_platform,
+        brand_keywords,
+        goals,
+        company,
+        theme,
+        voice_profile,
+    )
     variant_targets = list(platforms or DEFAULT_VARIANT_PLATFORMS)
     variants = {}
     for platform in variant_targets:
@@ -222,8 +244,18 @@ def to_sentence_case(s: str):
         return s
     return s[0].upper() + s[1:]
 
-def build_caption_body(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                       platform: str, brand_keywords: list[str], goals: list[str], company: str = "", theme: Optional[str] = None) -> str:
+def build_caption_body(
+    industry: str,
+    tone: str,
+    pillar_name: str,
+    pillar_hint: str,
+    platform: str,
+    brand_keywords: list[str],
+    goals: list[str],
+    company: str = "",
+    theme: Optional[str] = None,
+    voice_profile: Optional[Mapping[str, Any]] = None,
+) -> str:
     """
     Generate the main body content for a social media caption, without hashtags.
 
@@ -260,11 +292,12 @@ def build_caption_body(industry: str, tone: str, pillar_name: str, pillar_hint: 
 
     voice_hint = ""
     signature_example = ""
-    if isinstance(voice_profile, dict):
-        phrases = voice_profile.get('include_phrases') or []
+    vp_dict = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
+    if vp_dict:
+        phrases = vp_dict.get('include_phrases') or []
         if phrases:
             voice_hint = f"Voice: weave in {', '.join(list(phrases)[:3])}."
-        examples = voice_profile.get('example_lines') or []
+        examples = vp_dict.get('example_lines') or []
         if examples:
             signature_example = f"Example cadence: {examples[0][:120]}"
 
@@ -295,20 +328,66 @@ def build_caption_body(industry: str, tone: str, pillar_name: str, pillar_hint: 
     ])
     
     body = "\n".join(lines)
+    return body
 
 
-def make_caption(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                 platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
-    body = build_caption_body(industry, tone, pillar_name, pillar_hint, platform, brand_keywords, goals, company, theme)
+def make_caption(
+    industry: str,
+    tone: str,
+    pillar_name: str,
+    pillar_hint: str,
+    platform: str,
+    brand_keywords: list[str],
+    hashtags: list[str],
+    goals: list[str],
+    company: str = "",
+    theme: Optional[str] = None,
+    voice_profile: Optional[Mapping[str, Any]] = None,
+):
+    body = build_caption_body(
+        industry,
+        tone,
+        pillar_name,
+        pillar_hint,
+        platform,
+        brand_keywords,
+        goals,
+        company,
+        theme,
+        voice_profile,
+    )
     tags = " ".join(hashtags)
     if tags:
         return f"{body}\n\n{tags}"
     return body
 
-def make_full_post(industry: str, tone: str, pillar_name: str, pillar_hint: str,
-                   platform: str, brand_keywords: list[str], hashtags: list[str], goals: list[str], company: str = "", theme: Optional[str] = None):
+def make_full_post(
+    industry: str,
+    tone: str,
+    pillar_name: str,
+    pillar_hint: str,
+    platform: str,
+    brand_keywords: list[str],
+    hashtags: list[str],
+    goals: list[str],
+    company: str = "",
+    theme: Optional[str] = None,
+    voice_profile: Optional[Mapping[str, Any]] = None,
+):
     """Legacy function for backward compatibility with tests."""
-    caption = make_caption(industry, tone, pillar_name, pillar_hint, platform, brand_keywords, hashtags, goals, company, theme)
+    caption = make_caption(
+        industry,
+        tone,
+        pillar_name,
+        pillar_hint,
+        platform,
+        brand_keywords,
+        hashtags,
+        goals,
+        company,
+        theme,
+        voice_profile,
+    )
     return {
         'caption': caption,
         'theme': theme
@@ -875,23 +954,23 @@ def generate_posts(
         day = start_day + timedelta(days=i)
         pillar_name, pillar_hint = next(pillar_stream)
 
-        # Generate platform-specific variants for this day
-        variants = {}
-        for p in platforms:
-            caption = make_caption(
-                industry=to_sentence_case(industry),
-                tone=tone,
-                pillar_name=pillar_name,
-                pillar_hint=pillar_hint,
-                platform=p,
-                brand_keywords=brand_keywords,
-                hashtags=hashtags,
-                goals=goals,
-                company=company,
-                theme=details.get("note"),
-                voice_profile=voice_profile
-            )
-            variants[p] = caption
+        # Generate platform-specific variants for this day (always include default variant set)
+        variant_targets = list(dict.fromkeys(list(platforms) + list(DEFAULT_VARIANT_PLATFORMS)))
+        base_platform = platforms[0] if platforms else 'instagram'
+        variants = build_platform_variants(
+            to_sentence_case(industry),
+            tone,
+            pillar_name,
+            pillar_hint,
+            base_platform,
+            brand_keywords,
+            hashtags,
+            goals,
+            company,
+            details.get("note"),
+            variant_targets,
+            voice_profile,
+        )
 
         # Create one post per platform (maintains backward compatibility)
         for p in platforms:
