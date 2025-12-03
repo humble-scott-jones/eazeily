@@ -11,6 +11,7 @@ This runbook describes the deployment process for Togetherly, including pre-depl
 - **Workflow:** `.github/workflows/deploy-railway.yml` installs Railway CLI, logs in via service token, and runs `railway up` against the appropriate environment/service.
 - **Required GitHub secrets:** `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID_STAGING`, `RAILWAY_SERVICE_ID_PRODUCTION`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_PRODUCTION`, plus app secrets per environment (`SECRET_KEY`, Stripe keys/price/webhook, `OPENAI_API_KEY`, `ADMIN_EMAILS`, optional `GITHUB_FEEDBACK_*`, `TEAM_MEMBER_LIMIT`, `PASSWORD_HASH_METHOD`, `DATABASE_URL` if using Postgres).
 - **Railway environment vars:** Mirror the app secrets above inside each Railway environment; keep values identical across envs except for secrets/keys and webhook URLs. Healthcheck path uses `/health`.
+- **Railway database vars:** Remove any legacy `DB_PATH` variable from Railway → Service → Variables so deployments **must** use the managed Postgres `DATABASE_URL`. Leaving `DB_PATH` defined allows Flask to fall back to SQLite if `DATABASE_URL` disappears, which silently diverges environments. Use the dashboard to delete the key; the CLI cannot remove it yet.
 - **Rollback:** List deployments with `railway deployments list --project <project-id> --environment staging|production`; roll back with `railway deployment rollback <deployment-id> --project <project-id> --environment staging|production`. Validate with a smoke ping to `/health` after rollback.
 
 ## Current CI/CD (App Engine)
@@ -42,6 +43,7 @@ This runbook describes the deployment process for Togetherly, including pre-depl
 - **Database:** PostgreSQL (production instance with backups)
 - **Deploy Method:** CI/CD on merge to `main` branch with approval gates
 - **Access:** Public
+- **Stripe status:** Production currently uses Stripe *test* keys during the beta. Document any beta charges as $0 and plan a key rotation (publishable + secret + webhook) before enabling paid subscriptions.
 
 ## Pre-Deployment Checklist
 
@@ -222,6 +224,20 @@ python scripts/migrate.py down
 
 ## Database Migrations
 
+Togetherly now uses Alembic for Postgres + SQLite parity. The config lives in `alembic.ini`, the env script in `alembic/env.py`, and versioned migrations in `alembic/versions/`.
+
+### Everyday Workflow
+
+```bash
+source .venv/bin/activate
+alembic revision -m "add my_table"
+alembic upgrade head
+```
+
+- Run revisions against staging first; once validated, deploy and run `alembic upgrade head` in production (CI can run this step automatically).
+- Never edit the generated revision IDs. Keep the linear chain intact: `20241005_01_initial` → `20241006_01_team_workflow` → `20241008_01_team_drafts` → …
+- For emergency schema diffs, you can still use `pg_dump`/`pg_restore`, but prefer migrations to avoid full-database restores.
+
 ### Safe Migration Process
 
 1. **Write Migration:**
@@ -394,6 +410,51 @@ curl https://togetherly.app/health
 - [ ] Document any issues encountered
 - [ ] Update runbook if process changed
 - [ ] Celebrate successful deployment! 🎉
+
+## Branching & Deployment Policy
+
+This project uses an integration-first workflow: feature work is opened as PRs against the integration branch `integration/2025-11-sync`, CI runs there, and staging/prod deploys remain explicit and controlled.
+
+Key rules:
+- Feature PRs: open PRs with base `integration/2025-11-sync` so CI and acceptance tests run against the integration branch before any release to staging/production.
+- Staging deploys: continue to be triggered by merges/pushes to the `staging` branch. Use `integration/2025-11-sync` as the validation area: once integration is green, create a release branch or merge to `staging` for a staging deploy.
+- Production deploys: remain tied to `main` (or a tag). We recommend using a release tag (e.g., `v1.2.3`) or a dedicated release branch merged into `main` to trigger production deploys. This prevents accidental deploys from feature merges.
+- CI: workflows should run for `integration/2025-11-sync` (pushes and PRs) as well as `staging` and `main` where appropriate.
+- Deploy pipelines: do not rely on the repository default branch. Set explicit branch or tag triggers in Railway / App Engine / other CI so the deploy target is unambiguous.
+
+Release process (recommended):
+1. Finish and merge feature PRs into `integration/2025-11-sync`.
+2. Run full acceptance tests on `integration/2025-11-sync`. If issues appear, fix in feature branches and re-run.
+3. Create a release branch from `integration/2025-11-sync`:
+
+```bash
+git checkout integration/2025-11-sync
+git pull origin integration/2025-11-sync
+git checkout -b release/1.2.3
+# bump version/CHANGELOG
+git commit -am "release: 1.2.3"
+git push origin release/1.2.3
+```
+
+4. Merge `release/1.2.3` into `staging` (or open a PR targeting `staging`) to deploy to staging for verification.
+5. After final validation, merge `release/1.2.3` into `main` (or create an annotated tag `v1.2.3` on `release/1.2.3`) to trigger production deploy. Prefer annotated tags for more control:
+
+```bash
+git tag -a v1.2.3 -m "Release 1.2.3"
+git push origin v1.2.3
+```
+
+6. Monitor the production deployment and follow rollback procedures if needed.
+
+Deployment checklist additions (branching-specific):
+- [ ] PRs merged to `integration/2025-11-sync` have passing CI and acceptance tests
+- [ ] Release branch created from a green `integration/2025-11-sync`
+- [ ] Staging validation performed from the release branch
+- [ ] Production deploys triggered only from `main` or annotated tags
+
+Notes on Railway and other CI hooks:
+- If Railway is currently watching a branch for automatic deploys, make it watch only `staging` or specific release branches/tags. Avoid pointing Railway at branches used for feature work.
+- Use environment-specific service tokens and secrets per environment (already enforced in workflows). When changing Railway project settings, ensure a dry-run on staging first.
 
 ## Troubleshooting
 
