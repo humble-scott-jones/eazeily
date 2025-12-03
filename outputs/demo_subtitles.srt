@@ -1,0 +1,15 @@
+1
+00:00:00,000 --> 00:00:03,000
+Meet Eazeily — your simple, smart social media assistant.
+
+2
+00:00:03,000 --> 00:00:07,000
+This short walkthrough will show how to set up a profile and generate a ready-to-post idea in under 30 seconds.
+
+3
+00:00:07,000 --> 00:00:10,500
+Follow along as we pick an industry, choose a tone, and generate captions, hashtags, and image copy.
+
+4
+00:00:10,500 --> 00:00:13,040
+Let's get started.
