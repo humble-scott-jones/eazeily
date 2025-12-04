@@ -179,9 +179,12 @@ except Exception:
 if psycopg:
     try:
         from psycopg import errors as _pg_errors
+        from psycopg.rows import dict_row as _pg_dict_row
         DB_INTEGRITY_ERRORS = DB_INTEGRITY_ERRORS + (_pg_errors.UniqueViolation, _pg_errors.ForeignKeyViolation)
     except Exception:
-        pass
+        _pg_dict_row = None
+else:
+    _pg_dict_row = None
 
 # Outbound call kill switch (set KILL_SWITCH_OUTBOUND=1 to block external services)
 OUTBOUND_KILL_SWITCH = (os.getenv('KILL_SWITCH_OUTBOUND') or os.getenv('DISABLE_OUTBOUND_CALLS') or '').lower() in ('1', 'true', 'yes', 'on')
