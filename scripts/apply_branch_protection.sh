@@ -22,10 +22,10 @@ BRANCH=${BRANCH_PROTECTION_BRANCH:-integration/2025-11-sync}
 # Default checks mirror the jobs in .github/workflows/ci.yml. Override by setting
 # BRANCH_PROTECTION_CHECKS="CI / secret-scan,CI / tests" or a space-separated list.
 DEFAULT_CHECKS=(
-  "CI / secret-scan"
-  "CI / tests"
-  "CI / triage-smoke"
-  "CI / smoke"
+  "Secret Scan (gitleaks)"
+  "tests (3.10)"
+  "tests (3.11)"
+  "Acceptance Smoke"
 )
 
 if [[ -n "${BRANCH_PROTECTION_CHECKS:-}" ]]; then

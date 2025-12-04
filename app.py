@@ -151,9 +151,9 @@ else:
 DB_PATH_ENV = os.getenv('DB_PATH')
 # Determine DB path with a short compatibility window. Priority:
 # 1) explicit DB_PATH env var
-# 2) repo-local `swelly.db` (new default)
+# 2) repo-local `eazeily.db` (new default)
 # 3) repo-local `togetherly.db` (legacy fallback during transition)
-_default_db = os.path.join(os.path.dirname(__file__), "swelly.db")
+_default_db = os.path.join(os.path.dirname(__file__), "eazeily.db")
 _legacy_db = os.path.join(os.path.dirname(__file__), "togetherly.db")
 if DB_PATH_ENV:
     DB_PATH = DB_PATH_ENV
@@ -801,12 +801,40 @@ def ensure_db():
     init_db()
 
 def _db_healthcheck():
+    """Perform a short, isolated DB connectivity check.
+
+    We avoid using the app-scoped `get_db()` here because that may create
+    a long-lived connection object in `g` which could mask transient
+    connection issues. Instead we open a short-lived connection, run
+    a lightweight query, and close it immediately. Return (healthy, err)
+    where `err` is a short string when unhealthy.
+    """
     try:
-        db = get_db()
-        db.execute('SELECT 1')
-        return True, None
+        if USE_POSTGRES:
+            # psycopg may be None if not installed; guard defensively
+            if not psycopg:
+                return False, "psycopg not available"
+            # set a short timeout so readiness doesn't hang during DB boot
+            conn = psycopg.connect(DATABASE_URL, timeout=3)
+            cur = conn.cursor()
+            cur.execute('SELECT 1')
+            cur.close()
+            conn.close()
+            return True, None
+        else:
+            # sqlite file-based quick probe
+            conn = sqlite3.connect(DB_PATH, timeout=3)
+            cur = conn.cursor()
+            cur.execute('SELECT 1')
+            cur.close()
+            conn.close()
+            return True, None
     except Exception as exc:
-        return False, str(exc)
+        # Keep the error short and avoid leaking secrets
+        err = str(exc)
+        if '\n' in err:
+            err = err.split('\n', 1)[0]
+        return False, err
 
 
 @app.get("/healthz")
@@ -823,11 +851,19 @@ def healthz():
 def readyz():
     """Readiness probe with dependency checks."""
     healthy, db_error = _db_healthcheck()
-    checks = {}
-    checks['database'] = 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}"
-    checks['stripe'] = 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured'
-    checks['openai'] = 'configured' if USE_OPENAI else 'not_configured'
-    checks['github_feedback'] = 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured'
+    db_info = {
+        'type': 'postgres' if USE_POSTGRES else 'sqlite',
+        'status': 'connected' if healthy else 'unhealthy',
+        'error': db_error if not healthy else None,
+    }
+
+    # preserve legacy simple check keys while adding structured data
+    checks = {
+        'database': 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}",
+        'stripe': 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured',
+        'openai': 'configured' if USE_OPENAI else 'not_configured',
+        'github_feedback': 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured',
+    }
 
     status = 'healthy' if healthy else 'unhealthy'
     status_code = 200 if healthy else 503
@@ -835,7 +871,8 @@ def readyz():
         'status': status,
         'version': os.getenv('APP_VERSION', 'dev'),
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'checks': checks
+        'checks': checks,
+        'db': db_info,
     }
     return jsonify(payload), status_code
 
@@ -2473,16 +2510,6 @@ def _get_active_profile_dict():
     if not row:
         return None
     return _profile_row_to_dict(row)
-
-
-def _is_dev_mode() -> bool:
-    return (
-        os.getenv('FLASK_ENV') == 'development'
-        or os.getenv('ALLOW_DEV_DEBUG') == '1'
-        or os.getenv('PYTEST_CURRENT_TEST') is not None
-    )
-
-
 def _get_current_user_row():
     uid = session.get('user_id')
     if not uid:
@@ -2578,7 +2605,7 @@ def _trim_feedback_text(value: Optional[str], limit: int = 4000) -> str:
 def _build_feedback_issue_payload(issue_type: str, context: dict):
     ctx = context or {}
     profile = ctx.get('profile') if isinstance(ctx.get('profile'), dict) else {}
-    user_email = ctx.get('user_email') or 'unknown@swelly.app'
+    user_email = ctx.get('user_email') or 'unknown@eazeily.app'
     summary = _trim_feedback_text(ctx.get('summary') or ctx.get('note') or 'New feedback', 80) or 'New feedback'
     details = _trim_feedback_text(ctx.get('details') or ctx.get('note') or '')
     tone = ctx.get('tone') or (profile.get('tone') if isinstance(profile, dict) else '')
@@ -2809,7 +2836,8 @@ def api_voice_profile():
 def api_save_voice_profile():
     pid = _ensure_profile_id()
     data = request.get_json(force=True) or {}
-    samples = data.get('samples') if isinstance(data.get('samples'), list) else []
+    raw_samples = data.get('samples')
+    samples: list[Any] = raw_samples if isinstance(raw_samples, list) else []
     cleaned = [str(s).strip() for s in samples if isinstance(s, str) and str(s).strip()]
     
     # Validate initial sample count before filtering
@@ -3003,6 +3031,82 @@ def dev_ping():
     return ('pong', 200)
 
 
+@app.get('/__dev__/routes')
+def dev_routes():
+    """Return a JSON list of registered routes for dev/acceptance tests.
+
+    This endpoint is intentionally gated to development mode or when
+    ALLOW_DEV_DEBUG is enabled so it isn't exposed in production.
+    """
+    if not _is_dev_mode():
+        return jsonify({'ok': False, 'error': 'Not available'}), 404
+
+    routes = []
+    for rule in app.url_map.iter_rules():
+        try:
+            methods = sorted([m for m in (rule.methods or []) if m not in ('HEAD', 'OPTIONS')])
+        except Exception:
+            methods = list(rule.methods or [])
+        routes.append({'rule': str(rule), 'endpoint': rule.endpoint, 'methods': methods})
+
+    return jsonify({'ok': True, 'routes': routes})
+
+
+@app.get('/__demo__/start')
+def demo_start():
+    """Seed a lightweight demo user/profile and redirect to the app landing.
+
+    This route is gated: it is available when running in dev mode or when
+    the environment variable `DEMO_MODE` is set to '1'. It creates a demo
+    user and profile (if absent), sets session values, and redirects to
+    `/app` so the setup wizard and generator can be recorded without
+    showing login flows.
+    """
+    allowed = _is_dev_mode() or os.getenv('DEMO_MODE') == '1'
+    if not allowed:
+        return jsonify({'ok': False, 'error': 'Not available'}), 404
+
+    demo_email = os.getenv('DEMO_EMAIL') or 'demo@example.com'
+    db = get_db()
+    user = get_user_by_email(demo_email)
+    if not user:
+        uid = str(uuid.uuid4())
+        pw = _hash_password('demo')
+        db.execute('INSERT INTO users (id, email, password_hash, is_paid, free_sample_used, subscription_tier) VALUES (?, ?, ?, ?, ?, ?)', (uid, demo_email, pw, 1, 0, 'solo'))
+        db.commit()
+        user = db.execute('SELECT * FROM users WHERE email = ?', (demo_email,)).fetchone()
+
+    # Ensure a profile exists
+    profile_id = session.get('profile_id') or str(uuid.uuid4())
+    exists = db.execute('SELECT id FROM profiles WHERE id = ?', (profile_id,)).fetchone()
+    if not exists:
+        # Insert a basic profile that highlights the generator (Bakery demo)
+        demo_profile = {
+            'id': profile_id,
+            'industry': 'Bakery',
+            'tone': 'friendly',
+            'platforms': json.dumps(['instagram']),
+            'brand_keywords': json.dumps(['artisan', 'sourdough']),
+            'niche_keywords': json.dumps(['local']),
+            'goals': json.dumps(['Drive sales', 'Engagement']),
+            'company': "Demo Bakery",
+            'include_images': 0,
+            'details': json.dumps({'note': 'Demo theme', 'reel_style': 'Face-camera tips'}),
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }
+        # Use parameterized insert covering common columns
+        db.execute('INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (
+            demo_profile['id'], demo_profile['industry'], demo_profile['tone'], demo_profile['platforms'], demo_profile['brand_keywords'], demo_profile['niche_keywords'], demo_profile['goals'], demo_profile['company'], demo_profile['include_images'], demo_profile['details'], demo_profile['created_at']
+        ))
+        db.commit()
+
+    # Set session values and redirect to the main app
+    session['user_id'] = user['id'] if user else None
+    session['profile_id'] = profile_id
+    session['is_demo'] = True
+    return redirect(url_for('index'))
+
+
 DEV_USER_TEMPLATES = {
     'free': {
         'label': 'Free (unpaid)',
@@ -3167,21 +3271,29 @@ def api_generate():
 
     if posts is None:
         try:
-            posts = generate_posts(
-                days=generation['days'],
-                start_day=generation['start_day'],
-                industry=generation['industry'],
-                tone=generation['tone'],
-                platforms=generation['platforms'],
-                brand_keywords=generation['brand_keywords'],
-                include_images=generation['include_images'],
-                niche_keywords=generation['niche_keywords'],
-                goals=generation['goals'],
-                details=generation['details'],
-                company=generation['company'],
-                voice_profile=generation.get('voice_profile')
-            )
-        except Exception:
+            gen_kwargs = {
+                'days': generation['days'],
+                'start_day': generation['start_day'],
+                'industry': generation['industry'],
+                'tone': generation['tone'],
+                'platforms': generation['platforms'],
+                'brand_keywords': generation['brand_keywords'],
+                'include_images': generation['include_images'],
+                'niche_keywords': generation['niche_keywords'],
+                'goals': generation['goals'],
+                'details': generation['details'],
+                'company': generation['company'],
+            }
+            voice_profile = generation.get('voice_profile')
+            if voice_profile:
+                gen_kwargs['voice_profile'] = voice_profile
+            posts = generate_posts(**gen_kwargs)
+        except Exception as exc:
+            # Log full exception for triage. In dev/CI modes, include the exception
+            # message in the JSON response to make failure artifacts more actionable.
+            app.logger.exception('generate_posts raised an exception')
+            if _is_dev_mode() or os.getenv('CI'):
+                return jsonify({'ok': False, 'error': 'Failed to generate content', 'exception': str(exc)}), 500
             return jsonify({'ok': False, 'error': 'Failed to generate content'}), 500
 
     _apply_voice_guardrails(posts, generation.get('voice_profile') or _active_voice_profile())
@@ -3217,6 +3329,9 @@ def api_generate_variants():
     count = max(1, min(count, 10))
     brand_keywords = _coerce_str_list(data.get('brand_keywords'), [])
     goals = _coerce_str_list(data.get('goals'), [])
+    voice_profile = data.get('voice_profile')
+    if not isinstance(voice_profile, dict):
+        voice_profile = _active_voice_profile()
     variant_groups = []
     hashtags = gen_mod.default_hashtags(industry, brand_keywords)
     for idx in range(count):
@@ -3232,7 +3347,8 @@ def api_generate_variants():
             goals=goals,
             company=data.get('company') or '',
             theme=data.get('theme'),
-            platforms=list(gen_mod.DEFAULT_VARIANT_PLATFORMS)
+            platforms=list(gen_mod.DEFAULT_VARIANT_PLATFORMS),
+            voice_profile=voice_profile
         )
         variant_groups.append({'pillar': pillar_name, 'variants': variants})
     return jsonify({'ok': True, 'variants': variant_groups})
