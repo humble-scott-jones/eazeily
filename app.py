@@ -527,23 +527,11 @@ def _connect_db():
         # Fix for "invalid connection option 'timeout'" error
         # Some environments inject ?timeout=... which psycopg3 rejects (it expects connect_timeout)
         db_url = str(DATABASE_URL)
-        # Force removal of timeout param if present, using robust string replacement if parsing fails
-        if 'timeout=' in db_url:
-            try:
-                from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
-                u = urlparse(db_url)
-                qs = parse_qs(u.query)
-                if 'timeout' in qs:
-                    del qs['timeout']
-                new_query = urlencode(qs, doseq=True)
-                db_url = urlunparse((u.scheme, u.netloc, u.path, u.params, new_query, u.fragment))
-            except Exception:
-                # Fallback: simple string replacement
-                db_url = db_url.replace('?timeout=', '?').replace('&timeout=', '&')
-        
-        # Ensure we don't pass empty query params
-        if db_url.endswith('?'):
-            db_url = db_url[:-1]
+        # Simple replacement to map 'timeout' to 'connect_timeout' which libpq accepts
+        if '?timeout=' in db_url:
+            db_url = db_url.replace('?timeout=', '?connect_timeout=')
+        if '&timeout=' in db_url:
+            db_url = db_url.replace('&timeout=', '&connect_timeout=')
             
         conn = psycopg.connect(db_url, autocommit=False)
         return _PgConnectionWrapper(conn)
