@@ -524,7 +524,22 @@ def _connect_db():
     if USE_POSTGRES:
         if not psycopg:
             raise RuntimeError("psycopg is required for Postgres connections; install dependencies.")
-        conn = psycopg.connect(DATABASE_URL, autocommit=False)
+        # Fix for "invalid connection option 'timeout'" error
+        # Some environments inject ?timeout=... which psycopg3 rejects (it expects connect_timeout)
+        db_url = str(DATABASE_URL)
+        if 'timeout=' in db_url:
+            try:
+                from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+                u = urlparse(db_url)
+                qs = parse_qs(u.query)
+                if 'timeout' in qs:
+                    del qs['timeout']
+                new_query = urlencode(qs, doseq=True)
+                db_url = urlunparse((u.scheme, u.netloc, u.path, u.params, new_query, u.fragment))
+            except Exception:
+                pass # Fallback to original if parsing fails
+        
+        conn = psycopg.connect(db_url, autocommit=False)
         return _PgConnectionWrapper(conn)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row

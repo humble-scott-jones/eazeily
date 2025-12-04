@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="32" viewBox="0 0 128 32" role="img" aria-label="Eazeily logo text">
+  <defs>
+    <linearGradient id="textgrad" x1="0%" x2="100%" y1="0%" y2="0%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#a5b4fc"/>
+    </linearGradient>
+  </defs>
+  <text x="64" y="24" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="url(#textgrad)" text-anchor="middle">Eazeily</text>
+</svg>
