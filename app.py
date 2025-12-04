@@ -3293,7 +3293,8 @@ def api_generate():
             # message in the JSON response to make failure artifacts more actionable.
             app.logger.exception('generate_posts raised an exception')
             if _is_dev_mode() or os.getenv('CI'):
-                return jsonify({'ok': False, 'error': 'Failed to generate content', 'exception': str(exc)}), 500
+                # Only include the exception type name, not the full message
+                return jsonify({'ok': False, 'error': 'Failed to generate content', 'exception_type': type(exc).__name__}), 500
             return jsonify({'ok': False, 'error': 'Failed to generate content'}), 500
 
     _apply_voice_guardrails(posts, generation.get('voice_profile') or _active_voice_profile())
