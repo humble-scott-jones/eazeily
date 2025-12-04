@@ -4,7 +4,10 @@ dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "sh -c \"gunicorn --bind 0.0.0.0:${PORT:-8080} app:app\""
-healthcheckPath = "/health"
+# Use the liveness endpoint so Railway considers the process up as soon as
+# the WSGI server is running. Readiness (`/readyz`) still reports dependency
+# health (DB, Stripe) but is not used for the basic deploy liveness probe.
+healthcheckPath = "/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

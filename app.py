@@ -801,12 +801,40 @@ def ensure_db():
     init_db()
 
 def _db_healthcheck():
+    """Perform a short, isolated DB connectivity check.
+
+    We avoid using the app-scoped `get_db()` here because that may create
+    a long-lived connection object in `g` which could mask transient
+    connection issues. Instead we open a short-lived connection, run
+    a lightweight query, and close it immediately. Return (healthy, err)
+    where `err` is a short string when unhealthy.
+    """
     try:
-        db = get_db()
-        db.execute('SELECT 1')
-        return True, None
+        if USE_POSTGRES:
+            # psycopg may be None if not installed; guard defensively
+            if not psycopg:
+                return False, "psycopg not available"
+            # set a short timeout so readiness doesn't hang during DB boot
+            conn = psycopg.connect(DATABASE_URL, timeout=3)
+            cur = conn.cursor()
+            cur.execute('SELECT 1')
+            cur.close()
+            conn.close()
+            return True, None
+        else:
+            # sqlite file-based quick probe
+            conn = sqlite3.connect(DB_PATH, timeout=3)
+            cur = conn.cursor()
+            cur.execute('SELECT 1')
+            cur.close()
+            conn.close()
+            return True, None
     except Exception as exc:
-        return False, str(exc)
+        # Keep the error short and avoid leaking secrets
+        err = str(exc)
+        if '\n' in err:
+            err = err.split('\n', 1)[0]
+        return False, err
 
 
 @app.get("/healthz")
@@ -823,11 +851,19 @@ def healthz():
 def readyz():
     """Readiness probe with dependency checks."""
     healthy, db_error = _db_healthcheck()
-    checks = {}
-    checks['database'] = 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}"
-    checks['stripe'] = 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured'
-    checks['openai'] = 'configured' if USE_OPENAI else 'not_configured'
-    checks['github_feedback'] = 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured'
+    db_info = {
+        'type': 'postgres' if USE_POSTGRES else 'sqlite',
+        'status': 'connected' if healthy else 'unhealthy',
+        'error': db_error if not healthy else None,
+    }
+
+    # preserve legacy simple check keys while adding structured data
+    checks = {
+        'database': 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}",
+        'stripe': 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured',
+        'openai': 'configured' if USE_OPENAI else 'not_configured',
+        'github_feedback': 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured',
+    }
 
     status = 'healthy' if healthy else 'unhealthy'
     status_code = 200 if healthy else 503
@@ -835,7 +871,8 @@ def readyz():
         'status': status,
         'version': os.getenv('APP_VERSION', 'dev'),
         'timestamp': datetime.now(timezone.utc).isoformat(),
-        'checks': checks
+        'checks': checks,
+        'db': db_info,
     }
     return jsonify(payload), status_code
 
