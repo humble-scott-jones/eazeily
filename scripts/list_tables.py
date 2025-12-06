@@ -40,6 +40,8 @@ if conn is None:
 
 if conn is None:
     print("Could not import psycopg or psycopg2 or connect to DB.", file=sys.stderr)
+    print("sys.path:", sys.path, file=sys.stderr)
+    print("Python version:", sys.version, file=sys.stderr)
     sys.exit(3)
 
 try:
