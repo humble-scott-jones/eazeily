@@ -5,17 +5,85 @@ from datetime import datetime, timezone
 from typing import Iterable, Mapping
 
 
-WORD_RE = re.compile(r"[a-zA-Z'][a-zA-Z']*")
-STOPWORDS = {
-    'the', 'and', 'a', 'to', 'of', 'in', 'for', 'on', 'with', 'is', 'it', 'this', 'that', 'at', 'by', 'an',
-    'be', 'are', 'as', 'from', 'or', 'we', 'you', 'your', 'our', 'us', 'about'
-}
-
+# Regex to capture words (including contractions) AND emojis/symbols commonly used in social
+# This is a broad pattern: words OR non-whitespace/non-punctuation symbols (emojis)
+TOKEN_RE = re.compile(r"[a-zA-Z'][a-zA-Z']*|[^\w\s\.,\"';:?!]+")
 
 def _tokenize(text: str) -> list[str]:
     if not text:
         return []
-    return WORD_RE.findall(text.lower())
+    # Find words and emojis, ignore standard punctuation for token counts
+    return TOKEN_RE.findall(text.lower())
+
+
+def _analyze_structure(samples: list[str]) -> dict:
+    """Analyze sentence structure and punctuation habits."""
+    if not samples:
+        return {}
+    
+    sentence_lengths = []
+    punctuation_counts = Counter()
+    
+    for text in samples:
+        # Rough sentence splitting
+        sentences = re.split(r'[.!?]+', text)
+        for s in sentences:
+            words = s.strip().split()
+            if words:
+                sentence_lengths.append(len(words))
+        
+        # Count expressive punctuation
+        punctuation_counts['!'] += text.count('!')
+        punctuation_counts['?'] += text.count('?')
+        punctuation_counts['...'] += text.count('...')
+    
+    avg_len = sum(sentence_lengths) / len(sentence_lengths) if sentence_lengths else 0
+    # Calculate variance (standard deviation)
+    variance = 0
+    if len(sentence_lengths) > 1:
+        variance = math.sqrt(sum((x - avg_len) ** 2 for x in sentence_lengths) / len(sentence_lengths))
+        
+    return {
+        'avg_sentence_len': round(avg_len, 1),
+        'sentence_variance': round(variance, 1),
+        'punctuation_profile': dict(punctuation_counts)
+    }
+
+
+def _generate_style_instruction(profile: dict) -> str:
+    """Synthesize a natural language instruction for the AI based on stats."""
+    parts = []
+    
+    # 1. Length/Pacing
+    avg_len = profile.get('avg_length', 15)
+    variance = profile.get('structure', {}).get('sentence_variance', 0)
+    
+    if avg_len < 10:
+        parts.append("Use short, punchy sentences.")
+    elif avg_len > 25:
+        parts.append("Use longer, narrative-style sentences.")
+        
+    if variance > 5:
+        parts.append("Vary sentence length to sound conversational.")
+        
+    # 2. Energy/Punctuation
+    punc = profile.get('structure', {}).get('punctuation_profile', {})
+    exclamations = punc.get('!', 0)
+    ellipses = punc.get('...', 0)
+    sample_count = profile.get('sample_count', 1)
+    
+    if exclamations / sample_count > 1.5:
+        parts.append("Maintain a high-energy, enthusiastic tone (use '!' frequently).")
+    elif ellipses / sample_count > 0.5:
+        parts.append("Use a thoughtful, pausing style (use '...' occasionally).")
+        
+    # 3. Vocabulary
+    phrases = profile.get('include_phrases', [])
+    if phrases:
+        parts.append(f"Naturally weave in words like: {', '.join(phrases[:5])}.")
+        
+    return " ".join(parts)
+
 
 
 def build_embedding(text: str) -> dict[str, float]:
@@ -97,24 +165,37 @@ def profile_from_samples(samples: list[str]) -> dict:
     cleaned = [s.strip() for s in samples if isinstance(s, str) and s.strip()]
     if not cleaned:
         return {}
+    
     embeddings = [build_embedding(text) for text in cleaned]
     merged = merge_embeddings(embeddings)
+    
     tokens: list[str] = []
     for text in cleaned:
         tokens.extend(_tokenize(text))
+        
     include_phrases = _top_phrases(tokens, 7)
     avoid_phrases = []
+    
+    # New structural analysis
+    structure = _analyze_structure(cleaned)
     avg_length = sum(len(text.split()) for text in cleaned) / len(cleaned)
     example_lines = cleaned[:3]
-    return {
+    
+    profile = {
         'created_at': datetime.now(timezone.utc).isoformat() + 'Z',
         'sample_count': len(cleaned),
         'avg_length': round(avg_length, 2),
+        'structure': structure,
         'include_phrases': include_phrases,
         'avoid_phrases': avoid_phrases,
         'example_lines': example_lines,
         'embedding': merged,
     }
+    
+    # Generate the "North Star" instruction
+    profile['style_instruction'] = _generate_style_instruction(profile)
+    
+    return profile
 
 
 def assess_text(profile: Mapping[str, object], text: str, *, threshold: float = 0.72) -> dict:

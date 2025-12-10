@@ -396,6 +396,7 @@ def _generate_posts_via_openai(spec: dict):
                 'avoid_phrases': voice_profile_ctx.get('avoid_phrases'),
                 'examples': voice_profile_ctx.get('example_lines'),
                 'avg_length': voice_profile_ctx.get('avg_length'),
+                'style_instruction': voice_profile_ctx.get('style_instruction'),
             }
         response = openai_client.chat.completions.create(  # type: ignore[attr-defined]
             model=OPENAI_GENERATE_MODEL,
@@ -442,6 +443,7 @@ def _generate_posts_from_image(spec: dict):
                 'avoid_phrases': voice_profile_ctx.get('avoid_phrases'),
                 'examples': voice_profile_ctx.get('example_lines'),
                 'avg_length': voice_profile_ctx.get('avg_length'),
+                'style_instruction': voice_profile_ctx.get('style_instruction'),
             }
         instructions = [
             "Look at the attached inspiration image and craft polished social posts that reference what you see.",
