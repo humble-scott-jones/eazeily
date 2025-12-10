@@ -605,6 +605,7 @@ def init_db():
             is_paid INTEGER DEFAULT 0,
             free_sample_used INTEGER DEFAULT 0,
             stripe_customer_id TEXT,
+            voice_profile TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS subscriptions (
@@ -815,9 +816,34 @@ def init_db():
     except Exception:
         pass
 
-@app.before_request
-def ensure_db():
-    init_db()
+
+def row_to_mapping(row: Any) -> Optional[dict]:
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row
+    # sqlite3.Row or psycopg.rows.dict_row
+    return dict(row)
+
+
+def _deserialize_json(raw: Any, default: Any = None) -> Any:
+    if raw is None:
+        return default
+    if isinstance(raw, (dict, list)):
+        return raw
+    try:
+        return json.loads(raw)
+    except Exception:
+        return default
+
+
+def _get_current_user_row():
+    uid = session.get('user_id')
+    if not uid:
+        return None
+    db = get_db()
+    return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+
 
 def _db_healthcheck():
     """Perform a short, isolated DB connectivity check.
@@ -1002,7 +1028,7 @@ def api_waitlist():
     try:
         db.execute('INSERT INTO waitlist (email, confirmed) VALUES (?, ?)', (email, 0))
         db.commit()
-    except sqlite3.IntegrityError:
+    except (sqlite3.IntegrityError, *DB_INTEGRITY_ERRORS):
         return jsonify({'ok': False, 'error': 'Email already on waitlist'}), 400
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500
@@ -1135,6 +1161,67 @@ def api_account():
             pass
 
     return jsonify({'ok': True, 'user': {'id': user['id'], 'email': user['email'], 'is_paid': bool(user['is_paid'])}, 'subscription': subscription_data})
+
+
+@app.get('/voice-setup')
+def voice_setup_page():
+    uid = session.get('user_id')
+    if not uid:
+        return redirect(url_for('login_page'))
+    
+    db = get_db()
+    user = db.execute('SELECT id, email, is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
+    if not user:
+        return redirect(url_for('login_page'))
+        
+    return render_template('voice_setup.html', initial_user=dict(user))
+
+
+@app.post('/api/voice/analyze')
+def api_voice_analyze():
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+        
+    data = request.get_json() or {}
+    samples = data.get('samples', [])
+    
+    if not samples or not isinstance(samples, list):
+        return jsonify({'ok': False, 'error': 'Invalid samples provided'}), 400
+        
+    try:
+        profile = voice_profile.profile_from_samples(samples)
+        return jsonify({'ok': True, 'profile': profile})
+    except Exception as e:
+        logging.exception("Voice analysis failed")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.post('/api/voice/save')
+def api_voice_save():
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+        
+    data = request.get_json() or {}
+    profile = data.get('profile')
+    
+    if not profile or not isinstance(profile, dict):
+        return jsonify({'ok': False, 'error': 'Invalid profile data'}), 400
+        
+    try:
+        db = get_db()
+        # Serialize profile to JSON string
+        profile_json = json.dumps(profile)
+        
+        # Update user record
+        db.execute('UPDATE users SET voice_profile = ? WHERE id = ?', (profile_json, uid))
+        db.commit()
+        
+        return jsonify({'ok': True})
+    except Exception as e:
+        logging.exception("Voice save failed")
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @app.post('/api/cancel-subscription')
@@ -1689,7 +1776,7 @@ def api_admin_team_member_create():
     try:
         db.execute('INSERT INTO team_members (owner_user_id, member_email) VALUES (?, ?)', (owner_id, member_email))
         db.commit()
-    except sqlite3.IntegrityError:
+    except (sqlite3.IntegrityError, *DB_INTEGRITY_ERRORS):
         return jsonify({'ok': False, 'error': 'Member already exists for this team'}), 409
 
     row = db.execute('SELECT id, owner_user_id, member_email, created_at FROM team_members WHERE owner_user_id = ? AND member_email = ?', (owner_id, member_email)).fetchone()
@@ -2362,608 +2449,139 @@ def api_team_draft_status(draft_id: str):
     })
 
 
-### DB helpers
-def get_user_by_email(email: str):
-    # Helper used in tests; prefer using the app context DB when available.
-    # If not in an application context, open a direct sqlite connection to DB_PATH
-    try:
-        if has_app_context():
-            db = get_db()
-            return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
-        # if we aren't in an app context, temporarily create one so the lookup uses
-        # the same connection helpers and DB_PATH overrides used elsewhere in tests
-        with app.app_context():
-            db = get_db()
-            return db.execute('SELECT * FROM users WHERE email = ?', (email.lower(),)).fetchone()
-    except Exception:
-        # fall through to file-based DB lookup
-        pass
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.execute('SELECT * FROM users WHERE email = ?', (email.lower(),))
-        row = cur.fetchone()
-        conn.close()
-        return row
-    except Exception:
-        return None
+@app.post('/api/signup')
+def api_signup():
+    data = request.get_json(force=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    password = data.get('password') or ''
+    
+    if not email or not password:
+        return jsonify({'ok': False, 'error': 'Email and password are required'}), 400
+    if len(password) < 6:
+        return jsonify({'ok': False, 'error': 'Password must be at least 6 characters'}), 400
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
 
-def get_user_by_id(uid: str):
-    try:
-        if has_app_context():
-            db = get_db()
-            return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
-        with app.app_context():
-            db = get_db()
-            return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
-    except Exception:
-        pass
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.execute('SELECT * FROM users WHERE id = ?', (uid,))
-        row = cur.fetchone()
-        conn.close()
-        return row
-    except Exception:
-        return None
-
-
-def row_to_mapping(x):
-    """Convert sqlite3.Row or list-of-rows to plain Python dict(s).
-
-    - If x is None, return None.
-    - If x is a sqlite3.Row, return dict(x).
-    - If x is a list/tuple of sqlite3.Row, return a list of dicts.
-    - If x is already a dict, return it unchanged.
-    """
-    if x is None:
-        return None
-    # sqlite3.Row doesn't implement isinstance check to a dedicated class
-    try:
-        if isinstance(x, sqlite3.Row):
-            return dict(x)
-    except Exception:
-        # some sqlite3 versions may not support direct isinstance checks; fallback below
-        pass
-    # list/tuple of rows
-    if isinstance(x, (list, tuple)):
-        out = []
-        for it in x:
-            try:
-                if isinstance(it, sqlite3.Row):
-                    out.append(dict(it))
-                else:
-                    out.append(it)
-            except Exception:
-                out.append(it)
-        return out
-    # dict-like passthrough
-    if isinstance(x, dict):
-        return x
-    return x
-
-def set_user_paid(uid: str, paid: bool = True):
     db = get_db()
     try:
-        db.execute('UPDATE users SET is_paid = ? WHERE id = ?', (1 if paid else 0, uid))
+        uid = str(uuid.uuid4())
+        pw_hash = _hash_password(password)
+        # Default to free tier
+        db.execute('INSERT INTO users (id, email, password_hash, is_paid, free_sample_used) VALUES (?, ?, ?, ?, ?)', (uid, email, pw_hash, 0, 0))
         db.commit()
-    except Exception:
-        pass
+        
+        session.clear()
+        session['user_id'] = uid
+        session['email'] = email
+        
+        return jsonify({'ok': True, 'user': {'id': uid, 'email': email, 'is_paid': False}})
+    except (sqlite3.IntegrityError, *DB_INTEGRITY_ERRORS):
+        return jsonify({'ok': False, 'error': 'Email already registered'}), 409
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
-def _ensure_profile_id() -> str:
-    """Return the profile identifier tied to the current user/session."""
-    uid = session.get('user_id')
-    if uid:
-        session['profile_id'] = uid
-        return uid
-    pid = session.get('profile_id')
-    if not pid:
-        pid = str(uuid.uuid4())
-        session['profile_id'] = pid
-    return pid
+@app.post('/api/login')
+def api_login():
+    data = request.get_json(force=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    password = data.get('password') or ''
+    
+    if not email or not password:
+        return jsonify({'ok': False, 'error': 'Email and password are required'}), 400
 
-
-def _normalize_company(name: str) -> str:
-    if not name:
-        return ""
-    words = [w for w in re.split(r"\s+", name.strip()) if w]
-    return " ".join([(w[0].upper() + w[1:]) if w else '' for w in words])
-
-
-def _validate_company(name: str):
-    if not name:
-        return None
-    if len(name) > 100:
-        return 'Company name is too long (max 100 chars).'
-    if re.search(r"[\x00-\x1F]", name):
-        return 'Company name contains invalid characters.'
-    if re.search(r"[<>*\\]", name):
-        return 'Company name contains invalid characters.'
-    if not re.match(r"^[\w \-'.&]+$", name):
-        return 'Company name contains invalid characters.'
-    return None
-
-
-def _deserialize_json(value, default):
-    if value in (None, ""):
-        return default
-    try:
-        return json.loads(value)
-    except Exception:
-        return default
-
-
-def _profile_row_to_dict(row):
-    if not row:
-        return {}
-    return {
-        'id': row['id'],
-        'industry': row['industry'] or '',
-        'tone': row['tone'] or '',
-        'platforms': _deserialize_json(row['platforms'], []),
-        'brand_keywords': _deserialize_json(row['brand_keywords'], []),
-        'niche_keywords': _deserialize_json(row['niche_keywords'], []),
-        'goals': _deserialize_json(row['goals'], []),
-        'company': row['company'] or '',
-        'include_images': bool(row['include_images']) if row['include_images'] is not None else True,
-        'details': _deserialize_json(row['details'], {})
-    }
-
-
-def _extract_voice_profile(details: Optional[dict]) -> Optional[dict]:
-    if not isinstance(details, dict):
-        return None
-    vp = details.get('voice_profile')
-    return vp if isinstance(vp, dict) else None
-
-
-def _active_voice_profile() -> Optional[dict]:
-    profile = _get_active_profile_dict() or {}
-    return _extract_voice_profile(profile.get('details') if isinstance(profile, dict) else {})
-
-
-def _get_active_profile_dict():
-    """Return the current profile (if any) as a plain dict."""
-    pid = session.get('user_id') or session.get('profile_id')
-    if not pid:
-        return None
     db = get_db()
-    row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
-    if not row:
-        return None
-    return _profile_row_to_dict(row)
-def _get_current_user_row():
-    uid = session.get('user_id')
-    if not uid:
-        return None
-    db = get_db()
-    return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+    user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    
+    if not user or not check_password_hash(user['password_hash'], password):
+        # Slow down brute force attacks slightly
+        time.sleep(0.5)
+        return jsonify({'ok': False, 'error': 'Invalid email or password'}), 401
 
+    session.clear()
+    session['user_id'] = user['id']
+    session['email'] = user['email']
+    
+    # Check if admin
+    if is_admin():
+        session['admin_csrf'] = uuid.uuid4().hex
 
-def _serialize_user_row(row):
-    if not row:
-        return None
-    return {
-        'id': row['id'],
-        'email': row['email'],
-        'is_paid': bool(row['is_paid']),
-        'free_sample_used': bool(row['free_sample_used']) if row['free_sample_used'] is not None else False
-    }
-
-
-def _get_user_email(row) -> Optional[str]:
-    if not row:
-        return None
-    if isinstance(row, dict):
-        return row.get('email')
-    try:
-        return row['email']
-    except (TypeError, KeyError):
-        return getattr(row, 'email', None)
-
-
-def _mark_free_sample_used(uid: str):
-    if not uid:
-        return
-    db = get_db()
-    db.execute('UPDATE users SET free_sample_used = 1 WHERE id = ?', (uid,))
-    db.commit()
-
-
-def _short_video_requested(platforms):
-    targets = {'short_video', 'reels', 'reel', 'short-form', 'vertical_video'}
-    for item in platforms or []:
-        if not isinstance(item, str):
-            continue
-        if item.strip().lower() in targets:
-            return True
-    return False
-
-
-def _current_usage_period() -> str:
-    return datetime.now(timezone.utc).strftime('%Y-%m')
-
-
-def _check_reels_quota(user_id: Optional[str], amount: int) -> Tuple[bool, Optional[int]]:
-    if not user_id or amount <= 0:
-        return True, None
-    try:
-        quota = int(os.getenv('REELS_QUOTA_MONTHLY', '30') or 0)
-    except Exception:
-        quota = 0
-    if quota <= 0:
-        return True, None
-    db = get_db()
-    period = _current_usage_period()
-    row = db.execute('SELECT reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (user_id, period)).fetchone()
-    used = row['reels_generated'] if row else 0
-    if (used or 0) + amount > quota:
-        return False, max(0, quota - (used or 0))
-    return True, quota - ((used or 0) + amount)
-
-
-def _increment_reels_usage(user_id: Optional[str], amount: int):
-    if not user_id or amount <= 0:
-        return
-    db = get_db()
-    period = _current_usage_period()
-    row = db.execute('SELECT id, reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (user_id, period)).fetchone()
-    if row:
-        db.execute('UPDATE generation_usage SET reels_generated = ? WHERE id = ?', ((row['reels_generated'] or 0) + amount, row['id']))
-    else:
-        db.execute('INSERT INTO generation_usage (id, user_id, period, reels_generated) VALUES (?, ?, ?, ?)', (str(uuid.uuid4()), user_id, period, amount))
-    db.commit()
-
-
-def _trim_feedback_text(value: Optional[str], limit: int = 4000) -> str:
-    if not value:
-        return ''
-    text = str(value).strip()
-    if len(text) > limit:
-        return text[:limit]
-    return text
-
-
-def _build_feedback_issue_payload(issue_type: str, context: dict):
-    ctx = context or {}
-    profile = ctx.get('profile') if isinstance(ctx.get('profile'), dict) else {}
-    user_email = ctx.get('user_email') or 'unknown@eazeily.app'
-    summary = _trim_feedback_text(ctx.get('summary') or ctx.get('note') or 'New feedback', 80) or 'New feedback'
-    details = _trim_feedback_text(ctx.get('details') or ctx.get('note') or '')
-    tone = ctx.get('tone') or (profile.get('tone') if isinstance(profile, dict) else '')
-    industry = ctx.get('industry') or (profile.get('industry') if isinstance(profile, dict) else '')
-    company = profile.get('company') if isinstance(profile, dict) else ''
-    platforms = ctx.get('platforms') or (profile.get('platforms') if isinstance(profile, dict) else [])
-    if isinstance(platforms, (list, tuple)):
-        platforms = ', '.join([str(p) for p in platforms if p])
-
-    base_context = []
-    if industry:
-        base_context.append(f"- **Industry:** {industry}")
-    if tone:
-        base_context.append(f"- **Tone:** {tone}")
-    if company:
-        base_context.append(f"- **Company:** {company}")
-    if platforms:
-        base_context.append(f"- **Platforms:** {platforms}")
-
-    if issue_type == 'thumbs_down':
-        platform = ctx.get('platform') or 'Unknown platform'
-        post_day = ctx.get('post_day')
-        note_block = details or '_User did not leave additional feedback._'
-        post_snapshot = _trim_feedback_text(ctx.get('post_snapshot') or '', 1600) or '_No caption snapshot captured._'
-        base_context.append(f"- **Platform:** {platform}")
-        if post_day:
-            base_context.append(f"- **Day index:** {post_day}")
-        source = ctx.get('source') or 'dashboard'
-        base_context.append(f"- **Source:** {source}")
-        if ctx.get('plan_length'):
-            base_context.append(f"- **Plan length:** {ctx.get('plan_length')} days")
-        title = f"[Thumbs Down] {platform} day {post_day or '?'} — {summary}"
-        body = f"""## Reporter note\n\n{note_block}\n\n## Generated content snapshot\n\n```\n{post_snapshot}\n```\n\n## Context\n\n{os.linesep.join(base_context) if base_context else 'No additional metadata supplied.'}\n\n---\n*Submitted by: {user_email}*\n*Auto-created from Generate dashboard thumbs-down*"""
-        return title, body, ['thumbs-down']
-
-    # default/general feedback
-    category = (ctx.get('category') or 'idea').strip().lower()
-    allow_contact = bool(ctx.get('allow_contact'))
-    base_context.append(f"- **Category:** {category}")
-    if ctx.get('platform'):
-        base_context.append(f"- **Platform focus:** {ctx.get('platform')}")
-    if ctx.get('plan_length'):
-        base_context.append(f"- **Plan length:** {ctx.get('plan_length')} days")
-    if ctx.get('source'):
-        base_context.append(f"- **Source:** {ctx.get('source')}")
-    base_context.append(f"- **OK to contact:** {'Yes' if allow_contact else 'No'}")
-    metadata_block = os.linesep.join(base_context) if base_context else 'No additional metadata supplied.'
-    safe_details = details or '_No extra details provided._'
-    body = f"""## Summary\n\n{summary}\n\n## Details\n\n{safe_details}\n\n## Context\n\n{metadata_block}\n\n---\n*Submitted by: {user_email}*\n*Auto-created from Settings feedback form*"""
-    title = f"[Feedback] {summary}"
-    return title, body, ['settings-feedback', f'feedback-{category}']
-
-
-def _maybe_create_feedback_issue(issue_type: str, context: dict):
-    if not GITHUB_FEEDBACK_TOKEN or not GITHUB_FEEDBACK_REPO:
-        return None
-    if OUTBOUND_KILL_SWITCH:
-        app.logger.info('Skipping GitHub feedback issue creation (outbound disabled)', extra={'service': 'github'})
-        return None
-    try:
-        title, body, extra_labels = _build_feedback_issue_payload(issue_type, context)
-    except Exception:
-        app.logger.exception('Failed to build feedback issue payload')
-        return None
-    if not title or not body:
-        return None
-    payload: dict[str, Any] = {'title': title[:250], 'body': body}
-    labels = list(FEEDBACK_AUTOMATION_CONFIG.get('labels') or [])
-    for label in extra_labels or []:
-        if label and label not in labels:
-            labels.append(label)
-    if labels:
-        payload['labels'] = labels
-    assignee = FEEDBACK_AUTOMATION_CONFIG.get('default_assignee')
-    if assignee:
-        payload['assignees'] = [assignee]
-    owner_repo = GITHUB_FEEDBACK_REPO.split('/', 1)
-    if len(owner_repo) != 2:
-        app.logger.warning('Invalid GITHUB_FEEDBACK_REPO format: %s', GITHUB_FEEDBACK_REPO)
-        return None
-    owner, repo_name = owner_repo
-    url = f'https://api.github.com/repos/{owner}/{repo_name}/issues'
-    headers = {
-        'Accept': 'application/vnd.github+json',
-        'Authorization': f'Bearer {GITHUB_FEEDBACK_TOKEN}',
-        'X-GitHub-Api-Version': '2022-11-28'
-    }
-    try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=GITHUB_FEEDBACK_TIMEOUT)
-        if resp.ok:
-            return resp.json()
-        app.logger.warning('GitHub issue creation failed: %s', resp.text)
-    except Exception:
-        app.logger.exception('GitHub issue creation request failed')
-    return None
-
-
-def _coerce_str_list(value, default=None):
-    if isinstance(value, (list, tuple, set)):
-        items = [str(v).strip() for v in value if isinstance(v, str) and v.strip()]
-        if items:
-            return items
-    elif isinstance(value, str) and value.strip():
-        return [value.strip()]
-    if isinstance(default, (list, tuple, set)):
-        return [str(v).strip() for v in default if isinstance(v, str) and str(v).strip()]
-    return list(default or []) if default else []
-
-
-def _parse_start_day(value):
-    if not value:
-        return date.today()
-    if isinstance(value, date):
-        return value
-    if isinstance(value, str):
-        try:
-            return date.fromisoformat(value[:10])
-        except Exception:
-            return date.today()
-    return date.today()
-
-
-def _merge_generation_payload(payload: dict, profile: Optional[dict]) -> dict:
-    profile = dict(profile or {})
-    payload = dict(payload or {})
-
-    days_src = payload.get('days') or profile.get('plan_days') or profile.get('days') or 7
-    try:
-        days = int(days_src)
-    except Exception:
-        days = 7
-    days = max(1, min(days, 30))
-
-    platforms = _coerce_str_list(payload.get('platforms'), profile.get('platforms') or [])
-    if not platforms and payload.get('platform'):
-        platforms = _coerce_str_list([payload.get('platform')])
-    if not platforms:
-        platforms = ['instagram']
-
-    base_details = profile.get('details') if isinstance(profile.get('details'), dict) else {}
-    override_details = payload.get('details') if isinstance(payload.get('details'), dict) else {}
-    details = dict(base_details) if isinstance(base_details, dict) else {}
-    if isinstance(override_details, dict):
-        details.update(override_details)
-
-    include_images = payload.get('include_images')
-    if include_images is None:
-        include_images = profile.get('include_images', True)
-
-    company = payload.get('company') or profile.get('company') or ''
-
-    merged = {
-        'days': days,
-        'start_day': _parse_start_day(payload.get('start_day') or profile.get('start_day')),
-        'industry': (payload.get('industry') or profile.get('industry') or 'Business').strip() or 'Business',
-        'tone': (payload.get('tone') or profile.get('tone') or 'friendly').strip() or 'friendly',
-        'platforms': platforms,
-        'brand_keywords': _coerce_str_list(payload.get('brand_keywords'), profile.get('brand_keywords') or []),
-        'niche_keywords': _coerce_str_list(payload.get('niche_keywords'), profile.get('niche_keywords') or []),
-        'goals': _coerce_str_list(payload.get('goals'), profile.get('goals') or []),
-        'include_images': bool(include_images),
-        'details': details,
-        'voice_profile': _extract_voice_profile(details),
-        'company': _normalize_company(company),
-    }
-    image_context = (payload.get('image_context') or '').strip()
-    if image_context:
-        merged['image_context'] = image_context[:500]
-    return merged
-
-
-@app.get('/api/profile')
-def api_get_profile():
-    pid = _ensure_profile_id()
-    db = get_db()
-    row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
-    if not row:
-        return jsonify({'id': pid})
-    return jsonify(_profile_row_to_dict(row))
-
-
-def _persist_voice_profile(pid: str, samples: list[str], voice_blob: dict):
-    db = get_db()
-    # Check if the profile exists
-    row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
-    if row:
-        base_details = _deserialize_json(row['details'], {}) if row['details'] else {}
-        if not isinstance(base_details, dict):
-            base_details = {}
-        merged_details = dict(base_details)
-        merged_details['voice_samples'] = samples
-        merged_details['voice_profile'] = voice_blob
-        db.execute(
-            'UPDATE profiles SET details = ? WHERE id = ?',
-            (json.dumps(merged_details), pid)
-        )
-    else:
-        # Insert a new profile row with at least required columns
-        merged_details = {
-            'voice_samples': samples,
-            'voice_profile': voice_blob
-        }
-        # Set sensible defaults for required columns
-        created_at = datetime.now(timezone.utc).isoformat()
-        db.execute(
-            'INSERT INTO profiles (id, details, created_at) VALUES (?, ?, ?)',
-            (pid, json.dumps(merged_details), created_at)
-        )
-    db.commit()
-
-
-@app.get('/api/voice-profile')
-def api_voice_profile():
-    pid = _ensure_profile_id()
-    profile = _get_active_profile_dict() or {}
-    details = profile.get('details') if isinstance(profile, dict) else {}
-    vp = _extract_voice_profile(details)
-    samples = details.get('voice_samples') if isinstance(details, dict) else None
     return jsonify({
-        'ok': True,
-        'id': pid,
-        'voice_profile': vp,
-        'samples': samples if isinstance(samples, list) else [],
+        'ok': True, 
+        'user': {
+            'id': user['id'], 
+            'email': user['email'], 
+            'is_paid': bool(user['is_paid']),
+            'is_admin': bool(user['is_admin']) if 'is_admin' in user.keys() else False
+        }
     })
 
 
-@app.post('/api/voice-profile')
-def api_save_voice_profile():
-    pid = _ensure_profile_id()
+@app.post('/api/logout')
+def api_logout():
+    session.clear()
+    return jsonify({'ok': True})
+
+
+@app.post('/api/request-password-reset')
+def api_request_password_reset():
     data = request.get_json(force=True) or {}
-    raw_samples = data.get('samples')
-    samples: list[Any] = raw_samples if isinstance(raw_samples, list) else []
-    cleaned = [str(s).strip() for s in samples if isinstance(s, str) and str(s).strip()]
-    
-    # Validate initial sample count before filtering
-    if len(cleaned) < VOICE_SAMPLE_MIN_COUNT or len(cleaned) > VOICE_SAMPLE_MAX_COUNT:
-        return jsonify({'ok': False, 'error': f'Provide between {VOICE_SAMPLE_MIN_COUNT} and {VOICE_SAMPLE_MAX_COUNT} recent posts to train your voice.'}), 400
-    
-    # Filter out samples that are too short
-    cleaned = [s for s in cleaned if len(s) >= VOICE_SAMPLE_MIN_LEN]
-    
-    # Validate final sample count after filtering
-    if len(cleaned) < VOICE_SAMPLE_MIN_COUNT:
-        return jsonify({'ok': False, 'error': f'After removing very short posts, only {len(cleaned)} valid samples remain. Please provide longer posts (at least {VOICE_SAMPLE_MIN_LEN} characters each).'}), 400
-    voice_blob = voice_profile.profile_from_samples(cleaned)
-    if not voice_blob:
-        return jsonify({'ok': False, 'error': 'Samples must contain text. Please provide valid post content.'}), 400
-    _persist_voice_profile(pid, cleaned, voice_blob)
-    return jsonify({'ok': True, 'voice_profile': voice_blob, 'samples': cleaned})
-
-
-@app.post('/api/voice/analyze')
-def voice_analyze():
-    data = request.get_json() or {}
-    samples = data.get('samples', [])
-    if not samples or not isinstance(samples, list):
-        return jsonify({'error': 'Invalid samples provided'}), 400
-    
-    try:
-        profile = voice_profile.profile_from_samples(samples)
-        return jsonify({'ok': True, 'profile': profile})
-    except Exception as e:
-        app.logger.error(f"Voice analysis failed: {e}")
-        return jsonify({'error': 'Analysis failed'}), 500
-
-
-@app.post('/api/voice/save')
-def voice_save():
-    uid = session.get('user_id') or session.get('profile_id')
-    if not uid:
-        return jsonify({'error': 'Unauthorized'}), 401
-        
-    data = request.get_json() or {}
-    profile = data.get('profile')
-    if not profile:
-        return jsonify({'error': 'No profile data'}), 400
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return jsonify({'ok': False, 'error': 'Email is required'}), 400
         
     db = get_db()
-    try:
-        # Check if profile exists
-        row = db.execute('SELECT id FROM profiles WHERE id = ?', (uid,)).fetchone()
-        if not row:
-            # Create a skeleton profile if it doesn't exist
-            db.execute('INSERT INTO profiles (id) VALUES (?)', (uid,))
-            
-        db.execute(
-            'UPDATE profiles SET voice_profile = ? WHERE id = ?',
-            (json.dumps(profile), uid)
-        )
-        db.commit()
+    user = db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
+    if not user:
+        # Don't reveal user existence
+        time.sleep(0.5)
         return jsonify({'ok': True})
-    except Exception as e:
-        app.logger.error(f"Voice save failed: {e}")
-        return jsonify({'error': 'Save failed'}), 500
-
-
-@app.get('/api/voice')
-def voice_get():
-    uid = session.get('user_id') or session.get('profile_id')
-    if not uid:
-        return jsonify({'error': 'Unauthorized'}), 401
         
-    db = get_db()
-    row = db.execute('SELECT voice_profile FROM profiles WHERE id = ?', (uid,)).fetchone()
-    if row and row['voice_profile']:
-        try:
-            return jsonify({'ok': True, 'profile': json.loads(row['voice_profile'])})
-        except:
-            pass
-            
-    return jsonify({'ok': True, 'profile': None})
-
-
-@app.get('/voice-setup')
-def voice_setup_page():
-    """Voice profile setup wizard."""
-    return render_template("voice_setup.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
-
-@app.post('/api/account/upgrade')
-def api_account_upgrade():
-    """Mock upgrade endpoint for free tier rollout."""
-    uid = session.get('user_id')
-    if not uid:
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    token = uuid.uuid4().hex
+    expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     
-    data = request.get_json() or {}
-    tier = data.get('tier')
-    
-    if tier not in ('team', 'solo'):
-        return jsonify({'ok': False, 'error': 'Invalid tier'}), 400
-        
-    db = get_db()
-    # For now, just update the subscription_tier directly since it's free
-    db.execute('UPDATE users SET subscription_tier = ?, is_paid = 1 WHERE id = ?', (tier, uid))
+    db.execute('INSERT INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)', (token, user['id'], expires))
     db.commit()
     
-    return jsonify({'ok': True, 'tier': tier})
+    # In a real app, send email here. For now, return token in dev mode or just ok.
+    if _is_dev_mode():
+        return jsonify({'ok': True, 'token': token})
+        
+    return jsonify({'ok': True})
+
+
+@app.post('/api/confirm-password-reset')
+def api_confirm_password_reset():
+    data = request.get_json(force=True) or {}
+    token = (data.get('token') or '').strip()
+    password = data.get('password') or ''
+    
+    if not token or not password:
+        return jsonify({'ok': False, 'error': 'Token and password are required'}), 400
+    if len(password) < 6:
+        return jsonify({'ok': False, 'error': 'Password must be at least 6 characters'}), 400
+        
+    db = get_db()
+    tok_row = db.execute('SELECT * FROM password_reset_tokens WHERE token = ?', (token,)).fetchone()
+    
+    if not tok_row:
+        return jsonify({'ok': False, 'error': 'Invalid or expired token'}), 400
+        
+    expires = tok_row['expires_at']
+    # Handle string or datetime
+    if isinstance(expires, str):
+        expires_dt = datetime.fromisoformat(expires)
+    else:
+        expires_dt = expires
+        
+    if expires_dt.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        return jsonify({'ok': False, 'error': 'Token expired'}), 400
+        
+    uid = tok_row['user_id']
+    pw_hash = _hash_password(password)
+    
+    db.execute('UPDATE users SET password_hash = ? WHERE id = ?', (pw_hash, uid))
+    db.execute('DELETE FROM password_reset_tokens WHERE token = ?', (token,))
+    db.commit()
+    
+    return jsonify({'ok': True})
