@@ -528,6 +528,13 @@ function setupContentGeneration() {
   const planLengthWrap = document.getElementById('plan-length-buttons');
   const daySelect = document.getElementById('gen-days');
 
+  // Hide 30-day option for free users
+  const user = JSON.parse(document.body.dataset.initialUser || '{}');
+  if (!user.is_paid) {
+    const btn30 = planLengthWrap?.querySelector('button[data-plan-length="30"]');
+    if (btn30) btn30.classList.add('hidden');
+  }
+
   generatorUI = { generateBtn, loadingDiv, resultsDiv, contentResults, reelOptions };
   initGeneratorPlatformPicker();
   refreshReelOptionsVisibility();
@@ -1760,7 +1767,7 @@ function renderPublishingQueue() {
   empty.classList.add('hidden');
 
   const sorted = [...publishingQueueState.entries].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
-  sorted.forEach(entry => list.appendChild(renderQueueItem(entry)));
+  sorted.forEach entry => list.appendChild(renderQueueItem(entry)));
 }
 
 function renderQueueItem(entry) {
@@ -1997,7 +2004,7 @@ async function generateReviewResponse(reviewText, tone, companyName = '') {
     // Fallback to client-side template
     return {
       text: generateReviewResponseTemplate(reviewText, tone, companyName),
-      method: 'template'
+           method: 'template'
     };
   }
 }

@@ -120,8 +120,23 @@
         </div>
       </div>
 
+      <!-- Mode Toggle -->
+      <div class="flex justify-center">
+        <div class="bg-white/50 backdrop-blur-sm border border-slate-200 p-1.5 rounded-2xl inline-flex gap-1 shadow-sm" role="tablist" aria-label="Generation Mode">
+          <button id="mode-social" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-900 bg-white shadow-sm ring-1 ring-slate-200 transition-all" role="tab" aria-selected="true" aria-controls="content-generator">
+            Social Media
+          </button>
+          <button id="mode-reviews" class="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-white/60 transition-all" role="tab" aria-selected="false" aria-controls="review-response">
+            Review Response
+          </button>
+          <button id="mode-reels" class="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-white/60 transition-all" role="tab" aria-selected="false" aria-controls="content-generator">
+            Reels & Shorts
+          </button>
+        </div>
+      </div>
+
       <!-- Review Response Section -->
-  <div id="review-response" class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+      <div id="review-response" class="hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
         <div class="flex items-center gap-3 mb-6">
           <div class="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
             <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
