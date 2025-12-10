@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="32" viewBox="0 0 128 32" role="img" aria-label="Eazeily logo text">
-  <defs>
-    <linearGradient id="textgrad" x1="0%" x2="100%" y1="0%" y2="0%">
+<svg xmlns="http://www.w3.org/2000/svg" width="140" height="40" viewBox="0 0 140 40" role="img" aria-label="Eazeily"><svg xmlns="http://www.w3.org/2000/svg" width="128" height="32" viewBox="0 0 128 32" role="img" aria-label="Eazeily logo text">
+
+  <text x="50%" y="30" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="32" font-weight="800" fill="#0f172a" text-anchor="middle">Eazeily</text>  <defs>
+
+</svg>    <linearGradient id="textgrad" x1="0%" x2="100%" y1="0%" y2="0%">
       <stop offset="0%" stop-color="#6366F1"/>
       <stop offset="100%" stop-color="#a5b4fc"/>
     </linearGradient>

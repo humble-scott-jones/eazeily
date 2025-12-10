@@ -1,13 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
-  <defs>
-    <linearGradient id="brandgrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#a78bfa"/>
-      <stop offset="50%" stop-color="#6366F1"/>
-      <stop offset="100%" stop-color="#4338ca"/>
-    </linearGradient>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
 
-  <!-- Speech bubble shape -->
+  <defs>  <defs>
+
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">    <linearGradient id="brandgrad" x1="0%" y1="0%" x2="100%" y2="100%">
+
+      <stop offset="0%" stop-color="#6366f1" /> <!-- Indigo 500 -->      <stop offset="0%" stop-color="#a78bfa"/>
+
+      <stop offset="100%" stop-color="#8b5cf6" /> <!-- Violet 500 -->      <stop offset="50%" stop-color="#6366F1"/>
+
+    </linearGradient>      <stop offset="100%" stop-color="#4338ca"/>
+
+  </defs>    </linearGradient>
+
+  <rect x="10" y="10" width="108" height="108" rx="28" ry="28" fill="url(#bg-grad)" />  </defs>
+
+  <text x="64" y="92" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="84" font-weight="800" fill="white" text-anchor="middle">E</text>
+
+</svg>  <!-- Speech bubble shape -->
   <path d="M25 40 Q25 25 40 25 L88 25 Q103 25 103 40 L103 75 Q103 90 88 90 L70 90 L75 105 L65 90 L40 90 Q25 90 25 75 Z"
         fill="url(#brandgrad)"
         stroke="none"/>
