@@ -2,7 +2,7 @@ name: Deploy (App Engine)
 
 on:
   push:
-    branches: [staging, main]
+    branches: [staging, staging/rollout-2025-12-04, main]
   workflow_dispatch:
     inputs:
       environment:
@@ -24,7 +24,7 @@ concurrency:
 jobs:
   deploy-staging:
     name: Deploy staging
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/staging') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    if: (github.event_name == 'push' && (github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/staging/rollout-2025-12-04')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
     runs-on: ubuntu-latest
     environment: staging
     permissions:
