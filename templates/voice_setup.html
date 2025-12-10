@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Voice Setup - Eazeily</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/eazeily-theme.css" />
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="{{ initial_user | tojson | forceescape }}">
+  <!-- Background decoration -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    <div class="absolute top-40 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
+    <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
+  </div>
+
+  <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <img src="/static/logo.svg" alt="Eazeily icon" class="w-9 h-9" />
+        <img src="/static/eazeily-logo.svg" alt="Eazeily wordmark" class="h-6 hidden sm:block" />
+        <span class="sr-only">Eazeily</span>
+      </a>
+      <div class="flex items-center gap-4">
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/app">Setup</a>
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/generate">Generate</a>
+        <a class="auth-link text-sm text-brand hover:underline cursor-pointer">Account</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative max-w-4xl mx-auto p-6">
+    <div class="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200">
+      <div class="max-w-2xl mx-auto space-y-8">
+        <div class="text-center space-y-4">
+          <div class="inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 rounded-full px-4 py-2 text-xs font-semibold tracking-wide uppercase">
+            <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
+            Voice Profile
+          </div>
+          <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Let's find your voice</h1>
+          <p class="text-lg text-slate-600">
+            Paste 3-5 examples of posts you've written that sound like "you". We'll analyze them to create a custom voice profile for your AI content.
+          </p>
+        </div>
+
+        <div id="step-input" class="space-y-6">
+          <div class="space-y-4">
+            <label class="block text-sm font-medium text-slate-700">Your Content Samples</label>
+            <textarea id="samples-input" rows="8" class="w-full rounded-xl border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-4 text-slate-700" placeholder="Paste your posts here. Separate them with new lines..."></textarea>
+            <p class="text-xs text-slate-500">Tip: The more variety you provide, the better we can match your style.</p>
+          </div>
+          
+          <button id="analyze-btn" class="w-full btn-primary py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5">
+            Analyze My Voice
+          </button>
+        </div>
+
+        <div id="step-loading" class="hidden text-center py-12 space-y-4">
+          <div class="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto"></div>
+          <p class="text-slate-600 font-medium">Analyzing your unique style...</p>
+        </div>
+
+        <div id="step-result" class="hidden space-y-8 animate-fade-in">
+          <div class="bg-indigo-50 rounded-2xl p-6 border border-indigo-100">
+            <h3 class="text-xl font-bold text-indigo-900 mb-4">Analysis Results</h3>
+            <div class="grid md:grid-cols-2 gap-6">
+              <div>
+                <p class="text-xs uppercase tracking-wide text-indigo-500 font-semibold mb-2">Key Phrases</p>
+                <div id="result-phrases" class="flex flex-wrap gap-2">
+                  <!-- Phrases injected here -->
+                </div>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-indigo-500 font-semibold mb-2">Style Stats</p>
+                <ul class="space-y-2 text-sm text-indigo-800">
+                  <li class="flex justify-between">
+                    <span>Average Length:</span>
+                    <span id="result-length" class="font-bold">-- words</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <button id="retry-btn" class="flex-1 btn-secondary py-3 rounded-xl">Try Again</button>
+            <button id="save-btn" class="flex-1 btn-primary py-3 rounded-xl shadow-lg">Save Voice Profile</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const retryBtn = document.getElementById('retry-btn');
+    const saveBtn = document.getElementById('save-btn');
+    const samplesInput = document.getElementById('samples-input');
+    const stepInput = document.getElementById('step-input');
+    const stepLoading = document.getElementById('step-loading');
+    const stepResult = document.getElementById('step-result');
+    
+    let currentProfile = null;
+
+    analyzeBtn.addEventListener('click', async () => {
+      const text = samplesInput.value.trim();
+      if (!text) return;
+      
+      // Split by newlines and filter empty
+      const samples = text.split(/\n+/).filter(s => s.trim().length > 0);
+      
+      if (samples.length < 1) {
+        alert('Please provide at least one sample.');
+        return;
+      }
+
+      stepInput.classList.add('hidden');
+      stepLoading.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/voice/analyze', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ samples })
+        });
+        
+        const data = await res.json();
+        
+        if (data.ok && data.profile) {
+          currentProfile = data.profile;
+          renderResults(data.profile);
+          stepLoading.classList.add('hidden');
+          stepResult.classList.remove('hidden');
+        } else {
+          throw new Error(data.error || 'Analysis failed');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to analyze samples. Please try again.');
+        stepLoading.classList.add('hidden');
+        stepInput.classList.remove('hidden');
+      }
+    });
+
+    retryBtn.addEventListener('click', () => {
+      stepResult.classList.add('hidden');
+      stepInput.classList.remove('hidden');
+      currentProfile = null;
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      if (!currentProfile) return;
+      
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      
+      try {
+        const res = await fetch('/api/voice/save', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ profile: currentProfile })
+        });
+        
+        const data = await res.json();
+        
+        if (data.ok) {
+          window.location.href = '/generate';
+        } else {
+          throw new Error(data.error || 'Save failed');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to save profile.');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Voice Profile';
+      }
+    });
+
+    function renderResults(profile) {
+      const phrasesContainer = document.getElementById('result-phrases');
+      phrasesContainer.innerHTML = '';
+      
+      (profile.include_phrases || []).forEach(phrase => {
+        const span = document.createElement('span');
+        span.className = 'bg-white text-indigo-600 px-3 py-1 rounded-full text-sm font-medium border border-indigo-100 shadow-sm';
+        span.textContent = phrase;
+        phrasesContainer.appendChild(span);
+      });
+
+      document.getElementById('result-length').textContent = Math.round(profile.avg_length || 0) + ' words';
+    }
+  </script>
+</body>
+</html>

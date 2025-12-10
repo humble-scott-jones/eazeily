@@ -580,6 +580,8 @@ def init_db():
             goals TEXT,
             company TEXT,
             include_images INTEGER DEFAULT 1,
+            details TEXT,
+            voice_profile TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS feedback (
@@ -2869,674 +2871,72 @@ def api_save_voice_profile():
     return jsonify({'ok': True, 'voice_profile': voice_blob, 'samples': cleaned})
 
 
-@app.post('/api/profile')
-def api_save_profile():
-    pid = _ensure_profile_id()
-    payload = request.get_json(force=True) or {}
-
-    company_raw = (payload.get('company') or '').strip()
-    company_error = _validate_company(company_raw)
-    if company_error:
-        return jsonify({'ok': False, 'error': company_error, 'errors': {'company': company_error}}), 400
-    company = _normalize_company(company_raw)
-
-    def _clean_list(key):
-        value = payload.get(key) or []
-        if not isinstance(value, (list, tuple)):
-            return []
-        cleaned = []
-        for item in value:
-            if not isinstance(item, str):
-                continue
-            item = item.strip()
-            if item:
-                cleaned.append(item)
-        # preserve order, drop duplicates
-        seen = set()
-        deduped = []
-        for item in cleaned:
-            if item.lower() in seen:
-                continue
-            seen.add(item.lower())
-            deduped.append(item)
-        return deduped
-
-    include_images = bool(payload.get('include_images', True))
-    raw_details = payload.get('details')
-    details: dict[str, object]
-    if isinstance(raw_details, dict):
-        details = dict(raw_details)
-    else:
-        details = {}
-    content_version = request.args.get('content_version') or ''
-    if content_version:
-        details.setdefault('_content_version', content_version)
-
-    db = get_db()
-    existing_row = db.execute('SELECT details FROM profiles WHERE id = ?', (pid,)).fetchone()
-    if existing_row:
-        existing_details = _deserialize_json(existing_row['details'], {}) if existing_row else {}
-        if isinstance(existing_details, dict):
-            for key, val in existing_details.items():
-                if key.startswith('voice_') and key not in details:
-                    details[key] = val
-    db.execute(
-        '''INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET
-             industry=excluded.industry,
-             tone=excluded.tone,
-             platforms=excluded.platforms,
-             brand_keywords=excluded.brand_keywords,
-             niche_keywords=excluded.niche_keywords,
-             goals=excluded.goals,
-             company=excluded.company,
-             include_images=excluded.include_images,
-             details=excluded.details''',
-        (
-            pid,
-            (payload.get('industry') or '').strip(),
-            (payload.get('tone') or '').strip(),
-            json.dumps(_clean_list('platforms')),
-            json.dumps(_clean_list('brand_keywords')),
-            json.dumps(_clean_list('niche_keywords')),
-            json.dumps(_clean_list('goals')),
-            company,
-            1 if include_images else 0,
-            json.dumps(details)
-        )
-    )
-    db.commit()
-
-    row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
-    return jsonify({'ok': True, 'id': pid, 'profile': _profile_row_to_dict(row)})
-
-
-@app.get('/api/current_user')
-def api_current_user():
-    row = _get_current_user_row()
-    if not row:
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    data = _serialize_user_row(row) or {}
-    data['ok'] = True
-    return jsonify(data)
-
-
-@app.post('/api/login')
-def api_login():
-    rl = _enforce_rate_limit(f"{request.remote_addr}:login", capacity=20, refill_seconds=300)
-    if rl:
-        return rl
-    data = request.get_json(force=True) or {}
-    email = (data.get('email') or '').strip().lower()
-    password = data.get('password') or ''
-    if not email or not password:
-        return jsonify({'ok': False, 'error': 'Email and password required'}), 400
-    db = get_db()
-    row = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
-    if not row or not row['password_hash'] or not check_password_hash(row['password_hash'], password):
-        return jsonify({'ok': False, 'error': 'Invalid credentials'}), 401
-    session['user_id'] = row['id']
-    session['profile_id'] = row['id']
-    data = _serialize_user_row(row) or {}
-    data['ok'] = True
-    return jsonify(data)
-
-
-@app.post('/api/logout')
-def api_logout():
-    # Clear all session state instead of removing only auth keys to avoid
-    # leaving behind admin CSRF tokens or feature flags between accounts.
-    session.clear()
-    return jsonify({'ok': True})
-
-
-@app.post('/api/request-password-reset')
-def api_request_password_reset():
-    data = request.get_json(force=True) or {}
-    email = (data.get('email') or '').strip().lower()
-    if not email:
-        return jsonify({'ok': False, 'error': 'Email required'}), 400
-    db = get_db()
-    row = db.execute('SELECT id FROM users WHERE email = ?', (email,)).fetchone()
-    if not row:
-        # Return success to avoid leaking which emails exist
-        return jsonify({'ok': True})
-    token = str(uuid.uuid4())
-    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
-    db.execute('INSERT OR REPLACE INTO password_reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)', (token, row['id'], expires_at.isoformat()))
-    db.commit()
-    # In lieu of email delivery, return token for dev/testing convenience
-    return jsonify({'ok': True, 'token': token})
-
-
-@app.post('/api/confirm-password-reset')
-def api_confirm_password_reset():
-    data = request.get_json(force=True) or {}
-    token = (data.get('token') or '').strip()
-    password = data.get('password') or ''
-    if not token or not password or len(password) < 6:
-        return jsonify({'ok': False, 'error': 'Valid token and password are required'}), 400
-    db = get_db()
-    row = db.execute('SELECT user_id, expires_at FROM password_reset_tokens WHERE token = ?', (token,)).fetchone()
-    if not row:
-        return jsonify({'ok': False, 'error': 'Invalid or expired token'}), 400
-    expires_at = row['expires_at']
-    if expires_at and isinstance(expires_at, str):
-        try:
-            if datetime.fromisoformat(expires_at) < datetime.now(timezone.utc):
-                db.execute('DELETE FROM password_reset_tokens WHERE token = ?', (token,))
-                db.commit()
-                return jsonify({'ok': False, 'error': 'Token expired'}), 400
-        except Exception:
-            pass
-    pw_hash = _hash_password(password)
-    db.execute('UPDATE users SET password_hash = ? WHERE id = ?', (pw_hash, row['user_id']))
-    db.execute('DELETE FROM password_reset_tokens WHERE token = ?', (token,))
-    db.commit()
-    return jsonify({'ok': True})
-
-
-@app.get('/__dev__/ping')
-def dev_ping():
-    """Simple health endpoint used by tests and helper scripts."""
-    return ('pong', 200)
-
-
-@app.get('/__dev__/routes')
-def dev_routes():
-    """Return a JSON list of registered routes for dev/acceptance tests.
-
-    This endpoint is intentionally gated to development mode or when
-    ALLOW_DEV_DEBUG is enabled so it isn't exposed in production.
-    """
-    if not _is_dev_mode():
-        return jsonify({'ok': False, 'error': 'Not available'}), 404
-
-    routes = []
-    for rule in app.url_map.iter_rules():
-        try:
-            methods = sorted([m for m in (rule.methods or []) if m not in ('HEAD', 'OPTIONS')])
-        except Exception:
-            methods = list(rule.methods or [])
-        routes.append({'rule': str(rule), 'endpoint': rule.endpoint, 'methods': methods})
-
-    return jsonify({'ok': True, 'routes': routes})
-
-
-@app.get('/__demo__/start')
-def demo_start():
-    """Seed a lightweight demo user/profile and redirect to the app landing.
-
-    This route is gated: it is available when running in dev mode or when
-    the environment variable `DEMO_MODE` is set to '1'. It creates a demo
-    user and profile (if absent), sets session values, and redirects to
-    `/app` so the setup wizard and generator can be recorded without
-    showing login flows.
-    """
-    allowed = _is_dev_mode() or os.getenv('DEMO_MODE') == '1'
-    if not allowed:
-        return jsonify({'ok': False, 'error': 'Not available'}), 404
-
-    demo_email = os.getenv('DEMO_EMAIL') or 'demo@example.com'
-    db = get_db()
-    user = get_user_by_email(demo_email)
-    if not user:
-        uid = str(uuid.uuid4())
-        pw = _hash_password('demo')
-        db.execute('INSERT INTO users (id, email, password_hash, is_paid, free_sample_used, subscription_tier) VALUES (?, ?, ?, ?, ?, ?)', (uid, demo_email, pw, 1, 0, 'solo'))
-        db.commit()
-        user = db.execute('SELECT * FROM users WHERE email = ?', (demo_email,)).fetchone()
-
-    # Ensure a profile exists
-    profile_id = session.get('profile_id') or str(uuid.uuid4())
-    exists = db.execute('SELECT id FROM profiles WHERE id = ?', (profile_id,)).fetchone()
-    if not exists:
-        # Insert a basic profile that highlights the generator (Bakery demo)
-        demo_profile = {
-            'id': profile_id,
-            'industry': 'Bakery',
-            'tone': 'friendly',
-            'platforms': json.dumps(['instagram']),
-            'brand_keywords': json.dumps(['artisan', 'sourdough']),
-            'niche_keywords': json.dumps(['local']),
-            'goals': json.dumps(['Drive sales', 'Engagement']),
-            'company': "Demo Bakery",
-            'include_images': 0,
-            'details': json.dumps({'note': 'Demo theme', 'reel_style': 'Face-camera tips'}),
-            'created_at': datetime.now(timezone.utc).isoformat()
-        }
-        # Use parameterized insert covering common columns
-        db.execute('INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (
-            demo_profile['id'], demo_profile['industry'], demo_profile['tone'], demo_profile['platforms'], demo_profile['brand_keywords'], demo_profile['niche_keywords'], demo_profile['goals'], demo_profile['company'], demo_profile['include_images'], demo_profile['details'], demo_profile['created_at']
-        ))
-        db.commit()
-
-    # Set session values and redirect to the main app
-    session['user_id'] = user['id'] if user else None
-    session['profile_id'] = profile_id
-    session['is_demo'] = True
-    return redirect(url_for('index'))
-
-
-DEV_USER_TEMPLATES = {
-    'free': {
-        'label': 'Free (unpaid)',
-        'is_paid': False,
-        'is_admin': False,
-        'subscription_tier': 'free',
-        'stripe_customer_id': None,
-    },
-    'paid_solo': {
-        'label': 'Paid – Solo',
-        'is_paid': True,
-        'is_admin': False,
-        'subscription_tier': 'solo',
-        'stripe_customer_id': 'dev-solo',
-    },
-    'paid_team_admin': {
-        'label': 'Paid – Team admin',
-        'is_paid': True,
-        'is_admin': True,
-        'subscription_tier': 'team',
-        'stripe_customer_id': 'dev-team-shared',
-    },
-    'paid_team_member': {
-        'label': 'Paid – Team member',
-        'is_paid': True,
-        'is_admin': False,
-        'subscription_tier': 'team',
-        'stripe_customer_id': 'dev-team-shared',
-    },
-}
-
-
-@app.post('/__dev__/create_user')
-def dev_create_user():
-    if not _is_dev_mode():
-        return jsonify({'ok': False, 'error': 'Not available'}), 404
-    data = request.get_json(force=True) or {}
-    base_email = (data.get('email') or f'dev-{uuid.uuid4().hex[:5]}@example.com').strip().lower()
-    password = data.get('password') or 'password'
-    requested_templates = data.get('templates')
-    if isinstance(requested_templates, str):
-        requested_templates = [requested_templates]
-    templates = [t for t in (requested_templates or []) if t in DEV_USER_TEMPLATES]
-    if not templates:
-        template_key = data.get('template')
-        if template_key and template_key in DEV_USER_TEMPLATES:
-            templates = [template_key]
-        elif 'is_paid' in data:
-            templates = ['paid_solo' if data.get('is_paid') else 'free']
-        else:
-            templates = ['free']
-
-    def alias_email(original: str, template_key: str, index: int) -> str:
-        if index == 0:
-            return original
-        slug = template_key.replace('paid_', '').replace('_', '-') or f'user-{index}'
-        if '@' not in original:
-            return f'{slug}-{original}'
-        local, domain = original.split('@', 1)
-        return f"{local}+{slug}@{domain}"
-
-    def upsert_dev_user(db_conn, email_value: str, template_key: str):
-        template = DEV_USER_TEMPLATES.get(template_key, DEV_USER_TEMPLATES['free'])
-        hashed = _hash_password(password)
-        row = db_conn.execute('SELECT id FROM users WHERE email = ?', (email_value,)).fetchone()
-        is_paid_val = 1 if template.get('is_paid') else 0
-        is_admin_val = 1 if template.get('is_admin') else 0
-        stripe_id = template.get('stripe_customer_id')
-        sub_tier = template.get('subscription_tier')
-        if row:
-            uid_val = row['id']
-            db_conn.execute('UPDATE users SET password_hash = ?, is_paid = ?, is_admin = ?, subscription_tier = ?, stripe_customer_id = ?, free_sample_used = 0 WHERE id = ?', (hashed, is_paid_val, is_admin_val, sub_tier, stripe_id, uid_val))
-        else:
-            uid_val = str(uuid.uuid4())
-            db_conn.execute('INSERT INTO users (id, email, password_hash, is_paid, free_sample_used, is_admin, subscription_tier, stripe_customer_id) VALUES (?, ?, ?, ?, 0, ?, ?, ?)', (uid_val, email_value, hashed, is_paid_val, is_admin_val, sub_tier, stripe_id))
-        return {
-            'id': uid_val,
-            'email': email_value,
-            'is_paid': bool(is_paid_val),
-            'is_admin': bool(is_admin_val),
-            'subscription_tier': sub_tier,
-            'free_sample_used': False,
-        }
-
-    db = get_db()
-    created = []
-    for idx, template_key in enumerate(templates):
-        email_value = alias_email(base_email, template_key, idx)
-        created.append(upsert_dev_user(db, email_value, template_key))
-    db.commit()
-
-    active_user = created[-1] if created else None
-    if active_user:
-        session['user_id'] = active_user['id']
-        session['profile_id'] = active_user['id']
-
-    payload = {'ok': True, 'created': created}
-    if active_user:
-        payload['active_user'] = active_user
-        payload.update({k: active_user[k] for k in ('id', 'email', 'is_paid', 'free_sample_used')})
-    return jsonify(payload)
-
-
-@app.post('/api/generate')
-def api_generate():
-    rl = _enforce_rate_limit(f"{request.remote_addr}:generate", capacity=30, refill_seconds=60)
-    if rl:
-        return rl
-    payload = request.get_json(force=True) or {}
-    raw_image_data = payload.get('image_data_url')
-    image_data_url = None
-    if raw_image_data:
-        if not isinstance(raw_image_data, str):
-            return jsonify({'ok': False, 'error': 'Invalid image payload'}), 400
-        if len(raw_image_data) > IMAGE_DATA_URL_MAX_BYTES:
-            return jsonify({'ok': False, 'error': 'Image is too large (max 2.5MB encoded)'}), 400
-        if raw_image_data.startswith('data:'):
-            prefix = raw_image_data[:20].lower()
-            if not prefix.startswith('data:image/'):
-                return jsonify({'ok': False, 'error': 'Only inline image data URLs are supported'}), 400
-        elif not raw_image_data.lower().startswith(('http://', 'https://')):
-            return jsonify({'ok': False, 'error': 'Image must be a data URL or HTTPS link'}), 400
-        image_data_url = raw_image_data
-    profile = _get_active_profile_dict() or {}
-    generation = _merge_generation_payload(payload, profile)
-    if image_data_url:
-        generation['image_data_url'] = image_data_url
-    days = generation['days']
-    user_row = _get_current_user_row()
-    uid = user_row['id'] if user_row else None
-    is_paid = bool(user_row and user_row['is_paid'])
-    free_sample_used = bool(user_row and user_row['free_sample_used'])
-
-    flags = load_flags()
-    gate_paid = bool(flags.get('gate7DayToPaid', False))
-
-    if days > 1 and not uid:
-        return jsonify({'ok': False, 'error': 'Sign in required for multi-day plans'}), 401
-    if days > 1 and gate_paid and not is_paid:
-        return jsonify({'ok': False, 'error': 'Paid subscription required for multi-day plans'}), 403
-    if days == 1 and user_row and not is_paid and free_sample_used:
-        return jsonify({'ok': False, 'error': 'Free sample already used'}), 403
-
-    wants_reels = _short_video_requested(generation['platforms'])
-    if wants_reels:
-        if not uid:
-            return jsonify({'ok': False, 'error': 'Sign in required for reels'}), 401
-        if not is_paid:
-            return jsonify({'ok': False, 'error': 'Upgrade required to generate reels'}), 403
-        allowed, _ = _check_reels_quota(uid, days)
-        if not allowed:
-            return jsonify({'ok': False, 'error': 'Monthly reels quota reached'}), 403
-
-    image_attachment = generation.pop('image_data_url', None)
-    posts = None
-    if image_attachment and USE_OPENAI and openai_client is not None:
-        enriched = dict(generation)
-        enriched['image_data_url'] = image_attachment
-        posts = _generate_posts_from_image(enriched)
-    if posts is None and USE_OPENAI and openai_client is not None and generation['days'] <= 7:
-        posts = _generate_posts_via_openai(generation)
-
-    if posts is None:
-        try:
-            gen_kwargs = {
-                'days': generation['days'],
-                'start_day': generation['start_day'],
-                'industry': generation['industry'],
-                'tone': generation['tone'],
-                'platforms': generation['platforms'],
-                'brand_keywords': generation['brand_keywords'],
-                'include_images': generation['include_images'],
-                'niche_keywords': generation['niche_keywords'],
-                'goals': generation['goals'],
-                'details': generation['details'],
-                'company': generation['company'],
-            }
-            voice_profile = generation.get('voice_profile')
-            if voice_profile:
-                gen_kwargs['voice_profile'] = voice_profile
-            posts = generate_posts(**gen_kwargs)
-        except Exception as exc:
-            # Log full exception for triage. In dev/CI modes, include the exception
-            # message in the JSON response to make failure artifacts more actionable.
-            app.logger.exception('generate_posts raised an exception')
-            if _is_dev_mode() or os.getenv('CI'):
-                return jsonify({'ok': False, 'error': 'Failed to generate content', 'exception': str(exc)}), 500
-            return jsonify({'ok': False, 'error': 'Failed to generate content'}), 500
-
-    _apply_voice_guardrails(posts, generation.get('voice_profile') or _active_voice_profile())
-
-    if days == 1 and user_row and uid and not is_paid and not free_sample_used:
-        _mark_free_sample_used(uid)
-    if wants_reels and uid:
-        _increment_reels_usage(uid, days)
-
-    profile_snapshot = dict(generation)
-    profile_snapshot.pop('image_context', None)
-    if isinstance(profile_snapshot.get('start_day'), date):
-        profile_snapshot['start_day'] = profile_snapshot['start_day'].isoformat()
-
-    return jsonify({'ok': True, 'count': len(posts), 'posts': posts, 'profile': profile_snapshot})
-
-
-@app.post('/api/generate-variants')
-def api_generate_variants():
-    rl = _enforce_rate_limit(f"{request.remote_addr}:generate-variants", capacity=20, refill_seconds=60)
-    if rl:
-        return rl
-    env = os.getenv('FLASK_ENV', '').lower()
-    if env != 'development' and not _get_current_user_row():
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    data = request.get_json(force=True) or {}
-    industry = (data.get('industry') or 'Business').strip() or 'Business'
-    tone = (data.get('tone') or 'friendly').strip() or 'friendly'
-    try:
-        count = int(data.get('count') or 3)
-    except Exception:
-        count = 3
-    count = max(1, min(count, 10))
-    brand_keywords = _coerce_str_list(data.get('brand_keywords'), [])
-    goals = _coerce_str_list(data.get('goals'), [])
-    voice_profile = data.get('voice_profile')
-    if not isinstance(voice_profile, dict):
-        voice_profile = _active_voice_profile()
-    variant_groups = []
-    hashtags = gen_mod.default_hashtags(industry, brand_keywords)
-    for idx in range(count):
-        pillar_name, pillar_hint = gen_mod.PILLARS_BY_DEFAULT[idx % len(gen_mod.PILLARS_BY_DEFAULT)]
-        variants = gen_mod.build_platform_variants(
-            industry=industry,
-            tone=tone,
-            pillar_name=pillar_name,
-            pillar_hint=pillar_hint,
-            base_platform='instagram',
-            brand_keywords=brand_keywords,
-            hashtags=hashtags,
-            goals=goals,
-            company=data.get('company') or '',
-            theme=data.get('theme'),
-            platforms=list(gen_mod.DEFAULT_VARIANT_PLATFORMS),
-            voice_profile=voice_profile
-        )
-        variant_groups.append({'pillar': pillar_name, 'variants': variants})
-    return jsonify({'ok': True, 'variants': variant_groups})
-
-
-@app.post('/api/feedback')
-def api_feedback():
-    rl = _enforce_rate_limit(f"{request.remote_addr}:feedback", capacity=20, refill_seconds=60)
-    if rl:
-        return rl
-    data = request.get_json(force=True) or {}
-    rating = int(data.get('rating') or 0)
-    post_day = int(data.get('post_day') or 0)
-    platform = (data.get('platform') or '').strip()
-    note = (data.get('note') or '').strip()
-    source = (data.get('source') or 'dashboard').strip() or 'dashboard'
-    post_snapshot = _trim_feedback_text(data.get('post_snapshot') or '', 1600)
-    plan_length = data.get('plan_length')
-    if plan_length:
-        try:
-            plan_length = int(plan_length)
-        except Exception:
-            plan_length = None
-    if len(note) > MAX_FEEDBACK_NOTE_LEN:
-        note = note[:MAX_FEEDBACK_NOTE_LEN]
-    profile_id = session.get('user_id') or session.get('profile_id')
-    db = get_db()
-    db.execute('INSERT INTO feedback (profile_id, post_day, platform, rating, note) VALUES (?, ?, ?, ?, ?)', (profile_id, post_day or None, platform or None, rating, note or None))
-    db.commit()
-    issue_info = None
-    if rating < 0:
-        profile = _get_active_profile_dict() or {}
-        user_row = _get_current_user_row()
-        issue_context = {
-            'summary': data.get('summary') or note or f'{platform} content adjustment',
-            'note': note,
-            'post_snapshot': post_snapshot,
-            'platform': platform,
-            'post_day': post_day,
-            'source': source,
-            'plan_length': plan_length,
-            'profile': profile,
-            'tone': profile.get('tone') if isinstance(profile, dict) else None,
-            'industry': profile.get('industry') if isinstance(profile, dict) else None,
-            'user_email': _get_user_email(user_row)
-        }
-        issue_info = _maybe_create_feedback_issue('thumbs_down', issue_context)
-    resp = {'ok': True}
-    if issue_info:
-        resp['issue_url'] = issue_info.get('html_url')
-        resp['issue_number'] = issue_info.get('number')
-    return jsonify(resp)
-
-
-@app.post('/api/feedback/report')
-def api_feedback_report():
-    rl = _enforce_rate_limit(f"{request.remote_addr}:feedback-report", capacity=10, refill_seconds=60)
-    if rl:
-        return rl
-    user_row = _get_current_user_row()
-    if not user_row:
-        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
-    data = request.get_json(force=True) or {}
-    summary = (data.get('summary') or '').strip()
-    details = (data.get('details') or '').strip()
-    if not summary or not details:
-        return jsonify({'ok': False, 'error': 'Summary and details are required'}), 400
-    category = (data.get('category') or 'idea').strip().lower()
-    allowed_categories = {'idea', 'bug', 'request'}
-    if category not in allowed_categories:
-        category = 'idea'
-    allow_contact = bool(data.get('allow_contact'))
-    plan_length = data.get('plan_length')
-    if plan_length:
-        try:
-            plan_length = int(plan_length)
-        except Exception:
-            plan_length = None
-    note_blob = f"{summary}\n\n{details}"
-    if len(note_blob) > MAX_FEEDBACK_NOTE_LEN:
-        note_blob = note_blob[:MAX_FEEDBACK_NOTE_LEN]
-    profile = _get_active_profile_dict() or {}
-    profile_id = session.get('user_id') or session.get('profile_id')
-    db = get_db()
-    db.execute(
-        'INSERT INTO feedback (profile_id, post_day, platform, rating, note) VALUES (?, ?, ?, ?, ?)',
-        (profile_id, None, f'general:{category}', 0, note_blob)
-    )
-    db.commit()
-    issue_context = {
-        'summary': summary,
-        'details': details,
-        'category': category,
-        'allow_contact': allow_contact,
-        'platform': data.get('platform'),
-        'plan_length': plan_length,
-        'tone': data.get('tone') or profile.get('tone'),
-        'industry': data.get('industry') or profile.get('industry'),
-        'platforms': profile.get('platforms'),
-        'source': data.get('source') or 'settings-panel',
-        'profile': profile,
-        'user_email': _get_user_email(user_row)
-    }
-    issue_info = _maybe_create_feedback_issue('general', issue_context)
-    resp = {'ok': True}
-    if issue_info:
-        resp['issue_url'] = issue_info.get('html_url')
-        resp['issue_number'] = issue_info.get('number')
-    return jsonify(resp)
-
-
-@app.post('/api/signup')
-def api_signup():
-    rl = _enforce_rate_limit(f"{request.remote_addr}:signup", capacity=10, refill_seconds=300)
-    if rl:
-        return rl
-    data = request.get_json(force=True) or {}
-    email = (data.get('email') or '').strip().lower()
-    password = data.get('password') or ''
-    if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-        return jsonify({'ok': False, 'error': 'Invalid email'}), 400
-    if not password or len(password) < 6:
-        return jsonify({'ok': False, 'error': 'Password too short (min 6 chars)'}), 400
-    db = get_db()
-    uid = str(uuid.uuid4())
-    pw_hash = _hash_password(password)
-    try:
-        db.execute("INSERT INTO users (id, email, password_hash, is_paid, free_sample_used) VALUES (?, ?, ?, 0, 0)", (uid, email, pw_hash))
-        db.commit()
-    except sqlite3.IntegrityError:
-        return jsonify({'ok': False, 'error': 'Email already registered', 'code': 'email_exists'}), 409
-    except Exception:
-        app.logger.exception('signup failed')
-        return jsonify({'ok': False, 'error': 'Unable to complete signup. Please try again.'}), 500
-    session['user_id'] = uid
-    session['profile_id'] = uid
-    user_payload = {'id': uid, 'email': email, 'is_paid': False, 'free_sample_used': False}
-    return jsonify({'ok': True, 'user': user_payload, 'id': uid})
-
-
-@app.post('/api/generate-review-response')
-def api_generate_review_response():
-    """Generate a professional response to a customer review."""
-    rl = _enforce_rate_limit(f"{request.remote_addr}:review-response", capacity=20, refill_seconds=60)
-    if rl:
-        return rl
-    data = request.get_json(force=True) or {}
-    review_text = (data.get('review_text') or '').strip()
-    tone = data.get('tone', 'professional')
-    company_name = (data.get('company_name') or '').strip()
-    industry = (data.get('industry') or '').strip()
-    
-    if not review_text:
-        return jsonify({'ok': False, 'error': 'Review text is required'}), 400
-    
-    # fall back to saved profile info when available
-    profile = _get_active_profile_dict()
-    if profile:
-        if not industry:
-            industry = profile.get('industry', '')
-        if not company_name:
-            company_name = profile.get('company', '')
+@app.post('/api/voice/analyze')
+def voice_analyze():
+    data = request.get_json() or {}
+    samples = data.get('samples', [])
+    if not samples or not isinstance(samples, list):
+        return jsonify({'error': 'Invalid samples provided'}), 400
     
     try:
-        result = gen_mod.generate_review_response(
-            review_text=review_text,
-            tone=tone,
-            company_name=company_name,
-            industry=industry
-        )
-        return jsonify({'ok': True, **result})
-    except ValueError as e:
-        return jsonify({'ok': False, 'error': str(e)}), 400
+        profile = voice_profile.profile_from_samples(samples)
+        return jsonify({'ok': True, 'profile': profile})
     except Exception as e:
-        return jsonify({'ok': False, 'error': 'Failed to generate response'}), 500
+        app.logger.error(f"Voice analysis failed: {e}")
+        return jsonify({'error': 'Analysis failed'}), 500
 
+
+@app.post('/api/voice/save')
+def voice_save():
+    uid = session.get('user_id') or session.get('profile_id')
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    data = request.get_json() or {}
+    profile = data.get('profile')
+    if not profile:
+        return jsonify({'error': 'No profile data'}), 400
+        
+    db = get_db()
+    try:
+        # Check if profile exists
+        row = db.execute('SELECT id FROM profiles WHERE id = ?', (uid,)).fetchone()
+        if not row:
+            # Create a skeleton profile if it doesn't exist
+            db.execute('INSERT INTO profiles (id) VALUES (?)', (uid,))
+            
+        db.execute(
+            'UPDATE profiles SET voice_profile = ? WHERE id = ?',
+            (json.dumps(profile), uid)
+        )
+        db.commit()
+        return jsonify({'ok': True})
+    except Exception as e:
+        app.logger.error(f"Voice save failed: {e}")
+        return jsonify({'error': 'Save failed'}), 500
+
+
+@app.get('/api/voice')
+def voice_get():
+    uid = session.get('user_id') or session.get('profile_id')
+    if not uid:
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    db = get_db()
+    row = db.execute('SELECT voice_profile FROM profiles WHERE id = ?', (uid,)).fetchone()
+    if row and row['voice_profile']:
+        try:
+            return jsonify({'ok': True, 'profile': json.loads(row['voice_profile'])})
+        except:
+            pass
+            
+    return jsonify({'ok': True, 'profile': None})
+
+
+@app.get('/voice-setup')
+def voice_setup_page():
+    """Voice profile setup wizard."""
+    return render_template("voice_setup.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))
