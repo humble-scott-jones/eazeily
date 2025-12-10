@@ -30,9 +30,12 @@ except ImportError:
     pass  # python-dotenv not installed, continue with system env vars
 
 # optional stripe import (only used if STRIPE_SECRET_KEY is set)
+# Feature flag to disable Stripe integration for free tier rollout
+ENABLE_STRIPE = (os.getenv('ENABLE_STRIPE') or '').strip().lower() in {'1', 'true', 't', 'yes', 'y', 'on'}
+
 stripe_secret = os.getenv("STRIPE_SECRET_KEY")
 stripe: Optional[Any]
-if stripe_secret:
+if stripe_secret and ENABLE_STRIPE:
     try:
         if TYPE_CHECKING:
             # ensure type-checkers know about stripe without requiring it at runtime
@@ -904,7 +907,7 @@ def _initial_user_payload():
         return None
     try:
         db = get_db()
-        row = db.execute('SELECT id, email, is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
+        row = db.execute('SELECT id, email, is_paid, free_sample_used, subscription_tier FROM users WHERE id = ?', (uid,)).fetchone()
     except Exception:
         return None
     if not row:
@@ -913,7 +916,8 @@ def _initial_user_payload():
         'id': row['id'],
         'email': row['email'],
         'is_paid': bool(row['is_paid']),
-        'free_sample_used': bool(row['free_sample_used']) if row['free_sample_used'] is not None else False
+        'free_sample_used': bool(row['free_sample_used']) if row['free_sample_used'] is not None else False,
+        'subscription_tier': row['subscription_tier']
     }
 
 
@@ -938,7 +942,11 @@ def index():
 @app.get("/generate")
 def generate_page():
     """Dashboard for generating content after onboarding completes."""
-    return render_template("dashboard.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
+    initial_user = _initial_user_payload()
+    is_team_tier = False
+    if initial_user and initial_user.get('subscription_tier') == 'team':
+        is_team_tier = True
+    return render_template("dashboard.html", is_dev=_is_dev_mode(), initial_user=initial_user, is_team_tier=is_team_tier)
 
 
 @app.get('/inbox')
@@ -2940,6 +2948,22 @@ def voice_setup_page():
     """Voice profile setup wizard."""
     return render_template("voice_setup.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
-if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=os.getenv('FLASK_ENV') == 'development', use_reloader=False)
+@app.post('/api/account/upgrade')
+def api_account_upgrade():
+    """Mock upgrade endpoint for free tier rollout."""
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+    
+    data = request.get_json() or {}
+    tier = data.get('tier')
+    
+    if tier not in ('team', 'solo'):
+        return jsonify({'ok': False, 'error': 'Invalid tier'}), 400
+        
+    db = get_db()
+    # For now, just update the subscription_tier directly since it's free
+    db.execute('UPDATE users SET subscription_tier = ?, is_paid = 1 WHERE id = ?', (tier, uid))
+    db.commit()
+    
+    return jsonify({'ok': True, 'tier': tier})

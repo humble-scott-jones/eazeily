@@ -76,12 +76,10 @@
                   {% endif %}
                 </div>
                 <div class="flex flex-col gap-2 text-right">
-                    {% if user['is_paid'] %}
-                      <button id="manage-sub" class="btn-ghost">Manage</button>
-                      <button id="cancel-sub" class="btn-secondary">Cancel</button>
-                    {% else %}
-                      <button id="subscribe-now" class="btn-primary btn-small">Subscribe</button>
-                    {% endif %}
+                    <div class="flex items-center gap-2 mb-2 justify-end">
+                        <button onclick="switchTier('solo')" class="btn-sm {{ 'btn-primary' if not is_team_tier else 'btn-ghost' }}">Solopreneur</button>
+                        <button onclick="switchTier('team')" class="btn-sm {{ 'btn-primary' if is_team_tier else 'btn-ghost' }}">Team (Preview)</button>
+                    </div>
                     <!-- Sign out button for all signed-in users -->
                     <button id="sign-out" class="text-sm text-slate-600 hover:underline">Sign out</button>
                 </div>
@@ -91,6 +89,26 @@
         {% endif %}
       </div>
     </section>
+
+    <script>
+    async function switchTier(tier) {
+        try {
+            const res = await fetch('/api/account/upgrade', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({tier})
+            });
+            const data = await res.json();
+            if (data.ok) {
+                window.location.reload();
+            } else {
+                alert('Failed to switch tier: ' + (data.error || 'Unknown error'));
+            }
+        } catch (e) {
+            alert('Error switching tier');
+        }
+    }
+    </script>
 
     {% if is_admin %}
     <section id="admin-panel" class="bg-white/90 backdrop-blur rounded-2xl border border-slate-200 shadow-lg p-6 space-y-6"

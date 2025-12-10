@@ -200,15 +200,16 @@
         </div>
 
         <div class="planner-card space-y-8">
-          <div class="planner-recipes">
-            <div>
-              <p class="planner-eyebrow">Need a quick start?</p>
-              <p class="text-sm text-slate-600">Recipes auto-fill your preferences and run immediately.</p>
+          <div class="planner-recipes bg-gradient-to-r from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100">
+            <div class="mb-3">
+              <p class="text-xs uppercase tracking-wide text-indigo-600 font-semibold">One-Click Recipes</p>
+              <h3 class="text-lg font-semibold text-slate-900">What are we creating today?</h3>
+              <p class="text-sm text-slate-600">Auto-fill your preferences and generate immediately.</p>
             </div>
             <div class="flex flex-wrap gap-3">
-              <button id="quick-sample" class="chip chip--accent" type="button">✨ Fresh 1-day sample</button>
-              <button id="quick-7day" class="chip" type="button">📅 7-day cadence</button>
-              <button id="quick-30day" class="chip" type="button">📊 30-day calendar</button>
+              <button id="quick-sample" class="btn-primary btn-sm shadow-sm" type="button">✨ Fresh 1-day sample</button>
+              <button id="quick-7day" class="btn-white btn-sm border border-slate-200 text-slate-700 hover:border-indigo-300 bg-white px-3 py-2 rounded-lg transition-colors" type="button">📅 7-day cadence</button>
+              <button id="quick-30day" class="btn-white btn-sm border border-slate-200 text-slate-700 hover:border-indigo-300 bg-white px-3 py-2 rounded-lg transition-colors" type="button">📊 30-day calendar</button>
             </div>
           </div>
 
@@ -296,6 +297,7 @@
               </div>
 
               <div class="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-4 grid gap-4 md:grid-cols-[1.1fr,0.9fr]">
+                {% if is_team_tier %}
                 <div class="flex items-start gap-3">
                   <div class="flex -space-x-2" aria-hidden="true">
                     <span class="w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">A</span>
@@ -320,6 +322,17 @@
                     <p class="text-xs text-slate-500 mt-1">Aligned to the solo planner flow, but built for collaborative use.</p>
                   </div>
                 </div>
+                {% else %}
+                <div class="flex items-center gap-3 col-span-2">
+                  <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Solo Mode</p>
+                    <p class="text-sm text-slate-600">Upgrade to Team plan to share templates and collaborate.</p>
+                  </div>
+                </div>
+                {% endif %}
               </div>
 
               <div class="grid md:grid-cols-3 gap-4">
@@ -600,6 +613,7 @@
         <p class="text-xs text-slate-500 mb-3">We only use these to match tone for this workspace. Retrain anytime.</p>
         <button id="save-voice-samples" class="btn-primary w-full text-sm py-2 rounded-lg">Train voice</button>
         <p id="voice-coach-toast" class="text-xs text-slate-600 mt-2"></p>
+      {% if is_team_tier %}
       <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200" id="activity-panel">
         <div class="flex items-start justify-between gap-3 mb-4">
           <div>
@@ -631,6 +645,7 @@
         <div id="activity-feed" class="activity-feed space-y-3 mt-4"></div>
         <div id="activity-empty" class="activity-empty hidden">No activity matches these filters yet.</div>
       </div>
+      {% endif %}
 
       <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200">
         <h4 class="text-lg font-semibold mb-2 text-slate-900">Feedback & requests</h4>
