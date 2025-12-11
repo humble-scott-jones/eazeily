@@ -38,21 +38,27 @@ jobs:
           node-version: "20"
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli@3.18.0
+        run: npm install -g @railway/cli
 
-      - name: Login to Railway
-        run: railway login --serviceToken "$RAILWAY_TOKEN"
+      - name: Check Token
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "Error: RAILWAY_TOKEN is not set"
+            exit 1
+          else
+            echo "RAILWAY_TOKEN is set (length: ${#RAILWAY_TOKEN})"
+          fi
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
       - name: Deploy to Railway (staging)
         run: |
           railway up \
-            --project "$RAILWAY_PROJECT_ID" \
             --service "$RAILWAY_SERVICE_ID_STAGING" \
             --environment "staging" \
             --detach
         env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
 
@@ -72,20 +78,26 @@ jobs:
           node-version: "20"
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli@3.18.0
+        run: npm install -g @railway/cli
 
-      - name: Login to Railway
-        run: railway login --serviceToken "$RAILWAY_TOKEN"
+      - name: Check Token
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "Error: RAILWAY_TOKEN is not set"
+            exit 1
+          else
+            echo "RAILWAY_TOKEN is set (length: ${#RAILWAY_TOKEN})"
+          fi
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
 
       - name: Deploy to Railway (production)
         run: |
           railway up \
-            --project "$RAILWAY_PROJECT_ID" \
             --service "$RAILWAY_SERVICE_ID_PRODUCTION" \
             --environment "production" \
             --detach
         env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION }}
