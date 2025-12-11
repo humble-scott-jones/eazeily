@@ -2,8 +2,7 @@ import json
 from app import app
 
 
-def test_save_and_generate_includes_company():
-    client = app.test_client()
+def test_save_and_generate_includes_company(client):
     client.post('/api/signup', json={'email': 'sample@endtoend.test', 'password': 'secret123'})
     with client.session_transaction() as sess:
         sess['profile_id'] = 'test-profile-1'

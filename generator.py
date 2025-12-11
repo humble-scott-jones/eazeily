@@ -6,6 +6,11 @@ from datetime import timedelta, date
 from pathlib import Path
 from typing import Optional, Any, Mapping, Sequence
 
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+
 from platform_rules import DEFAULT_VARIANT_PLATFORMS, apply_platform_rules
 
 PILLARS_BY_DEFAULT = [
@@ -27,6 +32,12 @@ PLATFORM_HINTS = {
 
 USE_OPENAI_FOR_POSTS = bool(os.getenv('OPENAI_API_KEY') or os.getenv('USE_OPENAI_FOR_POSTS'))
 _openai_client = None
+if USE_OPENAI_FOR_POSTS and OpenAI and os.getenv('OPENAI_API_KEY'):
+    try:
+        _openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+    except Exception:
+        pass
+
 _TREND_MODEL = os.getenv('OPENAI_TRENDS_MODEL', 'gpt-4o-mini')
 _CACHE_DIR = Path(os.getenv('TREND_CACHE_DIR') or (Path(__file__).resolve().parent / '.cache'))
 _CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -1017,3 +1028,186 @@ def generate_posts(
             })
 
     return posts
+
+def _build_openai_prompt(
+    days: int,
+    industry: str,
+    tone: str,
+    platforms: list[str],
+    brand_keywords: list[str],
+    niche_keywords: list[str],
+    goals: list[str],
+    company: str,
+    voice_profile: dict,
+    trend_context: list[dict]
+) -> str:
+    trends_text = ""
+    if trend_context:
+        trends_text = "Incorporate these trends where relevant:\n" + "\n".join(
+            [f"- {t.get('topic')}: {t.get('rationale')}" for t in trend_context]
+        )
+
+    voice_instr = ""
+    if voice_profile:
+        voice_instr = f"Voice instructions: {json.dumps(voice_profile)}"
+
+    return f"""
+    Generate {days} social media posts for a {industry} business named "{company}".
+    Tone: {tone}.
+    Platforms: {', '.join(platforms)}.
+    Keywords: {', '.join(brand_keywords + niche_keywords)}.
+    Goals: {', '.join(goals)}.
+    {voice_instr}
+    
+    {trends_text}
+    
+    Respond ONLY with a JSON array of objects. Each object must have:
+    - "caption": The post text (include hashtags).
+    - "pillar": The content pillar.
+    - "image_prompt": A description for an image.
+    
+    Ensure captions are engaging, platform-appropriate, and natural.
+    """
+
+def _parse_openai_posts(content: str) -> Optional[list[dict]]:
+    return _parse_trend_payload(content)
+
+def generate_posts_with_openai(
+    profile: Optional[Mapping[str, Any]] = None,
+    *,
+    days: Optional[int] = None,
+    start_day: Optional[date] = None,
+    industry: str = "Business",
+    tone: str = "friendly",
+    platforms: Optional[list[str]] = None,
+    brand_keywords: Optional[list[str]] = None,
+    include_images: bool = True,
+    niche_keywords: Optional[list[str]] = None,
+    goals: Optional[list[str]] = None,
+    company: str = "",
+    details: Optional[Mapping[str, Any]] = None,
+    voice_profile: Optional[Mapping[str, Any]] = None,
+    include_trends: bool = False,
+) -> list[dict[str, Any]]:
+    """Generate posts using OpenAI if available, otherwise fallback to templates."""
+    
+    # Normalize arguments (similar to generate_posts)
+    if isinstance(profile, Mapping):
+        default = profile
+        days = days or default.get("days") or default.get("plan_days")
+        start_day = start_day or default.get("start_day")
+        industry = default.get("industry", industry)
+        tone = default.get("tone", tone)
+        platforms = default.get("platforms", platforms)
+        brand_keywords = default.get("brand_keywords", brand_keywords)
+        include_images = default.get("include_images", include_images)
+        niche_keywords = default.get("niche_keywords", niche_keywords)
+        goals = default.get("goals", goals)
+        company = default.get("company", company)
+        details = default.get("details", details)
+
+    days = int(days or 7)
+    start_day = _coerce_start_day(start_day)
+    industry = (industry or "Business").strip() or "Business"
+    tone = tone or "friendly"
+    platforms = list(platforms or ["instagram"])
+    if not platforms:
+        platforms = ["instagram"]
+    brand_keywords = list(brand_keywords or [])
+    niche_keywords = list(niche_keywords or [])
+    goals = list(goals or [])
+    details = dict(details or {})
+    voice_profile = voice_profile or details.get('voice_profile') or {}
+    voice_profile = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
+    company = company or ""
+
+    # Check if OpenAI is available
+    if not USE_OPENAI_FOR_POSTS or not _openai_client:
+        return generate_posts(
+            profile=profile,
+            days=days,
+            start_day=start_day,
+            industry=industry,
+            tone=tone,
+            platforms=platforms,
+            brand_keywords=brand_keywords,
+            include_images=include_images,
+            niche_keywords=niche_keywords,
+            goals=goals,
+            company=company,
+            details=details,
+            voice_profile=voice_profile
+        )
+
+    # Fetch trends if requested
+    trend_context = []
+    if include_trends:
+        trend_context = fetch_trend_context(industry)
+
+    # Construct prompt
+    prompt = _build_openai_prompt(
+        days=days,
+        industry=industry,
+        tone=tone,
+        platforms=platforms,
+        brand_keywords=brand_keywords,
+        niche_keywords=niche_keywords,
+        goals=goals,
+        company=company,
+        voice_profile=voice_profile,
+        trend_context=trend_context
+    )
+
+    try:
+        response = _openai_client.chat.completions.create(
+            model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
+            messages=[
+                {'role': 'system', 'content': 'You are an expert social media strategist.'},
+                {'role': 'user', 'content': prompt}
+            ],
+            temperature=0.7
+        )
+        content = _extract_openai_content(response)
+        posts_data = _parse_openai_posts(content or '')
+        
+        if not posts_data:
+            raise ValueError("Failed to parse OpenAI response")
+
+        # Post-process posts (add dates, images, etc.)
+        final_posts = []
+        for i, post in enumerate(posts_data[:days]):
+            post_date = start_day + timedelta(days=i)
+            
+            # Ensure required fields
+            if 'caption' not in post:
+                post['caption'] = "Check this out!"
+            
+            # Add image prompt if needed
+            if include_images and 'image_prompt' not in post:
+                post['image_prompt'] = image_prompt(industry, post.get('pillar', 'General'), brand_keywords, company)
+            
+            post['date'] = post_date.isoformat()
+            post['day'] = post_date.strftime('%A')
+            post['platform'] = platforms[0] # Simplified: assume primary platform for now or handle multi-platform
+            
+            final_posts.append(post)
+            
+        return final_posts
+
+    except Exception as e:
+        # Fallback
+        return generate_posts(
+            profile=profile,
+            days=days,
+            start_day=start_day,
+            industry=industry,
+            tone=tone,
+            platforms=platforms,
+            brand_keywords=brand_keywords,
+            include_images=include_images,
+            niche_keywords=niche_keywords,
+            goals=goals,
+            company=company,
+            details=details,
+            voice_profile=voice_profile
+        )

@@ -276,3 +276,7 @@ def evaluate_prompts(profile: Mapping[str, object], prompts: list[str], *, thres
         })
     
     return results
+
+STOPWORDS = {
+    'the', 'and', 'a', 'to', 'of', 'in', 'i', 'is', 'that', 'it', 'on', 'you', 'this', 'for', 'but', 'with', 'are', 'have', 'be', 'at', 'or', 'as', 'was', 'so', 'if', 'out', 'not', 'an', 'my', 'we', 'they', 'just', 'do', 'can', 'from', 'by', 'about', 'what', 'all', 'your', 'me', 'up', 'one', 'no', 'when', 'like', 'time', 'has', 'will', 'there', 'go', 'get', 'how', 'know', 'take', 'make', 'see', 'come', 'think', 'look', 'want', 'give', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call'
+}
