@@ -40,16 +40,37 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Check Token
+      - name: Check Secrets
         run: |
+          missing=0
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "Error: RAILWAY_TOKEN is not set"
-            exit 1
+            missing=1
           else
             echo "RAILWAY_TOKEN is set (length: ${#RAILWAY_TOKEN})"
           fi
+          
+          if [ -z "$RAILWAY_PROJECT_ID" ]; then
+            echo "Error: RAILWAY_PROJECT_ID is not set"
+            missing=1
+          else
+            echo "RAILWAY_PROJECT_ID is set"
+          fi
+          
+          if [ -z "$RAILWAY_SERVICE_ID_STAGING" ]; then
+            echo "Error: RAILWAY_SERVICE_ID_STAGING is not set"
+            missing=1
+          else
+            echo "RAILWAY_SERVICE_ID_STAGING is set"
+          fi
+          
+          if [ $missing -eq 1 ]; then
+            exit 1
+          fi
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
 
       - name: Deploy to Railway (staging)
         run: |
@@ -80,16 +101,37 @@ jobs:
       - name: Install Railway CLI
         run: npm install -g @railway/cli
 
-      - name: Check Token
+      - name: Check Secrets
         run: |
+          missing=0
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "Error: RAILWAY_TOKEN is not set"
-            exit 1
+            missing=1
           else
             echo "RAILWAY_TOKEN is set (length: ${#RAILWAY_TOKEN})"
           fi
+          
+          if [ -z "$RAILWAY_PROJECT_ID" ]; then
+            echo "Error: RAILWAY_PROJECT_ID is not set"
+            missing=1
+          else
+            echo "RAILWAY_PROJECT_ID is set"
+          fi
+          
+          if [ -z "$RAILWAY_SERVICE_ID_PRODUCTION" ]; then
+            echo "Error: RAILWAY_SERVICE_ID_PRODUCTION is not set"
+            missing=1
+          else
+            echo "RAILWAY_SERVICE_ID_PRODUCTION is set"
+          fi
+          
+          if [ $missing -eq 1 ]; then
+            exit 1
+          fi
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
+          RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION }}
 
       - name: Deploy to Railway (production)
         run: |
