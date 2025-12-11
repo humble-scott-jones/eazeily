@@ -70,7 +70,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN || secrets.RAILWAY_API_KEY }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
+          RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING || secrets.RAILWAY_SERVICE_ID }}
 
       - name: Deploy to Railway (staging)
         run: |
@@ -81,7 +81,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN || secrets.RAILWAY_API_KEY }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
+          RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING || secrets.RAILWAY_SERVICE_ID }}
 
   deploy-production:
     name: Deploy production (Railway)
@@ -131,7 +131,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN || secrets.RAILWAY_API_KEY }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION }}
+          RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION || secrets.RAILWAY_SERVICE_ID }}
 
       - name: Deploy to Railway (production)
         run: |
@@ -142,4 +142,4 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN || secrets.RAILWAY_API_KEY }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
-          RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION }}
+          RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION || secrets.RAILWAY_SERVICE_ID }}
