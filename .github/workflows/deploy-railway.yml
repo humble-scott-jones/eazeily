@@ -38,17 +38,21 @@ jobs:
           node-version: "20"
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: npm install -g @railway/cli@3.18.0
+
+      - name: Login to Railway
+        run: railway login --serviceToken "$RAILWAY_TOKEN"
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
       - name: Deploy to Railway (staging)
         run: |
-          railway link --project "$RAILWAY_PROJECT_ID"
           railway up \
+            --project "$RAILWAY_PROJECT_ID" \
             --service "$RAILWAY_SERVICE_ID_STAGING" \
             --environment "staging" \
             --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
 
@@ -68,16 +72,20 @@ jobs:
           node-version: "20"
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: npm install -g @railway/cli@3.18.0
+
+      - name: Login to Railway
+        run: railway login --serviceToken "$RAILWAY_TOKEN"
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
 
       - name: Deploy to Railway (production)
         run: |
-          railway link --project "$RAILWAY_PROJECT_ID"
           railway up \
+            --project "$RAILWAY_PROJECT_ID" \
             --service "$RAILWAY_SERVICE_ID_PRODUCTION" \
             --environment "production" \
             --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION }}
