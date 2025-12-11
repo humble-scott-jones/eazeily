@@ -68,7 +68,7 @@ jobs:
             exit 1
           fi
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN || secrets.RAILWAY_API_KEY }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
 
@@ -79,7 +79,7 @@ jobs:
             --environment "staging" \
             --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN || secrets.RAILWAY_API_KEY }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
 
@@ -129,7 +129,7 @@ jobs:
             exit 1
           fi
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN || secrets.RAILWAY_API_KEY }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION }}
 
@@ -140,6 +140,6 @@ jobs:
             --environment "production" \
             --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN || secrets.RAILWAY_API_KEY }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION }}
