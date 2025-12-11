@@ -42,6 +42,7 @@ jobs:
 
       - name: Deploy to Railway (staging)
         run: |
+          railway link "$RAILWAY_PROJECT_ID"
           railway up \
             --service "$RAILWAY_SERVICE_ID_STAGING" \
             --environment "staging" \
@@ -71,6 +72,7 @@ jobs:
 
       - name: Deploy to Railway (production)
         run: |
+          railway link "$RAILWAY_PROJECT_ID"
           railway up \
             --service "$RAILWAY_SERVICE_ID_PRODUCTION" \
             --environment "production" \
