@@ -49,7 +49,7 @@ jobs:
             echo "RAILWAY_TOKEN is set (length: ${#RAILWAY_TOKEN})"
           fi
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
 
       - name: Deploy to Railway (staging)
         run: |
@@ -58,7 +58,7 @@ jobs:
             --environment "staging" \
             --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_STAGING: ${{ secrets.RAILWAY_SERVICE_ID_STAGING }}
 
@@ -89,7 +89,7 @@ jobs:
             echo "RAILWAY_TOKEN is set (length: ${#RAILWAY_TOKEN})"
           fi
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN }}
 
       - name: Deploy to Railway (production)
         run: |
@@ -98,6 +98,6 @@ jobs:
             --environment "production" \
             --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_PRODUCTION || secrets.RAILWAY_TOKEN }}
           RAILWAY_PROJECT_ID: ${{ secrets.RAILWAY_PROJECT_ID }}
           RAILWAY_SERVICE_ID_PRODUCTION: ${{ secrets.RAILWAY_SERVICE_ID_PRODUCTION }}
