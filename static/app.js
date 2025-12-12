@@ -63,6 +63,9 @@ const MESSAGE_PALETTES = {
   error: ['bg-red-50','text-red-700','border','border-red-200']
 };
 
+const VOICE_CREATIVITY_LABELS = {1: 'Conservative', 2: 'Safe', 3: 'Balanced', 4: 'Creative', 5: 'Wildly Creative'};
+const VOICE_INTENSITY_LABELS = {1: 'Subtle', 2: 'Gentle', 3: 'Moderate', 4: 'Bold', 5: 'Strong'};
+
 function resetMessageElement(el){
   if (!el) return;
   MESSAGE_CLASS_POOL.forEach(cls => el.classList.remove(cls));
@@ -355,7 +358,21 @@ async function loadSavedProfile(){
     if (p.industry) answers.industry = p.industry;
     if (p.tone) answers.tone = p.tone;
     if (p.goals && p.goals.length) answers.goals = p.goals;
-    if (p.details) answers.details = p.details || {};
+    if (p.details) {
+      answers.details = p.details || {};
+      if (answers.details.creativity) {
+        const el = document.getElementById('voice-creativity');
+        const label = document.getElementById('creativity-val');
+        if (el) el.value = answers.details.creativity;
+        if (label) label.textContent = VOICE_CREATIVITY_LABELS[answers.details.creativity] || 'Balanced';
+      }
+      if (answers.details.intensity) {
+        const el = document.getElementById('voice-intensity');
+        const label = document.getElementById('intensity-val');
+        if (el) el.value = answers.details.intensity;
+        if (label) label.textContent = VOICE_INTENSITY_LABELS[answers.details.intensity] || 'Moderate';
+      }
+    }
     updateSummary();
   }catch(e){/* ignore */}
 }
@@ -395,6 +412,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const signInBtn = document.getElementById('cta-sign-in');
     if (signInBtn){
       signInBtn.addEventListener('click', () => openAuthModal('login'));
+    }
+
+    // Voice Dials Logic
+    const creativitySlider = document.getElementById('voice-creativity');
+    const intensitySlider = document.getElementById('voice-intensity');
+    const creativityVal = document.getElementById('creativity-val');
+    const intensityVal = document.getElementById('intensity-val');
+
+    if (creativitySlider && creativityVal) {
+        creativitySlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            creativityVal.textContent = VOICE_CREATIVITY_LABELS[val] || 'Balanced';
+            answers.details = answers.details || {};
+            answers.details.creativity = val;
+            updateSummary();
+        });
+    }
+
+    if (intensitySlider && intensityVal) {
+        intensitySlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            intensityVal.textContent = VOICE_INTENSITY_LABELS[val] || 'Moderate';
+            answers.details = answers.details || {};
+            answers.details.intensity = val;
+            updateSummary();
+        });
     }
   })();
 
@@ -1791,7 +1834,13 @@ function renderInlineSummary(){
     let summary = '';
     if (s.step === 1) summary = answers.industry || '—';
     else if (s.step === 2) summary = (answers.goals && answers.goals.length) ? answers.goals.join(', ') : '—';
-    else if (s.step === 3) summary = (answers.tone ? answers.tone : '—') + (answers.platforms && answers.platforms.length ? ' • ' + answers.platforms.join(', ') : '');
+    else if (s.step === 3) {
+        let parts = [];
+        if (answers.tone) parts.push(answers.tone);
+        if (answers.platforms && answers.platforms.length) parts.push(answers.platforms.join(', '));
+        if (answers.details && answers.details.creativity) parts.push(VOICE_CREATIVITY_LABELS[answers.details.creativity]);
+        summary = parts.join(' • ') || '—';
+    }
     else if (s.step === 4) summary = (answers.brand_keywords && answers.brand_keywords.length) ? answers.brand_keywords.slice(0,3).join(', ') : (answers.company || '—');
     right.textContent = summary;
     li.appendChild(left);

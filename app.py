@@ -1511,8 +1511,11 @@ def api_voice_analyze():
     if not uid:
         return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
         
-    data = request.get_json() or {}
+    data = request.get_json(force=True) or {}
     samples = data.get('samples', [])
+    
+    if isinstance(samples, str):
+        samples = [samples]
     
     if not samples or not isinstance(samples, list):
         return jsonify({'ok': False, 'error': 'Invalid samples provided'}), 400
@@ -1522,6 +1525,56 @@ def api_voice_analyze():
         return jsonify({'ok': True, 'profile': profile})
     except Exception as e:
         logging.exception("Voice analysis failed")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.post('/api/voice/scrape')
+def api_voice_scrape():
+    uid = session.get('user_id')
+    if not uid:
+        return jsonify({'ok': False, 'error': 'Not authenticated'}), 401
+
+    data = request.get_json(force=True) or {}
+    url = data.get('url')
+    
+    if not url:
+        return jsonify({'ok': False, 'error': 'No URL provided'}), 400
+        
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        resp = requests.get(url, headers=headers, timeout=10)
+        if resp.status_code != 200:
+            return jsonify({'ok': False, 'error': f'Failed to fetch URL: {resp.status_code}'}), 400
+            
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        
+        # Extract text from paragraphs
+        texts = []
+        for p in soup.find_all(['p', 'div', 'span', 'li']):
+            text = p.get_text().strip()
+            if len(text) > 20: # Filter short snippets
+                texts.append(text)
+                
+        # Limit to top 20 longest texts to avoid noise
+        texts.sort(key=len, reverse=True)
+        texts = texts[:20]
+        
+        if not texts:
+            return jsonify({'ok': False, 'error': 'No readable text found'}), 400
+            
+        return jsonify({
+            'ok': True,
+            'samples': texts
+        })
+        
+    except Exception as e:
+        logging.error(f"Scrape error: {e}")
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
