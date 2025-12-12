@@ -277,6 +277,37 @@ def evaluate_prompts(profile: Mapping[str, object], prompts: list[str], *, thres
     
     return results
 
+def analyze_samples(samples: list[str]) -> dict:
+    """
+    Analyze a list of text samples to build a voice profile.
+    Returns a dictionary containing the voice profile data.
+    """
+    if not samples:
+        return {}
+        
+    # Basic analysis
+    structure = _analyze_structure(samples)
+    
+    # Tokenize all samples
+    all_tokens = []
+    for s in samples:
+        all_tokens.extend(_tokenize(s))
+        
+    # Word frequency
+    word_counts = Counter(all_tokens)
+    total_words = len(all_tokens)
+    
+    # Extract common phrases/words (simplified)
+    common_words = [w for w, c in word_counts.most_common(20) if len(w) > 3] # Filter short words
+    
+    return {
+        'samples': samples,
+        'structure': structure,
+        'common_words': common_words,
+        'analyzed_at': datetime.now(timezone.utc).isoformat(),
+        'sample_count': len(samples)
+    }
+
 STOPWORDS = {
     'the', 'and', 'a', 'to', 'of', 'in', 'i', 'is', 'that', 'it', 'on', 'you', 'this', 'for', 'but', 'with', 'are', 'have', 'be', 'at', 'or', 'as', 'was', 'so', 'if', 'out', 'not', 'an', 'my', 'we', 'they', 'just', 'do', 'can', 'from', 'by', 'about', 'what', 'all', 'your', 'me', 'up', 'one', 'no', 'when', 'like', 'time', 'has', 'will', 'there', 'go', 'get', 'how', 'know', 'take', 'make', 'see', 'come', 'think', 'look', 'want', 'give', 'use', 'find', 'tell', 'ask', 'work', 'seem', 'feel', 'try', 'leave', 'call'
 }

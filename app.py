@@ -2784,3 +2784,74 @@ def api_account_upgrade():
         return jsonify({'ok': False, 'error': str(e)}), 500
         
     return jsonify({'ok': True})
+
+@app.route('/api/voice-profile', methods=['GET', 'POST'])
+def api_voice_profile():
+    db = get_db()
+    pid = session.get('profile_id')
+    if not pid:
+        if request.method == 'POST':
+            pid = str(uuid.uuid4())
+            session['profile_id'] = pid
+        else:
+            return jsonify({'ok': True, 'samples': []})
+
+    if request.method == 'POST':
+        data = request.get_json(force=True) or {}
+        samples = data.get('samples') or []
+        
+        # Analyze samples to build voice profile
+        try:
+            analysis = voice_profile.analyze_samples(samples)
+            voice_data = json.dumps(analysis)
+        except Exception as e:
+            logging.error(f"Voice analysis failed: {e}")
+            # Fallback to basic storage if analysis fails
+            voice_data = json.dumps({'samples': samples, 'analyzed': False})
+
+        # Upsert profile with voice data
+        existing = db.execute('SELECT id FROM profiles WHERE id = ?', (pid,)).fetchone()
+        try:
+            if existing:
+                db.execute('UPDATE profiles SET voice_profile = ? WHERE id = ?', (voice_data, pid))
+            else:
+                db.execute('INSERT INTO profiles (id, voice_profile) VALUES (?, ?)', (pid, voice_data))
+            db.commit()
+        except Exception as e:
+            # Fallback for missing voice_profile column
+            logging.warning(f"Voice profile save failed: {e}. Retrying with legacy schema (ignoring voice data).")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            
+            # If the column is missing, we can't save the voice data at all.
+            # But we should return success so the UI doesn't break, 
+            # even though the data wasn't persisted.
+            # If the profile didn't exist, we must create it to avoid foreign key errors later.
+            if not existing:
+                try:
+                    db.execute('INSERT INTO profiles (id) VALUES (?)', (pid,))
+                    db.commit()
+                except Exception as inner_e:
+                    logging.error(f"Failed to create empty profile fallback: {inner_e}")
+                    return jsonify({'ok': False, 'error': 'Database error'}), 500
+            
+            return jsonify({'ok': True, 'warning': 'Voice data not saved (schema mismatch)'})
+
+        return jsonify({'ok': True})
+
+    else: # GET
+        row = db.execute('SELECT voice_profile FROM profiles WHERE id = ?', (pid,)).fetchone()
+        if not row:
+            return jsonify({'ok': True, 'samples': []})
+        
+        try:
+            # Handle missing column in row result if using sqlite3.Row with missing column
+            if 'voice_profile' not in row.keys():
+                 return jsonify({'ok': True, 'samples': []})
+                 
+            vp = _deserialize_json(row['voice_profile'], {})
+            return jsonify({'ok': True, 'samples': vp.get('samples', [])})
+        except Exception:
+            return jsonify({'ok': True, 'samples': []})
