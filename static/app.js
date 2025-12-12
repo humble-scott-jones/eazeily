@@ -2268,6 +2268,9 @@ async function hydrateWizardVoicePanel() {
     if (!res.ok) return;
     const data = await res.json();
     const vp = data.voice_profile || null;
+    if (vp && typeof answers !== 'undefined') {
+      answers.voice_profile = vp;
+    }
     const sampleCount = Array.isArray(data.samples) ? data.samples.length : 0;
     if (status) {
       status.textContent = vp ? `Trained • ${sampleCount} samples` : 'Optional';

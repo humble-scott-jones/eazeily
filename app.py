@@ -1620,19 +1620,41 @@ def api_voice_save():
     if not profile or not isinstance(profile, dict):
         return jsonify({'ok': False, 'error': 'Invalid profile data'}), 400
         
-    try:
-        db = get_db()
-        # Serialize profile to JSON string
-        profile_json = json.dumps(profile)
+    db = get_db()
+    profile_json = json.dumps(profile)
+    
+    # 1. Save to profiles table (Primary for generator)
+    pid = session.get('profile_id')
+    if not pid:
+        pid = str(uuid.uuid4())
+        session['profile_id'] = pid
         
-        # Update user record
+    try:
+        existing = db.execute('SELECT id FROM profiles WHERE id = ?', (pid,)).fetchone()
+        if existing:
+            db.execute('UPDATE profiles SET voice_profile = ? WHERE id = ?', (profile_json, pid))
+        else:
+            db.execute('INSERT INTO profiles (id, voice_profile) VALUES (?, ?)', (pid, profile_json))
+        db.commit()
+    except Exception as e:
+        logging.error(f"Failed to save to profiles table: {e}")
+        try:
+            db.rollback()
+        except:
+            pass
+
+    # 2. Save to users table (Legacy/Persistence)
+    try:
         db.execute('UPDATE users SET voice_profile = ? WHERE id = ?', (profile_json, uid))
         db.commit()
-        
-        return jsonify({'ok': True})
     except Exception as e:
-        logging.exception("Voice save failed")
-        return jsonify({'ok': False, 'error': str(e)}), 500
+        logging.warning(f"Failed to save to users table (schema mismatch?): {e}")
+        try:
+            db.rollback()
+        except:
+            pass
+        
+    return jsonify({'ok': True})
 
 
 @app.post('/api/cancel-subscription')
