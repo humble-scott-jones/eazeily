@@ -520,6 +520,9 @@ class _PgConnectionWrapper:
     def commit(self):
         return self._conn.commit()
 
+    def rollback(self):
+        return self._conn.rollback()
+
     def close(self):
         return self._conn.close()
 
@@ -1357,6 +1360,13 @@ def api_profile():
             # We catch all exceptions here to be safe, assuming that if the full save fails,
             # we should try the legacy save. If that also fails, it will raise its own exception.
             logging.warning(f"Profile save with voice_profile failed: {e}. Retrying with legacy schema.")
+            
+            # IMPORTANT: If using Postgres, the transaction is now aborted. We must rollback before retrying.
+            try:
+                db.rollback()
+            except Exception:
+                pass # If rollback fails or isn't supported, ignore
+                
             if existing:
                 db.execute('''
                     UPDATE profiles SET 
