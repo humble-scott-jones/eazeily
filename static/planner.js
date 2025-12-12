@@ -210,8 +210,8 @@
 
   function renderCard(draft) {
     const status = statusMap[(draft.status || '').toLowerCase()] || statusMap.draft;
-    const card = document.createElement('button');
-    card.className = 'w-full text-left px-5 py-4 hover:bg-slate-50 transition flex items-start gap-4';
+    const card = document.createElement('div'); // Changed from button to div to avoid nesting issues
+    card.className = 'w-full text-left px-5 py-4 hover:bg-slate-50 transition flex items-start gap-4 cursor-pointer'; // Added cursor-pointer
     card.addEventListener('click', () => {
       window.location.href = `/drafts/${draft.id}`;
     });

@@ -2318,11 +2318,17 @@ function initWizardVoiceProfile() {
       if (!res.ok || !data.ok) {
         throw new Error(data.error || 'Unable to save samples');
       }
-      if (toast) toast.textContent = 'Voice saved. Future plans will use this cadence.';
+      if (toast) {
+        toast.textContent = 'Voice saved. Future plans will use this cadence.';
+        toast.className = 'text-sm text-green-600 mt-2 font-medium';
+      }
       hydrateWizardVoicePanel();
     } catch (err) {
       console.error('Wizard voice training failed', err);
-      if (toast) toast.textContent = 'Could not save samples right now.';
+      if (toast) {
+        toast.textContent = 'Could not save samples right now.';
+        toast.className = 'text-sm text-red-600 mt-2 font-medium';
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = 'Save voice samples';

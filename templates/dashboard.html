@@ -174,7 +174,8 @@
             <div class="flex flex-wrap gap-3">
               <button id="quick-sample" class="btn-primary btn-sm shadow-sm" type="button">✨ Fresh 1-day sample</button>
               <button id="quick-7day" class="btn-white btn-sm border border-slate-200 text-slate-700 hover:border-indigo-300 bg-white px-3 py-2 rounded-lg transition-colors" type="button">📅 7-day cadence</button>
-              <button id="quick-30day" class="btn-white btn-sm border border-slate-200 text-slate-700 hover:border-indigo-300 bg-white px-3 py-2 rounded-lg transition-colors" type="button">📊 30-day calendar</button>
+              <!-- 30-day option hidden for free accounts -->
+              <button id="quick-30day" class="hidden btn-white btn-sm border border-slate-200 text-slate-700 hover:border-indigo-300 bg-white px-3 py-2 rounded-lg transition-colors" type="button">📊 30-day calendar</button>
             </div>
           </div>
 
@@ -184,14 +185,15 @@
               <div id="plan-length-buttons" class="chip-group" role="group" aria-label="Choose a plan length">
                 <button type="button" class="chip chip--active" data-plan-length="1">1 day • Sample</button>
                 <button type="button" class="chip" data-plan-length="7">7 days • Weekly</button>
-                <button type="button" class="chip" data-plan-length="30">30 days • Monthly</button>
+                <!-- 30-day option hidden for free accounts -->
+                <button type="button" class="hidden chip" data-plan-length="30">30 days • Monthly</button>
               </div>
               <select id="gen-days" class="sr-only" aria-label="Number of days">
                 <option value="1">1 Day Sample</option>
                 <option value="7">7 Days</option>
                 <option value="30">30 Days</option>
               </select>
-              <p class="planner-hint">Switch lengths anytime — 7-day plans suit weekly content, 30-day covers a full calendar.</p>
+              <p class="planner-hint">Switch lengths anytime — 7-day plans suit weekly content.</p>
             </div>
           </div>
 
