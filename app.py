@@ -1354,23 +1354,21 @@ def api_profile():
                 ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data))
         except Exception as e:
             # Fallback for missing voice_profile column (if migration failed)
-            err_msg = str(e).lower()
-            if 'voice_profile' in err_msg and ('column' in err_msg or 'no such column' in err_msg):
-                logging.warning("voice_profile column missing, falling back to legacy schema")
-                if existing:
-                    db.execute('''
-                        UPDATE profiles SET 
-                        industry=?, tone=?, platforms=?, brand_keywords=?, niche_keywords=?, 
-                        goals=?, company=?, include_images=?, details=?
-                        WHERE id=?
-                    ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, pid))
-                else:
-                    db.execute('''
-                        INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details))
+            # We catch all exceptions here to be safe, assuming that if the full save fails,
+            # we should try the legacy save. If that also fails, it will raise its own exception.
+            logging.warning(f"Profile save with voice_profile failed: {e}. Retrying with legacy schema.")
+            if existing:
+                db.execute('''
+                    UPDATE profiles SET 
+                    industry=?, tone=?, platforms=?, brand_keywords=?, niche_keywords=?, 
+                    goals=?, company=?, include_images=?, details=?
+                    WHERE id=?
+                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, pid))
             else:
-                raise e
+                db.execute('''
+                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details))
         
         db.commit()
         return jsonify({'ok': True, 'id': pid})
@@ -1391,7 +1389,8 @@ def api_profile():
         p['niche_keywords'] = _deserialize_json(p['niche_keywords'], [])
         p['goals'] = _deserialize_json(p['goals'], [])
         p['details'] = _deserialize_json(p['details'], {})
-        p['voice_profile'] = _deserialize_json(p['voice_profile'], {})
+        # Use .get() to handle case where voice_profile column is missing from DB
+        p['voice_profile'] = _deserialize_json(p.get('voice_profile'), {})
         p['include_images'] = bool(p['include_images'])
         
         return jsonify(p)
