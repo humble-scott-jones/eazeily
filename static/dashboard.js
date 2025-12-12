@@ -321,6 +321,13 @@ function applyProfileToAccountForm(profile = {}) {
     if (Array.isArray(profile.goals)) {
       setCurrentGoals(profile.goals);
     }
+    if (profile.voice_profile) {
+      try {
+        answers.voice_profile = profile.voice_profile;
+      } catch (err) {
+        /* ignore */
+      }
+    }
   } catch (err) {
     console.error('applyProfileToAccountForm failed', err);
   }
