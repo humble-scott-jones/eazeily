@@ -2754,8 +2754,23 @@ def dev_trends():
         return jsonify({'error': str(e)}), 500
 
 
-if __name__ == '__main__':
-    with app.app_context():
-        init_db()
-    port = int(os.environ.get('PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=True)
+@app.post('/api/account/upgrade')
+def api_account_upgrade():
+    if not session.get('user_id'):
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+        
+    data = request.get_json(silent=True) or {}
+    tier = data.get('tier')
+    
+    if tier not in ['solo', 'team']:
+        return jsonify({'ok': False, 'error': 'Invalid tier'}), 400
+        
+    db = get_db()
+    try:
+        db.execute('UPDATE users SET subscription_tier = ? WHERE id = ?', (tier, session['user_id']))
+        db.commit()
+    except Exception as e:
+        logging.exception("Account upgrade failed")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+        
+    return jsonify({'ok': True})
