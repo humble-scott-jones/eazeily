@@ -1114,6 +1114,15 @@ function showStep(n){
   }
 }
 
+// Check for hash navigation
+if (window.location.hash === '#step4') {
+    setTimeout(() => {
+        step = 4;
+        showStep(4);
+        document.getElementById('wiz')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 200);
+}
+
 if (prevBtn) prevBtn.addEventListener("click", ()=>{
   if (step === 3 && skipStep2){
     step = 1;

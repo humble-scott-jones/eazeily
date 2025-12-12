@@ -54,69 +54,19 @@
   <main class="relative max-w-7xl mx-auto p-6 grid lg:grid-cols-[1fr,400px] gap-8">
     <!-- Main Content Area -->
     <div class="space-y-6">
-      <!-- Header -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200">
-        <div class="grid gap-8 lg:grid-cols-[1.1fr,0.9fr] items-center">
-          <div class="space-y-6">
-            <a href="/voice-setup" class="inline-flex items-center gap-2 bg-slate-900 text-white/90 rounded-full px-4 py-2 text-xs font-semibold tracking-wide uppercase hover:bg-slate-800 transition">
-              <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
-              Voice locked in (Edit)
-            </a>
-            <div>
-              <p class="text-sm uppercase tracking-[0.35em] text-slate-500 mb-2">Generate dashboard</p>
-              <h1 class="text-4xl md:text-5xl font-bold text-slate-900 leading-tight">
-                Plan, post, and respond without leaving this page
-              </h1>
-            </div>
-            <p class="text-lg text-slate-600">
-              Reuse the same gradient energy from the launch landing page—now your logged-in experience feels premium, too. Kick off a sample or jump straight to a multi-day plan with one tap.
-            </p>
-            <div class="flex flex-wrap gap-3">
-              <a href="#content-generator" class="btn-primary inline-flex items-center gap-2 text-base py-3 px-5 rounded-xl" data-scroll-to="generator">
-                <span>Open planner</span>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                </svg>
-              </a>
-              <a href="#review-response" class="btn-secondary text-base py-3 px-5 rounded-xl" data-scroll-to="reviews">
-                Clear reviews first
-              </a>
-            </div>
-            <div class="grid sm:grid-cols-3 gap-3">
-              <div class="rounded-2xl border border-slate-200 p-4">
-                <p class="text-xs uppercase tracking-wide text-slate-500">1. Review voice</p>
-                <p class="text-sm text-slate-600 mt-1">Return to Setup anytime to update keywords.</p>
-              </div>
-              <div class="rounded-2xl border border-slate-200 p-4">
-                <p class="text-xs uppercase tracking-wide text-slate-500">2. Generate plans</p>
-                <p class="text-sm text-slate-600 mt-1">Buttons above remember your last selections.</p>
-              </div>
-              <div class="rounded-2xl border border-slate-200 p-4">
-                <p class="text-xs uppercase tracking-wide text-slate-500">3. Copy & post</p>
-                <p class="text-sm text-slate-600 mt-1">Each card includes copy shortcuts + reels data.</p>
-              </div>
-            </div>
-          </div>
-          <div class="bg-gradient-to-br from-purple-50 via-blue-50 to-white rounded-2xl border border-purple-100 p-6 shadow-lg space-y-5">
-            <h3 class="text-lg font-semibold text-slate-900">Session checklist</h3>
-            <ul class="space-y-4 text-sm text-slate-700">
-              <li class="flex gap-3 items-start">
-                <span class="text-green-500 mt-0.5">✔</span>
-                <span>Save new tone or keywords from the account sidebar—changes sync instantly with Generate.</span>
-              </li>
-              <li class="flex gap-3 items-start">
-                <span class="text-green-500 mt-0.5">✔</span>
-                <span>Use Review Response first to clear your inbox, then roll into social posts without losing context.</span>
-              </li>
-              <li class="flex gap-3 items-start">
-                <span class="text-green-500 mt-0.5">✔</span>
-                <span>Session storage keeps the most recent sample so the page never feels empty after redirect.</span>
-              </li>
-            </ul>
-            <a href="/app" class="inline-flex items-center gap-2 text-sm font-semibold text-purple-700 hover:text-purple-900">
-              ↺ Return to wizard to tweak voice
-            </a>
-          </div>
+      <!-- Compact Header -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-900">Generate Dashboard</h1>
+          <p class="text-slate-600 text-sm">Plan, post, and respond.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="/app#step4" class="btn-secondary text-sm py-2 px-4 rounded-lg flex items-center gap-2">
+            <span>Edit Voice</span>
+          </a>
+          <a href="#content-generator" class="btn-primary text-sm py-2 px-4 rounded-lg" data-scroll-to="generator">
+            New Plan
+          </a>
         </div>
       </div>
 

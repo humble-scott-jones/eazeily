@@ -1339,18 +1339,39 @@ def api_profile():
         
         # Upsert
         existing = db.execute('SELECT id FROM profiles WHERE id = ?', (pid,)).fetchone()
-        if existing:
-            db.execute('''
-                UPDATE profiles SET 
-                industry=?, tone=?, platforms=?, brand_keywords=?, niche_keywords=?, 
-                goals=?, company=?, include_images=?, details=?, voice_profile=?
-                WHERE id=?
-            ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, pid))
-        else:
-            db.execute('''
-                INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data))
+        try:
+            if existing:
+                db.execute('''
+                    UPDATE profiles SET 
+                    industry=?, tone=?, platforms=?, brand_keywords=?, niche_keywords=?, 
+                    goals=?, company=?, include_images=?, details=?, voice_profile=?
+                    WHERE id=?
+                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, pid))
+            else:
+                db.execute('''
+                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data))
+        except Exception as e:
+            # Fallback for missing voice_profile column (if migration failed)
+            err_msg = str(e).lower()
+            if 'voice_profile' in err_msg and ('column' in err_msg or 'no such column' in err_msg):
+                logging.warning("voice_profile column missing, falling back to legacy schema")
+                if existing:
+                    db.execute('''
+                        UPDATE profiles SET 
+                        industry=?, tone=?, platforms=?, brand_keywords=?, niche_keywords=?, 
+                        goals=?, company=?, include_images=?, details=?
+                        WHERE id=?
+                    ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, pid))
+                else:
+                    db.execute('''
+                        INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details))
+            else:
+                raise e
+        
         db.commit()
         return jsonify({'ok': True, 'id': pid})
     
