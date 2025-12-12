@@ -230,6 +230,25 @@
                 <div id="error-company" class="text-sm text-red-600 mt-2 hidden" aria-live="polite"></div>
               </div>
             </div>
+
+            <!-- Train your voice (Moved to Step 4) -->
+            <div class="mt-8 pt-8 border-t border-slate-200">
+              <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h4 class="text-lg font-semibold text-slate-900">Train your voice (Optional)</h4>
+                  <p class="text-slate-600">Paste 5–10 posts you’ve already published. We’ll mirror cadence, tone, and vocab.</p>
+                </div>
+              </div>
+              <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                <textarea id="wizard-voice-samples" class="w-full input text-sm mb-3 p-3 rounded-lg border-slate-300" rows="5" placeholder="Paste your best posts here (one per line)..."></textarea>
+                <div class="flex items-center justify-between gap-4">
+                  <p id="wizard-voice-helper" class="text-sm text-slate-500">Between 5 and 10 samples works best.</p>
+                  <button id="wizard-train-voice" class="btn-secondary text-sm py-2 px-4 rounded-lg whitespace-nowrap">Save voice samples</button>
+                </div>
+                <p id="wizard-voice-toast" class="text-sm text-slate-600 mt-2 font-medium"></p>
+              </div>
+            </div>
+
           </div>
           <div id="error-form" class="text-lg text-red-600 mt-4 hidden p-4 bg-red-50 rounded-xl border border-red-200" aria-live="polite"></div>
           <div id="finish-status" class="finish-status hidden" role="status" aria-live="polite">
@@ -277,19 +296,8 @@
           <div class="text-sm text-slate-500 mt-3">Content pack: <span id="modal-content-version">loading…</span></div>
         </div>
 
-        <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-200 mb-4">
-          <div class="flex items-start justify-between gap-3 mb-2">
-            <div>
-              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Step 4</p>
-              <h4 class="text-lg font-semibold text-slate-900">Train your voice</h4>
-              <p class="text-sm text-slate-600">Paste 5–10 posts you’ve already published. We’ll mirror cadence, tone, and vocab.</p>
-            </div>
-            <span id="wizard-voice-status" class="px-2 py-1 rounded-full text-xs font-medium bg-purple-50 text-purple-700">Optional</span>
-          </div>
-          <textarea id="wizard-voice-samples" class="w-full input text-sm mb-2" rows="5" placeholder="One post per line"></textarea>
-          <p id="wizard-voice-helper" class="text-xs text-slate-500 mb-3">Between 5 and 10 samples works best. You can retrain anytime from Generate.</p>
-          <button id="wizard-train-voice" class="btn-primary w-full text-sm py-2 rounded-lg">Save voice samples</button>
-          <p id="wizard-voice-toast" class="text-xs text-slate-600 mt-2"></p>
+        <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-200 mb-4 hidden">
+          <!-- Voice training moved to Step 4 -->
         </div>
 
         <!-- Generate Buttons - Prominent placement -->
@@ -304,19 +312,7 @@
         </div>
       </div>
     </aside>
-    <!-- Preview Section -->
-    <section class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200 col-span-1 lg:col-span-2">
-      <div class="flex items-center gap-3 mb-6">
-        <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-          <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
-            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
-          </svg>
-        </div>
-        <h3 class="text-2xl font-bold text-slate-900">Content Preview</h3>
-      </div>
-      <div id="results" class="space-y-4"></div>
-    </section>
+    <!-- Preview Section Removed -->
   </main>
 
   <footer class="relative mt-16 bg-white/80 backdrop-blur-sm border-t border-slate-200">
