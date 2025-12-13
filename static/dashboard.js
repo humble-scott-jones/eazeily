@@ -142,8 +142,8 @@ function getPublishingQueueState() {
   return { entries: [], items: [], status: 'idle', lastError: null };
 }
 
-// Legacy alias for compatibility (deprecated - use getPublishingQueueState() instead)
-const publishingQueueState = getPublishingQueueState();
+// Note: publishing_queue_state.js MUST be loaded before dashboard.js (enforced in templates)
+// This ensures the namespaced state is initialized before we create any references to it.
 
 function logGeneratorEvent(event, meta = {}) {
   try {

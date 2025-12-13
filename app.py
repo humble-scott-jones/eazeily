@@ -58,6 +58,7 @@ MAX_FEEDBACK_NOTE_LEN = 1500
 VOICE_SAMPLE_MIN_LEN = 8  # Minimum character length for voice profile samples
 VOICE_SAMPLE_MIN_COUNT = 5  # Minimum number of samples required
 VOICE_SAMPLE_MAX_COUNT = 10  # Maximum number of samples allowed
+DEFAULT_PROFILE_TONE = 'friendly'  # Default tone when profile doesn't specify one
 try:
     TEAM_MEMBER_LIMIT = int(os.getenv('TEAM_MEMBER_LIMIT', '10'))
 except (TypeError, ValueError):
@@ -1791,7 +1792,7 @@ def api_profile_v2():
             'company': profile_data.get('company', ''),
             'industry': profile_data.get('industry', ''),
             'signature_tone': profile_data.get('tone', ''),
-            'default_tone': profile_data.get('tone', 'friendly'),
+            'default_tone': profile_data.get('tone', DEFAULT_PROFILE_TONE),
             'platforms': profile_data.get('platforms', []),
             'timezone': profile_data.get('timezone', ''),
             'voice_fingerprint': voice_fingerprint,

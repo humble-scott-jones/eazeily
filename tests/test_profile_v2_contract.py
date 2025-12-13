@@ -37,8 +37,9 @@ def test_profile_v2_returns_stable_contract_when_missing(client):
     assert 'default_tone' in profile
     assert 'platforms' in profile
     assert 'timezone' in profile
-    assert 'voice_fingerprint' in profile or profile['voice_fingerprint'] is None
-    assert 'updated_at' in profile or profile['updated_at'] is None
+    # Check that nullable fields exist (may be None)
+    assert 'voice_fingerprint' in profile
+    assert 'updated_at' in profile
     
     # For missing profile, expect warnings
     if data['profile_status'] == 'missing':
