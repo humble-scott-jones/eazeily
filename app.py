@@ -1680,7 +1680,7 @@ def api_generate():
             app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
             return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
         except Exception:
-            app.logger.exception("Image generation failed")
+            app.logger.exception("Image generation failed", extra={**request_meta, "event": "generator.failed"})
             return _log_and_abort(500, 'Image generation failed. Please try again.', event="generator.failed", code="image_generation_failed")
 
     # Populate defaults for strict mocks
@@ -1700,7 +1700,7 @@ def api_generate():
     try:
         # Use **data to satisfy test mocks that expect kwargs
         if gen_mod.USE_OPENAI_FOR_POSTS:
-            posts = gen_mod.generate_posts_with_openai(**data)
+            posts = gen_mod.generate_posts_with_openai(request_id=request_id, **data)
         else:
             posts = generate_posts(**data)
 
@@ -1717,7 +1717,7 @@ def api_generate():
         app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
         return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
     except Exception:
-        app.logger.exception("Generation failed")
+        app.logger.exception("Generation failed", extra={**request_meta, "event": "generator.failed"})
         return _log_and_abort(500, 'Generation failed. Please try again.', event="generator.failed")
 
 

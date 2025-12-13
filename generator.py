@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+import logging
 from datetime import timedelta, date
 from pathlib import Path
 from typing import Optional, Any, Mapping, Sequence
@@ -11,6 +12,7 @@ try:
 except ImportError:
     OpenAI = None
 
+logger = logging.getLogger(__name__)
 from platform_rules import DEFAULT_VARIANT_PLATFORMS, apply_platform_rules
 
 PILLARS_BY_DEFAULT = [
@@ -1072,6 +1074,46 @@ def _build_openai_prompt(
 def _parse_openai_posts(content: str) -> Optional[list[dict]]:
     return _parse_trend_payload(content)
 
+
+def _fallback_generate_posts(
+    *,
+    profile: Optional[Mapping[str, Any]],
+    days: int,
+    start_day: date,
+    industry: str,
+    tone: str,
+    platforms: list[str],
+    brand_keywords: list[str],
+    include_images: bool,
+    niche_keywords: list[str],
+    goals: list[str],
+    company: str,
+    details: Mapping[str, Any],
+    voice_profile: Mapping[str, Any],
+    request_id: str = "",
+) -> list[dict[str, Any]]:
+    """Call `generate_posts` and ensure failures are logged with context."""
+
+    try:
+        return generate_posts(
+            profile=profile,
+            days=days,
+            start_day=start_day,
+            industry=industry,
+            tone=tone,
+            platforms=platforms,
+            brand_keywords=brand_keywords,
+            include_images=include_images,
+            niche_keywords=niche_keywords,
+            goals=goals,
+            company=company,
+            details=details,
+            voice_profile=voice_profile,
+        )
+    except Exception:
+        logger.exception("Fallback generation failed", extra={"request_id": request_id})
+        raise
+
 def generate_posts_with_openai(
     profile: Optional[Mapping[str, Any]] = None,
     *,
@@ -1088,6 +1130,7 @@ def generate_posts_with_openai(
     details: Optional[Mapping[str, Any]] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
     include_trends: bool = False,
+    request_id: str = "",
 ) -> list[dict[str, Any]]:
     """Generate posts using OpenAI if available, otherwise fallback to templates."""
     
@@ -1123,7 +1166,7 @@ def generate_posts_with_openai(
 
     # Check if OpenAI is available
     if not USE_OPENAI_FOR_POSTS or not _openai_client:
-        return generate_posts(
+        return _fallback_generate_posts(
             profile=profile,
             days=days,
             start_day=start_day,
@@ -1136,7 +1179,8 @@ def generate_posts_with_openai(
             goals=goals,
             company=company,
             details=details,
-            voice_profile=voice_profile
+            voice_profile=voice_profile,
+            request_id=request_id,
         )
 
     # Fetch trends if requested
@@ -1169,7 +1213,7 @@ def generate_posts_with_openai(
         )
         content = _extract_openai_content(response)
         posts_data = _parse_openai_posts(content or '')
-        
+
         if not posts_data:
             raise ValueError("Failed to parse OpenAI response")
 
@@ -1177,26 +1221,29 @@ def generate_posts_with_openai(
         final_posts = []
         for i, post in enumerate(posts_data[:days]):
             post_date = start_day + timedelta(days=i)
-            
+
             # Ensure required fields
             if 'caption' not in post:
                 post['caption'] = "Check this out!"
-            
+
             # Add image prompt if needed
             if include_images and 'image_prompt' not in post:
                 post['image_prompt'] = image_prompt(industry, post.get('pillar', 'General'), brand_keywords, company)
-            
+
             post['date'] = post_date.isoformat()
             post['day'] = post_date.strftime('%A')
             post['platform'] = platforms[0] # Simplified: assume primary platform for now or handle multi-platform
-            
+
             final_posts.append(post)
-            
+
+        if not final_posts:
+            raise ValueError("OpenAI produced no posts")
+
         return final_posts
 
-    except Exception as e:
-        # Fallback
-        return generate_posts(
+    except Exception:
+        logger.exception("OpenAI generation failed", extra={"request_id": request_id})
+        fallback_posts = _fallback_generate_posts(
             profile=profile,
             days=days,
             start_day=start_day,
@@ -1209,5 +1256,11 @@ def generate_posts_with_openai(
             goals=goals,
             company=company,
             details=details,
-            voice_profile=voice_profile
+            voice_profile=voice_profile,
+            request_id=request_id,
         )
+
+        if not fallback_posts:
+            raise RuntimeError("Fallback generation produced no posts")
+
+        return fallback_posts
