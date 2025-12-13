@@ -11,8 +11,9 @@ import math
 from flask_cors import CORS
 import generator as gen_mod
 from werkzeug.security import generate_password_hash, check_password_hash
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Tuple
 import requests
+from generation_service import GenerationService
 try:
     import yaml
 except ImportError:  # pragma: no cover - dependency managed via requirements.txt
@@ -56,6 +57,10 @@ try:
     TEAM_MEMBER_LIMIT = int(os.getenv('TEAM_MEMBER_LIMIT', '10'))
 except (TypeError, ValueError):
     TEAM_MEMBER_LIMIT = 10
+try:
+    GENERATION_TIMEOUT_SECONDS = float(os.getenv('GENERATION_TIMEOUT_SECONDS', '15'))
+except (TypeError, ValueError):
+    GENERATION_TIMEOUT_SECONDS = 15.0
 
 def _resolve_password_hash_method():
     """Derive the hashing method string used by werkzeug based on env vars."""
@@ -125,6 +130,8 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
+generation_service = GenerationService(logger=None, timeout_seconds=GENERATION_TIMEOUT_SECONDS)
+generation_service.logger = app.logger
 
 
 class RequestIdMissingFilter(logging.Filter):
@@ -1586,20 +1593,190 @@ def api_profile():
             }), 500
 
 
+def _validate_generate_payload(payload: Mapping[str, Any]) -> dict:
+    errors: dict[str, str] = {}
+    try:
+        days = int(payload.get('days') or 7)
+        if days <= 0 or days > 31:
+            errors['days'] = 'Invalid days requested'
+    except Exception:
+        errors['days'] = 'Invalid days requested'
+
+    platforms = payload.get('platforms')
+    if platforms is not None:
+        try:
+            list(platforms or [])
+        except Exception:
+            errors['platforms'] = 'Invalid platforms'
+
+    image_data_url = payload.get('image_data_url')
+    if image_data_url and len(str(image_data_url)) > IMAGE_DATA_URL_MAX_BYTES:
+        errors['image_data_url'] = 'Image too large'
+
+    return errors
+
+
+def _normalize_generate_payload(payload: Mapping[str, Any]) -> dict:
+    normalized: dict[str, Any] = {}
+    try:
+        normalized['days'] = max(1, int(payload.get('days') or 7))
+    except Exception:
+        normalized['days'] = 7
+
+    start_day = payload.get('start_day')
+    if isinstance(start_day, str):
+        try:
+            start_day = date.fromisoformat(start_day)
+        except Exception:
+            start_day = None
+    if not isinstance(start_day, date):
+        start_day = date.today()
+    normalized['start_day'] = start_day
+
+    normalized['industry'] = (payload.get('industry') or 'Business').strip() or 'Business'
+    normalized['tone'] = payload.get('tone') or 'friendly'
+    normalized['platforms'] = list(payload.get('platforms') or ['instagram'])
+    normalized['brand_keywords'] = list(payload.get('brand_keywords') or [])
+    normalized['include_images'] = bool(payload.get('include_images'))
+    normalized['niche_keywords'] = list(payload.get('niche_keywords') or [])
+    normalized['goals'] = list(payload.get('goals') or [])
+    normalized['company'] = payload.get('company') or ''
+    normalized['details'] = payload.get('details') or {}
+    normalized['voice_profile'] = payload.get('voice_profile') or {}
+    normalized['profile'] = payload.get('profile') or None
+    normalized['include_trends'] = bool(payload.get('include_trends'))
+    return normalized
+
+
+def _validate_posts_output(posts: Any) -> dict:
+    if not isinstance(posts, list) or not posts:
+        raise ValueError('No posts returned')
+
+    sanitized: list[dict[str, Any]] = []
+    for post in posts:
+        if not isinstance(post, Mapping):
+            raise ValueError('Invalid post object')
+        caption = str(post.get('caption') or '').strip()
+        if not caption:
+            raise ValueError('Post missing caption')
+        platform = (post.get('platform') or 'instagram').strip() or 'instagram'
+        sanitized_post = dict(post)
+        sanitized_post['caption'] = caption
+        sanitized_post['platform'] = platform
+        sanitized.append(sanitized_post)
+
+    return {'posts': sanitized, 'count': len(sanitized)}
+
+
+def _validate_review_payload(payload: Mapping[str, Any]) -> dict:
+    errors: dict[str, str] = {}
+    if not payload.get('review_text'):
+        errors['review_text'] = 'Review text is required'
+    return errors
+
+
+def _normalize_review_payload(payload: Mapping[str, Any]) -> dict:
+    return {
+        'review_text': (payload.get('review_text') or '').strip(),
+        'tone': payload.get('tone') or 'professional',
+        'company_name': payload.get('company') or payload.get('company_name') or '',
+        'industry': payload.get('industry') or '',
+    }
+
+
+def _validate_review_output(result: Any) -> dict:
+    if not isinstance(result, Mapping):
+        raise ValueError('Invalid response payload')
+    response = str(result.get('response') or '').strip()
+    if not response:
+        raise ValueError('Missing response text')
+    return {
+        'response': response,
+        'method': result.get('method', 'fallback'),
+        'detected_sentiment': result.get('detected_sentiment'),
+    }
+
+
+def _validate_variants_payload(payload: Mapping[str, Any]) -> dict:
+    errors: dict[str, str] = {}
+    try:
+        count = int(payload.get('count') or 1)
+        if count <= 0 or count > 10:
+            errors['count'] = 'Invalid count'
+    except Exception:
+        errors['count'] = 'Invalid count'
+    return errors
+
+
+def _normalize_variants_payload(payload: Mapping[str, Any]) -> dict:
+    try:
+        count = int(payload.get('count') or 1)
+    except Exception:
+        count = 1
+    count = min(max(count, 1), 10)
+    return {
+        'count': count,
+        'industry': payload.get('industry') or 'business',
+        'platform': payload.get('platform') or payload.get('primary_platform') or 'instagram',
+        'tone': payload.get('tone') or 'friendly',
+        'base_caption': payload.get('base_caption') or payload.get('caption') or '',
+    }
+
+
+def _validate_variants_output(variants: Any) -> dict:
+    if not isinstance(variants, list) or not variants:
+        raise ValueError('Missing variants')
+    for group in variants:
+        if not isinstance(group, Mapping):
+            raise ValueError('Invalid variants group')
+        payload = group.get('variants')
+        if not isinstance(payload, Mapping) or not payload:
+            raise ValueError('Invalid variants payload')
+        for v in payload.values():
+            if not isinstance(v, Mapping):
+                raise ValueError('Invalid variant entry')
+            if not any(isinstance(val, str) and val for val in v.values()):
+                raise ValueError('Empty variant entry')
+    return {'variants': variants, 'count': len(variants)}
+
+
+def _generate_variants_fallback(normalized: Mapping[str, Any]) -> list[dict[str, Any]]:
+    templates = {
+        'twitter': 'Tweet: {base}',
+        'youtube': 'Video description: {base}',
+        'instagram': 'Insta caption: {base}',
+        'facebook': 'FB caption: {base}',
+        'linkedin': 'LinkedIn post: {base}',
+    }
+    base_caption = normalized.get('base_caption') or f"{str(normalized.get('industry') or 'Business').title()} insight"
+    tone = normalized.get('tone') or 'friendly'
+    count = int(normalized.get('count') or 1)
+    groups: list[dict[str, Any]] = []
+    for idx in range(count):
+        variants: dict[str, dict[str, str]] = {}
+        for platform, template in templates.items():
+            key = 'description' if platform == 'youtube' else ('caption' if platform == 'instagram' else 'text')
+            variants[platform] = {key: template.format(base=f"{base_caption} ({tone}) #{idx+1}")}
+        groups.append({'variants': variants})
+    return groups
+
+
 @app.post('/api/generate')
 def api_generate():
     data = request.get_json(force=True) or {}
 
     request_id = _get_request_id()
 
-    # Check gating
     flags = load_flags()
     platforms = data.get('platforms') or []
     try:
         platforms = list(platforms)
     except Exception:
         platforms = []
-    days = int(data.get('days') or 7)
+    try:
+        days = int(data.get('days') or 7)
+    except Exception:
+        days = 7
 
     uid = session.get('user_id')
     is_paid = False
@@ -1618,7 +1795,7 @@ def api_generate():
     app.logger.info("generator.request", extra=request_meta)
 
     def _log_and_abort(status_code: int, message: str, event: str = "generator.blocked", code: str = "generation_failed"):
-        payload = {'ok': False, 'error': {'code': code, 'message': message}, 'request_id': request_id}
+        payload = {'ok': False, 'error': {'code': code, 'message': message}, 'request_id': request_id, 'data': None}
         app.logger.info(event, extra={**request_meta, "event": event, "status": status_code, "error": message})
         return jsonify(payload), status_code
 
@@ -1628,15 +1805,12 @@ def api_generate():
         if u and u['is_paid']:
             is_paid = True
 
-    # Gate 7 days
-    if flags.get('gate7DayToPaid'):
-        if days >= 7:
-            if not uid:
-                return _log_and_abort(401, 'Login required')
-            if not is_paid:
-                return _log_and_abort(403, 'Paid plan required for 7-day generation')
+    if flags.get('gate7DayToPaid') and days >= 7:
+        if not uid:
+            return _log_and_abort(401, 'Login required')
+        if not is_paid:
+            return _log_and_abort(403, 'Paid plan required for 7-day generation')
 
-    # Free sample check
     if not is_paid and uid:
         db = get_db()
         u = db.execute('SELECT free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
@@ -1644,11 +1818,9 @@ def api_generate():
             return _log_and_abort(403, 'Free sample already used')
         should_mark_sample = True
 
-    # Gate Reels (short_video)
     if 'short_video' in platforms and not is_paid:
         return _log_and_abort(403, 'Paid plan required for Reels generation')
 
-    # Check Quota for Reels
     if 'short_video' in platforms and is_paid:
         quota = int(os.getenv('REELS_QUOTA_MONTHLY', '30'))
         period = datetime.now().strftime('%Y-%m')
@@ -1658,11 +1830,10 @@ def api_generate():
         if used >= quota:
             return _log_and_abort(403, 'Monthly Reels quota exceeded')
 
-    # Check for image payload
     image_data_url = data.get('image_data_url')
     if image_data_url:
         if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES:
-            return _log_and_abort(400, 'Image too large')
+            return _log_and_abort(400, 'Image too large', code='image_too_large')
 
         if not USE_OPENAI or openai_client is None:
             return _log_and_abort(
@@ -1672,53 +1843,44 @@ def api_generate():
             )
 
         try:
-            # Use the helper for image-based generation
             posts = _generate_posts_from_image(data) or []
             if not isinstance(posts, list) or not posts:
                 return _log_and_abort(500, 'Image generation not available', event="generator.failed", code="image_generation_failed")
             duration_ms = int((time.time() - start_ts) * 1000)
             app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
-            return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
+            body = {'ok': True, 'data': {'posts': posts, 'count': len(posts)}, 'request_id': request_id, 'posts': posts, 'count': len(posts)}
+            return jsonify(body)
         except Exception:
             app.logger.exception("Image generation failed", extra={**request_meta, "event": "generator.failed"})
             return _log_and_abort(500, 'Image generation failed. Please try again.', event="generator.failed", code="image_generation_failed")
 
-    # Populate defaults for strict mocks
-    for k in ['start_day', 'industry', 'tone', 'platforms', 'brand_keywords', 'include_images', 'niche_keywords', 'goals', 'details', 'company']:
-       if k not in data:
-           data[k] = None
-           
-    # Convert start_day
-    if not data.get('start_day'):
-        data['start_day'] = date.today()
-    elif isinstance(data['start_day'], str):
-        try:
-            data['start_day'] = date.fromisoformat(data['start_day'])
-        except:
-            pass
+    service_response = generation_service.generate(
+        endpoint='generate',
+        request_id=request_id,
+        payload=data,
+        validator=_validate_generate_payload,
+        normalizer=_normalize_generate_payload,
+        output_validator=_validate_posts_output,
+        openai_callable=lambda normalized: gen_mod.generate_posts_with_openai(request_id=request_id, **normalized),
+        fallback_callable=lambda normalized: generate_posts(**{k: v for k, v in normalized.items() if k != 'include_trends'}),
+        use_openai=gen_mod.USE_OPENAI_FOR_POSTS,
+    )
 
-    try:
-        # Use **data to satisfy test mocks that expect kwargs
-        if gen_mod.USE_OPENAI_FOR_POSTS:
-            posts = gen_mod.generate_posts_with_openai(request_id=request_id, **data)
-        else:
-            posts = generate_posts(**data)
-
-        posts = posts or []
-        if not isinstance(posts, list) or not posts:
-            app.logger.error("Generation returned no posts", extra={**request_meta, "event": "generator.failed"})
-            return _log_and_abort(500, 'Generation failed to produce content.', event="generator.failed", code="empty_posts")
-
+    body = dict(service_response.body)
+    data_payload = body.pop('data', {}) if isinstance(body.get('data'), dict) else (body.pop('data') if 'data' in body else {})
+    if service_response.ok and isinstance(data_payload, dict):
+        posts = data_payload.get('posts') or []
+        body['data'] = data_payload
+        body['posts'] = posts
+        body['count'] = data_payload.get('count', len(posts))
         if should_mark_sample and uid:
             db = get_db()
             db.execute('UPDATE users SET free_sample_used = 1 WHERE id = ?', (uid,))
             db.commit()
-        duration_ms = int((time.time() - start_ts) * 1000)
-        app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
-        return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
-    except Exception:
-        app.logger.exception("Generation failed", extra={**request_meta, "event": "generator.failed"})
-        return _log_and_abort(500, 'Generation failed. Please try again.', event="generator.failed")
+    else:
+        body.setdefault('data', None)
+
+    return jsonify(body), service_response.status
 
 
 @app.post('/api/generate/reels')
@@ -1812,19 +1974,28 @@ def api_generate_reels():
 @app.post('/api/generate-review-response')
 def api_generate_review_response():
     data = request.get_json(force=True) or {}
-    review_text = data.get('review_text')
-    if not review_text:
-        return jsonify({'ok': False, 'error': 'Review text is required'}), 400
-    
-    tone = data.get('tone') or 'professional'
-    company = data.get('company') or data.get('company_name') or ''
-    industry = data.get('industry') or ''
-    
-    try:
-        result = gen_mod.generate_review_response(review_text, tone=tone, company_name=company, industry=industry)
-        return jsonify({'ok': True, **result})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    request_id = _get_request_id()
+
+    service_response = generation_service.generate(
+        endpoint='generate-review-response',
+        request_id=request_id,
+        payload=data,
+        validator=_validate_review_payload,
+        normalizer=_normalize_review_payload,
+        output_validator=_validate_review_output,
+        fallback_callable=lambda normalized: gen_mod.generate_review_response(**normalized),
+        use_openai=False,
+    )
+
+    body = dict(service_response.body)
+    data_payload = body.pop('data', {}) if isinstance(body.get('data'), dict) else (body.pop('data') if 'data' in body else {})
+    if service_response.ok and isinstance(data_payload, dict):
+        body['data'] = data_payload
+        body.update(data_payload)
+    else:
+        body.setdefault('data', None)
+
+    return jsonify(body), service_response.status
 
 
 @app.post('/api/generate/reviews')
@@ -3110,24 +3281,36 @@ def get_user_by_email(email):
 
 @app.post('/api/generate-variants')
 def api_generate_variants():
+    request_id = _get_request_id()
+
     if os.environ.get('FLASK_ENV') == 'production':
         if not session.get('user_id'):
-             return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+            return jsonify({'ok': False, 'error': {'code': 'unauthorized', 'message': 'Not logged in'}, 'request_id': request_id, 'data': None}), 401
 
     data = request.get_json(force=True) or {}
-    count = int(data.get('count', 1))
-    
-    variants = []
-    for i in range(count):
-        variants.append({
-            'variants': {
-                'twitter': {'text': 'Tweet content'},
-                'youtube': {'description': 'Video description'},
-                'instagram': {'caption': 'Insta caption'}
-            }
-        })
-        
-    return jsonify({'ok': True, 'variants': variants})
+
+    service_response = generation_service.generate(
+        endpoint='generate-variants',
+        request_id=request_id,
+        payload=data,
+        validator=_validate_variants_payload,
+        normalizer=_normalize_variants_payload,
+        output_validator=_validate_variants_output,
+        fallback_callable=_generate_variants_fallback,
+        use_openai=False,
+    )
+
+    body = dict(service_response.body)
+    data_payload = body.pop('data', {}) if isinstance(body.get('data'), dict) else (body.pop('data') if 'data' in body else {})
+    if service_response.ok and isinstance(data_payload, dict):
+        variants = data_payload.get('variants') or []
+        body['data'] = data_payload
+        body['variants'] = variants
+        body['count'] = data_payload.get('count', len(variants))
+    else:
+        body.setdefault('data', None)
+
+    return jsonify(body), service_response.status
     
 
 @app.get('/__dev__/trends')
