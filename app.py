@@ -953,7 +953,11 @@ def _determine_profile_status(profile: dict) -> Tuple[str, Optional[str], Option
     has_tone = bool(profile.get('tone'))
     has_platforms = bool(profile.get('platforms') and len(profile.get('platforms', [])))
     
-    # Profile is "ready" if it has at least company/industry AND tone
+    # Profile is "ready" if it has the essential fields for content generation:
+    # - At least one identifier (company OR industry) so we know what to write about
+    # - Tone (how to write it - professional, friendly, etc.)
+    # - Platforms (where to publish - Instagram, LinkedIn, etc.)
+    # This ensures we have enough context to generate personalized content.
     if (has_company or has_industry) and has_tone and has_platforms:
         return ('ready', None, None)
     

@@ -17,6 +17,9 @@ const generatedViewPrefs = {
   loaded: false
 };
 const PROFILE_FETCH_TIMEOUT_MS = 9000;
+// Profile load state tracks the status of fetching user profile
+// status: 'idle' | 'loaded' | 'loaded_from_cache' | 'error'
+// profileStatus: 'missing' | 'partial' | 'ready' | 'acknowledged' (from backend or user dismissal)
 const profileLoadState = { 
   status: 'idle', 
   error: null, 
