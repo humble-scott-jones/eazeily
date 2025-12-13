@@ -6,18 +6,24 @@
   <title>Review Response Generator - Eazeily</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/eazeily-theme.css" />
 </head>
-<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen">
-  <header class="px-6 py-5 bg-white/90 backdrop-blur border-b">
+<body
+  class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen"
+  data-page-id="reviews"
+  data-endpoint-marker="/api/generate-review-response"
+>
+  <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
     <div class="max-w-6xl mx-auto flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <img src="/static/eazeily-logo.svg" alt="Eazeily logo" class="w-8 h-8 header-logo" onerror="this.style.display='none'" />
-        <h1 class="text-xl font-semibold tracking-tight">Eazeily</h1>
-      </div>
+      <a href="/" class="flex items-center gap-3">
+        <img src="/static/logo.svg" alt="Eazeily icon" class="w-9 h-9" />
+        <img src="/static/eazeily-logo.svg" alt="Eazeily wordmark" class="h-6 hidden sm:block" />
+        <span class="sr-only">Eazeily</span>
+      </a>
       <div class="flex items-center gap-4">
-        <a class="text-sm text-brand hover:underline" href="/">Home</a>
-        <a class="text-sm text-brand hover:underline" href="/generate">Generate</a>
-        <a class="text-sm text-brand hover:underline" href="/account">Account</a>
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/app">Setup</a>
+        <a class="text-sm text-brand font-semibold" href="/generate/social">Generate</a>
+        <a class="auth-link text-sm text-brand hover:underline cursor-pointer">Account</a>
       </div>
     </div>
   </header>

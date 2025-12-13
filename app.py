@@ -492,6 +492,68 @@ def _generate_posts_from_image(spec: dict):
         return None
 
 
+def _coerce_keywords(raw_keywords):
+    if not raw_keywords:
+        return []
+    if isinstance(raw_keywords, str):
+        raw_keywords = [raw_keywords]
+    keywords = []
+    try:
+        for kw in raw_keywords:
+            val = str(kw).strip()
+            if val:
+                keywords.append(val)
+    except Exception:
+        return []
+    return keywords
+
+
+def _build_social_plan(payload: dict):
+    goals = (payload.get('goals') or '').strip() or 'Grow engagement'
+    tone = payload.get('tone') or 'friendly'
+    promo = (payload.get('promo') or '').strip()
+    length = payload.get('length') or 'medium'
+    keywords = _coerce_keywords(payload.get('keywords'))
+    if not keywords:
+        keywords = ['eazeily', 'content', 'plan']
+    hashtags = [f"#{kw.replace(' ', '').lower()}" for kw in keywords]
+
+    days = int(payload.get('days') or 0)
+    platforms = payload.get('platforms') or []
+    plan_days = []
+    posts = []
+    for idx in range(days):
+        day_num = idx + 1
+        entries = []
+        for platform in platforms:
+            caption_parts = [f"Day {day_num} ({platform})", goals, f"Tone: {tone}", f"Length: {length}"]
+            if promo:
+                caption_parts.append(f"Promo: {promo}")
+            if payload.get('image'):
+                caption_parts.append("Includes visual reference")
+            caption = ' • '.join(caption_parts)
+            entry = {
+                'day': day_num,
+                'platform': platform,
+                'caption': caption,
+                'hashtags': hashtags,
+            }
+            entries.append(entry)
+            posts.append(entry)
+        plan_days.append({'day': day_num, 'label': f"Day {day_num}", 'platforms': entries})
+
+    return {
+        'summary': {
+            'goals': goals,
+            'tone': tone,
+            'platforms': platforms,
+            'days': days,
+        },
+        'days': plan_days,
+        'posts': posts,
+    }
+
+
 def _apply_voice_guardrails(posts: list[dict], voice_profile_ctx: Optional[dict]):
     if not voice_profile_ctx or not isinstance(posts, list):
         return
@@ -993,6 +1055,79 @@ def generate_social_page():
         is_team_tier=is_team_tier,
         generator_mode='social'
     )
+
+
+@app.post('/api/generate/social')
+def api_generate_social_plan():
+    data = request.get_json(force=True) or {}
+    request_id = _get_request_id()
+
+    def _fail(status: int, message: str, code: str = 'invalid_payload'):
+        payload = {'ok': False, 'error': {'code': code, 'message': message}, 'request_id': request_id}
+        return jsonify(payload), status
+
+    platforms = data.get('platforms') or []
+    if isinstance(platforms, str):
+        platforms = [platforms]
+    try:
+        platforms = [str(p).strip() for p in platforms if str(p).strip()]
+    except Exception:
+        platforms = []
+
+    days_raw = data.get('days') or 0
+    try:
+        days = int(days_raw)
+    except Exception:
+        days = 0
+
+    goals = (data.get('goals') or '').strip()
+    if not goals:
+        return _fail(400, 'Goals are required')
+
+    if days < 1 or days > 30:
+        return _fail(400, 'Days must be between 1 and 30')
+
+    if not platforms:
+        return _fail(400, 'At least one platform is required')
+
+    payload = {
+        'platforms': platforms,
+        'tone': (data.get('tone') or 'friendly').strip() or 'friendly',
+        'goals': goals,
+        'days': days,
+        'keywords': _coerce_keywords(data.get('keywords')),
+        'length': (data.get('length') or 'medium').strip() or 'medium',
+        'promo': (data.get('promo') or '').strip(),
+        'image': (data.get('image') or '').strip(),
+    }
+
+    try:
+        upstream_posts = _generate_posts_via_openai(payload) or []
+    except Exception:
+        app.logger.exception("social_generation_upstream_failed")
+        upstream_posts = []
+    plan = _build_social_plan(payload)
+
+    # If upstream returned posts, blend captions into the plan structure
+    if isinstance(upstream_posts, list) and upstream_posts:
+        try:
+            merged_posts = []
+            for idx, entry in enumerate(plan['posts']):
+                src = upstream_posts[idx % len(upstream_posts)]
+                caption = src.get('caption') or src.get('text') or entry['caption']
+                hashtags = src.get('hashtags') or entry['hashtags']
+                merged_posts.append({**entry, 'caption': caption, 'hashtags': hashtags})
+            plan['posts'] = merged_posts
+            # rebuild days
+            offset = 0
+            for day in plan['days']:
+                plat_count = len(day['platforms'])
+                day['platforms'] = merged_posts[offset:offset + plat_count]
+                offset += plat_count
+        except Exception:
+            plan = _build_social_plan(payload)
+
+    return jsonify({'ok': True, 'data': plan, 'request_id': request_id})
 
 
 @app.get("/generate/reels")
