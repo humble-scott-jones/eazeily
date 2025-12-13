@@ -2,6 +2,8 @@
 const DASHBOARD_SEED_STORAGE_KEY = (typeof window !== 'undefined' && window.SEED_STORAGE_KEY) ? window.SEED_STORAGE_KEY : '__swelly_seed_posts';
 const DASHBOARD_PLAN_CACHE_KEY = 'swelly_dashboard_plan_cache';
 const DASHBOARD_PLAN_TTL_MS = 1000 * 60 * 60 * 72; // 72 hours
+const PROFILE_CACHE_KEY = 'swelly_profile_cache';
+const PROFILE_CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const imageAttachmentState = { dataUrl: null, fileName: '' };
 let generatorUI = {};
 let dashboardConfigCache = null;
@@ -15,7 +17,17 @@ const generatedViewPrefs = {
   loaded: false
 };
 const PROFILE_FETCH_TIMEOUT_MS = 9000;
-const profileLoadState = { status: 'idle', error: null, requestId: null };
+// Profile load state tracks the status of fetching user profile
+// status: 'idle' | 'loaded' | 'loaded_from_cache' | 'error'
+// profileStatus: 'missing' | 'partial' | 'ready' | 'acknowledged' (from backend or user dismissal)
+const profileLoadState = { 
+  status: 'idle', 
+  error: null, 
+  requestId: null, 
+  profileStatus: null,
+  reason: null,
+  recommendedAction: null
+};
 const ACTIVITY_TYPE_META = {
   generated: { label: 'Generated', icon: '✨', color: 'emerald' },
   edited: { label: 'Edited', icon: '✏️', color: 'blue' },
@@ -335,14 +347,41 @@ async function loadUserProfile(options = {}) {
     profile = normalizeProfileResponse(body);
     profileLoadState.status = 'loaded';
     profileLoadState.requestId = body.request_id || null;
+    profileLoadState.profileStatus = body.profile_status || null;
+    profileLoadState.reason = body.reason || null;
+    profileLoadState.recommendedAction = body.recommended_action || null;
+    
+    // Cache the successfully loaded profile
+    if (profile && profileLoadState.profileStatus === 'ready') {
+      cacheProfile(profile, profileLoadState.profileStatus);
+    }
   } else {
+    // Try to use cached profile on failure
+    const cached = getCachedProfile();
+    if (cached && cached.profile) {
+      console.log('Using cached profile due to fetch failure');
+      profile = cached.profile;
+      profileLoadState.profileStatus = cached.profileStatus || 'ready';
+      profileLoadState.status = 'loaded_from_cache';
+    }
+    
     const timedOut = fetchError && fetchError.name === 'AbortError';
     const errorMessage = (body && body.error && body.error.message)
       || (timedOut ? 'Profile request timed out. Please retry.' : (fetchError && fetchError.message))
       || (response ? `Profile request failed (HTTP ${response.status})` : 'Profile request failed.');
-    profileLoadState.status = 'error';
-    profileLoadState.error = errorMessage;
-    profileLoadState.requestId = (body && body.request_id) || null;
+    
+    // Only set error state if we don't have a cached fallback
+    if (!profile) {
+      profileLoadState.status = 'error';
+      profileLoadState.error = errorMessage;
+      profileLoadState.requestId = (body && body.request_id) || null;
+      profileLoadState.profileStatus = null;
+      profileLoadState.reason = null;
+      profileLoadState.recommendedAction = null;
+    } else {
+      // We have cached data, but note there was an issue
+      profileLoadState.error = `${errorMessage} (using cached profile)`;
+    }
   }
 
   if (profile && typeof profile === 'object') {
@@ -388,6 +427,39 @@ function normalizeProfileResponse(payload = {}) {
   return payload;
 }
 
+function cacheProfile(profile, profileStatus) {
+  if (!profile || typeof profile !== 'object') return;
+  try {
+    const cacheData = {
+      profile,
+      profileStatus,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(cacheData));
+  } catch (err) {
+    // Ignore cache failures (e.g., localStorage full or disabled)
+    console.warn('Failed to cache profile:', err);
+  }
+}
+
+function getCachedProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const cacheData = JSON.parse(raw);
+    const age = Date.now() - (cacheData.timestamp || 0);
+    if (age > PROFILE_CACHE_TTL_MS) {
+      // Cache expired
+      localStorage.removeItem(PROFILE_CACHE_KEY);
+      return null;
+    }
+    return cacheData;
+  } catch (err) {
+    // Ignore cache read failures
+    return null;
+  }
+}
+
 function buildProfileDefaults(profile = null) {
   const source = profile && typeof profile === 'object' ? profile : {};
   const platforms = Array.isArray(source.platforms) ? source.platforms : [];
@@ -413,14 +485,49 @@ function renderProfileLoadBanner() {
   if (!banner) return;
   const title = document.getElementById('profile-banner-title');
   const message = document.getElementById('profile-banner-message');
-  const shouldShow = profileLoadState.status === 'error';
+  const retryBtn = document.getElementById('profile-banner-retry');
+  const continueBtn = document.getElementById('profile-banner-continue');
+  
+  // Show banner for errors OR when profile is missing/partial
+  const shouldShow = profileLoadState.status === 'error' 
+    || profileLoadState.profileStatus === 'missing' 
+    || profileLoadState.profileStatus === 'partial';
+  
   banner.classList.toggle('hidden', !shouldShow);
   if (!shouldShow) return;
-  if (title) title.textContent = 'Profile failed to load';
-  if (message) {
-    const detail = profileLoadState.error || 'Something went wrong while loading your profile.';
-    const rid = profileLoadState.requestId ? ` (request ${profileLoadState.requestId})` : '';
-    message.textContent = `${detail}${rid}`;
+  
+  // Customize message based on profile status
+  if (profileLoadState.status === 'error') {
+    // Network/server error
+    if (title) title.textContent = 'Unable to load your profile';
+    if (message) {
+      const detail = profileLoadState.error || 'Something went wrong while loading your profile.';
+      const rid = profileLoadState.requestId ? ` (request ${profileLoadState.requestId})` : '';
+      message.textContent = `${detail}${rid}`;
+    }
+    // Show retry button for errors
+    if (retryBtn) retryBtn.classList.remove('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
+  } else if (profileLoadState.profileStatus === 'missing') {
+    // No profile saved yet
+    if (title) title.textContent = 'Profile not set up yet';
+    if (message) {
+      message.textContent = profileLoadState.reason || 'Complete the Setup Wizard to personalize your content and make it sound like you.';
+    }
+    // Hide retry button for missing profile (nothing to retry)
+    if (retryBtn) retryBtn.classList.add('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
+  } else if (profileLoadState.profileStatus === 'partial') {
+    // Profile exists but incomplete
+    if (title) title.textContent = 'Profile incomplete';
+    if (message) {
+      const reason = profileLoadState.reason || 'Some settings are missing.';
+      const action = profileLoadState.recommendedAction || 'Complete your profile in Settings to get better results.';
+      message.textContent = `${reason} ${action}`;
+    }
+    // Hide retry button for partial profile (already loaded successfully)
+    if (retryBtn) retryBtn.classList.add('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
   }
 }
 
@@ -432,8 +539,13 @@ function setupProfileLoadBannerActions() {
   const cont = document.getElementById('profile-banner-continue');
   if (cont) {
     cont.addEventListener('click', () => {
-      profileLoadState.status = 'loaded';
-      profileLoadState.error = null;
+      // Clear error state and dismiss banner
+      if (profileLoadState.status === 'error') {
+        profileLoadState.status = 'loaded';
+        profileLoadState.error = null;
+      }
+      // For missing/partial, user acknowledges and wants to continue
+      profileLoadState.profileStatus = 'acknowledged';
       renderProfileLoadBanner();
     });
   }
