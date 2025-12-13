@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generate Content - Eazeily</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/eazeily-theme.css" />
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="{{ initial_user | tojson | forceescape }}" data-generator-mode="{{ generator_mode or 'social' }}">
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    <div class="absolute top-40 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
+    <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
+  </div>
+
+  <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <img src="/static/logo.svg" alt="Eazeily icon" class="w-9 h-9" />
+        <img src="/static/eazeily-logo.svg" alt="Eazeily wordmark" class="h-6 hidden sm:block" />
+        <span class="sr-only">Eazeily</span>
+      </a>
+      <div class="flex items-center gap-4">
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/app">Setup</a>
+        <a class="text-sm text-brand font-semibold" href="/generate">Generate</a>
+        <a class="auth-link text-sm text-brand hover:underline cursor-pointer">Account</a>
+      </div>
+    </div>
+  </header>
+
+  {% if is_dev %}
+  <div class="max-w-6xl mx-auto px-6 py-3">
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm text-slate-800 rounded-xl">
+      Dev helper: create one or more test users —
+      <form id="dev-create-form" class="inline-flex flex-wrap items-center gap-2 ml-2">
+        <input id="dev-email" class="input text-sm" placeholder="dev@example.com" value="dev@example.com" />
+        <input id="dev-password" class="input text-sm" placeholder="password" value="password" />
+        <select id="dev-templates" multiple class="input text-sm min-w-[180px]" aria-label="Choose user templates">
+          <option value="free" selected>Free (unpaid)</option>
+          <option value="paid_solo">Paid – Solo</option>
+          <option value="paid_team_admin">Paid – Team admin</option>
+          <option value="paid_team_member">Paid – Team member</option>
+        </select>
+        <button id="dev-create-btn" class="btn-ghost btn-sm">Create selected</button>
+      </form>
+      <p class="text-xs text-slate-600 mt-2">Use ⌘/Ctrl + click to choose multiple templates. The newest account becomes your active session.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <main class="relative max-w-6xl mx-auto p-6 space-y-6">
+    <div class="flex flex-col gap-4">
+      {% set active_tab = 'reels' if generator_mode == 'reels' else 'social' %}
+      {% include 'generate_tabs.html' %}
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-900">{{ 'Reels & Shorts' if generator_mode == 'reels' else 'Generate Social Content' }}</h1>
+          <p class="text-slate-600 text-sm">Plan, post, and respond from a focused workspace.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="/settings" class="btn-secondary text-sm py-2 px-4 rounded-lg flex items-center gap-2">
+            <span>Edit Voice</span>
+          </a>
+          <a href="#content-generator" class="btn-primary text-sm py-2 px-4 rounded-lg" data-scroll-to="generator">
+            New Plan
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div id="content-generator" class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+        <div class="flex flex-col gap-4 mb-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.35em] text-slate-500 mb-1">Session planner</p>
+            <h2 class="text-2xl font-bold text-slate-900">{{ 'Generate Reels & Shorts' if generator_mode == 'reels' else 'Generate Social Media Content' }}</h2>
+            <p class="text-sm text-slate-600">One streamlined flow: set length, confirm tone & platform, then let Eazeily handle the rest.</p>
+          </div>
+          <div class="planner-pill" id="voice-pill">Syncing voice from wizard…</div>
+        </div>
+
+        <div class="planner-card space-y-8">
+          <div class="planner-recipes bg-gradient-to-r from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100">
+            <div class="mb-3">
+              <p class="text-xs uppercase tracking-wide text-indigo-600 font-semibold">One-Click Recipes</p>
+              <h3 class="text-lg font-semibold text-slate-900">What are we creating today?</h3>
+              <p class="text-sm text-slate-600">Auto-fill your preferences and generate immediately.</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <button id="quick-sample" class="btn-primary btn-sm shadow-sm" type="button">✨ Fresh 1-day sample</button>
+              <button id="quick-7day" class="btn-white btn-sm border border-slate-200 text-slate-700 hover:border-indigo-300 bg-white px-3 py-2 rounded-lg transition-colors" type="button">📅 7-day cadence</button>
+              <button id="quick-30day" class="hidden btn-white btn-sm border border-slate-200 text-slate-700 hover:border-indigo-300 bg-white px-3 py-2 rounded-lg transition-colors" type="button">📊 30-day calendar</button>
+            </div>
+          </div>
+
+          <div class="planner-row">
+            <div class="planner-label">1. Session length</div>
+            <div class="planner-body space-y-3">
+              <div id="plan-length-buttons" class="chip-group" role="group" aria-label="Choose a plan length">
+                <button type="button" class="chip chip--active" data-plan-length="1">1 day • Sample</button>
+                <button type="button" class="chip" data-plan-length="7">7 days • Weekly</button>
+                <button type="button" class="hidden chip" data-plan-length="30">30 days • Monthly</button>
+              </div>
+              <select id="gen-days" class="sr-only" aria-label="Number of days">
+                <option value="1">1 Day Sample</option>
+                <option value="7">7 Days</option>
+                <option value="30">30 Days</option>
+              </select>
+              <p class="planner-hint">Switch lengths anytime — 7-day plans suit weekly content.</p>
+            </div>
+          </div>
+
+          <div class="planner-row">
+            <div class="planner-label">2. Platform focus</div>
+            <div class="planner-body space-y-3">
+              <div id="platform-preset-buttons" class="chip-group hidden" aria-label="Saved platforms"></div>
+              <p id="platform-preset-empty" class="planner-hint">Save preferred platforms in the wizard to unlock quick toggles here.</p>
+              <p class="text-xs uppercase tracking-wide text-slate-500">Select every channel for this plan</p>
+              <div id="generator-platforms" class="generator-platforms" role="group" aria-label="Select platforms">
+                <button type="button" class="chip chip--active" data-generator-platform="instagram" aria-pressed="true">Instagram</button>
+                <button type="button" class="chip" data-generator-platform="facebook" aria-pressed="false">Facebook</button>
+                <button type="button" class="chip" data-generator-platform="linkedin" aria-pressed="false">LinkedIn</button>
+                <button type="button" class="chip" data-generator-platform="twitter" aria-pressed="false">X / Twitter</button>
+                <button type="button" class="chip" data-generator-platform="short_video" aria-pressed="false">Reels / Shorts</button>
+                <button type="button" class="chip" data-generator-platform="tiktok" aria-pressed="false">TikTok</button>
+              </div>
+              <p id="platform-prefs-note" class="planner-hint hidden"></p>
+            </div>
+          </div>
+
+          <div class="planner-row">
+            <div class="planner-label">3. Tone & extras</div>
+            <div class="planner-body grid md:grid-cols-2 gap-4">
+              <div>
+                <label for="gen-tone" class="block text-xs uppercase tracking-wide text-slate-500 mb-1">Tone</label>
+                <select id="gen-tone" class="planner-select">
+                  <option value="friendly">Friendly</option>
+                  <option value="professional">Professional</option>
+                  <option value="playful">Playful</option>
+                  <option value="inspirational">Inspirational</option>
+                </select>
+                <p id="tone-prefs-note" class="planner-hint hidden"></p>
+              </div>
+              <div class="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <div class="w-9 h-9 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-semibold">AI</div>
+                <div>
+                  <p class="text-sm font-semibold text-slate-900">Wizard settings applied</p>
+                  <p class="text-xs text-slate-500">Adjust tone, keywords, or industries anytime from the Setup page.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="planner-row">
+            <div class="planner-label">4. Templates & goals</div>
+            <div class="planner-body space-y-4">
+              <div class="grid md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <label for="template-picker" class="block text-xs uppercase tracking-wide text-slate-500">Template library</label>
+                  <div class="flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                    <div class="flex items-center gap-2">
+                      <select id="template-picker" class="planner-select flex-1"></select>
+                      <button id="apply-template" class="btn-secondary btn-sm" type="button">Apply</button>
+                    </div>
+                    <div class="flex flex-wrap gap-2" id="template-preset-buttons" aria-label="Quick presets"></div>
+                    <p id="template-empty" class="planner-hint">Save combinations per profile to reuse launch or update prompts.</p>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <label for="template-name" class="block text-xs uppercase tracking-wide text-slate-500">Save current as</label>
+                  <div class="flex items-center gap-2">
+                    <input id="template-name" class="planner-select flex-1" placeholder="e.g. Instagram launch push" />
+                    <button id="save-template" class="btn-primary btn-sm" type="button">Save</button>
+                  </div>
+                  <p class="planner-hint">Templates capture tone, platforms, goals, and keywords for the active profile.</p>
+                </div>
+              </div>
+
+              <div class="rounded-2xl border border-dashed border-slate-200 bg-white/80 p-4 grid gap-4 md:grid-cols-[1.1fr,0.9fr]">
+                {% if is_team_tier %}
+                <div class="flex items-start gap-3">
+                  <div class="flex -space-x-2" aria-hidden="true">
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-blue-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">A</span>
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">B</span>
+                    <span class="w-9 h-9 rounded-full bg-gradient-to-r from-emerald-500 to-lime-500 border-2 border-white text-white text-sm font-semibold flex items-center justify-center">C</span>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Team workspace</p>
+                    <p class="text-sm text-slate-700" id="collab-presence">Syncing team presets…</p>
+                    <p class="text-xs text-slate-500 mt-1">Matches the solo generator visuals but keeps a shared library so teammates can hand off faster.</p>
+                  </div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <div class="rounded-xl bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 p-3">
+                    <p class="text-xs uppercase tracking-wide text-purple-700">Latest team preset</p>
+                    <p class="text-sm font-semibold text-slate-900" id="collab-template-name">No presets yet</p>
+                    <p class="text-xs text-slate-600" id="collab-template-author">Save one to see it here.</p>
+                  </div>
+                  <div class="rounded-xl border border-slate-200 p-3 bg-white/60">
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Status</p>
+                    <p class="text-sm text-slate-700" id="collab-template-time">Waiting for your first save.</p>
+                    <p class="text-xs text-slate-500 mt-1">Aligned to the solo planner flow, but built for collaborative use.</p>
+                  </div>
+                </div>
+                {% else %}
+                <div class="flex items-center gap-3 col-span-2">
+                  <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                  </div>
+                  <div>
+                    <p class="text-xs uppercase tracking-wide text-slate-500">Solo Mode</p>
+                    <p class="text-sm text-slate-600">Upgrade to Team plan to share templates and collaborate.</p>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+
+              <div class="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label for="gen-goals" class="block text-xs uppercase tracking-wide text-slate-500 mb-1">Goals</label>
+                  <input id="gen-goals" class="planner-select" placeholder="Product launch, Weekly update" />
+                </div>
+                <div>
+                  <label for="gen-keywords" class="block text-xs uppercase tracking-wide text-slate-500 mb-1">Keywords</label>
+                  <input id="gen-keywords" class="planner-select" placeholder="SaaS, AI, productivity" />
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3">
+                  <p class="text-xs uppercase tracking-wide text-slate-500">Profile defaults</p>
+                  <div class="text-sm text-slate-700 mt-1" id="profile-defaults-summary">Loading profile…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="reel-options" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 border border-purple-100">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+              </div>
+              <div>
+                <h4 class="text-lg font-semibold text-slate-900">Reel Options</h4>
+                <p class="text-xs text-slate-500">Only appears for Instagram Reels & TikTok.</p>
+              </div>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-4">
+              <div>
+                <label for="reel-style" class="block text-sm font-medium text-slate-700 mb-1">
+                  Reel Style
+                </label>
+                <select id="reel-style" class="planner-select">
+                  <option value="Face-camera tips">Face-Camera Tips</option>
+                  <option value="Property b-roll + captions">Property B-Roll + Captions</option>
+                  <option value="Product b-roll + captions">Product B-Roll + Captions</option>
+                  <option value="Local hotspot montage">Local Hotspot Montage</option>
+                  <option value="Story + before/after">Story + Before/After</option>
+                  <option value="Workout montage">Workout Montage</option>
+                </select>
+              </div>
+              <div>
+                <label for="reel-length" class="block text-sm font-medium text-slate-700 mb-1">
+                  Length (seconds)
+                </label>
+                <select id="reel-length" class="planner-select">
+                  <option value="15">15 seconds</option>
+                  <option value="30" selected>30 seconds</option>
+                  <option value="45">45 seconds</option>
+                  <option value="60">60 seconds</option>
+                </select>
+              </div>
+              <div>
+                <label for="production-tier" class="block text-sm font-medium text-slate-700 mb-1">
+                  Production Tier
+                </label>
+                <select id="production-tier" class="planner-select">
+                  <option value="solo">Solo Creator</option>
+                  <option value="small_team">Small Team</option>
+                  <option value="professional">Professional</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="planner-row">
+            <div class="planner-label">5. Visual inspiration</div>
+            <div class="planner-body">
+              <div class="rounded-2xl border border-dashed border-purple-200 bg-gradient-to-r from-white to-purple-50 p-5">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800">Have an image ready?</p>
+                    <p class="text-xs text-slate-500">Upload it so GPT-4o can tailor copy to the photo.</p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <input type="file" id="image-upload" accept="image/*" class="hidden" />
+                    <button id="image-upload-trigger" class="btn-secondary btn-sm" type="button">Attach image</button>
+                    <button id="image-upload-clear" class="btn-ghost btn-sm hidden" type="button">Remove</button>
+                  </div>
+                </div>
+                <div class="mt-4 flex gap-4 items-center">
+                  <img id="image-upload-preview" class="hidden w-24 h-24 object-cover rounded-xl border border-purple-100" alt="Uploaded inspiration preview" />
+                  <div class="flex-1">
+                    <p id="image-upload-name" class="text-sm font-medium text-slate-700">No image attached</p>
+                    <p id="image-upload-helper" class="text-xs text-slate-500">We’ll pull colors, textures, and vibes directly from your photo.</p>
+                    <textarea id="image-context" class="mt-3 w-full input text-sm" rows="2" placeholder="Optional: call out what matters most in this image (e.g. new pastry case, sunset hues, team photo)"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="text-sm text-slate-600">
+              <p class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Live voice and platform defaults applied.</p>
+              <p id="generator-status" class="hidden"></p>
+            </div>
+            <div class="flex gap-3">
+              <button id="generate-content" class="btn-primary text-base py-3 px-6 rounded-xl flex-1">Generate Content</button>
+              <button id="one-click-generate" class="btn-secondary text-base py-3 px-6 rounded-xl flex-1" type="button">One-click generate</button>
+              <div id="content-loading" class="hidden text-sm text-purple-600 flex items-center gap-2 flex-1">
+                <div class="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                Generating...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-slate-200" id="voice-coach-summary">
+        <div class="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <p class="planner-eyebrow mb-1">Voice snapshot</p>
+            <h4 class="text-lg font-semibold text-slate-900">Wizard summary</h4>
+            <p class="text-sm text-slate-600">Pulled from your latest setup wizard answers.</p>
+          </div>
+          <a href="/settings" class="btn-ghost btn-sm">Edit in settings</a>
+        </div>
+        <dl class="voice-summary-grid">
+          <div>
+            <dt>Company</dt>
+            <dd data-voice-company>—</dd>
+          </div>
+          <div>
+            <dt>Industry</dt>
+            <dd data-voice-industry>—</dd>
+          </div>
+          <div>
+            <dt>Signature tone</dt>
+            <dd data-voice-tone>—</dd>
+          </div>
+          <div>
+            <dt>Platforms</dt>
+            <dd data-voice-platforms>Instagram</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div id="generated-content" class="hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-8 h-8 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <h2 class="text-2xl font-bold text-slate-900">Generated Content</h2>
+        </div>
+        <p class="text-sm text-slate-600 mb-6">We auto-save your latest plan in this browser for 72 hours so you can leave the page and pick up right where you left off.</p>
+        <div id="plan-note-banner" class="hidden mb-6 p-4 rounded-2xl border border-amber-200 bg-amber-50/80">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-lg">📝</div>
+            <div>
+              <p class="text-sm font-semibold text-amber-900 mb-1">Latest promo note</p>
+              <p id="plan-note-text" class="text-sm text-amber-800"></p>
+              <p class="text-xs text-amber-700 mt-2">Saved from your most recent plan.</p>
+            </div>
+          </div>
+        </div>
+        <div id="generated-toolbar" class="generated-toolbar hidden">
+          <div class="generated-toolbar__filters">
+            <p class="generated-toolbar__label">Filter platforms</p>
+            <div id="platform-filter-chips" class="filter-chip-group"></div>
+          </div>
+          <div class="generated-toolbar__actions">
+            <button type="button" class="btn-ghost btn-sm" id="expand-all-days">Expand all days</button>
+            <button type="button" class="btn-ghost btn-sm" id="collapse-all-days">Collapse all days</button>
+          </div>
+        </div>
+        <div id="publishing-queue" class="hidden mb-6 bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl p-5 shadow">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase tracking-[0.35em] text-slate-500">Unified queue</p>
+              <h3 class="text-lg font-semibold text-slate-900">Publish now or schedule without leaving this page</h3>
+              <p class="text-sm text-slate-600">Badges track each platform’s status. Retry failed posts or copy the text anytime.</p>
+            </div>
+            <div class="text-right">
+              <p id="queue-timezone" class="text-xs text-slate-500">—</p>
+              <p class="text-[11px] text-slate-400">Times are shown in your browser timezone.</p>
+            </div>
+          </div>
+          <div id="publishing-queue-list" class="mt-4 space-y-3"></div>
+          <div id="publishing-queue-empty" class="mt-4 text-sm text-slate-500">Use “Publish now” or “Schedule” on any card to add it to the queue.</div>
+        </div>
+        <div id="content-results" class="space-y-4"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+  <script src="/static/dashboard.js"></script>
+  {% include 'paywall_modal.html' %}
+</body>
+</html>
