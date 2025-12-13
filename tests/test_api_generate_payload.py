@@ -25,7 +25,7 @@ def test_generate_includes_goals_and_keywords(client, monkeypatch, tmp_path):
     # Capture args passed to generator.generate_posts
     calls = {}
 
-    def fake_generate_posts(*, days, start_day, industry, tone, platforms, brand_keywords, include_images, niche_keywords, goals, details, company):
+    def fake_generate_posts(*, days, start_day, industry, tone, platforms, brand_keywords, include_images, niche_keywords, goals, details, company, voice_profile=None, profile=None):
         calls['kwargs'] = dict(
             days=days,
             industry=industry,
