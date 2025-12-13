@@ -60,9 +60,14 @@ def test_dashboard_js_declares_publishing_queue_state():
     # Check that publishingQueueState is declared
     assert 'publishingQueueState' in content, "publishingQueueState must be declared in dashboard.js"
     
-    # Check that it's declared as a const with entries array
-    assert 'const publishingQueueState' in content or 'let publishingQueueState' in content or 'var publishingQueueState' in content, \
-        "publishingQueueState must be declared as const/let/var"
+    # Check that it's declared as a const/let/var with initialization
+    assert ('const publishingQueueState = {' in content or 
+            'let publishingQueueState = {' in content or 
+            'var publishingQueueState = {' in content), \
+        "publishingQueueState must be declared with initialization"
+    
+    # Check that it has an entries array
+    assert 'entries: []' in content, "publishingQueueState should have an entries array"
     
     # Check that PUBLISHING_QUEUE_STORAGE_KEY is declared
     assert 'PUBLISHING_QUEUE_STORAGE_KEY' in content, "PUBLISHING_QUEUE_STORAGE_KEY constant must be declared"

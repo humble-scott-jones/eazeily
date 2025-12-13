@@ -116,6 +116,7 @@ const DEFAULT_PRESETS = [
 let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], goals: [], platforms: [], company: '', timezone: '', id: 'anon', hasProfile: false };
 let lastGeneratorState = null;
 let generatorHydratedFromProfile = false;
+// Publishing queue state - const reference, mutable object properties
 const publishingQueueState = {
   entries: []
 };
