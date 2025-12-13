@@ -263,9 +263,9 @@ def build_voice_style_guide(
     
     # Determine tone descriptors
     tone_descriptors = []
-    if exclamations := punctuation.get('!', 0):
-        if exclamations > len(samples) * 2:
-            tone_descriptors.append('enthusiastic')
+    exclamations = punctuation.get('!', 0)
+    if exclamations > len(samples):  # More than 1 exclamation per sample on average
+        tone_descriptors.append('enthusiastic')
     if punctuation.get('?', 0) > len(samples):
         tone_descriptors.append('engaging')
     if sentence_length == 'short':
