@@ -113,6 +113,37 @@ let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], go
 let lastGeneratorState = null;
 let generatorHydratedFromProfile = false;
 
+function logGeneratorEvent(event, meta = {}) {
+  try {
+    console.info(`[generator] ${event}`, meta);
+    if (Array.isArray(window.dataLayer)) {
+      window.dataLayer.push({ event: `generator.${event}`, meta });
+    }
+  } catch (err) {
+    // ignore client logging failures
+  }
+}
+
+function setGeneratorStatus(message, tone = 'muted') {
+  const statusEl = generatorUI.statusEl || document.getElementById('generator-status');
+  if (!statusEl) return;
+  if (!message) {
+    statusEl.classList.add('hidden');
+    statusEl.textContent = '';
+    return;
+  }
+
+  const toneClasses = {
+    muted: 'text-slate-600',
+    success: 'text-green-700',
+    error: 'text-red-700'
+  };
+  const base = 'text-sm mt-2';
+  statusEl.className = `${base} ${toneClasses[tone] || toneClasses.muted}`;
+  statusEl.textContent = message;
+  statusEl.classList.remove('hidden');
+}
+
 function getCurrentUserName() {
   const user = window.CURRENT_USER || {};
   return user.name || user.full_name || user.fullName || user.email || '';
@@ -532,6 +563,7 @@ function setupContentGeneration() {
   const resultsDiv = document.getElementById('generated-content');
   const contentResults = document.getElementById('content-results');
   const reelOptions = document.getElementById('reel-options');
+  const statusEl = document.getElementById('generator-status');
   const planLengthWrap = document.getElementById('plan-length-buttons');
   const daySelect = document.getElementById('gen-days');
 
@@ -542,7 +574,7 @@ function setupContentGeneration() {
     if (btn30) btn30.classList.add('hidden');
   }
 
-  generatorUI = { generateBtn, loadingDiv, resultsDiv, contentResults, reelOptions };
+  generatorUI = { generateBtn, loadingDiv, resultsDiv, contentResults, reelOptions, statusEl };
   initGeneratorPlatformPicker();
   refreshReelOptionsVisibility();
   syncPreferredPlatformButtons();
@@ -570,23 +602,25 @@ function setupContentGeneration() {
   });
 }
 
-async function executeContentGeneration(options = {}){
-  const { daysOverride } = options;
-  const {
-    generateBtn,
-    loadingDiv,
-    resultsDiv,
-    contentResults,
-    reelOptions
-  } = generatorUI;
-  if (!document.getElementById('gen-days')){
-    showToast('Generator unavailable. Refresh and try again.');
-    return;
-  }
-  if (!ensureDashboardAuth('Create a free account to generate content.')) return;
-  const days = typeof daysOverride === 'number'
-    ? daysOverride
-    : parseInt(document.getElementById('gen-days').value);
+  async function executeContentGeneration(options = {}){
+    const { daysOverride } = options;
+    const {
+      generateBtn,
+      loadingDiv,
+      resultsDiv,
+      contentResults,
+      reelOptions,
+      statusEl
+    } = generatorUI;
+    if (!document.getElementById('gen-days')){
+      showToast('Generator unavailable. Refresh and try again.');
+      return;
+    }
+    if (!ensureDashboardAuth('Create a free account to generate content.')) return;
+    if (generateBtn?.dataset.busy === '1') return;
+    const days = typeof daysOverride === 'number'
+      ? daysOverride
+      : parseInt(document.getElementById('gen-days').value);
   if (!Number.isNaN(days)) {
     lastPlanLength = days;
   }
@@ -609,13 +643,16 @@ async function executeContentGeneration(options = {}){
     };
   }
 
-  generateBtn?.classList.add('hidden');
-  loadingDiv?.classList.remove('hidden');
+    generateBtn?.classList.add('hidden');
+    loadingDiv?.classList.remove('hidden');
+    setGeneratorStatus('Sending request to the generator…', 'muted');
+    if (generateBtn) generateBtn.dataset.busy = '1';
+    logGeneratorEvent('click', { planLength: days, platforms, tone, goalsCount: goals.length, keywordsCount: keywords.length });
 
-  try {
-    const overrides = {
-      platforms,
-      tone,
+    try {
+      const overrides = {
+        platforms,
+        tone,
       details,
       goals,
       brand_keywords: keywords
@@ -626,24 +663,35 @@ async function executeContentGeneration(options = {}){
       if (imageContext) overrides.image_context = imageContext;
     }
 
-  const data = await generate(days, overrides);
-  if (contentResults) contentResults.innerHTML = '';
-  renderPosts(data);
-  const meta = buildPlanMetadataFromPayload(data);
-  cacheGeneratedPlan(data, meta);
-  lastGeneratorState = { platforms, tone, goals, keywords, planLength: days };
-  persistTemplateLibraryState();
-  applyPlanMetadata(meta);
-    resultsDiv?.classList.remove('hidden');
-    resultsDiv?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (error) {
-    console.error('Content generation failed:', error);
-    showToast('Failed to generate content. Please try again.');
-  } finally {
-    generateBtn?.classList.remove('hidden');
-    loadingDiv?.classList.add('hidden');
+      const data = await generate(days, overrides);
+      if (!data || data.ok === false || !Array.isArray(data.posts)) {
+        const msg = (data && data.error) ? data.error : 'Generator returned no posts.';
+        throw new Error(msg);
+      }
+      if (contentResults) contentResults.innerHTML = '';
+      renderPosts(data);
+      const meta = buildPlanMetadataFromPayload(data);
+      cacheGeneratedPlan(data, meta);
+      lastGeneratorState = { platforms, tone, goals, keywords, planLength: days };
+      persistTemplateLibraryState();
+      applyPlanMetadata(meta);
+      const totalPosts = data.count || (Array.isArray(data.posts) ? data.posts.length : 0);
+      setGeneratorStatus(`Plan ready: ${totalPosts || 'draft'} posts generated.`, 'success');
+      logGeneratorEvent('success', { planLength: days, platforms, totalPosts });
+      resultsDiv?.classList.remove('hidden');
+      resultsDiv?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+      console.error('Content generation failed:', error);
+      const message = (error && error.message) ? error.message : 'Failed to generate content. Please try again.';
+      setGeneratorStatus(message, 'error');
+      logGeneratorEvent('error', { message, planLength: days, platforms });
+      showToast(message);
+    } finally {
+      generateBtn?.classList.remove('hidden');
+      loadingDiv?.classList.add('hidden');
+      if (generateBtn) delete generateBtn.dataset.busy;
+    }
   }
-}
 
 function setupImageUpload() {
   const input = document.getElementById('image-upload');

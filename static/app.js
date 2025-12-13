@@ -1533,14 +1533,23 @@ async function generate(days){
     }
   }
 
+  let body;
   try{
-    return await res.json();
+    body = await res.json();
   }catch(e){
     const msg = 'Received invalid response from server.';
     showFormError(msg);
     console.error('generate() invalid json', e);
     throw new Error(msg);
   }
+
+  if (body && body.ok === false){
+    const msg = body.error || 'Unable to generate content.';
+    showFormError(msg);
+    throw new Error(msg);
+  }
+
+  return body;
 }
 
 async function seedInitialPosts(){
