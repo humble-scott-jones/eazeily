@@ -247,6 +247,15 @@ function populateAccountPlatformOptions(list) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Dev mode runtime check for queue state
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    if (typeof publishingQueueState === 'undefined' || !publishingQueueState) {
+      console.warn('[Eazeily Dev Warning] publishingQueueState is not properly initialized. Queue features may not work.');
+    } else if (!publishingQueueState.entries || !Array.isArray(publishingQueueState.entries)) {
+      console.warn('[Eazeily Dev Warning] publishingQueueState.entries is not an array. Queue features may not work correctly.');
+    }
+  }
+
   const hasGenerator = Boolean(document.getElementById('content-generator'));
   const hasReviewPanel = Boolean(document.getElementById('review-response'));
   const hasSettings = Boolean(document.getElementById('account-company'));
