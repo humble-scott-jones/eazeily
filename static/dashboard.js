@@ -100,6 +100,7 @@ const templateLibraryState = {
   lastUsed: null,
   profileKey: 'anon'
 };
+let lastTemplateUndoState = null;
 const platformPresetState = {
   wizard: [],
   lastPlan: null
@@ -1102,22 +1103,56 @@ function setupQuickActions() {
   quick30Day?.addEventListener('click', () => handleShortcut(30, 'Create a free account to unlock plans.'));
 }
 
-function hydrateTemplateLibrary() {
+async function hydrateTemplateLibrary() {
   loadTemplateLibraryState();
   renderTemplatePicker();
   renderPresetButtons();
   renderCollaborationSummary();
+  await refreshTemplatesFromServer();
 }
 
 function setupTemplateLibrary() {
   const saveBtn = document.getElementById('save-template');
   const applyBtn = document.getElementById('apply-template');
   const picker = document.getElementById('template-picker');
+  const openModalBtn = document.getElementById('open-template-modal');
+  const modalClose = document.getElementById('template-modal-close');
+  const modalCancel = document.getElementById('template-modal-cancel');
+  const modalSave = document.getElementById('template-modal-save');
+  const undoBtn = document.getElementById('undo-template');
+
   hydrateTemplateLibrary();
 
-  saveBtn?.addEventListener('click', () => saveCurrentTemplate());
+  saveBtn?.addEventListener('click', () => openTemplateModal());
+  openModalBtn?.addEventListener('click', () => openTemplateModal());
+  modalClose?.addEventListener('click', () => closeTemplateModal());
+  modalCancel?.addEventListener('click', () => closeTemplateModal());
+  modalSave?.addEventListener('click', () => saveCurrentTemplateFromModal());
   applyBtn?.addEventListener('click', () => applySelectedTemplate());
-  picker?.addEventListener('change', () => updateTemplateEmptyState());
+  picker?.addEventListener('change', () => handleTemplateSelectionChange());
+  undoBtn?.addEventListener('click', () => undoTemplateApplication());
+}
+
+async function refreshTemplatesFromServer() {
+  try {
+    const res = await fetch('/api/templates', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('Failed to load templates');
+    const data = await res.json();
+    if (Array.isArray(data.templates)) {
+      templateLibraryState.templates = data.templates.map(tpl => Object.assign({
+        updatedAt: tpl.updated_at || tpl.updatedAt || Date.now(),
+        author: tpl.author || getCurrentUserName() || 'Shared profile'
+      }, tpl));
+      renderTemplatePicker();
+      renderCollaborationSummary();
+      renderTemplatePreview(getSelectedTemplate());
+      persistTemplateLibraryState();
+    }
+  } catch (err) {
+    // fallback to local storage when offline
+    renderTemplatePicker();
+    renderTemplatePreview(getSelectedTemplate());
+  }
 }
 
 function renderTemplatePicker() {
@@ -1133,11 +1168,14 @@ function renderTemplatePicker() {
     const template = Object.assign({ updatedAt: Date.now() }, tpl);
     const opt = document.createElement('option');
     opt.value = template.id;
-    opt.textContent = template.author ? `${template.name} • ${template.author}` : template.name;
+    const scopeLabel = template.scope === 'workspace' ? 'Workspace' : 'Personal';
+    opt.textContent = template.author ? `${template.name} • ${scopeLabel}` : `${template.name} (${scopeLabel})`;
     opt.dataset.platforms = (template.platforms || []).join(',');
+    opt.dataset.scope = template.scope || 'personal';
     picker.appendChild(opt);
   });
   updateTemplateEmptyState(emptyState);
+  handleTemplateSelectionChange();
 }
 
 function renderCollaborationSummary() {
@@ -1187,88 +1225,247 @@ function updateTemplateEmptyState(target) {
   emptyState.classList.toggle('hidden', !!hasItems);
 }
 
-function saveCurrentTemplate() {
-  const nameField = document.getElementById('template-name');
-  const name = (nameField?.value || '').trim();
-  if (!name) {
-    showToast('Name your template first.');
-    nameField?.focus();
-    return;
+function getSelectedTemplate() {
+  const picker = document.getElementById('template-picker');
+  if (!picker) return null;
+  const selectedId = picker.value;
+  if (!selectedId) return null;
+  return (templateLibraryState.templates || []).find(t => t.id === selectedId) || null;
+}
+
+function handleTemplateSelectionChange() {
+  renderTemplatePreview(getSelectedTemplate());
+  updateTemplateEmptyState();
+}
+
+function buildTemplatePreviewText(state = {}) {
+  const parts = [];
+  if (state.tone) parts.push(`Tone: ${state.tone}`);
+  if (Array.isArray(state.platforms) && state.platforms.length) {
+    parts.push(`Platforms: ${state.platforms.join(', ')}`);
   }
-  const baseTemplate = {
-    id: `tpl-${Date.now()}`,
-    name,
+  if (Array.isArray(state.goals) && state.goals.length) {
+    parts.push(`Goals: ${state.goals.join(', ')}`);
+  }
+  if (Array.isArray(state.keywords) && state.keywords.length) {
+    parts.push(`Keywords: ${state.keywords.join(', ')}`);
+  }
+  return parts.join(' • ') || 'Tone, platforms, and goals from your current draft will be saved.';
+}
+
+function captureCurrentGeneratorState() {
+  return {
     tone: document.getElementById('gen-tone')?.value || 'friendly',
     platforms: getGeneratorPlatformSelections(),
     goals: getCurrentGoals(),
     keywords: getCurrentKeywords(),
-    author: getCurrentUserName() || 'Shared profile',
-    updatedAt: Date.now()
+    planLength: getCurrentPlanLength()
   };
-  const existingIdx = (templateLibraryState.templates || []).findIndex(t => t.name.toLowerCase() === name.toLowerCase());
+}
+
+function openTemplateModal() {
+  const modal = document.getElementById('template-modal');
+  const nameField = document.getElementById('template-modal-name');
+  const preview = document.getElementById('template-modal-preview');
+  if (!modal) return;
+  preview.textContent = buildTemplatePreviewText(captureCurrentGeneratorState());
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  nameField.value = '';
+  nameField.focus();
+}
+
+function closeTemplateModal() {
+  const modal = document.getElementById('template-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+async function saveCurrentTemplateFromModal() {
+  const nameField = document.getElementById('template-modal-name');
+  const scopeField = document.getElementById('template-modal-scope');
+  const name = (nameField?.value || '').trim();
+  const scope = (scopeField?.value || 'personal').trim();
+  await saveCurrentTemplate({ name, scope });
+}
+
+function addTemplateToState(template) {
+  const nameKey = (template.name || '').toLowerCase();
+  const existingIdx = (templateLibraryState.templates || []).findIndex(t => (t.name || '').toLowerCase() === nameKey);
   if (existingIdx >= 0) {
-    const existing = templateLibraryState.templates[existingIdx] || {};
-    templateLibraryState.templates[existingIdx] = Object.assign({}, existing, baseTemplate, {
-      id: existing.id || baseTemplate.id
-    });
+    templateLibraryState.templates[existingIdx] = Object.assign({}, templateLibraryState.templates[existingIdx], template);
   } else {
-    templateLibraryState.templates = [...(templateLibraryState.templates || []), baseTemplate];
+    templateLibraryState.templates = [...(templateLibraryState.templates || []), template];
   }
-  lastGeneratorState = Object.assign({}, baseTemplate, { planLength: getCurrentPlanLength() });
-  persistTemplateLibraryState();
   renderTemplatePicker();
   renderCollaborationSummary();
+  renderTemplatePreview(getSelectedTemplate());
+  persistTemplateLibraryState();
+}
+
+async function saveCurrentTemplate(opts = {}) {
+  const name = (opts.name || '').trim();
+  if (!name) {
+    showToast('Name your template first.');
+    return;
+  }
+  const generatorState = captureCurrentGeneratorState();
+  const payload = {
+    generator: generatorState,
+    profile_defaults: profileDefaults || {},
+    draft: planCacheState.meta || {}
+  };
+  const baseTemplate = {
+    id: opts.id || `tpl-${Date.now()}`,
+    name,
+    scope: opts.scope || 'personal',
+    author: getCurrentUserName() || 'Shared profile',
+    payload,
+    preview: buildTemplatePreviewText(generatorState),
+    updatedAt: Date.now()
+  };
+  let savedTemplate = baseTemplate;
+  try {
+    const res = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        name,
+        scope: baseTemplate.scope,
+        payload,
+        preview: baseTemplate.preview
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.template) {
+        savedTemplate = Object.assign({}, baseTemplate, data.template, {
+          payload: data.template.payload || baseTemplate.payload
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Template save failed, keeping local copy', error);
+  }
+
+  lastGeneratorState = Object.assign({}, generatorState, {
+    planLength: generatorState.planLength,
+    updatedAt: savedTemplate.updatedAt,
+    author: savedTemplate.author,
+    name: savedTemplate.name
+  });
+  addTemplateToState(savedTemplate);
+  closeTemplateModal();
   showToast('Template saved for this profile.');
 }
 
+function renderTemplatePreview(tpl) {
+  const preview = document.getElementById('template-preview');
+  if (!preview) return;
+  if (!tpl) {
+    preview.innerHTML = '<p class="text-sm font-semibold text-slate-900">No templates yet</p><p class="text-xs text-slate-600">Save your first template to preview tone, platforms, and goals before applying.</p>';
+    document.getElementById('undo-template')?.classList.add('hidden');
+    return;
+  }
+  const generatorPayload = extractGeneratorPayload(tpl);
+  const previewText = buildTemplatePreviewText(generatorPayload || {});
+  const scopeLabel = tpl.scope === 'workspace' ? 'Workspace' : 'Personal';
+  preview.innerHTML = `
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">${scopeLabel} template</p>
+        <p class="text-sm font-semibold text-slate-900">${escapeHtml(tpl.name || 'Untitled')}</p>
+        <p class="text-xs text-slate-600">${escapeHtml(previewText)}</p>
+      </div>
+      <span class="text-[11px] px-2 py-1 rounded-full bg-slate-100 text-slate-600">${tpl.author || 'Shared profile'}</span>
+    </div>`;
+}
+
 function applySelectedTemplate() {
-  const picker = document.getElementById('template-picker');
-  if (!picker) return;
-  const selectedId = picker.value;
-  const tpl = (templateLibraryState.templates || []).find(t => t.id === selectedId);
+  const tpl = getSelectedTemplate();
   if (!tpl) {
     showToast('Pick a template to apply.');
     return;
   }
-  applyTemplateToGenerator(tpl);
+  applyTemplateWithUndo(tpl);
   renderCollaborationSummary();
+}
+
+function extractGeneratorPayload(tpl = {}) {
+  if (tpl.payload && typeof tpl.payload === 'object') {
+    if (tpl.payload.generator) return tpl.payload.generator;
+    if (tpl.payload.config) return tpl.payload.config;
+  }
+  if (tpl.generator) return tpl.generator;
+  return tpl;
+}
+
+function applyTemplateWithUndo(tpl) {
+  const generatorPayload = extractGeneratorPayload(tpl);
+  const previousState = captureCurrentGeneratorState();
+  applyTemplateToGenerator(generatorPayload);
+  lastTemplateUndoState = previousState;
+  const undoBtn = document.getElementById('undo-template');
+  undoBtn?.classList.remove('hidden');
+  showToast('Template applied. Undo to restore previous draft.');
+}
+
+function undoTemplateApplication() {
+  if (!lastTemplateUndoState) {
+    showToast('No template change to undo.');
+    return;
+  }
+  applyGeneratorState(lastTemplateUndoState, { sync: true });
+  lastTemplateUndoState = null;
+  document.getElementById('undo-template')?.classList.add('hidden');
+  showToast('Template reverted.');
 }
 
 function applyPresetTemplate(preset) {
   const tpl = {
     id: preset.id,
     name: preset.label,
-    tone: preset.tone,
-    platforms: getGeneratorPlatformSelections(),
-    goals: preset.goals,
-    keywords: preset.keywords,
+    payload: {
+      generator: {
+        tone: preset.tone,
+        platforms: getGeneratorPlatformSelections(),
+        goals: preset.goals,
+        keywords: preset.keywords
+      }
+    },
     author: 'Team preset',
     updatedAt: Date.now()
   };
-  applyTemplateToGenerator(tpl, { skipPlatform: false });
+  applyTemplateWithUndo(tpl);
   renderCollaborationSummary();
 }
 
 function applyTemplateToGenerator(tpl, opts = {}) {
   if (!tpl) return;
-  if (tpl.tone) {
+  const generatorConfig = tpl.generator || tpl.payload?.generator || tpl;
+  if (generatorConfig.tone) {
     const toneField = document.getElementById('gen-tone');
-    if (toneField) toneField.value = tpl.tone;
+    if (toneField) toneField.value = generatorConfig.tone;
   }
-  if (!opts.skipPlatform && Array.isArray(tpl.platforms) && tpl.platforms.length) {
-    setGeneratorPlatformSelections(tpl.platforms);
+  if (!opts.skipPlatform && Array.isArray(generatorConfig.platforms) && generatorConfig.platforms.length) {
+    setGeneratorPlatformSelections(generatorConfig.platforms);
   }
-  if (Array.isArray(tpl.goals)) setCurrentGoals(tpl.goals);
-  if (Array.isArray(tpl.keywords)) setCurrentKeywords(tpl.keywords);
+  if (Array.isArray(generatorConfig.goals)) setCurrentGoals(generatorConfig.goals);
+  if (Array.isArray(generatorConfig.keywords)) setCurrentKeywords(generatorConfig.keywords);
+  if (generatorConfig.planLength) {
+    updateGeneratorShortcut(generatorConfig.planLength, { skipFocus: true, skipScroll: true });
+  }
   syncPreferredPlatformButtons();
   refreshReelOptionsVisibility();
-  lastGeneratorState = Object.assign({}, tpl, {
-    planLength: getCurrentPlanLength(),
-    updatedAt: tpl.updatedAt || Date.now(),
-    author: tpl.author || getCurrentUserName() || 'Shared profile'
+  lastGeneratorState = Object.assign({}, generatorConfig, {
+    planLength: generatorConfig.planLength || getCurrentPlanLength(),
+    updatedAt: generatorConfig.updatedAt || Date.now(),
+    author: generatorConfig.author || tpl.author || getCurrentUserName() || 'Shared profile',
+    name: tpl.name || generatorConfig.name
   });
   persistTemplateLibraryState();
-  showToast('Template applied.');
 }
 
 function setupOneClickGeneration() {
