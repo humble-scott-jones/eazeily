@@ -164,6 +164,21 @@
           <div class="planner-pill" id="voice-pill">Syncing voice from wizard…</div>
         </div>
 
+        <div id="profile-load-banner" class="hidden mb-4 p-4 rounded-2xl border border-amber-200 bg-amber-50">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-lg">⚠️</div>
+            <div class="flex-1">
+              <p id="profile-banner-title" class="text-sm font-semibold text-amber-900">Profile failed to load</p>
+              <p id="profile-banner-message" class="text-sm text-amber-800">We couldn’t fetch your defaults. Continue with built-in settings or retry.</p>
+              <div class="mt-3 flex gap-2 flex-wrap">
+                <button id="profile-banner-retry" class="btn-primary btn-sm" type="button">Retry</button>
+                <a href="/settings" class="btn-secondary btn-sm">Open Settings</a>
+                <button id="profile-banner-continue" class="btn-ghost btn-sm" type="button">Continue with defaults</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="planner-card space-y-8">
           <div class="planner-recipes bg-gradient-to-r from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100">
             <div class="mb-3">
@@ -424,15 +439,15 @@
           <dl class="voice-summary-grid">
             <div>
               <dt>Company</dt>
-              <dd data-voice-company>—</dd>
+              <dd data-voice-company>Not set</dd>
             </div>
             <div>
               <dt>Industry</dt>
-              <dd data-voice-industry>—</dd>
+              <dd data-voice-industry>Not set</dd>
             </div>
             <div>
               <dt>Signature tone</dt>
-              <dd data-voice-tone>—</dd>
+              <dd data-voice-tone>Not set</dd>
             </div>
             <div>
               <dt>Platforms</dt>

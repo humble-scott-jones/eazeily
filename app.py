@@ -845,6 +845,45 @@ def _deserialize_json(raw: Any, default: Any = None) -> Any:
         return default
 
 
+def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> dict:
+    base = {
+        'id': pid,
+        'industry': '',
+        'industry_key': '',
+        'tone': '',
+        'platforms': [],
+        'brand_keywords': [],
+        'niche_keywords': [],
+        'goals': [],
+        'company': '',
+        'include_images': False,
+        'details': {},
+        'voice_profile': {},
+        'timezone': ''
+    }
+
+    if not row:
+        return base
+
+    data = row_to_mapping(row) or {}
+    payload = dict(base)
+    payload['id'] = data.get('id') or pid or base['id']
+    payload['industry'] = data.get('industry') or ''
+    payload['industry_key'] = data.get('industry_key') or payload['industry']
+    payload['tone'] = data.get('tone') or ''
+    payload['platforms'] = _deserialize_json(data.get('platforms'), []) or []
+    payload['brand_keywords'] = _deserialize_json(data.get('brand_keywords'), []) or []
+    payload['niche_keywords'] = _deserialize_json(data.get('niche_keywords'), []) or []
+    payload['goals'] = _deserialize_json(data.get('goals'), []) or []
+    payload['company'] = data.get('company') or ''
+    payload['include_images'] = bool(data.get('include_images'))
+    payload['details'] = _deserialize_json(data.get('details'), {}) or {}
+    payload['voice_profile'] = _deserialize_json(data.get('voice_profile'), {}) or {}
+    if isinstance(payload['details'], dict):
+        payload['timezone'] = payload['details'].get('timezone') or payload['details'].get('tz') or ''
+    return payload
+
+
 def _get_current_user_row():
     uid = session.get('user_id')
     if not uid:
@@ -1359,8 +1398,9 @@ def api_account():
 
 @app.route('/api/profile', methods=['GET', 'POST'])
 def api_profile():
-    db = get_db()
+    request_id = _get_request_id()
     if request.method == 'POST':
+        db = get_db()
         data = request.get_json(force=True) or {}
         pid = session.get('profile_id')
         if not pid:
@@ -1383,12 +1423,12 @@ def api_profile():
             
         if errors:
             msg = list(errors.values())[0]
-            return jsonify({'ok': False, 'errors': errors, 'error': msg}), 400
+            return jsonify({'ok': False, 'errors': errors, 'error': msg, 'request_id': request_id}), 400
             
         include_images = 1 if data.get('include_images') else 0
         details = json.dumps(data.get('details') or {})
         voice_profile_data = json.dumps(data.get('voice_profile') or {})
-        
+
         # Upsert
         existing = db.execute('SELECT id FROM profiles WHERE id = ?', (pid,)).fetchone()
         try:
@@ -1428,31 +1468,28 @@ def api_profile():
                     INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details))
-        
+
         db.commit()
-        return jsonify({'ok': True, 'id': pid})
-    
+        return jsonify({'ok': True, 'id': pid, 'request_id': request_id})
+
     else: # GET
-        pid = session.get('profile_id')
-        if not pid:
-            return jsonify({'ok': True, 'profile': None})
-        
-        row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
-        if not row:
-            return jsonify({'ok': True, 'profile': None})
-            
-        # Deserialize
-        p = dict(row)
-        p['platforms'] = _deserialize_json(p['platforms'], [])
-        p['brand_keywords'] = _deserialize_json(p['brand_keywords'], [])
-        p['niche_keywords'] = _deserialize_json(p['niche_keywords'], [])
-        p['goals'] = _deserialize_json(p['goals'], [])
-        p['details'] = _deserialize_json(p['details'], {})
-        # Use .get() to handle case where voice_profile column is missing from DB
-        p['voice_profile'] = _deserialize_json(p.get('voice_profile'), {})
-        p['include_images'] = bool(p['include_images'])
-        
-        return jsonify(p)
+        try:
+            db = get_db()
+            pid = session.get('profile_id')
+            row = None
+            if pid:
+                row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
+
+            # Deserialize
+            p = _normalize_profile_payload(row, pid)
+            return jsonify({'ok': True, 'profile': p, 'request_id': request_id})
+        except Exception as exc:
+            app.logger.exception("Failed to load profile", exc_info=exc)
+            return jsonify({
+                'ok': False,
+                'error': {'message': 'Unable to load profile right now.'},
+                'request_id': request_id
+            }), 500
 
 
 @app.post('/api/generate')

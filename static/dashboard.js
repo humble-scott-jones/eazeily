@@ -14,6 +14,8 @@ const generatedViewPrefs = {
   hiddenPlatforms: new Set(),
   loaded: false
 };
+const PROFILE_FETCH_TIMEOUT_MS = 9000;
+const profileLoadState = { status: 'idle', error: null, requestId: null };
 const ACTIVITY_TYPE_META = {
   generated: { label: 'Generated', icon: '✨', color: 'emerald' },
   edited: { label: 'Edited', icon: '✏️', color: 'blue' },
@@ -109,7 +111,7 @@ const DEFAULT_PRESETS = [
   { id: 'product-launch', label: 'Product launch', goals: ['Product launch'], tone: 'inspirational', keywords: ['launch', 'new feature'] },
   { id: 'weekly-update', label: 'Weekly update', goals: ['Weekly update'], tone: 'friendly', keywords: ['community', 'newsletter'] }
 ];
-let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], goals: [], id: 'anon' };
+let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], goals: [], platforms: [], company: '', timezone: '', id: 'anon', hasProfile: false };
 let lastGeneratorState = null;
 let generatorHydratedFromProfile = false;
 
@@ -243,6 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const hasFeedbackForm = Boolean(document.getElementById('feedback-form'));
   const hasActivityPanel = Boolean(document.getElementById('activity-panel'));
 
+  setupProfileLoadBannerActions();
+
   loadUserProfile({ hydrateGenerator: hasGenerator, hydrateVoice: hasVoiceCoach || document.getElementById('voice-coach-summary') });
 
   if (hasReviewPanel) {
@@ -280,35 +284,140 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function loadUserProfile(options = {}) {
-  const { hydrateGenerator = true, hydrateVoice = true } = options;
+  const { hydrateGenerator = true, hydrateVoice = true, force = false } = options;
+  if (profileLoadState.status === 'loading' && !force) return;
+
+  profileLoadState.status = 'loading';
+  profileLoadState.error = null;
+  renderProfileLoadBanner();
+
   try {
     await ensureAccountFormFields();
-    const response = await fetch('/api/profile', { credentials: 'include' });
-    let profile = {};
-    if (response.ok) {
-      profile = await response.json();
-      applyProfileToAccountForm(profile);
-    }
-    profileDefaults = {
-      tone: profile.tone || 'friendly',
-      industry: profile.industry || profile.industry_key || 'Business',
-      keywords: Array.isArray(profile.brand_keywords) ? profile.brand_keywords : [],
-      goals: Array.isArray(profile.goals) ? profile.goals : [],
-      id: profile.id || (window.CURRENT_USER && window.CURRENT_USER.id) || 'anon'
-    };
-    setTemplateProfileKey(profileDefaults.id);
-    renderProfileDefaultsSummary(profileDefaults);
-    hydrateTemplateLibrary();
-    renderCollaborationSummary();
-    if (hydrateGenerator) {
-      applyProfileDefaultsToGenerator(profileDefaults);
-      hydrateStoredGeneratorState({ apply: true, preferProfile: true });
-    }
-    if (hydrateVoice) {
-      hydrateVoiceSummary(profile || {});
-    }
+  } catch (err) {
+    /* ignore form prep errors */
+  }
+
+  let profile = null;
+  let response = null;
+  let body = null;
+  let fetchError = null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(new Error('profile-timeout')), PROFILE_FETCH_TIMEOUT_MS);
+
+  try {
+    response = await fetch('/api/profile', { credentials: 'include', signal: controller.signal });
+    body = await response.json().catch(() => null);
   } catch (error) {
-    console.error('Failed to load user profile:', error);
+    fetchError = error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (response && response.ok && body && body.ok !== false) {
+    profile = normalizeProfileResponse(body);
+    profileLoadState.status = 'loaded';
+    profileLoadState.requestId = body.request_id || null;
+  } else {
+    const timedOut = fetchError && fetchError.name === 'AbortError';
+    const errorMessage = (body && body.error && body.error.message)
+      || (timedOut ? 'Profile request timed out. Please retry.' : (fetchError && fetchError.message))
+      || (response ? `Profile request failed (HTTP ${response.status})` : 'Profile request failed.');
+    profileLoadState.status = 'error';
+    profileLoadState.error = errorMessage;
+    profileLoadState.requestId = (body && body.request_id) || null;
+  }
+
+  if (profile && typeof profile === 'object') {
+    try { applyProfileToAccountForm(profile); } catch (err) { /* ignore */ }
+  }
+
+  profileDefaults = buildProfileDefaults(profile);
+  setTemplateProfileKey(profileDefaults.id);
+  renderProfileDefaultsSummary(profileDefaults);
+  renderProfileLoadBanner();
+  hydrateTemplateLibrary();
+  renderCollaborationSummary();
+
+  if (hydrateGenerator) {
+    applyProfileDefaultsToGenerator(profileDefaults);
+    hydrateStoredGeneratorState({ apply: true, preferProfile: true });
+  }
+
+  if (hydrateVoice) {
+    hydrateVoiceSummary(profileDefaults, { profileMissing: !profileDefaults.hasProfile });
+  }
+
+  const statusEl = document.getElementById('generator-status');
+  if (statusEl && profileLoadState.status !== 'error') {
+    statusEl.classList.add('hidden');
+    statusEl.textContent = '';
+  }
+
+  if (profileLoadState.status === 'error') {
+    if (statusEl) {
+      statusEl.textContent = `${profileLoadState.error} Using defaults for now.`;
+      statusEl.classList.remove('hidden');
+    }
+    console.error('Failed to load user profile:', profileLoadState.error);
+  }
+}
+
+function normalizeProfileResponse(payload = {}) {
+  if (!payload) return null;
+  if (typeof payload === 'object' && Object.prototype.hasOwnProperty.call(payload, 'profile')) {
+    return payload.profile;
+  }
+  return payload;
+}
+
+function buildProfileDefaults(profile = null) {
+  const source = profile && typeof profile === 'object' ? profile : {};
+  const platforms = Array.isArray(source.platforms) ? source.platforms : [];
+  const keywords = Array.isArray(source.brand_keywords) ? source.brand_keywords : [];
+  const goals = Array.isArray(source.goals) ? source.goals : [];
+  const hasProfile = Boolean(source.id || source.company || source.industry || source.industry_key || source.tone || platforms.length || keywords.length || goals.length);
+  return {
+    tone: source.tone || 'friendly',
+    industry: source.industry || source.industry_key || 'Business',
+    keywords,
+    goals,
+    platforms,
+    company: source.company || '',
+    timezone: source.timezone || '',
+    id: source.id || (window.CURRENT_USER && window.CURRENT_USER.id) || 'anon',
+    hasProfile,
+    voice_profile: source.voice_profile || {}
+  };
+}
+
+function renderProfileLoadBanner() {
+  const banner = document.getElementById('profile-load-banner');
+  if (!banner) return;
+  const title = document.getElementById('profile-banner-title');
+  const message = document.getElementById('profile-banner-message');
+  const shouldShow = profileLoadState.status === 'error';
+  banner.classList.toggle('hidden', !shouldShow);
+  if (!shouldShow) return;
+  if (title) title.textContent = 'Profile failed to load';
+  if (message) {
+    const detail = profileLoadState.error || 'Something went wrong while loading your profile.';
+    const rid = profileLoadState.requestId ? ` (request ${profileLoadState.requestId})` : '';
+    message.textContent = `${detail}${rid}`;
+  }
+}
+
+function setupProfileLoadBannerActions() {
+  const retry = document.getElementById('profile-banner-retry');
+  if (retry) {
+    retry.addEventListener('click', () => loadUserProfile({ hydrateGenerator: true, hydrateVoice: true, force: true }));
+  }
+  const cont = document.getElementById('profile-banner-continue');
+  if (cont) {
+    cont.addEventListener('click', () => {
+      profileLoadState.status = 'loaded';
+      profileLoadState.error = null;
+      renderProfileLoadBanner();
+    });
   }
 }
 
@@ -1392,7 +1501,7 @@ function renderProfileDefaultsSummary(defaults = {}) {
   details.push(`Industry: ${industry}`);
   if (keywords.length) details.push(`Keywords: ${keywords.join(', ')}`);
   if (goalSnippet.length) details.push(`Goals: ${goalSnippet.join(', ')}`);
-  target.textContent = details.join(' • ');
+  target.textContent = (defaults.hasProfile ? '' : 'Using defaults — ') + details.join(' • ');
 }
 
 function applyProfileDefaultsToGenerator(defaults = {}) {
@@ -1400,6 +1509,9 @@ function applyProfileDefaultsToGenerator(defaults = {}) {
   const toneField = document.getElementById('gen-tone');
   if (toneField && defaults.tone) {
     toneField.value = defaults.tone;
+  }
+  if (Array.isArray(defaults.platforms) && defaults.platforms.length) {
+    setGeneratorPlatformSelections(defaults.platforms);
   }
   if (defaults.industry) {
     try { answers.industry = defaults.industry; } catch (err) { /* ignore */ }
@@ -3481,7 +3593,7 @@ function getPreferredGeneratorPlatforms() {
   return [DEFAULT_GENERATOR_PLATFORM];
 }
 
-function hydrateVoiceSummary(data = {}){
+function hydrateVoiceSummary(data = {}, options = {}){
   const fallbackAnswers = (typeof answers !== 'undefined') ? answers : {};
   const source = { ...data };
   const formSnapshot = collectAccountFormProfile();
@@ -3502,10 +3614,12 @@ function hydrateVoiceSummary(data = {}){
     else if (Array.isArray(fallbackAnswers.platforms) && fallbackAnswers.platforms.length) source.platforms = fallbackAnswers.platforms;
     else source.platforms = ['instagram'];
   }
-  setVoiceSummaryField('company', source.company || 'Not set');
-  setVoiceSummaryField('industry', resolveIndustryLabel(source.industry || source.industry_key));
-  setVoiceSummaryField('tone', formatToneLabel(source.tone));
-  setVoiceSummaryField('platforms', source.platforms.map(formatPlatformLabel).join(', '));
+  const missingLabel = options.profileMissing ? 'Not set — ' : 'Not set — ';
+  const ctaLabel = options.profileMissing ? 'Set voice' : 'Update voice';
+  setVoiceSummaryField('company', source.company || '', { missingLabel, ctaLabel });
+  setVoiceSummaryField('industry', resolveIndustryLabel(source.industry || source.industry_key), { missingLabel, ctaLabel });
+  setVoiceSummaryField('tone', formatToneLabel(source.tone), { missingLabel, ctaLabel });
+  setVoiceSummaryField('platforms', source.platforms.map(formatPlatformLabel).join(', '), { missingLabel, ctaLabel });
   const pill = document.getElementById('voice-pill');
   if (pill){
     pill.textContent = source.company ? `Voice locked: ${source.company}` : 'Voice ready to sync';
@@ -3513,9 +3627,25 @@ function hydrateVoiceSummary(data = {}){
   updateToneNote(source.tone);
 }
 
-function setVoiceSummaryField(key, value){
+function setVoiceSummaryField(key, value, opts = {}){
   const el = document.querySelector(`[data-voice-${key}]`);
-  if (el) el.textContent = value && value.trim() ? value : '—';
+  if (!el) return;
+  const hasValue = value && String(value).trim();
+  if (hasValue) {
+    el.textContent = value;
+    el.classList.remove('text-amber-700');
+    return;
+  }
+  el.textContent = '';
+  el.classList.add('text-amber-700');
+  const prefix = document.createElement('span');
+  prefix.textContent = opts.missingLabel || 'Not set — ';
+  const link = document.createElement('a');
+  link.href = '/settings';
+  link.className = 'text-indigo-600 underline';
+  link.textContent = opts.ctaLabel || 'Set now';
+  el.appendChild(prefix);
+  el.appendChild(link);
 }
 
 function formatToneLabel(value){
