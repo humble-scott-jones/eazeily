@@ -6,7 +6,6 @@
   <title>Review Response Generator - Eazeily</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/styles.css" />
-  <script src="/static/generate_shared.js"></script>
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen">
   <header class="px-6 py-5 bg-white/90 backdrop-blur border-b">
@@ -158,6 +157,7 @@
     </section>
   </main>
 
+  <script src="/static/generate_shared.js"></script>
   <script>
     const form = document.getElementById('review-form');
     const container = document.getElementById('review-response');
@@ -169,7 +169,13 @@
     const loadingOverlay = AsyncUi.attachLoadingOverlay(container, { id: 'generator-loading', defaultMessage: 'Generating your response…' });
     const errorBanner = AsyncUi.attachErrorBanner(container, {
       id: 'error-banner',
-      onRetry: () => form?.requestSubmit()
+      onRetry: () => {
+        if (form) {
+          form.requestSubmit();
+        } else {
+          renderToast('Cannot retry: form not found.');
+        }
+      }
     });
 
     const summarizePayload = (payload = {}) => {

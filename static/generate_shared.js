@@ -55,12 +55,10 @@
     const show = (copy = defaultMessage) => {
       setMessage(copy);
       overlay.classList.remove('hidden');
-      overlay.setAttribute('aria-hidden', 'false');
     };
 
     const hide = () => {
       overlay.classList.add('hidden');
-      overlay.setAttribute('aria-hidden', 'true');
     };
 
     hide();
@@ -96,6 +94,9 @@
     const copyBtn = banner.querySelector('[data-error-copy]');
     const retryBtn = banner.querySelector('[data-error-retry]');
 
+    let currentDebugText = '';
+    let currentMeta = {};
+
     const hide = () => {
       banner.classList.add('hidden');
       banner.setAttribute('aria-hidden', 'true');
@@ -106,28 +107,31 @@
       if (messageEl) messageEl.textContent = message || 'Something went wrong. Please try again.';
       banner.classList.remove('hidden');
       banner.setAttribute('aria-hidden', 'false');
-      const debugText = formatDebugInfo(meta);
-      if (copyBtn) {
-        copyBtn.onclick = async () => {
-          try {
-            await navigator.clipboard.writeText(debugText);
-            renderToast('Debug info copied');
-            if (typeof onCopy === 'function') onCopy(meta);
-          } catch (err) {
-            renderToast('Clipboard unavailable — please try manually.');
-          }
-        };
-      }
-      if (retryBtn) {
-        retryBtn.onclick = () => {
-          if (typeof onRetry === 'function') onRetry();
-        };
-      }
+      currentDebugText = formatDebugInfo(meta);
+      currentMeta = meta;
       requestAnimationFrame(() => {
         if (retryBtn) retryBtn.focus({ preventScroll: true });
         else if (copyBtn) copyBtn.focus({ preventScroll: true });
       });
     };
+
+    // Set up event handlers once during initialization
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(currentDebugText);
+          renderToast('Debug info copied');
+          if (typeof onCopy === 'function') onCopy(currentMeta);
+        } catch (err) {
+          renderToast('Clipboard unavailable — please try manually.');
+        }
+      });
+    }
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        if (typeof onRetry === 'function') onRetry();
+      });
+    }
 
     hide();
     return { hide, show };
@@ -135,7 +139,7 @@
 
   function renderToast(message, { duration = 2800 } = {}) {
     const toast = document.createElement('div');
-    toast.className = 'fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-2 rounded shadow z-50 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500';
+    toast.className = 'fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow z-50 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500';
     toast.tabIndex = 0;
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', 'polite');
