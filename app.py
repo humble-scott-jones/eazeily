@@ -768,6 +768,26 @@ def init_db():
             message TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS queue_items (
+            id TEXT PRIMARY KEY,
+            owner_id TEXT NOT NULL,
+            status TEXT DEFAULT 'queued',
+            platform TEXT,
+            caption TEXT,
+            scheduled_at DATETIME,
+            timezone TEXT,
+            failure_reason TEXT,
+            metadata TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS queue_preferences (
+            owner_id TEXT PRIMARY KEY,
+            timezone TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
     # Backfill for upgrades
@@ -924,6 +944,89 @@ def _get_current_user_row():
         return None
     db = get_db()
     return db.execute('SELECT * FROM users WHERE id = ?', (uid,)).fetchone()
+
+
+QUEUE_STATUSES = {'queued', 'scheduled', 'posted', 'failed'}
+
+
+def _get_queue_owner_id() -> str:
+    """Return a stable identifier for queue scoping.
+
+    Prefer an authenticated user id. Fall back to the session profile id or a
+    generated anonymous token so guests can still manage their queue between
+    requests.
+    """
+    uid = session.get('user_id')
+    if uid:
+        return f"user:{uid}"
+    pid = session.get('profile_id')
+    if pid:
+        return f"profile:{pid}"
+    anon = session.get('queue_owner_id')
+    if not anon:
+        anon = f"anon:{uuid.uuid4()}"
+        session['queue_owner_id'] = anon
+    return anon
+
+
+def _normalize_queue_status(value: str, scheduled_at: Optional[str]) -> str:
+    status = (value or '').lower().strip()
+    if status not in QUEUE_STATUSES:
+        status = 'scheduled' if scheduled_at else 'queued'
+    return status
+
+
+def _normalize_timestamp(value: Any) -> Optional[str]:
+    if not value:
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
+        except Exception:
+            return None
+    try:
+        dt = datetime.fromisoformat(str(value))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
+    except Exception:
+        return None
+
+
+def _normalize_queue_item_row(row: Any) -> dict:
+    data = row_to_mapping(row) or {}
+    return {
+        'id': data.get('id'),
+        'status': data.get('status') or 'queued',
+        'platform': data.get('platform') or '',
+        'caption': data.get('caption') or '',
+        'scheduled_at': data.get('scheduled_at'),
+        'timezone': data.get('timezone') or '',
+        'failure_reason': data.get('failure_reason') or '',
+        'metadata': _deserialize_json(data.get('metadata'), {}) or {},
+        'created_at': data.get('created_at'),
+        'updated_at': data.get('updated_at'),
+    }
+
+
+def _load_queue_timezone(db, owner_id: str) -> str:
+    row = db.execute('SELECT timezone FROM queue_preferences WHERE owner_id = ?', (owner_id,)).fetchone()
+    if not row:
+        return ''
+    data = row_to_mapping(row) or {}
+    return data.get('timezone') or ''
+
+
+def _save_queue_timezone(db, owner_id: str, timezone_value: str):
+    tz = (timezone_value or '').strip()
+    if tz == '':
+        return
+    existing = db.execute('SELECT owner_id FROM queue_preferences WHERE owner_id = ?', (owner_id,)).fetchone()
+    now = datetime.now(timezone.utc).isoformat()
+    if existing:
+        db.execute('UPDATE queue_preferences SET timezone = ?, updated_at = ? WHERE owner_id = ?', (tz, now, owner_id))
+    else:
+        db.execute('INSERT INTO queue_preferences (owner_id, timezone, updated_at) VALUES (?, ?, ?)', (owner_id, tz, now))
 
 
 def _db_healthcheck():
@@ -1620,7 +1723,117 @@ def api_generate():
     def _log_and_abort(status_code: int, message: str, event: str = "generator.blocked", code: str = "generation_failed"):
         payload = {'ok': False, 'error': {'code': code, 'message': message}, 'request_id': request_id}
         app.logger.info(event, extra={**request_meta, "event": event, "status": status_code, "error": message})
-        return jsonify(payload), status_code
+    return jsonify(payload), status_code
+
+
+@app.get('/queue')
+def queue_page():
+    owner_id = _get_queue_owner_id()
+    db = get_db()
+    tz = _load_queue_timezone(db, owner_id)
+    return render_template('queue.html', timezone=tz or '')
+
+
+@app.get('/api/queue')
+def api_queue_get():
+    owner_id = _get_queue_owner_id()
+    db = get_db()
+    rows = db.execute('SELECT * FROM queue_items WHERE owner_id = ? ORDER BY created_at DESC', (owner_id,)).fetchall()
+    items = [_normalize_queue_item_row(row) for row in rows]
+    timezone_pref = _load_queue_timezone(db, owner_id)
+
+    bulk_actions = ['schedule_all', 'remove_all', 'export']
+    guardrails = {'missing_platform_credentials': False}
+
+    return jsonify({
+        'ok': True,
+        'items': items,
+        'timezone': timezone_pref,
+        'bulk_actions': bulk_actions,
+        'guardrails': guardrails,
+    })
+
+
+@app.post('/api/queue')
+def api_queue_add():
+    request_id = _get_request_id()
+    owner_id = _get_queue_owner_id()
+    db = get_db()
+    payload = request.get_json(force=True) or {}
+    timezone_pref = (payload.get('timezone') or '').strip()
+    items_payload = payload.get('items') or []
+    if isinstance(items_payload, dict):
+        items_payload = [items_payload]
+
+    created_items = []
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for raw in items_payload:
+        if not isinstance(raw, dict):
+            continue
+        scheduled_at = _normalize_timestamp(raw.get('scheduled_at'))
+        status = _normalize_queue_status(raw.get('status'), scheduled_at)
+        item_id = str(uuid.uuid4())
+        metadata = raw.get('metadata') or {}
+        db.execute(
+            '''
+            INSERT INTO queue_items (id, owner_id, status, platform, caption, scheduled_at, timezone, failure_reason, metadata, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''',
+            (
+                item_id,
+                owner_id,
+                status,
+                raw.get('platform') or '',
+                raw.get('caption') or '',
+                scheduled_at,
+                (raw.get('timezone') or timezone_pref or '').strip(),
+                raw.get('failure_reason') or '',
+                json.dumps(metadata),
+                now_iso,
+                now_iso,
+            ),
+        )
+        created_items.append({
+            'id': item_id,
+            'status': status,
+            'platform': raw.get('platform') or '',
+            'caption': raw.get('caption') or '',
+            'scheduled_at': scheduled_at,
+            'timezone': (raw.get('timezone') or timezone_pref or '').strip(),
+            'failure_reason': raw.get('failure_reason') or '',
+            'metadata': metadata,
+            'created_at': now_iso,
+            'updated_at': now_iso,
+        })
+
+    if timezone_pref:
+        _save_queue_timezone(db, owner_id, timezone_pref)
+
+    db.commit()
+    return jsonify({
+        'ok': True,
+        'items': created_items,
+        'timezone': timezone_pref or _load_queue_timezone(db, owner_id),
+        'request_id': request_id,
+    }), 201
+
+
+@app.post('/api/queue/<item_id>/retry')
+def api_queue_retry(item_id: str):
+    owner_id = _get_queue_owner_id()
+    db = get_db()
+    row = db.execute('SELECT * FROM queue_items WHERE id = ? AND owner_id = ?', (item_id, owner_id)).fetchone()
+    if not row:
+        return jsonify({'ok': False, 'error': 'Queue item not found'}), 404
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    db.execute(
+        'UPDATE queue_items SET status = ?, failure_reason = ?, updated_at = ? WHERE id = ? AND owner_id = ?',
+        ('queued', '', now_iso, item_id, owner_id),
+    )
+    db.commit()
+    updated_row = db.execute('SELECT * FROM queue_items WHERE id = ? AND owner_id = ?', (item_id, owner_id)).fetchone()
+    return jsonify({'ok': True, 'item': _normalize_queue_item_row(updated_row)})
 
     if uid:
         db = get_db()
