@@ -3,7 +3,23 @@
   --brand-600:#5458e8;
   --brand-50:#eef2ff;
   --sand:#fbfbfd;
+  
+  /* Chip tokens for consistent, accessible toggles */
+  --chip-bg: #fff;
+  --chip-bg-hover: #f8fafc;
+  --chip-bg-active: #5458e8; /* Use darker brand-600 for better contrast */
+  --chip-text: #0f172a;
+  --chip-text-hover: var(--brand);
+  --chip-text-active: #fff;
+  --chip-border: #e2e8f0;
+  --chip-border-hover: var(--brand);
+  --chip-border-active: #5458e8;
+  
+  /* Focus ring for accessibility */
+  --focus-ring: 0 0 0 3px rgba(99,102,241,.25);
 }
+.bg-brand{ background: var(--brand); }
+.bg-brand-600{ background: var(--brand-600); }
 .bg-brand-sand{ background: var(--sand); }
 .text-brand{ color: var(--brand); }
 .logo-gradient{ width:32px;height:32px;border-radius:10px; overflow:hidden; display:inline-block;
@@ -133,14 +149,74 @@
 .chip-group{ display:flex; flex-wrap:wrap; gap:.75rem; }
 .generator-platforms{ display:flex; flex-wrap:wrap; gap:.5rem; }
 .generator-platforms .chip{ border-radius:1.25rem; padding:.5rem 1.1rem; }
-.chip{ border:1px solid #e2e8f0; border-radius:999px; padding:.55rem 1.15rem; font-size:.85rem; font-weight:600; color:#0f172a; background:#fff; transition:all .2s ease; box-shadow:0 4px 14px rgba(15,23,42,.04); }
-.chip:focus-visible{ outline:2px solid var(--brand); outline-offset:2px; }
-.chip:hover{ border-color:var(--brand); color:var(--brand); box-shadow:0 6px 22px rgba(99,102,241,.18); }
-.chip--active{ border-color:var(--brand); background:rgba(99,102,241,.1); color:var(--brand); box-shadow:0 8px 26px rgba(99,102,241,.2); }
-.chip--accent{ background:linear-gradient(135deg,#8b5cf6,#6366f1); color:#fff; border-color:transparent; box-shadow:0 15px 35px rgba(99,102,241,.35); }
-.chip--accent:hover{ color:#fff; box-shadow:0 20px 45px rgba(99,102,241,.45); }
+.chip{ 
+  border: 1px solid var(--chip-border); 
+  border-radius: 999px; 
+  padding: .55rem 1.15rem; 
+  font-size: .85rem; 
+  font-weight: 600; 
+  color: var(--chip-text); 
+  background: var(--chip-bg); 
+  transition: all .2s ease; 
+  box-shadow: 0 4px 14px rgba(15,23,42,.04);
+  cursor: pointer;
+}
+.chip:focus-visible{ 
+  outline: 2px solid var(--brand); 
+  outline-offset: 2px; 
+  box-shadow: var(--focus-ring);
+}
+.chip:hover{ 
+  border-color: var(--chip-border-hover); 
+  color: var(--chip-text-hover); 
+  background: var(--chip-bg-hover);
+  box-shadow: 0 6px 22px rgba(99,102,241,.18); 
+}
+.chip--active{ 
+  border-color: var(--chip-border-active); 
+  background: var(--chip-bg-active); 
+  color: var(--chip-text-active); 
+  box-shadow: 0 8px 26px rgba(99,102,241,.2); 
+}
+.chip--active:hover{
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(99,102,241,.25);
+}
+.chip--accent{ 
+  background: linear-gradient(135deg,#8b5cf6,#6366f1); 
+  color: #fff; 
+  border-color: transparent; 
+  box-shadow: 0 15px 35px rgba(99,102,241,.35); 
+}
+.chip--accent:hover{ 
+  color: #fff; 
+  box-shadow: 0 20px 45px rgba(99,102,241,.45); 
+}
 .planner-select{ width:100%; border:1px solid #e2e8f0; border-radius:14px; padding:0.7rem 1rem; font-size:.95rem; background:#fff; transition:border-color .2s, box-shadow .2s; }
 .planner-select:focus{ border-color:var(--brand); box-shadow:0 0 0 3px rgba(99,102,241,.15); outline:none; }
+
+/* Tab navigation */
+[role="tablist"] [role="tab"] {
+  text-decoration: none;
+  display: inline-block;
+}
+[role="tablist"] [role="tab"][aria-selected="true"] {
+  color: #fff !important; /* Override link color for active tabs */
+}
+[role="tablist"] [role="tab"][aria-selected="false"] {
+  color: #334155 !important; /* Ensure sufficient contrast for inactive tabs */
+}
+[role="tablist"] [role="tab"]:hover {
+  text-decoration: none;
+}
+[role="tablist"] [role="tab"]:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+}
+
 .voice-summary-card{ border:1px solid #e2e8f0; border-radius:28px; padding:1.75rem; background:#f8fafc; box-shadow:0 18px 50px rgba(15,23,42,.04); }
 .voice-summary-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; }
 .voice-summary-card dt{ font-size:.7rem; text-transform:uppercase; letter-spacing:.2em; color:#94a3b8; margin-bottom:.35rem; }
