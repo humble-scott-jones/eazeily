@@ -81,10 +81,12 @@ test('back-compat window.publishingQueueState alias exists', function() {
 
 // Test: Idempotent initialization
 test('running initializer twice does not overwrite existing items', function() {
-  // Add a test item to the queue
+  // Add test items to the queue
   const state = window.__EAZEILY__.publishingQueueState;
   state.items.push({ test: 'item1' });
   state.entries.push({ test: 'entry1' });
+  const initialItemsLength = state.items.length;
+  const initialEntriesLength = state.entries.length;
   
   // Re-run the initializer code (simulate double-include)
   const scriptContent = `
@@ -103,9 +105,9 @@ test('running initializer twice does not overwrite existing items', function() {
   `;
   eval(scriptContent);
   
-  // Items should still be there
-  assertTrue(state.items.length > 0, 'items should not be cleared');
-  assertTrue(state.entries.length > 0, 'entries should not be cleared');
+  // Items should still be there (not cleared)
+  assertEqual(state.items.length, initialItemsLength, 'items should not be cleared');
+  assertEqual(state.entries.length, initialEntriesLength, 'entries should not be cleared');
   assertEqual(state.items[0].test, 'item1', 'original item should be preserved');
   assertEqual(state.entries[0].test, 'entry1', 'original entry should be preserved');
 });

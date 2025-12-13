@@ -20,8 +20,8 @@
     // Only initialize if not already set (idempotent)
     if (!window.__EAZEILY__.publishingQueueState) {
       window.__EAZEILY__.publishingQueueState = {
-        items: [],
-        entries: [], // Alias for compatibility
+        items: [],      // Primary queue items array
+        entries: [],    // Secondary queue entries array (some code uses this)
         status: 'idle',
         lastError: null,
         lastUpdatedAt: null

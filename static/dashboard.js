@@ -2288,12 +2288,12 @@ function renderPublishingQueue() {
   
   const queueState = getPublishingQueueState();
   
-  // Safety: If queue state is completely unavailable, show empty state
+  // Safety: If queue state is completely unavailable, show empty state with message
   if (!queueState || !queueState.entries) {
     list.innerHTML = '';
     empty.textContent = queueState ? 'No scheduled items yet' : 'Queue unavailable';
     empty.classList.remove('hidden');
-    wrap.classList.remove('hidden'); // Still show the wrapper so user sees the message
+    wrap.classList.add('hidden'); // Hide wrapper for consistency
     return;
   }
 
