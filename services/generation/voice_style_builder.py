@@ -217,6 +217,67 @@ def _build_style_instruction(voice_guide: Dict[str, Any]) -> str:
     return " ".join(parts) if parts else "Write in a clear, engaging style."
 
 
+def _extract_micro_examples(
+    samples: List[str],
+    avoid_phrases: Optional[List[str]] = None
+) -> Dict[str, Any]:
+    """Extract 2-3 micro-examples for voice anchoring.
+    
+    Args:
+        samples: List of text samples
+        avoid_phrases: Phrases to avoid in examples
+        
+    Returns:
+        Dict with example_caption, example_cta, avoid_rewrite
+    """
+    if not samples:
+        return {}
+    
+    # Find shortest caption (good example)
+    caption_samples = [s for s in samples if 50 < len(s) < 200]
+    example_caption = ''
+    if caption_samples:
+        example_caption = min(caption_samples, key=len).strip()
+    
+    # Extract one CTA (from _extract_cta_patterns)
+    cta_keywords = ['book', 'call', 'visit', 'learn', 'join', 'get', 'try', 
+                    'check', 'follow', 'subscribe', 'share', 'comment', 'drop']
+    example_cta = ''
+    for text in samples:
+        sentences = re.split(r'[.!?]+', text)
+        for sentence in sentences:
+            lower = sentence.lower()
+            if any(keyword in lower for keyword in cta_keywords):
+                example_cta = sentence.strip()
+                if example_cta and len(example_cta) < 80:
+                    break
+        if example_cta:
+            break
+    
+    # Create avoid/rewrite example
+    avoid_rewrite = {}
+    if avoid_phrases:
+        # Create a generic bad example using common corporate speak
+        bad_example = "We leverage synergistic solutions to optimize your deliverables."
+        # Create good example with simpler language
+        good_example = "We help you get better results."
+        
+        avoid_rewrite = {
+            'bad': bad_example,
+            'good': good_example
+        }
+    
+    micro_examples = {}
+    if example_caption:
+        micro_examples['example_caption'] = example_caption
+    if example_cta:
+        micro_examples['example_cta'] = example_cta
+    if avoid_rewrite:
+        micro_examples['avoid_rewrite'] = avoid_rewrite
+    
+    return micro_examples
+
+
 def build_voice_style_guide(
     samples: List[str],
     include_phrases: Optional[List[str]] = None,
@@ -259,6 +320,9 @@ def build_voice_style_guide(
     cta_patterns = _extract_cta_patterns(samples)
     signature_moves = _detect_signature_moves(samples, structure)
     
+    # Extract micro-examples for voice anchoring
+    micro_examples = _extract_micro_examples(samples, avoid_phrases)
+    
     # Build formatting profile
     formatting = {
         'line_breaks': 'frequent' if sum(s.count('\n') for s in samples) >= len(samples) else 'sparse',
@@ -299,6 +363,7 @@ def build_voice_style_guide(
         cta_patterns=cta_patterns,
         signature_moves=signature_moves,
         style_instruction='',  # will be filled below
+        micro_examples=micro_examples if micro_examples else None,
         _samples=samples  # temp storage for instruction builder
     )
     

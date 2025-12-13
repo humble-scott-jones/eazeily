@@ -75,6 +75,14 @@ class ReviewResponseOutput(TypedDict):
     summary: Optional[str]
 
 
+# Micro-examples for voice anchoring
+class VoiceMicroExamples(TypedDict, total=False):
+    """Micro-examples for voice anchoring (2-3 short examples)."""
+    example_caption: str  # One short caption in their voice
+    example_cta: str  # One CTA in their voice
+    avoid_rewrite: Dict[str, str]  # {"bad": "...", "good": "..."}
+
+
 # Generation Context Schemas
 class VoiceStyleGuide(TypedDict, total=False):
     """Compact voice style guide derived from samples."""
@@ -86,6 +94,7 @@ class VoiceStyleGuide(TypedDict, total=False):
     cta_patterns: List[str]
     signature_moves: List[str]  # e.g., "rhetorical questions", "local references"
     style_instruction: str  # natural language summary for AI
+    micro_examples: Optional[VoiceMicroExamples]  # voice anchoring examples
 
 
 class WorkspaceContext(TypedDict, total=False):
