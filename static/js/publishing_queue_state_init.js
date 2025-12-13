@@ -7,6 +7,7 @@
  * Usage:
  *   - Include this script before any other scripts that reference queue state
  *   - Access the queue state via window.__EAZEILY__.publishingQueueState
+ *   - Legacy code can use window.publishingQueueState (back-compat alias)
  */
 
 (function() {
@@ -29,6 +30,12 @@
       console.debug('[Eazeily] Publishing queue state initialized');
     } else {
       console.debug('[Eazeily] Publishing queue state already exists, skipping initialization');
+    }
+    
+    // Back-compat: Create legacy alias if undefined
+    if (typeof window.publishingQueueState === 'undefined') {
+      window.publishingQueueState = window.__EAZEILY__.publishingQueueState;
+      console.debug('[Eazeily] Back-compat alias window.publishingQueueState created');
     }
   }
 })();
