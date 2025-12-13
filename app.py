@@ -1459,6 +1459,8 @@ def api_profile():
 def api_generate():
     data = request.get_json(force=True) or {}
 
+    request_id = _get_request_id()
+
     # Check gating
     flags = load_flags()
     platforms = data.get('platforms') or []
@@ -1478,14 +1480,16 @@ def api_generate():
         "days": days,
         "platforms": platforms,
         "has_image": bool(data.get('image_data_url')),
-        "tone": data.get('tone') or ''
+        "tone": data.get('tone') or '',
+        "request_id": request_id,
     }
     start_ts = time.time()
     app.logger.info("generator.request", extra=request_meta)
 
-    def _log_and_abort(status_code: int, message: str, event: str = "generator.blocked"):
+    def _log_and_abort(status_code: int, message: str, event: str = "generator.blocked", code: str = "generation_failed"):
+        payload = {'ok': False, 'error': {'code': code, 'message': message}, 'request_id': request_id}
         app.logger.info(event, extra={**request_meta, "event": event, "status": status_code, "error": message})
-        return jsonify({'ok': False, 'error': message}), status_code
+        return jsonify(payload), status_code
 
     if uid:
         db = get_db()
@@ -1538,15 +1542,15 @@ def api_generate():
 
         try:
             # Use the helper for image-based generation
-            posts = _generate_posts_from_image(data)
-            if posts is None:
-                return _log_and_abort(500, 'Image generation not available', event="generator.failed")
+            posts = _generate_posts_from_image(data) or []
+            if not isinstance(posts, list) or not posts:
+                return _log_and_abort(500, 'Image generation not available', event="generator.failed", code="image_generation_failed")
             duration_ms = int((time.time() - start_ts) * 1000)
             app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
-            return jsonify({'ok': True, 'posts': posts, 'count': len(posts)})
-        except Exception as e:
-            app.logger.error(f"Image generation failed: {e}")
-            return _log_and_abort(500, str(e), event="generator.failed")
+            return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
+        except Exception:
+            app.logger.exception("Image generation failed")
+            return _log_and_abort(500, 'Image generation failed. Please try again.', event="generator.failed", code="image_generation_failed")
 
     # Populate defaults for strict mocks
     for k in ['start_day', 'industry', 'tone', 'platforms', 'brand_keywords', 'include_images', 'niche_keywords', 'goals', 'details', 'company']:
@@ -1568,17 +1572,22 @@ def api_generate():
             posts = gen_mod.generate_posts_with_openai(**data)
         else:
             posts = generate_posts(**data)
-        
+
+        posts = posts or []
+        if not isinstance(posts, list) or not posts:
+            app.logger.error("Generation returned no posts", extra={**request_meta, "event": "generator.failed"})
+            return _log_and_abort(500, 'Generation failed to produce content.', event="generator.failed", code="empty_posts")
+
         if should_mark_sample and uid:
             db = get_db()
             db.execute('UPDATE users SET free_sample_used = 1 WHERE id = ?', (uid,))
             db.commit()
         duration_ms = int((time.time() - start_ts) * 1000)
         app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
-        return jsonify({'ok': True, 'posts': posts, 'count': len(posts)})
-    except Exception as e:
-        app.logger.error(f"Generation failed: {e}")
-        return _log_and_abort(500, str(e), event="generator.failed")
+        return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
+    except Exception:
+        app.logger.exception("Generation failed")
+        return _log_and_abort(500, 'Generation failed. Please try again.', event="generator.failed")
 
 
 @app.post('/api/generate-review-response')

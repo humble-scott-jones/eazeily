@@ -92,13 +92,19 @@ async function requestGenerate(payload){
     let msg = 'Subscribe to continue.';
     try{
       const body = await res.json().catch(()=>null);
-      if (body && body.error) msg = body.error;
+      if (body && body.error) msg = body.error.message || body.error;
     }catch(e){}
     alert(msg);
     throw new Error(msg);
   }
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const body = await res.json();
+  if (body && body.ok === false){
+    const msg = (body.error && body.error.message) || body.error || 'Unable to generate content.';
+    alert(msg);
+    throw new Error(msg);
+  }
+  return body;
 }
 
 function renderPostsComplete(posts){

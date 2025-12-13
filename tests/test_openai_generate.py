@@ -1,5 +1,6 @@
 import json
 import os
+import json
 
 import app as appmod
 import generator as gen_mod
@@ -129,4 +130,4 @@ def test_image_generation_requires_openai(monkeypatch, client):
     rv = client.post('/api/generate', json={'days': 1, 'image_data_url': 'data:image/png;base64,AAAA'})
     assert rv.status_code == 503
     body = rv.get_json()
-    assert body['error'].startswith('Image-to-post generation requires OpenAI')
+    assert body['error']['message'].startswith('Image-to-post generation requires OpenAI')

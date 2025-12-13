@@ -1544,7 +1544,7 @@ async function generate(days){
   }
 
   if (body && body.ok === false){
-    const msg = body.error || 'Unable to generate content.';
+    const msg = (body.error && body.error.message) || body.error || 'Unable to generate content.';
     showFormError(msg);
     throw new Error(msg);
   }
