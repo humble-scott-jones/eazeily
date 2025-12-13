@@ -108,6 +108,7 @@ const platformPresetState = {
 const DEFAULT_GENERATOR_PLATFORM = 'instagram';
 const VIDEO_PLATFORM_KEYS = new Set(['instagram', 'short_video', 'tiktok']);
 const TEMPLATE_LIBRARY_STORAGE_KEY = 'swelly_template_library';
+const PUBLISHING_QUEUE_STORAGE_KEY = 'swelly_publishing_queue';
 const DEFAULT_PRESETS = [
   { id: 'product-launch', label: 'Product launch', goals: ['Product launch'], tone: 'inspirational', keywords: ['launch', 'new feature'] },
   { id: 'weekly-update', label: 'Weekly update', goals: ['Weekly update'], tone: 'friendly', keywords: ['community', 'newsletter'] }
@@ -115,6 +116,9 @@ const DEFAULT_PRESETS = [
 let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], goals: [], platforms: [], company: '', timezone: '', id: 'anon', hasProfile: false };
 let lastGeneratorState = null;
 let generatorHydratedFromProfile = false;
+const publishingQueueState = {
+  entries: []
+};
 
 function logGeneratorEvent(event, meta = {}) {
   try {
@@ -2036,6 +2040,10 @@ function refreshDayEmptyStates() {
 
 function loadPublishingQueueFromStorage() {
   if (typeof localStorage === 'undefined') return;
+  if (!publishingQueueState || !Array.isArray(publishingQueueState.entries)) {
+    console.warn('[queue] publishingQueueState not initialized, skipping load');
+    return;
+  }
   try {
     const raw = localStorage.getItem(PUBLISHING_QUEUE_STORAGE_KEY);
     if (!raw) return;
@@ -2050,6 +2058,10 @@ function loadPublishingQueueFromStorage() {
 
 function persistPublishingQueue() {
   if (typeof localStorage === 'undefined') return;
+  if (!publishingQueueState || !Array.isArray(publishingQueueState.entries)) {
+    console.warn('[queue] publishingQueueState not initialized, skipping persist');
+    return;
+  }
   try {
     localStorage.setItem(PUBLISHING_QUEUE_STORAGE_KEY, JSON.stringify(publishingQueueState.entries));
   } catch (error) {
@@ -2076,6 +2088,10 @@ function normalizeQueueEntry(entry = {}) {
 }
 
 function ensureQueueEntryForPost(post = {}) {
+  if (!publishingQueueState || !Array.isArray(publishingQueueState.entries)) {
+    console.warn('[queue] publishingQueueState not initialized');
+    return null;
+  }
   const key = buildQueueKey(post);
   let existing = findQueueEntry(key);
   if (existing) return existing;
@@ -2129,6 +2145,9 @@ function updatePublishingQueueEntry(key, updates = {}) {
 }
 
 function findQueueEntry(key) {
+  if (!publishingQueueState || !Array.isArray(publishingQueueState.entries)) {
+    return null;
+  }
   return publishingQueueState.entries.find(entry => entry.key === key);
 }
 
@@ -2137,6 +2156,10 @@ function renderPublishingQueue() {
   const list = document.getElementById('publishing-queue-list');
   const empty = document.getElementById('publishing-queue-empty');
   if (!wrap || !list || !empty) return;
+  if (!publishingQueueState || !Array.isArray(publishingQueueState.entries)) {
+    wrap.classList.add('hidden');
+    return;
+  }
 
   list.innerHTML = '';
   if (!publishingQueueState.entries.length) {
