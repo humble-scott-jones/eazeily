@@ -95,6 +95,7 @@
     const retryBtn = banner.querySelector('[data-error-retry]');
 
     let currentDebugText = '';
+    let currentMeta = {};
 
     const hide = () => {
       banner.classList.add('hidden');
@@ -107,6 +108,7 @@
       banner.classList.remove('hidden');
       banner.setAttribute('aria-hidden', 'false');
       currentDebugText = formatDebugInfo(meta);
+      currentMeta = meta;
       requestAnimationFrame(() => {
         if (retryBtn) retryBtn.focus({ preventScroll: true });
         else if (copyBtn) copyBtn.focus({ preventScroll: true });
@@ -119,7 +121,7 @@
         try {
           await navigator.clipboard.writeText(currentDebugText);
           renderToast('Debug info copied');
-          if (typeof onCopy === 'function') onCopy();
+          if (typeof onCopy === 'function') onCopy(currentMeta);
         } catch (err) {
           renderToast('Clipboard unavailable — please try manually.');
         }
