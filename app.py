@@ -1739,6 +1739,61 @@ def api_generate_review_response():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+@app.post('/api/generate/reviews')
+def api_generate_reviews():
+    """Generate structured review responses (short/medium/long)."""
+
+    request_id = _get_request_id()
+    data = request.get_json(force=True) or {}
+    review_text = (data.get('review_text') or '').strip()
+
+    if not review_text:
+        return jsonify({'ok': False, 'error': {'code': 'missing_review', 'message': 'Review text is required.'}, 'request_id': request_id}), 400
+
+    sensitive_patterns = [
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+        r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b",
+        r"ssn\b",
+    ]
+    for pattern in sensitive_patterns:
+        if re.search(pattern, review_text, re.IGNORECASE):
+            return jsonify({
+                'ok': False,
+                'error': {
+                    'code': 'sensitive_content',
+                    'message': 'Please remove personal contact info before generating.',
+                },
+                'request_id': request_id
+            }), 400
+
+    try:
+        bundle = gen_mod.generate_review_response_bundle(
+            review_text,
+            tone=data.get('tone') or 'professional',
+            company_name=data.get('company') or data.get('company_name') or '',
+            industry=data.get('industry') or '',
+            rating=data.get('rating'),
+            channel=data.get('channel') or '',
+            brand_voice=bool(data.get('brand_voice')),
+            length=data.get('length') or 'medium',
+            variant_action=data.get('variant_action') or 'base',
+        )
+        return jsonify({'ok': True, **bundle, 'request_id': request_id})
+    except ValueError as exc:
+        return jsonify({
+            'ok': False,
+            'error': {'code': 'invalid_review', 'message': str(exc)},
+            'request_id': request_id
+        }), 400
+    except Exception:
+        app.logger.exception("reviews.generation_failed", extra={'event': 'reviews.generation_failed', 'request_id': request_id})
+        return jsonify({
+            'ok': False,
+            'error': {'code': 'generation_failed', 'message': 'Unable to generate a response right now.'},
+            'request_id': request_id
+        }), 500
+
+
 @app.get('/voice-setup')
 def voice_setup_page():
     uid = session.get('user_id')
