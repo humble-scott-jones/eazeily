@@ -877,7 +877,7 @@ function setupContentGeneration() {
   });
 }
 
-  async function executeContentGeneration(options = {}){
+  async function executeContentGeneration(options = {}) {
     const { daysOverride } = options;
     const {
       generateBtn,

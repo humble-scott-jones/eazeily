@@ -97,7 +97,7 @@ def test_social_page_has_no_reel_options():
 
 def test_social_page_shows_reels_cta_on_platform_select():
     """
-    Test that selecting Reels/TikTok platform shows a CTA linking to /generate/reels.
+    Test that selecting Reels/Shorts platform shows a CTA linking to /generate/reels.
     
     Verifies:
     - CTA notice appears when Reels/Shorts platform is selected
