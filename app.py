@@ -1136,7 +1136,7 @@ def generate_reels_page():
     if initial_user and initial_user.get('subscription_tier') == 'team':
         is_team_tier = True
     return render_template(
-        "generate_social.html",
+        "generate_reels.html",
         is_dev=_is_dev_mode(),
         initial_user=initial_user,
         is_team_tier=is_team_tier,
@@ -1719,6 +1719,94 @@ def api_generate():
     except Exception:
         app.logger.exception("Generation failed", extra={**request_meta, "event": "generator.failed"})
         return _log_and_abort(500, 'Generation failed. Please try again.', event="generator.failed")
+
+
+@app.post('/api/generate/reels')
+def api_generate_reels():
+    """Generate structured reels/shorts scripts with sectional regeneration support."""
+    request_id = _get_request_id()
+    data = request.get_json(silent=True) or {}
+
+    style = data.get('hook_style') or data.get('style') or 'Face-camera tips'
+    format_hint = data.get('format') or 'talking_head'
+    duration = data.get('duration_seconds') or data.get('reel_length') or 30
+    include_shot_list = bool(data.get('include_shot_list', True))
+    include_on_screen_text = bool(data.get('include_on_screen_text', True))
+    section = (data.get('section') or '').lower()
+
+    try:
+        plan = gen_mod.make_reel_plan(
+            industry=data.get('industry') or 'Business',
+            pillar_name=data.get('pillar_name') or 'Story',
+            brand_keywords=data.get('brand_keywords') or [],
+            tone=data.get('tone') or 'friendly',
+            company=data.get('company') or '',
+            reel_style=style,
+            goals=data.get('goals') or [],
+            niche_keywords=data.get('niche_keywords') or [],
+            length_seconds=duration,
+            production_tier=data.get('production_tier') or 'solo'
+        )
+    except Exception:
+        app.logger.exception("reels.generate.failed", extra={'request_id': request_id})
+        return jsonify({
+            'ok': False,
+            'error': {'message': 'Unable to generate a reel right now.'},
+            'request_id': request_id
+        }), 500
+
+    if section == 'hook':
+        return jsonify({'ok': True, 'hook': plan.get('hook'), 'request_id': request_id})
+    if section == 'cta':
+        return jsonify({'ok': True, 'cta': plan.get('cta'), 'request_id': request_id})
+
+    primary_tags = []
+    hashtags = plan.get('hashtags') or {}
+    if isinstance(hashtags, dict):
+        primary_tags = list(hashtags.get('primary') or [])
+    elif isinstance(hashtags, list):
+        primary_tags = hashtags
+
+    beats = []
+    for beat in plan.get('beats', []):
+        beats.append({
+            'label': beat.get('osd'),
+            'line': beat.get('line'),
+            'start': beat.get('start_s'),
+            'end': beat.get('end_s')
+        })
+
+    shot_list = []
+    if include_shot_list:
+        for shot in plan.get('shot_list', []):
+            shot_list.append({
+                'beat': shot.get('beat') or shot.get('osd'),
+                'shot': shot.get('shot') or shot.get('shot_type'),
+                'start': shot.get('start_s'),
+                'end': shot.get('end_s'),
+                'overlay': shot.get('overlay')
+            })
+
+    overlays = []
+    if include_on_screen_text:
+        overlays = [
+            item.get('text') for item in (plan.get('caption_overlays') or []) if item.get('text')
+        ] or list(plan.get('on_screen_text') or [])
+
+    reel_payload = {
+        'style': plan.get('style'),
+        'format': format_hint,
+        'duration_seconds': int(duration),
+        'hook': plan.get('hook'),
+        'beats': beats,
+        'cta': plan.get('cta'),
+        'caption': plan.get('thumbnail_prompt') or f"{plan.get('hook', '')} — {plan.get('cta', '')}",
+        'hashtags': primary_tags,
+        'shot_list': shot_list,
+        'on_screen_text': overlays
+    }
+
+    return jsonify({'ok': True, 'reel': reel_payload, 'request_id': request_id})
 
 
 @app.post('/api/generate-review-response')
