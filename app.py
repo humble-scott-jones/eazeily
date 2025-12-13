@@ -1409,16 +1409,35 @@ def api_profile():
 @app.post('/api/generate')
 def api_generate():
     data = request.get_json(force=True) or {}
-    
+
     # Check gating
     flags = load_flags()
-    platforms = data.get('platforms', [])
+    platforms = data.get('platforms') or []
+    try:
+        platforms = list(platforms)
+    except Exception:
+        platforms = []
     days = int(data.get('days') or 7)
-    
+
     uid = session.get('user_id')
     is_paid = False
     should_mark_sample = False
-    
+
+    request_meta = {
+        "event": "generator.request",
+        "user_id": uid or 'anon',
+        "days": days,
+        "platforms": platforms,
+        "has_image": bool(data.get('image_data_url')),
+        "tone": data.get('tone') or ''
+    }
+    start_ts = time.time()
+    app.logger.info("generator.request", extra=request_meta)
+
+    def _log_and_abort(status_code: int, message: str, event: str = "generator.blocked"):
+        app.logger.info(event, extra={**request_meta, "event": event, "status": status_code, "error": message})
+        return jsonify({'ok': False, 'error': message}), status_code
+
     if uid:
         db = get_db()
         u = db.execute('SELECT is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
@@ -1429,21 +1448,21 @@ def api_generate():
     if flags.get('gate7DayToPaid'):
         if days >= 7:
             if not uid:
-                return jsonify({'ok': False, 'error': 'Login required'}), 401
+                return _log_and_abort(401, 'Login required')
             if not is_paid:
-                return jsonify({'ok': False, 'error': 'Paid plan required for 7-day generation'}), 403
+                return _log_and_abort(403, 'Paid plan required for 7-day generation')
 
     # Free sample check
     if not is_paid and uid:
         db = get_db()
         u = db.execute('SELECT free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
         if u and u['free_sample_used']:
-             return jsonify({'ok': False, 'error': 'Free sample already used'}), 403
+            return _log_and_abort(403, 'Free sample already used')
         should_mark_sample = True
 
     # Gate Reels (short_video)
     if 'short_video' in platforms and not is_paid:
-         return jsonify({'ok': False, 'error': 'Paid plan required for Reels generation'}), 403
+        return _log_and_abort(403, 'Paid plan required for Reels generation')
 
     # Check Quota for Reels
     if 'short_video' in platforms and is_paid:
@@ -1453,23 +1472,25 @@ def api_generate():
         usage = db.execute('SELECT reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
         used = usage['reels_generated'] if usage else 0
         if used >= quota:
-             return jsonify({'ok': False, 'error': 'Monthly Reels quota exceeded'}), 403
+            return _log_and_abort(403, 'Monthly Reels quota exceeded')
 
     # Check for image payload
     image_data_url = data.get('image_data_url')
     if image_data_url:
         if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES:
-             return jsonify({'ok': False, 'error': 'Image too large'}), 400
-        
+            return _log_and_abort(400, 'Image too large')
+
         try:
             # Use the helper for image-based generation
             posts = _generate_posts_from_image(data)
             if posts is None:
-                 return jsonify({'ok': False, 'error': 'Image generation not available'}), 500
+                return _log_and_abort(500, 'Image generation not available', event="generator.failed")
+            duration_ms = int((time.time() - start_ts) * 1000)
+            app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
             return jsonify({'ok': True, 'posts': posts, 'count': len(posts)})
         except Exception as e:
             app.logger.error(f"Image generation failed: {e}")
-            return jsonify({'ok': False, 'error': str(e)}), 500
+            return _log_and_abort(500, str(e), event="generator.failed")
 
     # Populate defaults for strict mocks
     for k in ['start_day', 'industry', 'tone', 'platforms', 'brand_keywords', 'include_images', 'niche_keywords', 'goals', 'details', 'company']:
@@ -1496,11 +1517,12 @@ def api_generate():
             db = get_db()
             db.execute('UPDATE users SET free_sample_used = 1 WHERE id = ?', (uid,))
             db.commit()
-            
+        duration_ms = int((time.time() - start_ts) * 1000)
+        app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
         return jsonify({'ok': True, 'posts': posts, 'count': len(posts)})
     except Exception as e:
         app.logger.error(f"Generation failed: {e}")
-        return jsonify({'ok': False, 'error': str(e)}), 500
+        return _log_and_abort(500, str(e), event="generator.failed")
 
 
 @app.post('/api/generate-review-response')
