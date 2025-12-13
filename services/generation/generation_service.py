@@ -11,11 +11,13 @@ from typing import Any, Dict, List, Optional
 from .context_builder import merge_contexts, extract_merged_params
 from .voice_style_builder import build_voice_style_guide
 from .prompt_builder import build_social_prompt, build_reel_prompt, build_review_response_prompt
+from .prompt_compiler import PromptCompiler, ProfileDefaults, VoiceFingerprint, RunToggles
 from .openai_client import create_client as create_openai_client
 from .output_validator import (
     validate_and_repair_social_posts,
     validate_and_repair_reel_script,
     validate_and_repair_review_responses,
+    validate_with_schema_enforcement,
     detect_sensitive_content,
     sanitize_public_content,
     ValidationError
@@ -26,6 +28,7 @@ from .fallback_generator import (
     generate_review_response_fallback
 )
 from .output_schemas import SuccessResponse, ErrorResponse
+from .prompt_trace import create_trace_from_compiler_output
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +41,8 @@ class GenerationService:
         self,
         openai_api_key: Optional[str] = None,
         openai_model: Optional[str] = None,
-        enable_openai: bool = True
+        enable_openai: bool = True,
+        use_prompt_compiler: bool = False
     ):
         """Initialize generation service.
         
@@ -46,6 +50,7 @@ class GenerationService:
             openai_api_key: Optional OpenAI API key
             openai_model: Optional OpenAI model name
             enable_openai: Whether to use OpenAI (default True)
+            use_prompt_compiler: Whether to use new PromptCompiler (default False for gradual migration)
         """
         self.openai_client = None
         if enable_openai:
@@ -54,8 +59,11 @@ class GenerationService:
                 model=openai_model
             )
         
+        self.use_prompt_compiler = use_prompt_compiler
+        
         logger.info(
-            f"GenerationService initialized (OpenAI: {'enabled' if self.openai_client else 'disabled'})"
+            f"GenerationService initialized (OpenAI: {'enabled' if self.openai_client else 'disabled'}, "
+            f"PromptCompiler: {'enabled' if use_prompt_compiler else 'disabled'})"
         )
     
     def _generate_request_id(self) -> str:
@@ -480,3 +488,286 @@ class GenerationService:
                 code='generation_failed',
                 message='Failed to generate review response'
             )
+    
+    # ========================================================================
+    # PromptCompiler-based generation methods (new approach)
+    # ========================================================================
+    
+    def _convert_to_profile_defaults(self, workspace: Optional[Dict[str, Any]]) -> ProfileDefaults:
+        """Convert workspace dict to ProfileDefaults type."""
+        if not workspace:
+            return ProfileDefaults()
+        
+        return ProfileDefaults(
+            company=workspace.get('company_name', ''),
+            industry=workspace.get('industry', 'business'),
+            signature_tone=workspace.get('default_tone', 'professional'),
+            platforms=workspace.get('platforms', []),
+            timezone=workspace.get('timezone'),
+            offerings=workspace.get('offerings'),
+            audience=workspace.get('audience'),
+            taboo_topics=workspace.get('taboo_topics')
+        )
+    
+    def _convert_to_voice_fingerprint(
+        self,
+        voice_samples: Optional[List[str]],
+        include_phrases: Optional[List[str]] = None,
+        avoid_phrases: Optional[List[str]] = None
+    ) -> Optional[VoiceFingerprint]:
+        """Build VoiceFingerprint from voice samples."""
+        if not voice_samples:
+            return None
+        
+        # Build voice style guide
+        voice_guide = build_voice_style_guide(
+            samples=voice_samples,
+            include_phrases=include_phrases,
+            avoid_phrases=avoid_phrases
+        )
+        
+        # Convert to VoiceFingerprint type
+        return VoiceFingerprint(
+            sentence_length_band=voice_guide.get('sentence_length', 'medium'),
+            emoji_rate=voice_guide.get('formatting', {}).get('emoji_frequency', 'low'),
+            punctuation_style=voice_guide.get('formatting', {}).get('punctuation', {}),
+            typical_cta_patterns=voice_guide.get('cta_patterns', []),
+            top_phrases=voice_guide.get('vocabulary', {}).get('top_phrases', []),
+            avoid_phrases=voice_guide.get('vocabulary', {}).get('taboo_phrases', []),
+            signature_moves=voice_guide.get('signature_moves', []),
+            micro_examples=voice_guide.get('micro_examples')
+        )
+    
+    def _convert_to_run_toggles(self, request: Optional[Dict[str, Any]]) -> RunToggles:
+        """Convert request dict to RunToggles type."""
+        if not request:
+            return RunToggles(session_length=7)
+        
+        return RunToggles(
+            session_length=request.get('session_length', 7),
+            platform_focus=request.get('platforms'),
+            tone_override=request.get('tone'),
+            keywords=request.get('keywords'),
+            goals=request.get('goals'),
+            promo_note=request.get('promo_note'),
+            reel_toggles=request.get('reel_options'),
+            variants=request.get('variants', 1)
+        )
+    
+    def generate_with_compiler(
+        self,
+        content_type: str,
+        request_id: Optional[str] = None,
+        workspace: Optional[Dict[str, Any]] = None,
+        voice_samples: Optional[List[str]] = None,
+        include_phrases: Optional[List[str]] = None,
+        avoid_phrases: Optional[List[str]] = None,
+        request: Optional[Dict[str, Any]] = None,
+        review_text: Optional[str] = None,
+        rating: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Generate content using the new PromptCompiler approach.
+        
+        This is the new unified generation method that uses PromptCompiler.
+        
+        Args:
+            content_type: Type of content ('social', 'reels', 'reviews')
+            request_id: Optional request ID
+            workspace: Workspace settings
+            voice_samples: Voice samples for fingerprint
+            include_phrases: Phrases to include
+            avoid_phrases: Phrases to avoid
+            request: Request parameters
+            review_text: Review text (for reviews only)
+            rating: Rating (for reviews only)
+            
+        Returns:
+            Success or error response dict
+        """
+        request_id = request_id or self._generate_request_id()
+        logger.info(f"[{request_id}] Generating {content_type} with PromptCompiler")
+        
+        try:
+            # Convert inputs to PromptCompiler types
+            profile_defaults = self._convert_to_profile_defaults(workspace)
+            voice_fingerprint = self._convert_to_voice_fingerprint(
+                voice_samples, include_phrases, avoid_phrases
+            )
+            run_toggles = self._convert_to_run_toggles(request)
+            
+            # Create compiler
+            compiler = PromptCompiler(
+                profile_defaults=profile_defaults,
+                voice_fingerprint=voice_fingerprint
+            )
+            
+            # Compile prompt based on content type
+            if content_type == 'social':
+                compiler_output = compiler.compile_for_social(run_toggles, request_id)
+            elif content_type == 'reels':
+                compiler_output = compiler.compile_for_reels(run_toggles, request_id)
+            elif content_type == 'reviews':
+                if not review_text:
+                    return self._build_error_response(
+                        request_id=request_id,
+                        code='missing_parameter',
+                        message='Review text is required'
+                    )
+                compiler_output = compiler.compile_for_reviews(
+                    run_toggles, review_text, rating, request_id
+                )
+            else:
+                return self._build_error_response(
+                    request_id=request_id,
+                    code='invalid_content_type',
+                    message=f'Unknown content type: {content_type}'
+                )
+            
+            # Log prompt trace
+            trace = create_trace_from_compiler_output(compiler_output)
+            trace.log_trace('info')
+            
+            # Get prompt set for generation
+            prompt_set = compiler_output['prompt_set']
+            json_schema = compiler_output['json_schema']
+            
+            # Try OpenAI generation
+            openai_used = False
+            data = None
+            
+            if self.openai_client:
+                try:
+                    logger.info(f"[{request_id}] Attempting OpenAI generation with compiled prompt")
+                    
+                    # Build messages from prompt set
+                    messages = [
+                        {"role": "system", "content": prompt_set['system']},
+                        {"role": "user", "content": f"{prompt_set['context']}\n\n{prompt_set['request']}"}
+                    ]
+                    
+                    # Generate
+                    result = self.openai_client.generate_structured(messages)
+                    
+                    # Validate with schema enforcement (includes repair pass)
+                    validation_result = validate_with_schema_enforcement(
+                        result,
+                        content_type,
+                        openai_client=self.openai_client,
+                        prompt_set=prompt_set,
+                        json_schema=json_schema
+                    )
+                    
+                    if validation_result['ok']:
+                        data = validation_result['data']
+                        openai_used = True
+                        logger.info(
+                            f"[{request_id}] OpenAI generation successful "
+                            f"(repaired: {validation_result.get('repaired', False)})"
+                        )
+                    else:
+                        logger.warning(f"[{request_id}] Validation failed: {validation_result['error']}")
+                    
+                except Exception as e:
+                    logger.warning(f"[{request_id}] OpenAI generation failed: {e}, falling back")
+            
+            # Fallback if needed
+            if data is None:
+                logger.info(f"[{request_id}] Using fallback generation")
+                data = self._generate_fallback(
+                    content_type,
+                    compiler_output['model_context'],
+                    review_text,
+                    rating
+                )
+            
+            # Check for sensitive content and build response
+            warnings = self._check_sensitive_content(data, content_type)
+            
+            return self._build_success_response(
+                request_id=request_id,
+                data=data,
+                openai_used=openai_used,
+                summary={
+                    'voice_applied': compiler_output['model_context'].get('voice_applied', False),
+                    'template_applied': compiler_output['model_context'].get('template_applied', False),
+                    'prompt_compiler_used': True
+                },
+                warnings=warnings if warnings else None
+            )
+            
+        except Exception as e:
+            logger.exception(f"[{request_id}] Generation with compiler failed: {e}")
+            return self._build_error_response(
+                request_id=request_id,
+                code='generation_failed',
+                message=f'Failed to generate {content_type}'
+            )
+    
+    def _generate_fallback(
+        self,
+        content_type: str,
+        model_context: Dict[str, Any],
+        review_text: Optional[str] = None,
+        rating: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Generate fallback content based on content type."""
+        if content_type == 'social':
+            result = generate_social_posts_fallback(
+                session_length=model_context.get('session_length', 7),
+                platforms=model_context.get('platforms', []),
+                tone=model_context.get('tone', 'professional'),
+                industry=model_context.get('industry', 'business'),
+                company_name=model_context.get('company_name', ''),
+                goals=model_context.get('goals'),
+                keywords=model_context.get('keywords')
+            )
+            return validate_and_repair_social_posts(result)
+        
+        elif content_type == 'reels':
+            result = generate_reel_script_fallback(
+                tone=model_context.get('tone', 'professional'),
+                industry=model_context.get('industry', 'business')
+            )
+            return validate_and_repair_reel_script(result)
+        
+        elif content_type == 'reviews':
+            result = generate_review_response_fallback(
+                review_text=review_text or '',
+                rating=rating,
+                tone=model_context.get('tone', 'professional'),
+                company_name=model_context.get('company_name', '')
+            )
+            return validate_and_repair_review_responses(result)
+        
+        else:
+            raise ValueError(f'Unknown content type: {content_type}')
+    
+    def _check_sensitive_content(self, data: Dict[str, Any], content_type: str) -> Optional[List[str]]:
+        """Check for and sanitize sensitive content."""
+        warnings = []
+        
+        if content_type == 'social':
+            for post in data.get('posts', []):
+                for card in post.get('cards', []):
+                    caption = card.get('caption', '')
+                    if warning := detect_sensitive_content(caption):
+                        warnings.append(warning)
+                        card['caption'] = sanitize_public_content(caption)
+        
+        elif content_type == 'reels':
+            script = data.get('script', {})
+            for field in ['hook', 'caption']:
+                if text := script.get(field):
+                    if warning := detect_sensitive_content(text):
+                        warnings.append(f"{field}: {warning}")
+                        script[field] = sanitize_public_content(text)
+        
+        elif content_type == 'reviews':
+            responses = data.get('responses', {})
+            for key in ['short', 'medium', 'long']:
+                if text := responses.get(key):
+                    if warning := detect_sensitive_content(text):
+                        warnings.append(f"{key}: {warning}")
+                        responses[key] = sanitize_public_content(text)
+        
+        return warnings if warnings else None

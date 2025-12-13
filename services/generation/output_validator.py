@@ -248,3 +248,140 @@ def sanitize_public_content(text: str) -> str:
     )
     
     return text
+
+
+def validate_with_schema_enforcement(
+    data: Any,
+    content_type: str,
+    openai_client: Optional[Any] = None,
+    prompt_set: Optional[Dict[str, str]] = None,
+    json_schema: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Validate output with strict schema enforcement and repair pass.
+    
+    This implements the requirement:
+    - Validate model output against schema
+    - If invalid, do one "repair pass" with the same context but stricter instruction
+    - If still invalid, return error or fallback
+    
+    Args:
+        data: Output data to validate
+        content_type: Type of content ('social', 'reels', 'reviews')
+        openai_client: OpenAI client for repair pass (optional)
+        prompt_set: Original prompt set for repair (optional)
+        json_schema: JSON schema for validation (optional)
+        
+    Returns:
+        Dict with 'ok', 'data', 'repaired', 'error' keys
+    """
+    result = {'ok': False, 'repaired': False, 'data': None, 'error': None}
+    
+    # First validation attempt
+    try:
+        if content_type == 'social':
+            validated = validate_and_repair_social_posts(data)
+        elif content_type == 'reels':
+            validated = validate_and_repair_reel_script(data)
+        elif content_type == 'reviews':
+            validated = validate_and_repair_review_responses(data)
+        else:
+            raise ValidationError(f"Unknown content type: {content_type}")
+        
+        result['ok'] = True
+        result['data'] = validated
+        return result
+        
+    except (ValidationError, ValueError) as e:
+        logger.warning(f"Initial validation failed for {content_type}: {e}")
+        result['error'] = str(e)
+        
+        # Try repair pass if OpenAI client and prompt available
+        if openai_client and prompt_set:
+            logger.info(f"Attempting repair pass for {content_type}")
+            try:
+                repaired_data = _attempt_repair_pass(
+                    openai_client=openai_client,
+                    prompt_set=prompt_set,
+                    json_schema=json_schema,
+                    original_error=str(e)
+                )
+                
+                # Validate repaired output
+                if content_type == 'social':
+                    validated = validate_and_repair_social_posts(repaired_data)
+                elif content_type == 'reels':
+                    validated = validate_and_repair_reel_script(repaired_data)
+                elif content_type == 'reviews':
+                    validated = validate_and_repair_review_responses(repaired_data)
+                
+                result['ok'] = True
+                result['data'] = validated
+                result['repaired'] = True
+                logger.info(f"Repair pass succeeded for {content_type}")
+                return result
+                
+            except Exception as repair_error:
+                logger.error(f"Repair pass failed for {content_type}: {repair_error}")
+                result['error'] = f"Validation failed: {e}. Repair failed: {repair_error}"
+        
+        # Fallback: return error
+        return result
+
+
+def _attempt_repair_pass(
+    openai_client: Any,
+    prompt_set: Dict[str, str],
+    json_schema: Optional[Dict[str, Any]],
+    original_error: str
+) -> Any:
+    """Attempt single repair pass with stricter instructions.
+    
+    Args:
+        openai_client: OpenAI client
+        prompt_set: Original prompt set
+        json_schema: JSON schema for validation
+        original_error: Error from first attempt
+        
+    Returns:
+        Repaired output data
+        
+    Raises:
+        Exception: If repair pass fails
+    """
+    # Build stricter prompt
+    system = prompt_set.get('system', '')
+    system += (
+        "\n\nIMPORTANT: Your previous output had validation errors. "
+        "This is your ONE chance to fix it. "
+        f"Error details: {original_error}. "
+        "Return ONLY valid JSON. No extra text. No markdown. Just JSON."
+    )
+    
+    context = prompt_set.get('context', '')
+    request = prompt_set.get('request', '')
+    
+    if json_schema:
+        request += f"\n\nSTRICT SCHEMA (must match exactly):\n{json_schema}"
+    
+    # Build messages
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"{context}\n\n{request}"}
+    ]
+    
+    # Call OpenAI with stricter validation
+    try:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.3,  # Lower temperature for more consistency
+            response_format={"type": "json_object"}
+        )
+        
+        import json
+        content = response.choices[0].message.content
+        return json.loads(content)
+        
+    except Exception as e:
+        logger.error(f"OpenAI repair call failed: {e}")
+        raise
