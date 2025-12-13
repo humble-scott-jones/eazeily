@@ -2362,69 +2362,78 @@ function initDashboardModes() {
     reels: { btn: 'mode-reels', section: 'content-generator', hide: ['review-response'] }
   };
 
+  const preferredMode = (document.body?.dataset?.generatorMode || 'social').toLowerCase();
   const buttons = Object.values(modes).map(m => document.getElementById(m.btn)).filter(Boolean);
-  
+
+  function applyMode(modeKey) {
+    if (!modes[modeKey]) return;
+    const mode = modes[modeKey];
+
+    // Update buttons (if present on this page)
+    buttons.forEach(b => {
+      const isSelected = b.id === mode.btn;
+      b.setAttribute('aria-selected', isSelected);
+      if (isSelected) {
+        b.classList.remove('text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60');
+        b.classList.add('text-slate-900', 'bg-white', 'shadow-sm', 'ring-1', 'ring-slate-200', 'font-semibold');
+        b.classList.remove('font-medium');
+      } else {
+        b.classList.add('text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60', 'font-medium');
+        b.classList.remove('text-slate-900', 'bg-white', 'shadow-sm', 'ring-1', 'ring-slate-200', 'font-semibold');
+      }
+    });
+
+    // Update sections
+    const activeSection = document.getElementById(mode.section);
+    if (activeSection) activeSection.classList.remove('hidden');
+
+    mode.hide.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+
+    // Mode specific logic
+    if (modeKey === 'reels') {
+      // Force select short_video/tiktok/instagram
+      const platformGroup = document.getElementById('generator-platforms');
+      if (platformGroup) {
+        const videoPlatforms = ['short_video', 'tiktok', 'instagram'];
+        platformGroup.querySelectorAll('button').forEach(b => {
+          const p = b.dataset.generatorPlatform;
+          if (videoPlatforms.includes(p)) {
+            if (b.getAttribute('aria-pressed') !== 'true') b.click();
+          } else if (b.getAttribute('aria-pressed') === 'true') {
+            b.click();
+          }
+        });
+      }
+      // Show reel options
+      const reelOptions = document.getElementById('reel-options');
+      if (reelOptions) reelOptions.classList.remove('hidden');
+
+      // Update generate button text
+      const genBtn = document.getElementById('generate-content');
+      if (genBtn) genBtn.textContent = 'Generate Reels Plan';
+    } else if (modeKey === 'social') {
+      // Hide reel options
+      const reelOptions = document.getElementById('reel-options');
+      if (reelOptions) reelOptions.classList.add('hidden');
+
+      // Update generate button text
+      const genBtn = document.getElementById('generate-content');
+      if (genBtn) genBtn.textContent = 'Generate Content';
+    }
+  }
+
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
       const modeKey = Object.keys(modes).find(k => modes[k].btn === btn.id);
       if (!modeKey) return;
-      
-      // Update buttons
-      buttons.forEach(b => {
-        const isSelected = b.id === btn.id;
-        b.setAttribute('aria-selected', isSelected);
-        if (isSelected) {
-          b.classList.remove('text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60');
-          b.classList.add('text-slate-900', 'bg-white', 'shadow-sm', 'ring-1', 'ring-slate-200', 'font-semibold');
-          b.classList.remove('font-medium');
-        } else {
-          b.classList.add('text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60', 'font-medium');
-          b.classList.remove('text-slate-900', 'bg-white', 'shadow-sm', 'ring-1', 'ring-slate-200', 'font-semibold');
-        }
-      });
-
-      // Update sections
-      const mode = modes[modeKey];
-      const activeSection = document.getElementById(mode.section);
-      if (activeSection) activeSection.classList.remove('hidden');
-      
-      mode.hide.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
-      });
-
-      // Mode specific logic
-      if (modeKey === 'reels') {
-        // Force select short_video/tiktok/instagram
-        const platformGroup = document.getElementById('generator-platforms');
-        if (platformGroup) {
-           const videoPlatforms = ['short_video', 'tiktok', 'instagram'];
-           platformGroup.querySelectorAll('button').forEach(b => {
-             const p = b.dataset.generatorPlatform;
-             if (videoPlatforms.includes(p)) {
-               if (b.getAttribute('aria-pressed') !== 'true') b.click();
-             } else {
-               if (b.getAttribute('aria-pressed') === 'true') b.click();
-             }
-           });
-        }
-        // Show reel options
-        const reelOptions = document.getElementById('reel-options');
-        if (reelOptions) reelOptions.classList.remove('hidden');
-        
-        // Update generate button text
-        const genBtn = document.getElementById('generate-content');
-        if (genBtn) genBtn.textContent = 'Generate Reels Plan';
-
-      } else if (modeKey === 'social') {
-        // Hide reel options
-        const reelOptions = document.getElementById('reel-options');
-        if (reelOptions) reelOptions.classList.add('hidden');
-        
-        // Update generate button text
-        const genBtn = document.getElementById('generate-content');
-        if (genBtn) genBtn.textContent = 'Generate Content';
-      }
+      applyMode(modeKey);
     });
   });
+
+  if (modes[preferredMode]) {
+    applyMode(preferredMode);
+  }
 }

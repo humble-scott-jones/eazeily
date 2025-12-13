@@ -236,47 +236,51 @@ function populateAccountPlatformOptions(list) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Load user profile and settings
-  loadUserProfile();
+  const hasGenerator = Boolean(document.getElementById('content-generator'));
+  const hasReviewPanel = Boolean(document.getElementById('review-response'));
+  const hasSettings = Boolean(document.getElementById('account-company'));
+  const hasVoiceCoach = Boolean(document.getElementById('voice-coach'));
+  const hasFeedbackForm = Boolean(document.getElementById('feedback-form'));
+  const hasActivityPanel = Boolean(document.getElementById('activity-panel'));
 
-  // Review Response Generation
-  setupReviewResponse();
+  loadUserProfile({ hydrateGenerator: hasGenerator, hydrateVoice: hasVoiceCoach || document.getElementById('voice-coach-summary') });
 
-  // Content Generation
-  setupContentGeneration();
+  if (hasReviewPanel) {
+    setupReviewResponse();
+  }
 
-  // Account Settings
-  setupAccountSettings();
+  if (hasGenerator) {
+    setupContentGeneration();
+    setupQuickActions();
+    setupTemplateLibrary();
+    setupOneClickGeneration();
+    setupImageUpload();
+    hydrateSeedPosts();
+    seedPresetStateFromWizardDefaults();
+    loadPublishingQueueFromStorage();
+    renderPublishingQueue();
+    updateQueueTimezoneLabel();
+  }
 
-  // Quick Actions
-  setupQuickActions();
+  if (hasSettings) {
+    setupAccountSettings();
+  }
 
-  // Template library and presets
-  setupTemplateLibrary();
+  const lazyHydrate = () => {
+    if (hasFeedbackForm) setupFeedbackForm();
+    if (hasVoiceCoach) setupVoiceCoach();
+    if (hasActivityPanel) hydrateActivityFeed();
+  };
 
-  // One-click generation defaults
-  setupOneClickGeneration();
-
-  // Inspiration image uploads
-  setupImageUpload();
-
-  // Feedback form in sidebar
-  setupFeedbackForm();
-
-  // Voice coach panel
-  setupVoiceCoach();
-  // Activity and ownership feed
-  hydrateActivityFeed();
-
-  hydrateVoiceSummary({});
-  hydrateSeedPosts();
-  seedPresetStateFromWizardDefaults();
-  loadPublishingQueueFromStorage();
-  renderPublishingQueue();
-  updateQueueTimezoneLabel();
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(lazyHydrate);
+  } else {
+    setTimeout(lazyHydrate, 250);
+  }
 });
 
-async function loadUserProfile() {
+async function loadUserProfile(options = {}) {
+  const { hydrateGenerator = true, hydrateVoice = true } = options;
   try {
     await ensureAccountFormFields();
     const response = await fetch('/api/profile', { credentials: 'include' });
@@ -296,9 +300,13 @@ async function loadUserProfile() {
     renderProfileDefaultsSummary(profileDefaults);
     hydrateTemplateLibrary();
     renderCollaborationSummary();
-    applyProfileDefaultsToGenerator(profileDefaults);
-    hydrateStoredGeneratorState({ apply: true, preferProfile: true });
-    hydrateVoiceSummary(profile || {});
+    if (hydrateGenerator) {
+      applyProfileDefaultsToGenerator(profileDefaults);
+      hydrateStoredGeneratorState({ apply: true, preferProfile: true });
+    }
+    if (hydrateVoice) {
+      hydrateVoiceSummary(profile || {});
+    }
   } catch (error) {
     console.error('Failed to load user profile:', error);
   }
@@ -412,6 +420,8 @@ function setupReviewResponse() {
   const responseText = document.getElementById('response-text');
   const responseMethod = document.getElementById('response-method');
   const copyBtn = document.getElementById('copy-response');
+
+  if (!generateBtn || !loadingDiv || !resultDiv || !responseText || !responseMethod) return;
 
   generateBtn?.addEventListener('click', async () => {
     const review = document.getElementById('review-text').value.trim();
@@ -558,14 +568,16 @@ function refreshReelOptionsVisibility() {
 }
 
 function setupContentGeneration() {
-  const generateBtn = document.getElementById('generate-content');
-  const loadingDiv = document.getElementById('content-loading');
+  const generateBtn = document.getElementById('generate-content') || document.getElementById('generate-plan');
+  const loadingDiv = document.getElementById('content-loading') || document.getElementById('generator-loading');
   const resultsDiv = document.getElementById('generated-content');
   const contentResults = document.getElementById('content-results');
   const reelOptions = document.getElementById('reel-options');
   const statusEl = document.getElementById('generator-status');
   const planLengthWrap = document.getElementById('plan-length-buttons');
   const daySelect = document.getElementById('gen-days');
+
+  if (!generateBtn || !daySelect) return;
 
   // Hide 30-day option for free users
   const user = JSON.parse(document.body.dataset.initialUser || '{}');
@@ -578,6 +590,12 @@ function setupContentGeneration() {
   initGeneratorPlatformPicker();
   refreshReelOptionsVisibility();
   syncPreferredPlatformButtons();
+
+  const generatorMode = (document.body.dataset.generatorMode || '').toLowerCase();
+  if (generatorMode === 'reels') {
+    setGeneratorPlatformSelections(['short_video', 'tiktok']);
+    refreshReelOptionsVisibility();
+  }
 
   if (daySelect) {
     const initialDays = parseInt(daySelect.value, 10);

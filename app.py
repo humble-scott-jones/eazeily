@@ -975,12 +975,61 @@ def index():
 
 @app.get("/generate")
 def generate_page():
-    """Dashboard for generating content after onboarding completes."""
+    """Redirect to the primary generation tab."""
+    return redirect(url_for('generate_social_page'))
+
+
+@app.get("/generate/social")
+def generate_social_page():
+    """Dashboard for social content generation."""
     initial_user = _initial_user_payload()
     is_team_tier = False
     if initial_user and initial_user.get('subscription_tier') == 'team':
         is_team_tier = True
-    return render_template("dashboard.html", is_dev=_is_dev_mode(), initial_user=initial_user, is_team_tier=is_team_tier)
+    return render_template(
+        "generate_social.html",
+        is_dev=_is_dev_mode(),
+        initial_user=initial_user,
+        is_team_tier=is_team_tier,
+        generator_mode='social'
+    )
+
+
+@app.get("/generate/reels")
+def generate_reels_page():
+    """Dedicated view for video-first generation."""
+    initial_user = _initial_user_payload()
+    is_team_tier = False
+    if initial_user and initial_user.get('subscription_tier') == 'team':
+        is_team_tier = True
+    return render_template(
+        "generate_social.html",
+        is_dev=_is_dev_mode(),
+        initial_user=initial_user,
+        is_team_tier=is_team_tier,
+        generator_mode='reels'
+    )
+
+
+@app.get("/generate/reviews")
+def generate_reviews_page():
+    """Dedicated route for review responses."""
+    return render_template("generate_reviews.html")
+
+
+@app.get("/settings")
+def settings_page():
+    """Workspace settings for account defaults and voice training."""
+    initial_user = _initial_user_payload()
+    is_team_tier = False
+    if initial_user and initial_user.get('subscription_tier') == 'team':
+        is_team_tier = True
+    return render_template(
+        "settings.html",
+        is_dev=_is_dev_mode(),
+        initial_user=initial_user,
+        is_team_tier=is_team_tier
+    )
 
 
 @app.get('/inbox')
@@ -1019,8 +1068,8 @@ def admin_page():
 
 @app.get('/review-response')
 def review_response_page():
-    """Page for generating responses to customer reviews."""
-    return render_template("review_response.html")
+    """Legacy route kept for backward compatibility."""
+    return redirect(url_for('generate_reviews_page'), code=302)
 
 
 @app.post('/api/signup')
@@ -2901,8 +2950,18 @@ def api_voice_profile():
             # Handle missing column in row result if using sqlite3.Row with missing column
             if 'voice_profile' not in row.keys():
                  return jsonify({'ok': True, 'samples': []})
-                 
+
             vp = _deserialize_json(row['voice_profile'], {})
             return jsonify({'ok': True, 'samples': vp.get('samples', [])})
         except Exception:
             return jsonify({'ok': True, 'samples': []})
+
+
+if __name__ == '__main__':
+    port = int(os.getenv('PORT', '5001'))
+    try:
+        with app.app_context():
+            init_db()
+    except Exception:
+        logging.exception("Database initialization failed during startup")
+    app.run(host='0.0.0.0', port=port, debug=_is_dev_mode())
