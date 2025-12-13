@@ -1,8 +1,8 @@
-import os, sqlite3, uuid, json, re
+import os, sqlite3, uuid, json, re, base64, mimetypes
 from datetime import date
 from datetime import datetime, timezone
 from datetime import timedelta
-from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context, url_for
+from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context, url_for, send_from_directory
 import logging
 import voice_profile
 import threading
@@ -12,6 +12,7 @@ from flask_cors import CORS
 import generator as gen_mod
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import TYPE_CHECKING, Any, Optional, Tuple
+from werkzeug.utils import secure_filename
 import requests
 try:
     import yaml
@@ -48,6 +49,8 @@ else:
     stripe = None
 
 IMAGE_DATA_URL_MAX_BYTES = 2_500_000  # ~2.5MB encoded payload cap for inline uploads
+MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024  # 5MB hard limit for uploaded image files
+ALLOWED_IMAGE_MIME_PREFIXES = ("image/jpeg", "image/png", "image/webp", "image/gif")
 MAX_FEEDBACK_NOTE_LEN = 1500
 VOICE_SAMPLE_MIN_LEN = 8  # Minimum character length for voice profile samples
 VOICE_SAMPLE_MIN_COUNT = 5  # Minimum number of samples required
@@ -56,6 +59,8 @@ try:
     TEAM_MEMBER_LIMIT = int(os.getenv('TEAM_MEMBER_LIMIT', '10'))
 except (TypeError, ValueError):
     TEAM_MEMBER_LIMIT = 10
+
+UPLOAD_DIR = os.getenv('UPLOAD_DIR') or os.path.join(os.path.dirname(__file__), 'uploads')
 
 def _resolve_password_hash_method():
     """Derive the hashing method string used by werkzeug based on env vars."""
@@ -102,6 +107,21 @@ def _is_dev_mode() -> bool:
     if _env_flag_enabled('CI'):
         return True
     return False
+
+
+def _get_upload_dir() -> str:
+    directory = app.config.get('UPLOAD_DIR') or UPLOAD_DIR
+    try:
+        os.makedirs(directory, exist_ok=True)
+    except Exception:
+        pass
+    return directory
+
+
+def _allowed_image_type(mimetype: str | None) -> bool:
+    if not mimetype:
+        return False
+    return any(str(mimetype).lower().startswith(prefix) for prefix in ALLOWED_IMAGE_MIME_PREFIXES)
 
 GITHUB_FEEDBACK_TOKEN = os.getenv('GITHUB_FEEDBACK_TOKEN')
 GITHUB_FEEDBACK_REPO = os.getenv('GITHUB_FEEDBACK_REPO')
@@ -538,6 +558,21 @@ def _apply_voice_guardrails(posts: list[dict], voice_profile_ctx: Optional[dict]
             post['voice_guardrail'] = assessment.get('message')
             post['voice_suggestions'] = assessment.get('suggestions')
 
+
+def _resolve_image_payload(data: dict):
+    """Ensure generator specs carry a usable image data URL."""
+    if not isinstance(data, dict):
+        return None, None
+    upload_id = data.get('image_upload_id')
+    existing_data_url = data.get('image_data_url')
+    if upload_id and not existing_data_url:
+        data_url = _upload_as_data_url(upload_id)
+        if not data_url:
+            return None, {'code': 'image_missing', 'message': 'Image not found. Please upload it again.'}
+        data['image_data_url'] = data_url
+        return data_url, None
+    return existing_data_url, None
+
 class _PgConnectionWrapper:
     """Lightweight wrapper to normalize Postgres connection to sqlite-style API."""
 
@@ -672,6 +707,14 @@ def init_db():
             user_id TEXT,
             period TEXT,
             reels_generated INTEGER DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS uploads (
+            id TEXT PRIMARY KEY,
+            filename TEXT,
+            mime TEXT,
+            size_bytes INTEGER,
+            path TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS waitlist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -857,6 +900,91 @@ def init_db():
             db.commit()
     except Exception:
         pass
+
+
+def _get_upload_record(upload_id: str):
+    db = get_db()
+    row = db.execute('SELECT id, filename, mime, size_bytes, path, created_at FROM uploads WHERE id = ?', (upload_id,)).fetchone()
+    return row
+
+
+def _store_upload(file_storage):
+    """Persist an uploaded file and return its metadata record."""
+    if not file_storage:
+        return None, 'No file provided.'
+
+    filename = secure_filename(file_storage.filename or '') or 'image'
+    mimetype = file_storage.mimetype or mimetypes.guess_type(filename)[0] or ''
+    if not _allowed_image_type(mimetype):
+        return None, 'Only image uploads are supported (PNG, JPG, WEBP, GIF).'
+
+    data = file_storage.read()
+    if not data:
+        return None, 'Empty uploads are not allowed.'
+    if len(data) > MAX_IMAGE_UPLOAD_BYTES:
+        return None, f'Images must be {MAX_IMAGE_UPLOAD_BYTES // (1024 * 1024)}MB or smaller.'
+
+    ext = os.path.splitext(filename)[1]
+    if not ext:
+        guessed_ext = mimetypes.guess_extension(mimetype)
+        ext = guessed_ext or '.img'
+
+    upload_id = str(uuid.uuid4())
+    storage_name = f"{upload_id}{ext}"
+    upload_dir = _get_upload_dir()
+    os.makedirs(upload_dir, exist_ok=True)
+    path = os.path.join(upload_dir, storage_name)
+    with open(path, 'wb') as dest:
+        dest.write(data)
+
+    db = get_db()
+    db.execute(
+        'INSERT INTO uploads (id, filename, mime, size_bytes, path) VALUES (?, ?, ?, ?, ?)',
+        (upload_id, filename, mimetype, len(data), path)
+    )
+    db.commit()
+
+    return {
+        'id': upload_id,
+        'filename': filename,
+        'mime': mimetype,
+        'size_bytes': len(data),
+        'path': path,
+        'storage_name': storage_name,
+    }, None
+
+
+def _delete_upload(upload_id: str) -> bool:
+    record = _get_upload_record(upload_id)
+    if not record:
+        return False
+    try:
+        if record['path'] and os.path.exists(record['path']):
+            os.remove(record['path'])
+    except Exception:
+        pass
+    db = get_db()
+    db.execute('DELETE FROM uploads WHERE id = ?', (upload_id,))
+    db.commit()
+    return True
+
+
+def _upload_as_data_url(upload_id: str | None):
+    if not upload_id:
+        return None
+    record = _get_upload_record(upload_id)
+    if not record:
+        return None
+    path = record['path']
+    if not path or not os.path.exists(path):
+        return None
+    mime = record['mime'] or 'image/png'
+    try:
+        with open(path, 'rb') as fh:
+            encoded = base64.b64encode(fh.read()).decode('ascii')
+        return f"data:{mime};base64,{encoded}"
+    except Exception:
+        return None
 
 
 def row_to_mapping(row: Any) -> Optional[dict]:
@@ -1586,11 +1714,58 @@ def api_profile():
             }), 500
 
 
+@app.post('/api/uploads')
+def api_upload_image():
+    request_id = _get_request_id()
+    file = request.files.get('file') if request else None
+    record, error = _store_upload(file)
+    if error:
+        return jsonify({'ok': False, 'error': {'code': 'upload_failed', 'message': error}, 'request_id': request_id}), 400
+
+    public_path = f"/uploads/{record['id']}/{record['storage_name']}"
+    response = {
+        'ok': True,
+        'upload': {
+            'id': record['id'],
+            'filename': record['filename'],
+            'size_bytes': record['size_bytes'],
+            'mime': record['mime'],
+            'url': public_path,
+        },
+        'request_id': request_id,
+    }
+    return jsonify(response)
+
+
+@app.delete('/api/uploads/<upload_id>')
+def api_delete_upload(upload_id: str):
+    request_id = _get_request_id()
+    removed = _delete_upload(upload_id)
+    if not removed:
+        return jsonify({'ok': False, 'error': {'code': 'not_found', 'message': 'Upload not found.'}, 'request_id': request_id}), 404
+    return jsonify({'ok': True, 'request_id': request_id})
+
+
+@app.get('/uploads/<upload_id>/<filename>')
+def serve_uploaded_file(upload_id: str, filename: str):
+    record = _get_upload_record(upload_id)
+    if not record or not record['path']:
+        return jsonify({'ok': False, 'error': {'message': 'Upload not found.'}}), 404
+    storage_name = os.path.basename(record['path'])
+    if filename != storage_name:
+        return jsonify({'ok': False, 'error': {'message': 'Upload not found.'}}), 404
+    directory = os.path.dirname(record['path'])
+    return send_from_directory(directory, storage_name, mimetype=record['mime'] or None)
+
+
 @app.post('/api/generate')
 def api_generate():
     data = request.get_json(force=True) or {}
 
     request_id = _get_request_id()
+
+    image_data_url, image_error = _resolve_image_payload(data)
+    has_image = bool(image_data_url or data.get('image_upload_id'))
 
     # Check gating
     flags = load_flags()
@@ -1610,7 +1785,7 @@ def api_generate():
         "user_id": uid or 'anon',
         "days": days,
         "platforms": platforms,
-        "has_image": bool(data.get('image_data_url')),
+        "has_image": has_image,
         "tone": data.get('tone') or '',
         "request_id": request_id,
     }
@@ -1621,6 +1796,9 @@ def api_generate():
         payload = {'ok': False, 'error': {'code': code, 'message': message}, 'request_id': request_id}
         app.logger.info(event, extra={**request_meta, "event": event, "status": status_code, "error": message})
         return jsonify(payload), status_code
+
+    if image_error:
+        return _log_and_abort(410, image_error['message'], code=image_error.get('code', 'image_missing'))
 
     if uid:
         db = get_db()
@@ -1661,7 +1839,7 @@ def api_generate():
     # Check for image payload
     image_data_url = data.get('image_data_url')
     if image_data_url:
-        if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES:
+        if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES and not data.get('image_upload_id'):
             return _log_and_abort(400, 'Image too large')
 
         if not USE_OPENAI or openai_client is None:

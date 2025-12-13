@@ -403,9 +403,14 @@
                 </div>
                 <div class="mt-4 flex gap-4 items-center">
                   <img id="image-upload-preview" class="hidden w-24 h-24 object-cover rounded-xl border border-purple-100" alt="Uploaded inspiration preview" />
-                  <div class="flex-1">
+                  <div class="flex-1 space-y-2">
                     <p id="image-upload-name" class="text-sm font-medium text-slate-700">No image attached</p>
-                    <p id="image-upload-helper" class="text-xs text-slate-500">We’ll pull colors, textures, and vibes directly from your photo.</p>
+                    <p id="image-upload-helper" class="text-xs text-slate-500">PNG, JPG, WEBP, or GIF up to 5MB. We’ll pull colors, textures, and vibes directly from your photo.</p>
+                    <div id="image-upload-progress" class="hidden w-full h-1 bg-purple-100 rounded-full overflow-hidden">
+                      <div id="image-upload-progress-bar" class="h-1 bg-purple-500 rounded-full transition-all" style="width: 0%;"></div>
+                    </div>
+                    <p id="image-upload-status" class="text-xs text-slate-500">Attach an inspiration photo to tailor your plan. Images stay private and are only used for this request.</p>
+                    <p class="text-xs text-slate-400">Remove any time — we’ll let you undo if you change your mind.</p>
                     <textarea id="image-context" class="mt-3 w-full input text-sm" rows="2" placeholder="Optional: call out what matters most in this image (e.g. new pastry case, sunset hues, team photo)"></textarea>
                   </div>
                 </div>

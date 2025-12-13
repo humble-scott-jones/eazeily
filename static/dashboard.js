@@ -2,7 +2,9 @@
 const DASHBOARD_SEED_STORAGE_KEY = (typeof window !== 'undefined' && window.SEED_STORAGE_KEY) ? window.SEED_STORAGE_KEY : '__swelly_seed_posts';
 const DASHBOARD_PLAN_CACHE_KEY = 'swelly_dashboard_plan_cache';
 const DASHBOARD_PLAN_TTL_MS = 1000 * 60 * 60 * 72; // 72 hours
-const imageAttachmentState = { dataUrl: null, fileName: '' };
+const imageAttachmentState = { dataUrl: null, fileName: '', uploadId: null, url: '', sizeBytes: 0 };
+let pendingImageDeletion = null;
+let lastRemovedImage = null;
 let generatorUI = {};
 let dashboardConfigCache = null;
 let dashboardConfigPromise = null;
@@ -784,8 +786,8 @@ function setupContentGeneration() {
       goals,
       brand_keywords: keywords
     };
-    if (imageAttachmentState.dataUrl) {
-      overrides.image_data_url = imageAttachmentState.dataUrl;
+    if (imageAttachmentState.uploadId) {
+      overrides.image_upload_id = imageAttachmentState.uploadId;
       const imageContext = document.getElementById('image-context')?.value.trim();
       if (imageContext) overrides.image_context = imageContext;
     }
@@ -827,10 +829,59 @@ function setupImageUpload() {
   const clearBtn = document.getElementById('image-upload-clear');
   const preview = document.getElementById('image-upload-preview');
   const nameEl = document.getElementById('image-upload-name');
+  const statusEl = document.getElementById('image-upload-status');
+  const progressWrap = document.getElementById('image-upload-progress');
+  const progressBar = document.getElementById('image-upload-progress-bar');
 
-  const resetAttachment = () => {
+  const setUploadStatus = (text, tone = 'muted') => {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.className = tone === 'error' ? 'text-xs text-rose-600' : 'text-xs text-slate-500';
+  };
+
+  const resetProgress = () => {
+    if (progressWrap) progressWrap.classList.add('hidden');
+    if (progressBar) progressBar.style.width = '0%';
+  };
+
+  const setProgress = (value) => {
+    if (!progressWrap || !progressBar) return;
+    progressWrap.classList.remove('hidden');
+    progressBar.style.width = `${Math.min(Math.max(value, 0), 100)}%`;
+  };
+
+  const clearPreviewUrl = () => {
+    if (imageAttachmentState.dataUrl && typeof imageAttachmentState.dataUrl === 'string' && imageAttachmentState.dataUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(imageAttachmentState.dataUrl); } catch (err) { /* noop */ }
+    }
+  };
+
+  const applyAttachment = (upload, previewUrl) => {
+    imageAttachmentState.uploadId = upload?.id || null;
+    imageAttachmentState.fileName = upload?.filename || '';
+    imageAttachmentState.url = upload?.url || '';
+    imageAttachmentState.sizeBytes = upload?.size_bytes || 0;
+    imageAttachmentState.dataUrl = previewUrl || null;
+
+    if (preview && previewUrl) {
+      preview.src = previewUrl;
+      preview.classList.remove('hidden');
+    }
+    if (nameEl) {
+      const kb = upload?.size_bytes ? Math.round(upload.size_bytes / 1024) : null;
+      nameEl.textContent = kb ? `${upload.filename} (${kb} KB)` : (upload?.filename || 'Image attached');
+    }
+    clearBtn?.classList.remove('hidden');
+    setUploadStatus('Image attached. We’ll keep it private and only send to the generator.');
+  };
+
+  const resetAttachment = ({ skipUndo } = {}) => {
+    clearPreviewUrl();
     imageAttachmentState.dataUrl = null;
     imageAttachmentState.fileName = '';
+    imageAttachmentState.uploadId = null;
+    imageAttachmentState.url = '';
+    imageAttachmentState.sizeBytes = 0;
     if (input) input.value = '';
     if (preview) {
       preview.classList.add('hidden');
@@ -838,7 +889,65 @@ function setupImageUpload() {
     }
     if (nameEl) nameEl.textContent = 'No image attached';
     clearBtn?.classList.add('hidden');
+    resetProgress();
+    if (!skipUndo) setUploadStatus('Attach a JPG, PNG, WEBP, or GIF up to 5MB.');
   };
+
+  const scheduleRemoval = () => {
+    if (pendingImageDeletion) {
+      clearTimeout(pendingImageDeletion);
+    }
+    const snapshot = { ...imageAttachmentState };
+    lastRemovedImage = snapshot.uploadId ? snapshot : null;
+    resetAttachment({ skipUndo: true });
+    setUploadStatus('Image removed.');
+    pendingImageDeletion = setTimeout(() => {
+      if (snapshot.uploadId) {
+        fetch(`/api/uploads/${snapshot.uploadId}`, { method: 'DELETE' }).catch(() => {});
+      }
+    }, 3500);
+
+    showToast('Image removed', {
+      actionText: 'Undo',
+      onAction: () => {
+        if (pendingImageDeletion) {
+          clearTimeout(pendingImageDeletion);
+          pendingImageDeletion = null;
+        }
+        if (lastRemovedImage) {
+          applyAttachment(lastRemovedImage, lastRemovedImage.dataUrl || lastRemovedImage.url);
+          lastRemovedImage = null;
+          setUploadStatus('Image restored.');
+        }
+      }
+    });
+  };
+
+  const uploadFile = (file) => new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/uploads');
+    xhr.responseType = 'json';
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = (event.loaded / event.total) * 100;
+        setProgress(percent);
+      }
+    };
+    xhr.onload = () => {
+      const body = xhr.response || {};
+      if (xhr.status >= 200 && xhr.status < 300 && body.ok && body.upload) {
+        setProgress(100);
+        resolve(body.upload);
+      } else {
+        const msg = (body.error && body.error.message) ? body.error.message : 'Upload failed. Try a smaller image.';
+        reject(new Error(msg));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Network error while uploading. Please try again.'));
+    xhr.send(formData);
+  });
 
   trigger?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -847,7 +956,7 @@ function setupImageUpload() {
 
   clearBtn?.addEventListener('click', (e) => {
     e.preventDefault();
-    resetAttachment();
+    scheduleRemoval();
   });
 
   input.addEventListener('change', () => {
@@ -856,26 +965,44 @@ function setupImageUpload() {
       resetAttachment();
       return;
     }
-    if (file.size > 2.5 * 1024 * 1024) {
-      showToast('Image is too large (max 2.5MB).');
+    if (!file.type.startsWith('image/')) {
+      showToast('Please choose an image file (PNG, JPG, WEBP, or GIF).');
       resetAttachment();
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      imageAttachmentState.dataUrl = ev.target?.result;
-      imageAttachmentState.fileName = file.name;
-      if (preview && typeof imageAttachmentState.dataUrl === 'string') {
-        preview.src = imageAttachmentState.dataUrl;
-        preview.classList.remove('hidden');
-      }
-      if (nameEl) {
-        const kb = Math.round(file.size / 1024);
-        nameEl.textContent = `${file.name} (${kb} KB)`;
-      }
-      clearBtn?.classList.remove('hidden');
-    };
-    reader.readAsDataURL(file);
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image is too large (max 5MB).');
+      resetAttachment();
+      return;
+    }
+    const localPreviewUrl = URL.createObjectURL(file);
+    if (preview) {
+      preview.src = localPreviewUrl;
+      preview.classList.remove('hidden');
+    }
+    imageAttachmentState.dataUrl = localPreviewUrl;
+    imageAttachmentState.fileName = file.name;
+    if (nameEl) {
+      const kb = Math.round(file.size / 1024);
+      nameEl.textContent = `${file.name} (${kb} KB)`;
+    }
+    setProgress(8);
+    setUploadStatus('Uploading…');
+
+    uploadFile(file)
+      .then((upload) => {
+        applyAttachment(upload, localPreviewUrl);
+        setUploadStatus('Image attached. Ready to generate.');
+      })
+      .catch((err) => {
+        console.error('Image upload failed', err);
+        setUploadStatus(err.message || 'Upload failed. Try a smaller image.', 'error');
+        showToast(err.message || 'Upload failed.');
+        resetAttachment({ skipUndo: true });
+      })
+      .finally(() => {
+        setTimeout(() => resetProgress(), 600);
+      });
   });
 }
 
@@ -2195,13 +2322,33 @@ async function generateReviewResponse(reviewText, tone, companyName = '') {
 }
 
 // Helper function to show toast messages
-function showToast(message) {
+function showToast(message, options = {}) {
+  const { actionText, onAction, duration = 3200 } = options || {};
   const toast = document.createElement('div');
-  toast.className = 'fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow z-50';
-  toast.textContent = message;
+  toast.className = 'fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow z-50 transition-opacity';
+
+  const content = document.createElement('div');
+  content.className = 'flex items-center gap-3';
+  const textNode = document.createElement('span');
+  textNode.textContent = message;
+  content.appendChild(textNode);
+
+  if (actionText) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'text-purple-200 font-semibold underline decoration-2';
+    btn.textContent = actionText;
+    btn.addEventListener('click', () => {
+      try { if (typeof onAction === 'function') onAction(); } catch (err) { /* noop */ }
+      toast.remove();
+    });
+    content.appendChild(btn);
+  }
+
+  toast.appendChild(content);
   document.body.appendChild(toast);
-  setTimeout(() => toast.classList.add('opacity-0'), 2200);
-  setTimeout(() => toast.remove(), 2800);
+  setTimeout(() => toast.classList.add('opacity-0'), Math.max(1200, duration - 600));
+  setTimeout(() => toast.remove(), Math.max(duration, 1600));
 }
 
 function hydrateActivityFeed() {
