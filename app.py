@@ -1670,7 +1670,8 @@ def api_profile():
             # Log the request
             latency_ms = int((time.time() - start_time) * 1000)
             session_id = session.get('session_id', 'anon')[:8] if 'session_id' in session else 'anon'
-            user_id_log = f"{uid[:8]}..." if uid else "anon"
+            # Safe slicing for uid to prevent IndexError
+            user_id_log = f"{uid[:8] if uid and len(uid) >= 8 else uid}..." if uid else "anon"
             
             app.logger.info(
                 f"GET /api/profile: request_id={request_id}, user={user_id_log}, "

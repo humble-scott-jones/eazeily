@@ -2,6 +2,14 @@
 import pytest
 from playwright.sync_api import sync_playwright, expect
 import time
+import os
+
+
+# Test configuration
+BASE_URL = os.getenv('TEST_BASE_URL', 'http://localhost:5001')
+PROFILE_LOAD_TIMEOUT_SECONDS = 15
+PROFILE_LOAD_CHECK_INTERVAL_SECONDS = 0.5
+PROFILE_LOAD_MAX_ITERATIONS = int(PROFILE_LOAD_TIMEOUT_SECONDS / PROFILE_LOAD_CHECK_INTERVAL_SECONDS)
 
 
 @pytest.mark.ui
@@ -13,17 +21,17 @@ def test_generate_page_profile_missing_shows_defaults():
         
         try:
             # Visit the generate page
-            page.goto('http://localhost:5001/generate', timeout=10000)
+            page.goto(f'{BASE_URL}/generate', timeout=10000)
             
             # Wait for profile defaults summary to resolve (not "Loading profile…")
             summary = page.locator('#profile-defaults-summary')
             
-            # Wait for it to finish loading (max 15 seconds)
-            for _ in range(30):
+            # Wait for it to finish loading
+            for _ in range(PROFILE_LOAD_MAX_ITERATIONS):
                 text = summary.text_content()
                 if text and 'Loading profile' not in text:
                     break
-                time.sleep(0.5)
+                time.sleep(PROFILE_LOAD_CHECK_INTERVAL_SECONDS)
             
             # Check that it shows "Using defaults"
             final_text = summary.text_content()
@@ -55,7 +63,7 @@ def test_generate_page_profile_ready_shows_values():
         
         try:
             # First, create a profile via API
-            page.request.post('http://localhost:5001/api/profile', data={
+            page.request.post(f'{BASE_URL}/api/profile', data={
                 'company': 'Playwright Test Co',
                 'industry': 'Technology',
                 'tone': 'professional',
@@ -63,17 +71,17 @@ def test_generate_page_profile_ready_shows_values():
             })
             
             # Visit the generate page
-            page.goto('http://localhost:5001/generate', timeout=10000)
+            page.goto(f'{BASE_URL}/generate', timeout=10000)
             
             # Wait for profile to load
             summary = page.locator('#profile-defaults-summary')
             
             # Wait for loading to complete
-            for _ in range(30):
+            for _ in range(PROFILE_LOAD_MAX_ITERATIONS):
                 text = summary.text_content()
                 if text and 'Loading profile' not in text:
                     break
-                time.sleep(0.5)
+                time.sleep(PROFILE_LOAD_CHECK_INTERVAL_SECONDS)
             
             # Should not show "Using defaults" for ready profile
             final_text = summary.text_content()
@@ -115,16 +123,16 @@ def test_generate_page_profile_error_shows_banner():
             ))
             
             # Visit the generate page
-            page.goto('http://localhost:5001/generate', timeout=10000)
+            page.goto(f'{BASE_URL}/generate', timeout=10000)
             
             # Wait for error banner to appear
             banner = page.locator('#profile-load-banner')
             
-            # Wait up to 15 seconds for banner to show
-            for _ in range(30):
+            # Wait up to configured timeout for banner to show
+            for _ in range(PROFILE_LOAD_MAX_ITERATIONS):
                 if banner.is_visible():
                     break
-                time.sleep(0.5)
+                time.sleep(PROFILE_LOAD_CHECK_INTERVAL_SECONDS)
             
             # Banner should be visible
             assert banner.is_visible(), "Error banner should be visible"
@@ -156,24 +164,23 @@ def test_generate_page_profile_never_infinite_loading():
         
         try:
             # Visit the page
-            page.goto('http://localhost:5001/generate', timeout=10000)
+            page.goto(f'{BASE_URL}/generate', timeout=10000)
             
-            # Wait up to 15 seconds for loading to complete
+            # Wait up to configured timeout for loading to complete
             summary = page.locator('#profile-defaults-summary')
             start_time = time.time()
-            timeout_seconds = 15
             
-            while time.time() - start_time < timeout_seconds:
+            while time.time() - start_time < PROFILE_LOAD_TIMEOUT_SECONDS:
                 text = summary.text_content()
                 if text and 'Loading profile' not in text:
                     elapsed = time.time() - start_time
                     print(f"✓ Profile resolved in {elapsed:.2f} seconds: {text}")
                     break
-                time.sleep(0.5)
+                time.sleep(PROFILE_LOAD_CHECK_INTERVAL_SECONDS)
             else:
                 # Timeout - check final state
                 final_text = summary.text_content()
-                raise AssertionError(f"Profile still loading after {timeout_seconds}s: {final_text}")
+                raise AssertionError(f"Profile still loading after {PROFILE_LOAD_TIMEOUT_SECONDS}s: {final_text}")
             
         finally:
             browser.close()

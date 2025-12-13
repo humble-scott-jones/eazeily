@@ -14,7 +14,7 @@ const generatedViewPrefs = {
   hiddenPlatforms: new Set(),
   loaded: false
 };
-const PROFILE_FETCH_TIMEOUT_MS = 10000;
+const PROFILE_FETCH_TIMEOUT_MS = 10000; // 10 second timeout provides buffer for slow connections while preventing indefinite hangs
 const PROFILE_CACHE_KEY = 'swelly_profile_cache';
 const PROFILE_CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const profileLoadState = { status: 'idle', error: null, requestId: null, profileStatus: null };
