@@ -2,7 +2,7 @@ import os, sqlite3, uuid, json, re, base64, mimetypes
 from datetime import date
 from datetime import datetime, timezone
 from datetime import timedelta
-from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context, url_for, send_from_directory
+from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context, url_for, send_from_directory, Response
 import logging
 import voice_profile
 import threading
@@ -114,7 +114,7 @@ def _get_upload_dir() -> str:
     try:
         os.makedirs(directory, exist_ok=True)
     except Exception:
-        pass
+        logging.exception(f"Failed to create upload directory: {directory}")
     return directory
 
 
@@ -715,6 +715,8 @@ def init_db():
             size_bytes INTEGER,
             path TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            -- Note: No user_id tracking currently. This makes it impossible to implement
+            -- per-user access controls or quotas. Consider adding in future for multi-user support.
         );
         CREATE TABLE IF NOT EXISTS waitlist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -962,7 +964,7 @@ def _delete_upload(upload_id: str) -> bool:
         if record['path'] and os.path.exists(record['path']):
             os.remove(record['path'])
     except Exception:
-        pass
+        logging.exception(f"Failed to delete upload file: {record.get('path')}")
     db = get_db()
     db.execute('DELETE FROM uploads WHERE id = ?', (upload_id,))
     db.commit()
@@ -1716,6 +1718,15 @@ def api_profile():
 
 @app.post('/api/uploads')
 def api_upload_image():
+    """
+    Upload an image file for use in content generation.
+    
+    Known limitations:
+    - No authentication required (allows anonymous uploads)
+    - No rate limiting or quota tracking per user/session
+    - No automatic cleanup of old/orphaned uploads
+    Consider implementing cleanup job and access controls for production use.
+    """
     request_id = _get_request_id()
     file = request.files.get('file') if request else None
     record, error = _store_upload(file)
@@ -1748,12 +1759,20 @@ def api_delete_upload(upload_id: str):
 
 @app.get('/uploads/<upload_id>/<filename>')
 def serve_uploaded_file(upload_id: str, filename: str):
+    """
+    Serve an uploaded image file.
+    
+    Known limitation: No authentication/authorization checks.
+    Any user who knows the upload_id can access the file. Since upload_id is a UUID,
+    it's difficult to guess, but consider implementing access controls if images
+    should be private to the uploading user.
+    """
     record = _get_upload_record(upload_id)
     if not record or not record['path']:
-        return jsonify({'ok': False, 'error': {'message': 'Upload not found.'}}), 404
+        return Response("Upload not found.", status=404, mimetype="text/plain")
     storage_name = os.path.basename(record['path'])
     if filename != storage_name:
-        return jsonify({'ok': False, 'error': {'message': 'Upload not found.'}}), 404
+        return Response("Upload not found.", status=404, mimetype="text/plain")
     directory = os.path.dirname(record['path'])
     return send_from_directory(directory, storage_name, mimetype=record['mime'] or None)
 
@@ -1839,6 +1858,10 @@ def api_generate():
     # Check for image payload
     image_data_url = data.get('image_data_url')
     if image_data_url:
+        # If image_upload_id is present, bypass the IMAGE_DATA_URL_MAX_BYTES check.
+        # This is intentional: uploaded files are validated at upload time against MAX_IMAGE_UPLOAD_BYTES.
+        # Note: base64 encoding inflates file size by ~33%, so a file valid at upload time may exceed
+        # IMAGE_DATA_URL_MAX_BYTES as a data URL. Ensure downstream consumers can handle this.
         if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES and not data.get('image_upload_id'):
             return _log_and_abort(400, 'Image too large')
 

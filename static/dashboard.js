@@ -832,6 +832,7 @@ function setupImageUpload() {
   const statusEl = document.getElementById('image-upload-status');
   const progressWrap = document.getElementById('image-upload-progress');
   const progressBar = document.getElementById('image-upload-progress-bar');
+  const helperEl = document.getElementById('image-upload-helper');
 
   const setUploadStatus = (text, tone = 'muted') => {
     if (!statusEl) return;
@@ -872,6 +873,7 @@ function setupImageUpload() {
       nameEl.textContent = kb ? `${upload.filename} (${kb} KB)` : (upload?.filename || 'Image attached');
     }
     clearBtn?.classList.remove('hidden');
+    if (helperEl) helperEl.classList.add('hidden');
     setUploadStatus('Image attached. We’ll keep it private and only send to the generator.');
   };
 
@@ -889,6 +891,7 @@ function setupImageUpload() {
     }
     if (nameEl) nameEl.textContent = 'No image attached';
     clearBtn?.classList.add('hidden');
+    if (helperEl) helperEl.classList.remove('hidden');
     resetProgress();
     if (!skipUndo) setUploadStatus('Attach a JPG, PNG, WEBP, or GIF up to 5MB.');
   };
@@ -896,6 +899,10 @@ function setupImageUpload() {
   const scheduleRemoval = () => {
     if (pendingImageDeletion) {
       clearTimeout(pendingImageDeletion);
+    }
+    // Clear any previous lastRemovedImage blob URL to prevent memory leaks
+    if (lastRemovedImage?.dataUrl && typeof lastRemovedImage.dataUrl === 'string' && lastRemovedImage.dataUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(lastRemovedImage.dataUrl); } catch (err) { /* noop */ }
     }
     const snapshot = { ...imageAttachmentState };
     lastRemovedImage = snapshot.uploadId ? snapshot : null;
@@ -915,7 +922,9 @@ function setupImageUpload() {
           pendingImageDeletion = null;
         }
         if (lastRemovedImage) {
-          applyAttachment(lastRemovedImage, lastRemovedImage.dataUrl || lastRemovedImage.url);
+          // Use server URL if available, fall back to dataUrl (but blob URLs may be revoked)
+          const previewUrl = lastRemovedImage.url || lastRemovedImage.dataUrl;
+          applyAttachment(lastRemovedImage, previewUrl);
           lastRemovedImage = null;
           setUploadStatus('Image restored.');
         }
