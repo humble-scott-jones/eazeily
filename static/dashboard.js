@@ -116,6 +116,14 @@ let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], go
 let lastGeneratorState = null;
 let generatorHydratedFromProfile = false;
 
+// Publishing queue state initialization
+const PUBLISHING_QUEUE_STORAGE_KEY = 'eazeily_publishing_queue';
+const publishingQueueState = {
+  entries: [],
+  status: 'idle',
+  lastError: null
+};
+
 function logGeneratorEvent(event, meta = {}) {
   try {
     console.info(`[generator] ${event}`, meta);
@@ -239,6 +247,15 @@ function populateAccountPlatformOptions(list) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Dev mode runtime check for queue state
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    if (typeof publishingQueueState === 'undefined' || !publishingQueueState) {
+      console.warn('[Eazeily Dev Warning] publishingQueueState is not properly initialized. Queue features may not work.');
+    } else if (!publishingQueueState.entries || !Array.isArray(publishingQueueState.entries)) {
+      console.warn('[Eazeily Dev Warning] publishingQueueState.entries is not an array. Queue features may not work correctly.');
+    }
+  }
+
   const hasGenerator = Boolean(document.getElementById('content-generator'));
   const hasReviewPanel = Boolean(document.getElementById('review-response'));
   const hasSettings = Boolean(document.getElementById('account-company'));
@@ -2036,6 +2053,7 @@ function refreshDayEmptyStates() {
 
 function loadPublishingQueueFromStorage() {
   if (typeof localStorage === 'undefined') return;
+  if (!publishingQueueState) return;
   try {
     const raw = localStorage.getItem(PUBLISHING_QUEUE_STORAGE_KEY);
     if (!raw) return;
@@ -2050,6 +2068,7 @@ function loadPublishingQueueFromStorage() {
 
 function persistPublishingQueue() {
   if (typeof localStorage === 'undefined') return;
+  if (!publishingQueueState || !publishingQueueState.entries) return;
   try {
     localStorage.setItem(PUBLISHING_QUEUE_STORAGE_KEY, JSON.stringify(publishingQueueState.entries));
   } catch (error) {
@@ -2076,6 +2095,7 @@ function normalizeQueueEntry(entry = {}) {
 }
 
 function ensureQueueEntryForPost(post = {}) {
+  if (!publishingQueueState || !publishingQueueState.entries) return null;
   const key = buildQueueKey(post);
   let existing = findQueueEntry(key);
   if (existing) return existing;
@@ -2129,6 +2149,7 @@ function updatePublishingQueueEntry(key, updates = {}) {
 }
 
 function findQueueEntry(key) {
+  if (!publishingQueueState || !publishingQueueState.entries) return null;
   return publishingQueueState.entries.find(entry => entry.key === key);
 }
 
@@ -2137,6 +2158,10 @@ function renderPublishingQueue() {
   const list = document.getElementById('publishing-queue-list');
   const empty = document.getElementById('publishing-queue-empty');
   if (!wrap || !list || !empty) return;
+  if (!publishingQueueState || !publishingQueueState.entries) {
+    empty.classList.remove('hidden');
+    return;
+  }
 
   list.innerHTML = '';
   if (!publishingQueueState.entries.length) {
