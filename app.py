@@ -962,6 +962,46 @@ def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> di
     return payload
 
 
+def _determine_profile_status(profile: dict, row_exists: bool) -> Tuple[str, List[str]]:
+    """Determine profile status and any warnings.
+    
+    Returns:
+        Tuple of (status, warnings) where status is "ready", "partial", or "missing"
+    """
+    warnings = []
+    
+    # If no row exists in database, profile is missing
+    if not row_exists:
+        return "missing", ["No profile found in database"]
+    
+    # Check for required fields to determine if profile is ready or partial
+    has_company = bool(profile.get('company', '').strip())
+    has_industry = bool(profile.get('industry', '').strip() or profile.get('industry_key', '').strip())
+    has_tone = bool(profile.get('tone', '').strip())
+    has_platforms = bool(profile.get('platforms', []))
+    
+    # Count how many key fields are set
+    field_count = sum([has_company, has_industry, has_tone, has_platforms])
+    
+    if field_count == 0:
+        # Profile record exists but has no meaningful data
+        return "missing", ["Profile exists but contains no data"]
+    elif field_count < 3:
+        # Profile has some data but is incomplete
+        if not has_company:
+            warnings.append("Company not set")
+        if not has_industry:
+            warnings.append("Industry not set")
+        if not has_tone:
+            warnings.append("Tone not set")
+        if not has_platforms:
+            warnings.append("Platforms not set")
+        return "partial", warnings
+    else:
+        # Profile has most/all key fields
+        return "ready", warnings
+
+
 def _get_current_user_row():
     uid = session.get('user_id')
     if not uid:
@@ -1611,21 +1651,51 @@ def api_profile():
         return jsonify({'ok': True, 'id': pid, 'request_id': request_id})
 
     else: # GET
+        start_time = time.time()
         try:
             db = get_db()
             pid = session.get('profile_id')
+            uid = session.get('user_id')
             row = None
+            row_exists = False
+            
             if pid:
                 row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
+                row_exists = row is not None
 
             # Deserialize
             p = _normalize_profile_payload(row, pid)
-            return jsonify({'ok': True, 'profile': p, 'request_id': request_id})
+            profile_status, warnings = _determine_profile_status(p, row_exists)
+            
+            # Log the request
+            latency_ms = int((time.time() - start_time) * 1000)
+            session_id = session.get('session_id', 'anon')[:8] if 'session_id' in session else 'anon'
+            user_id_log = f"{uid[:8]}..." if uid else "anon"
+            
+            app.logger.info(
+                f"GET /api/profile: request_id={request_id}, user={user_id_log}, "
+                f"session={session_id}, profile_status={profile_status}, latency_ms={latency_ms}"
+            )
+            
+            if warnings:
+                app.logger.info(f"Profile warnings for request_id={request_id}: {', '.join(warnings)}")
+            
+            return jsonify({
+                'ok': True, 
+                'profile': p, 
+                'profile_status': profile_status,
+                'warnings': warnings,
+                'request_id': request_id
+            })
         except Exception as exc:
-            app.logger.exception("Failed to load profile", exc_info=exc)
+            latency_ms = int((time.time() - start_time) * 1000)
+            app.logger.exception(
+                f"Failed to load profile: request_id={request_id}, latency_ms={latency_ms}",
+                exc_info=exc
+            )
             return jsonify({
                 'ok': False,
-                'error': {'message': 'Unable to load profile right now.'},
+                'error': {'code': 'profile_load_error', 'message': 'Unable to load profile right now.'},
                 'request_id': request_id
             }), 500
 
