@@ -1861,6 +1861,11 @@ def api_generate():
         # If image_upload_id is present, bypass the IMAGE_DATA_URL_MAX_BYTES check.
         # This is intentional: uploaded files are validated at upload time against MAX_IMAGE_UPLOAD_BYTES.
         # Note: base64 encoding inflates file size by ~33%, so a file valid at upload time may exceed
+        # IMAGE_DATA_URL_MAX_BYTES as a data URL. Ensure downstream consumers can handle this, or add
+        # further validation if needed.
+        # If image_upload_id is present, bypass the IMAGE_DATA_URL_MAX_BYTES check.
+        # This is intentional: uploaded files are validated at upload time against MAX_IMAGE_UPLOAD_BYTES.
+        # Note: base64 encoding inflates file size by ~33%, so a file valid at upload time may exceed
         # IMAGE_DATA_URL_MAX_BYTES as a data URL. Ensure downstream consumers can handle this.
         if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES and not data.get('image_upload_id'):
             return _log_and_abort(400, 'Image too large')
