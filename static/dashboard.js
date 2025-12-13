@@ -907,9 +907,8 @@ function setupContentGeneration() {
     return;
   }
 
-  const generatorMode = (document.body.dataset.generatorMode || '').toLowerCase();
-  // Only include reel details on the dedicated reels page
-  const includeReelDetails = false; // Reel details are now only on /generate/reels
+  // Only include reel details on the dedicated reels page (not on social page)
+  const includeReelDetails = false;
   let details = {};
 
     generateBtn?.classList.add('hidden');
@@ -922,10 +921,10 @@ function setupContentGeneration() {
       const overrides = {
         platforms,
         tone,
-      details,
-      goals,
-      brand_keywords: keywords
-    };
+        details,
+        goals,
+        brand_keywords: keywords
+      };
     if (imageAttachmentState.dataUrl) {
       overrides.image_data_url = imageAttachmentState.dataUrl;
       const imageContext = document.getElementById('image-context')?.value.trim();
