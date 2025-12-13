@@ -17,3 +17,4 @@ pytest-report.xml
 .github/audit-logs/*.json
 .env*
 .envrc
+eazeily.db
