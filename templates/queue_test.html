@@ -65,6 +65,9 @@
         <div id="publishing-queue-empty">No items in queue (empty state message)</div>
     </div>
 
+    <!-- Load publishing queue state initializer first -->
+    <script src="/static/js/publishing_queue_state.js"></script>
+    
     <!-- Mock minimal localStorage for testing -->
     <script>
         // Mock minimal window/document APIs needed by dashboard.js
@@ -85,9 +88,23 @@
         function runTests() {
             const results = [];
             
-            // Test 1: Check if publishingQueueState is defined
+            // Test 1: Check if __EAZEILY__ namespace exists
+            if (typeof window.__EAZEILY__ !== 'undefined') {
+                results.push('<p class="pass">✓ PASS: window.__EAZEILY__ namespace exists</p>');
+            } else {
+                results.push('<p class="fail">✗ FAIL: window.__EAZEILY__ namespace is undefined</p>');
+            }
+            
+            // Test 2: Check if namespaced publishingQueueState is defined
+            if (window.__EAZEILY__ && typeof window.__EAZEILY__.publishingQueueState !== 'undefined') {
+                results.push('<p class="pass">✓ PASS: window.__EAZEILY__.publishingQueueState is defined</p>');
+            } else {
+                results.push('<p class="fail">✗ FAIL: window.__EAZEILY__.publishingQueueState is undefined</p>');
+            }
+            
+            // Test 3: Check legacy publishingQueueState reference (if available)
             if (typeof publishingQueueState !== 'undefined') {
-                results.push('<p class="pass">✓ PASS: publishingQueueState is defined</p>');
+                results.push('<p class="pass">✓ PASS: publishingQueueState legacy reference is defined</p>');
             } else {
                 results.push('<p class="fail">✗ FAIL: publishingQueueState is undefined</p>');
             }

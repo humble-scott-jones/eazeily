@@ -58,6 +58,7 @@ MAX_FEEDBACK_NOTE_LEN = 1500
 VOICE_SAMPLE_MIN_LEN = 8  # Minimum character length for voice profile samples
 VOICE_SAMPLE_MIN_COUNT = 5  # Minimum number of samples required
 VOICE_SAMPLE_MAX_COUNT = 10  # Maximum number of samples allowed
+DEFAULT_PROFILE_TONE = 'friendly'  # Default tone when profile doesn't specify one
 try:
     TEAM_MEMBER_LIMIT = int(os.getenv('TEAM_MEMBER_LIMIT', '10'))
 except (TypeError, ValueError):
@@ -1719,6 +1720,128 @@ def api_profile():
                 'error': {'message': 'Unable to load profile right now.'},
                 'request_id': request_id
             }), 500
+
+
+@app.route('/api/profile_v2', methods=['GET'])
+def api_profile_v2():
+    """
+    Stable profile endpoint (v2) with deterministic contract.
+    
+    Always returns JSON with stable keys:
+    - ok: bool
+    - request_id: str
+    - profile_status: "ready" | "partial" | "missing"
+    - profile: dict with company, industry, signature_tone, default_tone, platforms, timezone, voice_fingerprint, updated_at
+    - warnings: list of warning messages
+    
+    Error response:
+    - ok: false
+    - request_id: str
+    - error: { code, message, details? }
+    """
+    request_id = _get_request_id()
+    
+    try:
+        db = get_db()
+        pid = session.get('profile_id')
+        uid = session.get('user_id')
+        
+        # Log profile fetch attempt
+        app.logger.info("profile_v2.fetch", extra={
+            'event': 'profile_v2.fetch',
+            'request_id': request_id,
+            'profile_id': pid,
+            'user_id': uid or 'anon'
+        })
+        
+        row = None
+        if pid:
+            row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
+        
+        # Normalize profile data
+        profile_data = _normalize_profile_payload(row, pid)
+        
+        # Determine profile status
+        status, reason, recommended_action = _determine_profile_status(profile_data)
+        
+        # Build warnings list
+        warnings = []
+        if status == 'partial' and reason:
+            warnings.append(reason)
+        if status == 'missing':
+            warnings.append('No profile settings saved yet. Complete the Setup Wizard to personalize your content.')
+        
+        # Get updated_at timestamp if available
+        updated_at = None
+        if row:
+            row_dict = row_to_mapping(row)
+            updated_at = row_dict.get('updated_at') or row_dict.get('created_at')
+        
+        # Build voice fingerprint from voice_profile
+        voice_profile_data = profile_data.get('voice_profile', {})
+        voice_fingerprint = None
+        if voice_profile_data and isinstance(voice_profile_data, dict):
+            voice_fingerprint = {
+                'include_more': voice_profile_data.get('include_more', []),
+                'avoid_overusing': voice_profile_data.get('avoid_overusing', []),
+                'on_brand_example': voice_profile_data.get('on_brand_example', '')
+            }
+        
+        # Build standardized profile response
+        profile_response = {
+            'company': profile_data.get('company', ''),
+            'industry': profile_data.get('industry', ''),
+            'signature_tone': profile_data.get('tone', ''),
+            'default_tone': profile_data.get('tone', DEFAULT_PROFILE_TONE),
+            'platforms': profile_data.get('platforms', []),
+            'timezone': profile_data.get('timezone', ''),
+            'voice_fingerprint': voice_fingerprint,
+            'updated_at': updated_at,
+            # Additional fields for backward compatibility
+            'brand_keywords': profile_data.get('brand_keywords', []),
+            'niche_keywords': profile_data.get('niche_keywords', []),
+            'goals': profile_data.get('goals', []),
+            'id': profile_data.get('id'),
+            'industry_key': profile_data.get('industry_key', ''),
+            'include_images': profile_data.get('include_images', False),
+            'details': profile_data.get('details', {})
+        }
+        
+        # Log success
+        app.logger.info("profile_v2.loaded", extra={
+            'event': 'profile_v2.loaded',
+            'request_id': request_id,
+            'profile_id': pid,
+            'user_id': uid or 'anon',
+            'profile_status': status,
+            'has_company': bool(profile_response['company']),
+            'has_industry': bool(profile_response['industry']),
+            'has_tone': bool(profile_response['signature_tone']),
+            'platforms_count': len(profile_response['platforms'])
+        })
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'profile_status': status,
+            'profile': profile_response,
+            'warnings': warnings
+        })
+        
+    except Exception as exc:
+        app.logger.exception("Failed to load profile_v2", exc_info=exc, extra={
+            'event': 'profile_v2.error',
+            'request_id': request_id
+        })
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {
+                'code': 'internal_error',
+                'message': 'Unable to load profile right now.',
+                'details': str(exc) if app.debug else None
+            }
+        }), 500
 
 
 def _validate_generate_payload(payload: Mapping[str, Any]) -> dict:
