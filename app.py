@@ -136,19 +136,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 
-# Initialize old generation service for backward compatibility
-if OldGenerationService:
-    generation_service = OldGenerationService(logger=None, timeout_seconds=GENERATION_TIMEOUT_SECONDS)
-    generation_service.logger = app.logger
-else:
-    generation_service = None
-
-# Initialize new generation service
-new_generation_service = NewGenerationService(
-    openai_api_key=os.getenv('OPENAI_API_KEY'),
-    enable_openai=USE_OPENAI and not OUTBOUND_KILL_SWITCH
-)
-
 
 class RequestIdMissingFilter(logging.Filter):
     """Ensure log records always have request_id to satisfy the formatter."""
@@ -232,6 +219,19 @@ if USE_OPENAI:
 if OUTBOUND_KILL_SWITCH:
     USE_OPENAI = False
     openai_client = None
+
+# Initialize old generation service for backward compatibility
+if OldGenerationService:
+    generation_service = OldGenerationService(logger=None, timeout_seconds=GENERATION_TIMEOUT_SECONDS)
+    generation_service.logger = app.logger
+else:
+    generation_service = None
+
+# Initialize new generation service
+new_generation_service = NewGenerationService(
+    openai_api_key=os.getenv('OPENAI_API_KEY'),
+    enable_openai=USE_OPENAI and not OUTBOUND_KILL_SWITCH
+)
 
 class OutboundBlocked(RuntimeError):
     """Raised when outbound calls are disabled via kill switch."""
@@ -1809,12 +1809,15 @@ def _load_workspace_context(user_id: Optional[str], profile_id: Optional[str]) -
     if not row:
         return None
     
+    # Handle both dict-like Row objects and actual dicts
+    platforms_str = row['platforms'] if 'platforms' in row.keys() else '[]'
+    
     return {
-        'company_name': row.get('company') or '',
-        'industry': row.get('industry') or 'business',
-        'default_tone': row.get('tone') or 'professional',
-        'platforms': json.loads(row.get('platforms') or '[]'),
-        'offerings': row.get('details') or None,
+        'company_name': row['company'] if 'company' in row.keys() and row['company'] else '',
+        'industry': row['industry'] if 'industry' in row.keys() and row['industry'] else 'business',
+        'default_tone': row['tone'] if 'tone' in row.keys() and row['tone'] else 'professional',
+        'platforms': json.loads(platforms_str) if platforms_str else [],
+        'offerings': row['details'] if 'details' in row.keys() else None,
         'audience': None,  # Not stored separately yet
         'compliance_notes': None  # Not stored separately yet
     }
@@ -1834,7 +1837,11 @@ def _load_voice_samples(user_id: Optional[str], profile_id: Optional[str]) -> Op
         if 'voice_profile' not in row.keys():
             return None
         
-        voice_data = json.loads(row.get('voice_profile') or '{}')
+        voice_profile_str = row['voice_profile']
+        if not voice_profile_str:
+            return None
+        
+        voice_data = json.loads(voice_profile_str)
         if not voice_data:
             return None
         
@@ -1866,7 +1873,11 @@ def _load_include_avoid_phrases(user_id: Optional[str], profile_id: Optional[str
         if 'voice_profile' not in row.keys():
             return None, None
         
-        voice_data = json.loads(row.get('voice_profile') or '{}')
+        voice_profile_str = row['voice_profile']
+        if not voice_profile_str:
+            return None, None
+        
+        voice_data = json.loads(voice_profile_str)
         if not voice_data:
             return None, None
         
