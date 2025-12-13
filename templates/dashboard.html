@@ -261,20 +261,24 @@
                   <label for="template-picker" class="block text-xs uppercase tracking-wide text-slate-500">Template library</label>
                   <div class="flex flex-col gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-3">
                     <div class="flex items-center gap-2">
-                      <select id="template-picker" class="planner-select flex-1"></select>
-                      <button id="apply-template" class="btn-secondary btn-sm" type="button">Apply</button>
+                      <select id="template-picker" class="planner-select flex-1" aria-describedby="template-empty"></select>
+                      <button id="apply-template" class="btn-secondary btn-sm" type="button">Preview &amp; apply</button>
+                      <button id="undo-template" class="btn-ghost btn-sm hidden" type="button">Undo</button>
                     </div>
                     <div class="flex flex-wrap gap-2" id="template-preset-buttons" aria-label="Quick presets"></div>
-                    <p id="template-empty" class="planner-hint">Save combinations per profile to reuse launch or update prompts.</p>
+                    <div id="template-preview" class="rounded-xl border border-dashed border-slate-200 bg-white/80 p-3">
+                      <p class="text-sm font-semibold text-slate-900">No templates yet</p>
+                      <p class="text-xs text-slate-600">Save your first template to preview tone, platforms, and goals before applying.</p>
+                    </div>
+                    <p id="template-empty" class="planner-hint">Save your first template to reuse launch or update prompts.</p>
                   </div>
                 </div>
                 <div class="space-y-2">
-                  <label for="template-name" class="block text-xs uppercase tracking-wide text-slate-500">Save current as</label>
+                  <label class="block text-xs uppercase tracking-wide text-slate-500">Save current as</label>
                   <div class="flex items-center gap-2">
-                    <input id="template-name" class="planner-select flex-1" placeholder="e.g. Instagram launch push" />
-                    <button id="save-template" class="btn-primary btn-sm" type="button">Save</button>
+                    <button id="open-template-modal" class="btn-primary btn-sm" type="button">Save current as…</button>
                   </div>
-                  <p class="planner-hint">Templates capture tone, platforms, goals, and keywords for the active profile.</p>
+                  <p class="planner-hint">Templates capture tone, platforms, goals, and keywords for the active profile. Name is required.</p>
                 </div>
               </div>
 
@@ -671,6 +675,37 @@
 
   <script src="/static/app.js"></script>
   <script src="/static/dashboard.js"></script>
+
+  <div id="template-modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 hidden" aria-hidden="true">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200">
+      <div class="flex items-start justify-between p-4 border-b border-slate-200">
+        <div>
+          <p class="text-xs uppercase tracking-wide text-slate-500">Save template</p>
+          <h3 class="text-lg font-semibold text-slate-900">Save current setup as a reusable template</h3>
+        </div>
+        <button type="button" id="template-modal-close" class="text-slate-400 hover:text-slate-600" aria-label="Close">✕</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <label class="block text-sm font-medium text-slate-700">Name (required)
+          <input type="text" id="template-modal-name" class="mt-1 w-full input" placeholder="e.g. Product launch warmup" required />
+        </label>
+        <label class="block text-sm font-medium text-slate-700">Scope
+          <select id="template-modal-scope" class="mt-1 w-full input">
+            <option value="personal">Personal</option>
+            <option value="workspace">Workspace</option>
+          </select>
+        </label>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p class="text-xs uppercase tracking-wide text-slate-500">Preview</p>
+          <p id="template-modal-preview" class="text-sm text-slate-700">Tone, platforms, and goals from your current draft will be saved.</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end gap-2 px-4 py-3 border-t border-slate-200 bg-slate-50">
+        <button type="button" id="template-modal-cancel" class="btn-ghost btn-sm">Cancel</button>
+        <button type="button" id="template-modal-save" class="btn-primary btn-sm">Save template</button>
+      </div>
+    </div>
+  </div>
 
   {% include 'paywall_modal.html' %}
 </body>

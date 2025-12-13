@@ -775,6 +775,17 @@ def init_db():
             message TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS templates (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            scope TEXT DEFAULT 'personal',
+            payload TEXT,
+            preview TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_templates_owner_scope ON templates(owner_user_id, scope);
         """
     )
     # Backfill for upgrades
@@ -884,6 +895,16 @@ def _deserialize_json(raw: Any, default: Any = None) -> Any:
         return json.loads(raw)
     except Exception:
         return default
+
+
+def _serialize_template_row(row):
+    if not row:
+        return None
+    data = row_to_mapping(row) or {}
+    data['payload'] = _deserialize_json(data.get('payload'), {})
+    if data.get('updated_at') and not data.get('updatedAt'):
+        data['updatedAt'] = data['updated_at']
+    return data
 
 
 def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> dict:
@@ -3068,8 +3089,218 @@ def api_feedback():
     except Exception:
         logging.exception("Feedback save failed")
         pass
-        
+
     return jsonify({'ok': True})
+
+
+def _current_user_id() -> Optional[str]:
+    return session.get('user_id')
+
+
+def _template_owner_where_clause():
+    return 'owner_user_id = ?'
+
+
+@app.route('/api/templates', methods=['GET', 'POST'])
+def api_templates():
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    db = get_db()
+
+    if request.method == 'GET':
+        scope = (request.args.get('scope') or 'all').lower()
+        params = [user_id]
+        where = _template_owner_where_clause()
+        if scope in {'personal', 'workspace'}:
+            where = where + ' AND LOWER(scope) = ?'
+            params.append(scope)
+        rows = db.execute(
+            f'SELECT * FROM templates WHERE {where} ORDER BY updated_at DESC',
+            tuple(params)
+        ).fetchall()
+        templates = [_serialize_template_row(r) for r in rows]
+        return jsonify({'ok': True, 'templates': templates})
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'Name is required'}), 400
+    scope = (data.get('scope') or 'personal').strip().lower()
+    if scope not in {'personal', 'workspace'}:
+        scope = 'personal'
+    payload = data.get('payload') or data.get('template') or {}
+    preview = data.get('preview') or ''
+    now_iso = datetime.now(timezone.utc).isoformat()
+    template_id = data.get('id') or str(uuid.uuid4())
+
+    try:
+        db.execute(
+            '''INSERT INTO templates (id, owner_user_id, name, scope, payload, preview, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (
+                template_id,
+                user_id,
+                name,
+                scope,
+                json.dumps(payload),
+                preview,
+                now_iso,
+                now_iso,
+            )
+        )
+        db.commit()
+    except DB_INTEGRITY_ERRORS:
+        return jsonify({'ok': False, 'error': 'Duplicate template id'}), 409
+    except Exception as exc:
+        logging.exception("Template save failed")
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    template = _serialize_template_row(
+        db.execute('SELECT * FROM templates WHERE id = ?', (template_id,)).fetchone()
+    )
+    status_code = 201
+    return jsonify({'ok': True, 'template': template}), status_code
+
+
+@app.route('/api/templates/<template_id>', methods=['GET', 'DELETE'])
+def api_template_detail(template_id):
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    db = get_db()
+    row = db.execute(
+        f'SELECT * FROM templates WHERE id = ? AND {_template_owner_where_clause()}',
+        (template_id, user_id),
+    ).fetchone()
+    if not row:
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
+
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'template': _serialize_template_row(row)})
+
+    # DELETE
+    db.execute('DELETE FROM templates WHERE id = ?', (template_id,))
+    db.commit()
+    return jsonify({'ok': True})
+
+
+@app.post('/api/templates/<template_id>/apply')
+def api_template_apply(template_id):
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data = request.get_json(silent=True) or {}
+    draft_id = data.get('draft_id')
+    if not draft_id:
+        return jsonify({'ok': False, 'error': 'draft_id is required'}), 400
+
+    db = get_db()
+    template_row = db.execute(
+        f'SELECT * FROM templates WHERE id = ? AND {_template_owner_where_clause()}',
+        (template_id, user_id)
+    ).fetchone()
+    if not template_row:
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
+
+    draft_row = db.execute(
+        'SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?',
+        (draft_id, user_id)
+    ).fetchone()
+    if not draft_row:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+
+    template_payload = _serialize_template_row(template_row).get('payload') or {}
+    draft_payload = template_payload.get('draft') or template_payload.get('content') or template_payload
+    if draft_payload is None:
+        draft_payload = {}
+
+    previous_snapshot = draft_row['content']
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    db.execute(
+        'UPDATE team_drafts SET content = ?, updated_at = ? WHERE id = ?',
+        (json.dumps(draft_payload), now_iso, draft_id)
+    )
+    db.execute(
+        '''INSERT INTO team_draft_revisions
+           (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        (
+            str(uuid.uuid4()),
+            draft_id,
+            user_id,
+            f"Applied template '{template_row['name']}'",
+            'template_apply',
+            json.dumps({'template_id': template_id, 'scope': template_row['scope']}),
+            previous_snapshot,
+            now_iso
+        )
+    )
+    db.commit()
+
+    updated_draft = row_to_mapping(
+        db.execute('SELECT * FROM team_drafts WHERE id = ?', (draft_id,)).fetchone()
+    ) or {}
+    updated_draft['content'] = _deserialize_json(updated_draft.get('content'), [])
+    return jsonify({'ok': True, 'draft': updated_draft})
+
+
+@app.post('/api/drafts/<draft_id>/undo-template')
+def api_undo_template_apply(draft_id):
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    db = get_db()
+    draft_row = db.execute(
+        'SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?',
+        (draft_id, user_id)
+    ).fetchone()
+    if not draft_row:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+
+    revision = db.execute(
+        '''SELECT * FROM team_draft_revisions
+           WHERE draft_id = ? AND author_user_id = ? AND kind = 'template_apply'
+           ORDER BY created_at DESC LIMIT 1''',
+        (draft_id, user_id)
+    ).fetchone()
+    if not revision:
+        return jsonify({'ok': False, 'error': 'No template application to undo'}), 400
+
+    previous_snapshot = revision['content_snapshot'] or '[]'
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    db.execute(
+        'UPDATE team_drafts SET content = ?, updated_at = ? WHERE id = ?',
+        (previous_snapshot, now_iso, draft_id)
+    )
+    db.execute(
+        '''INSERT INTO team_draft_revisions
+           (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        (
+            str(uuid.uuid4()),
+            draft_id,
+            user_id,
+            'Reverted template application',
+            'template_undo',
+            json.dumps({'reverted_revision': revision['id']}),
+            previous_snapshot,
+            now_iso
+        )
+    )
+    db.commit()
+
+    updated_draft = row_to_mapping(
+        db.execute('SELECT * FROM team_drafts WHERE id = ?', (draft_id,)).fetchone()
+    ) or {}
+    updated_draft['content'] = _deserialize_json(updated_draft.get('content'), [])
+    return jsonify({'ok': True, 'draft': updated_draft})
 
 
 @app.post('/api/feedback/report')
