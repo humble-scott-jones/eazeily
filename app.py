@@ -2,7 +2,7 @@ import os, sqlite3, uuid, json, re, base64, mimetypes
 from datetime import date
 from datetime import datetime, timezone
 from datetime import timedelta
-from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context, url_for, send_from_directory
+from flask import Flask, request, jsonify, render_template, g, session, redirect, has_app_context, url_for, send_from_directory, Response
 import logging
 import voice_profile
 import threading
@@ -1767,7 +1767,6 @@ def serve_uploaded_file(upload_id: str, filename: str):
     it's difficult to guess, but consider implementing access controls if images
     should be private to the uploading user.
     """
-    from flask import Response
     record = _get_upload_record(upload_id)
     if not record or not record['path']:
         return Response("Upload not found.", status=404, mimetype="text/plain")

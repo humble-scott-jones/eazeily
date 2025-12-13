@@ -874,7 +874,6 @@ function setupImageUpload() {
     }
     clearBtn?.classList.remove('hidden');
     if (helperEl) helperEl.classList.add('hidden');
-    if (helperEl) helperEl.classList.add('hidden');
     setUploadStatus('Image attached. We’ll keep it private and only send to the generator.');
   };
 
