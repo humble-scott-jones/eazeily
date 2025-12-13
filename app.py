@@ -11,7 +11,7 @@ import math
 from flask_cors import CORS
 import generator as gen_mod
 from werkzeug.security import generate_password_hash, check_password_hash
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Tuple, List
 import requests
 from services.generation import GenerationService as NewGenerationService
 # Keep old generation_service for backward compatibility during migration
@@ -1823,7 +1823,7 @@ def _load_workspace_context(user_id: Optional[str], profile_id: Optional[str]) -
     }
 
 
-def _load_voice_samples(user_id: Optional[str], profile_id: Optional[str]) -> Optional[list[str]]:
+def _load_voice_samples(user_id: Optional[str], profile_id: Optional[str]) -> Optional[List[str]]:
     """Load voice samples from database."""
     if not profile_id:
         return None
@@ -1859,7 +1859,7 @@ def _load_voice_samples(user_id: Optional[str], profile_id: Optional[str]) -> Op
         return None
 
 
-def _load_include_avoid_phrases(user_id: Optional[str], profile_id: Optional[str]) -> tuple[Optional[list[str]], Optional[list[str]]]:
+def _load_include_avoid_phrases(user_id: Optional[str], profile_id: Optional[str]) -> Tuple[Optional[List[str]], Optional[List[str]]]:
     """Load include/avoid phrases from database."""
     if not profile_id:
         return None, None

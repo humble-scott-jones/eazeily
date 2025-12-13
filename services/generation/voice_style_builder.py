@@ -61,7 +61,23 @@ def _analyze_punctuation(samples: List[str]) -> Dict[str, int]:
         counts['!'] += text.count('!')
         counts['?'] += text.count('?')
         counts['...'] += text.count('...')
-        counts['emoji'] += len([c for c in text if ord(c) > 127 and ord(c) < 0x10FFFF])
+        # Simple emoji detection: count characters in common emoji ranges
+        # This is approximate but avoids external dependencies
+        emoji_count = 0
+        for c in text:
+            code = ord(c)
+            # Common emoji ranges (approximate):
+            # Emoticons: 0x1F600-0x1F64F
+            # Symbols: 0x1F300-0x1F5FF
+            # Transport: 0x1F680-0x1F6FF
+            # Other symbols: 0x2600-0x26FF, 0x2700-0x27BF
+            if (0x1F600 <= code <= 0x1F64F or
+                0x1F300 <= code <= 0x1F5FF or
+                0x1F680 <= code <= 0x1F6FF or
+                0x2600 <= code <= 0x26FF or
+                0x2700 <= code <= 0x27BF):
+                emoji_count += 1
+        counts['emoji'] = emoji_count
     return dict(counts)
 
 

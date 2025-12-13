@@ -123,9 +123,11 @@ def _build_platform_constraints(platforms: List[str]) -> str:
     for platform in platforms:
         if rules := PLATFORM_RULES.get(platform.lower()):
             parts.append(
-                f"\n{platform.upper()}: {rules['style']} "
-                f"Max {rules['max_length']} chars, {rules['hashtag_count']} hashtags. "
-                f"CTA: {rules['cta']}"
+                f"\n{platform.upper()}:\n"
+                f"  Style: {rules['style']}\n"
+                f"  Max length: {rules['max_length']} chars\n"
+                f"  Hashtags: {rules['hashtag_count']} max\n"
+                f"  CTA: {rules['cta']}"
             )
     
     return "\n".join(parts)
