@@ -72,6 +72,13 @@ test('queue state has required properties', function() {
   assertEqual(state.lastError, null, 'lastError should be null');
 });
 
+// Test: Back-compat alias exists
+test('back-compat window.publishingQueueState alias exists', function() {
+  assertNotNull(window.publishingQueueState, 'window.publishingQueueState should exist for back-compat');
+  assertTrue(window.publishingQueueState === window.__EAZEILY__.publishingQueueState, 
+    'window.publishingQueueState should reference the same object');
+});
+
 // Test: Idempotent initialization
 test('running initializer twice does not overwrite existing items', function() {
   // Add a test item to the queue
