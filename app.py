@@ -782,6 +782,7 @@ def init_db():
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE INDEX IF NOT EXISTS idx_queue_items_owner ON queue_items(owner_id);
 
         CREATE TABLE IF NOT EXISTS queue_preferences (
             owner_id TEXT PRIMARY KEY,
@@ -1723,7 +1724,105 @@ def api_generate():
     def _log_and_abort(status_code: int, message: str, event: str = "generator.blocked", code: str = "generation_failed"):
         payload = {'ok': False, 'error': {'code': code, 'message': message}, 'request_id': request_id}
         app.logger.info(event, extra={**request_meta, "event": event, "status": status_code, "error": message})
-    return jsonify(payload), status_code
+        return jsonify(payload), status_code
+
+    if uid:
+        db = get_db()
+        u = db.execute('SELECT is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
+        if u and u['is_paid']:
+            is_paid = True
+
+    # Gate 7 days
+    if flags.get('gate7DayToPaid'):
+        if days >= 7:
+            if not uid:
+                return _log_and_abort(401, 'Login required')
+            if not is_paid:
+                return _log_and_abort(403, 'Paid plan required for 7-day generation')
+
+    # Free sample check
+    if not is_paid and uid:
+        db = get_db()
+        u = db.execute('SELECT free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
+        if u and u['free_sample_used']:
+            return _log_and_abort(403, 'Free sample already used')
+        should_mark_sample = True
+
+    # Gate Reels (short_video)
+    if 'short_video' in platforms and not is_paid:
+        return _log_and_abort(403, 'Paid plan required for Reels generation')
+
+    # Check Quota for Reels
+    if 'short_video' in platforms and is_paid:
+        quota = int(os.getenv('REELS_QUOTA_MONTHLY', '30'))
+        period = datetime.now().strftime('%Y-%m')
+        db = get_db()
+        usage = db.execute('SELECT reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
+        used = usage['reels_generated'] if usage else 0
+        if used >= quota:
+            return _log_and_abort(403, 'Monthly Reels quota exceeded')
+
+    # Check for image payload
+    image_data_url = data.get('image_data_url')
+    if image_data_url:
+        if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES:
+            return _log_and_abort(400, 'Image too large')
+
+        if not USE_OPENAI or openai_client is None:
+            return _log_and_abort(
+                503,
+                'Image-to-post generation requires OpenAI. Add OPENAI_API_KEY or disable image uploads.',
+                event="generator.failed",
+            )
+
+        try:
+            # Use the helper for image-based generation
+            posts = _generate_posts_from_image(data) or []
+            if not isinstance(posts, list) or not posts:
+                return _log_and_abort(500, 'Image generation not available', event="generator.failed", code="image_generation_failed")
+            duration_ms = int((time.time() - start_ts) * 1000)
+            app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
+            return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
+        except Exception:
+            app.logger.exception("Image generation failed", extra={**request_meta, "event": "generator.failed"})
+            return _log_and_abort(500, 'Image generation failed. Please try again.', event="generator.failed", code="image_generation_failed")
+
+    # Populate defaults for strict mocks
+    for k in ['start_day', 'industry', 'tone', 'platforms', 'brand_keywords', 'include_images', 'niche_keywords', 'goals', 'details', 'company']:
+       if k not in data:
+           data[k] = None
+           
+    # Convert start_day
+    if not data.get('start_day'):
+        data['start_day'] = date.today()
+    elif isinstance(data['start_day'], str):
+        try:
+            data['start_day'] = date.fromisoformat(data['start_day'])
+        except:
+            pass
+
+    try:
+        # Use **data to satisfy test mocks that expect kwargs
+        if gen_mod.USE_OPENAI_FOR_POSTS:
+            posts = gen_mod.generate_posts_with_openai(request_id=request_id, **data)
+        else:
+            posts = generate_posts(**data)
+
+        posts = posts or []
+        if not isinstance(posts, list) or not posts:
+            app.logger.error("Generation returned no posts", extra={**request_meta, "event": "generator.failed"})
+            return _log_and_abort(500, 'Generation failed to produce content.', event="generator.failed", code="empty_posts")
+
+        if should_mark_sample and uid:
+            db = get_db()
+            db.execute('UPDATE users SET free_sample_used = 1 WHERE id = ?', (uid,))
+            db.commit()
+        duration_ms = int((time.time() - start_ts) * 1000)
+        app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
+        return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
+    except Exception:
+        app.logger.exception("Generation failed", extra={**request_meta, "event": "generator.failed"})
+        return _log_and_abort(500, 'Generation failed. Please try again.', event="generator.failed")
 
 
 @app.get('/queue')
@@ -1834,104 +1933,6 @@ def api_queue_retry(item_id: str):
     db.commit()
     updated_row = db.execute('SELECT * FROM queue_items WHERE id = ? AND owner_id = ?', (item_id, owner_id)).fetchone()
     return jsonify({'ok': True, 'item': _normalize_queue_item_row(updated_row)})
-
-    if uid:
-        db = get_db()
-        u = db.execute('SELECT is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
-        if u and u['is_paid']:
-            is_paid = True
-
-    # Gate 7 days
-    if flags.get('gate7DayToPaid'):
-        if days >= 7:
-            if not uid:
-                return _log_and_abort(401, 'Login required')
-            if not is_paid:
-                return _log_and_abort(403, 'Paid plan required for 7-day generation')
-
-    # Free sample check
-    if not is_paid and uid:
-        db = get_db()
-        u = db.execute('SELECT free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
-        if u and u['free_sample_used']:
-            return _log_and_abort(403, 'Free sample already used')
-        should_mark_sample = True
-
-    # Gate Reels (short_video)
-    if 'short_video' in platforms and not is_paid:
-        return _log_and_abort(403, 'Paid plan required for Reels generation')
-
-    # Check Quota for Reels
-    if 'short_video' in platforms and is_paid:
-        quota = int(os.getenv('REELS_QUOTA_MONTHLY', '30'))
-        period = datetime.now().strftime('%Y-%m')
-        db = get_db()
-        usage = db.execute('SELECT reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
-        used = usage['reels_generated'] if usage else 0
-        if used >= quota:
-            return _log_and_abort(403, 'Monthly Reels quota exceeded')
-
-    # Check for image payload
-    image_data_url = data.get('image_data_url')
-    if image_data_url:
-        if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES:
-            return _log_and_abort(400, 'Image too large')
-
-        if not USE_OPENAI or openai_client is None:
-            return _log_and_abort(
-                503,
-                'Image-to-post generation requires OpenAI. Add OPENAI_API_KEY or disable image uploads.',
-                event="generator.failed",
-            )
-
-        try:
-            # Use the helper for image-based generation
-            posts = _generate_posts_from_image(data) or []
-            if not isinstance(posts, list) or not posts:
-                return _log_and_abort(500, 'Image generation not available', event="generator.failed", code="image_generation_failed")
-            duration_ms = int((time.time() - start_ts) * 1000)
-            app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
-            return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
-        except Exception:
-            app.logger.exception("Image generation failed", extra={**request_meta, "event": "generator.failed"})
-            return _log_and_abort(500, 'Image generation failed. Please try again.', event="generator.failed", code="image_generation_failed")
-
-    # Populate defaults for strict mocks
-    for k in ['start_day', 'industry', 'tone', 'platforms', 'brand_keywords', 'include_images', 'niche_keywords', 'goals', 'details', 'company']:
-       if k not in data:
-           data[k] = None
-           
-    # Convert start_day
-    if not data.get('start_day'):
-        data['start_day'] = date.today()
-    elif isinstance(data['start_day'], str):
-        try:
-            data['start_day'] = date.fromisoformat(data['start_day'])
-        except:
-            pass
-
-    try:
-        # Use **data to satisfy test mocks that expect kwargs
-        if gen_mod.USE_OPENAI_FOR_POSTS:
-            posts = gen_mod.generate_posts_with_openai(request_id=request_id, **data)
-        else:
-            posts = generate_posts(**data)
-
-        posts = posts or []
-        if not isinstance(posts, list) or not posts:
-            app.logger.error("Generation returned no posts", extra={**request_meta, "event": "generator.failed"})
-            return _log_and_abort(500, 'Generation failed to produce content.', event="generator.failed", code="empty_posts")
-
-        if should_mark_sample and uid:
-            db = get_db()
-            db.execute('UPDATE users SET free_sample_used = 1 WHERE id = ?', (uid,))
-            db.commit()
-        duration_ms = int((time.time() - start_ts) * 1000)
-        app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
-        return jsonify({'ok': True, 'posts': posts, 'count': len(posts), 'request_id': request_id})
-    except Exception:
-        app.logger.exception("Generation failed", extra={**request_meta, "event": "generator.failed"})
-        return _log_and_abort(500, 'Generation failed. Please try again.', event="generator.failed")
 
 
 @app.post('/api/generate-review-response')

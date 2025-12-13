@@ -1,6 +1,5 @@
 import json
 import os
-import json
 
 import app as appmod
 import generator as gen_mod
@@ -52,8 +51,10 @@ def test_generate_with_openai_success(tmp_path, monkeypatch):
 def test_generate_with_openai_malformed_json_falls_back(tmp_path, monkeypatch):
     # Arrange: OpenAI returns malformed content, generator fallback should be used
     appmod.USE_OPENAI = True
+    gen_mod.USE_OPENAI_FOR_POSTS = True
     fake = _make_fake_client_with_content('not valid json')
     monkeypatch.setattr(appmod, 'openai_client', fake)
+    monkeypatch.setattr(gen_mod, '_openai_client', fake)
 
     fallback = [{'caption': 'fallback-caption', 'hashtags': [], 'platform': 'instagram', 'post_day': 0}]
     monkeypatch.setattr(gen_mod, 'generate_posts', lambda **kwargs: fallback)
