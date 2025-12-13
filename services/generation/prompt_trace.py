@@ -8,7 +8,7 @@ import re
 import logging
 import hashlib
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # PII patterns to redact
 EMAIL_PATTERN = re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b')
-PHONE_PATTERN = re.compile(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b')
+PHONE_PATTERN = re.compile(r'\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b')
 ADDRESS_PATTERN = re.compile(r'\b\d{1,5}\s+\w+\s+(street|st|avenue|ave|road|rd|lane|ln|drive|dr|way|court|ct)\b', re.IGNORECASE)
 
 
@@ -71,7 +71,7 @@ class PromptTrace:
             request_id: Request identifier
         """
         self.request_id = request_id
-        self.timestamp = datetime.utcnow().isoformat()
+        self.timestamp = datetime.now(timezone.utc).isoformat()
         self.metadata: Dict[str, Any] = {
             'request_id': request_id,
             'timestamp': self.timestamp

@@ -11,7 +11,7 @@ Deterministic precedence: RunToggles > TemplatePreset > VoiceFingerprint > Profi
 import json
 import logging
 from typing import Any, Dict, List, Optional, TypedDict
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 logger = logging.getLogger(__name__)
@@ -690,7 +690,7 @@ class PromptCompiler:
         return {
             'request_id': request_id,
             'content_type': content_type,
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'selections': {
                 'tone': merged.get('tone'),
                 'platforms': merged.get('platforms', []),
