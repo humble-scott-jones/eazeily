@@ -715,6 +715,8 @@ def init_db():
             size_bytes INTEGER,
             path TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            -- Note: No user_id tracking currently. This makes it impossible to implement
+            -- per-user access controls or quotas. Consider adding in future for multi-user support.
         );
         CREATE TABLE IF NOT EXISTS waitlist (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1716,6 +1718,15 @@ def api_profile():
 
 @app.post('/api/uploads')
 def api_upload_image():
+    """
+    Upload an image file for use in content generation.
+    
+    Known limitations:
+    - No authentication required (allows anonymous uploads)
+    - No rate limiting or quota tracking per user/session
+    - No automatic cleanup of old/orphaned uploads
+    Consider implementing cleanup job and access controls for production use.
+    """
     request_id = _get_request_id()
     file = request.files.get('file') if request else None
     record, error = _store_upload(file)
@@ -1748,6 +1759,14 @@ def api_delete_upload(upload_id: str):
 
 @app.get('/uploads/<upload_id>/<filename>')
 def serve_uploaded_file(upload_id: str, filename: str):
+    """
+    Serve an uploaded image file.
+    
+    Known limitation: No authentication/authorization checks.
+    Any user who knows the upload_id can access the file. Since upload_id is a UUID,
+    it's difficult to guess, but consider implementing access controls if images
+    should be private to the uploading user.
+    """
     from flask import Response
     record = _get_upload_record(upload_id)
     if not record or not record['path']:
