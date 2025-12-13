@@ -13,7 +13,12 @@ import generator as gen_mod
 from werkzeug.security import generate_password_hash, check_password_hash
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Tuple
 import requests
-from generation_service import GenerationService
+from services.generation import GenerationService as NewGenerationService
+# Keep old generation_service for backward compatibility during migration
+try:
+    from generation_service import GenerationService as OldGenerationService
+except ImportError:
+    OldGenerationService = None
 try:
     import yaml
 except ImportError:  # pragma: no cover - dependency managed via requirements.txt
@@ -130,8 +135,19 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
-generation_service = GenerationService(logger=None, timeout_seconds=GENERATION_TIMEOUT_SECONDS)
-generation_service.logger = app.logger
+
+# Initialize old generation service for backward compatibility
+if OldGenerationService:
+    generation_service = OldGenerationService(logger=None, timeout_seconds=GENERATION_TIMEOUT_SECONDS)
+    generation_service.logger = app.logger
+else:
+    generation_service = None
+
+# Initialize new generation service
+new_generation_service = NewGenerationService(
+    openai_api_key=os.getenv('OPENAI_API_KEY'),
+    enable_openai=USE_OPENAI and not OUTBOUND_KILL_SWITCH
+)
 
 
 class RequestIdMissingFilter(logging.Filter):
@@ -1782,6 +1798,87 @@ def _generate_variants_fallback(normalized: Mapping[str, Any]) -> list[dict[str,
     return groups
 
 
+# Helper functions for new generation service
+def _load_workspace_context(user_id: Optional[str], profile_id: Optional[str]) -> Optional[dict]:
+    """Load workspace context from database."""
+    if not profile_id:
+        return None
+    
+    db = get_db()
+    row = db.execute('SELECT * FROM profiles WHERE id = ?', (profile_id,)).fetchone()
+    if not row:
+        return None
+    
+    return {
+        'company_name': row.get('company') or '',
+        'industry': row.get('industry') or 'business',
+        'default_tone': row.get('tone') or 'professional',
+        'platforms': json.loads(row.get('platforms') or '[]'),
+        'offerings': row.get('details') or None,
+        'audience': None,  # Not stored separately yet
+        'compliance_notes': None  # Not stored separately yet
+    }
+
+
+def _load_voice_samples(user_id: Optional[str], profile_id: Optional[str]) -> Optional[list[str]]:
+    """Load voice samples from database."""
+    if not profile_id:
+        return None
+    
+    db = get_db()
+    row = db.execute('SELECT voice_profile FROM profiles WHERE id = ?', (profile_id,)).fetchone()
+    if not row:
+        return None
+    
+    try:
+        if 'voice_profile' not in row.keys():
+            return None
+        
+        voice_data = json.loads(row.get('voice_profile') or '{}')
+        if not voice_data:
+            return None
+        
+        # Extract samples from voice data
+        samples = voice_data.get('samples', [])
+        if samples and isinstance(samples, list):
+            return samples
+        
+        # Fallback: if analyzed data exists, might have sample_texts
+        if voice_data.get('analyzed'):
+            return voice_data.get('sample_texts', [])
+        
+        return None
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+def _load_include_avoid_phrases(user_id: Optional[str], profile_id: Optional[str]) -> tuple[Optional[list[str]], Optional[list[str]]]:
+    """Load include/avoid phrases from database."""
+    if not profile_id:
+        return None, None
+    
+    db = get_db()
+    row = db.execute('SELECT voice_profile FROM profiles WHERE id = ?', (profile_id,)).fetchone()
+    if not row:
+        return None, None
+    
+    try:
+        if 'voice_profile' not in row.keys():
+            return None, None
+        
+        voice_data = json.loads(row.get('voice_profile') or '{}')
+        if not voice_data:
+            return None, None
+        
+        include_phrases = voice_data.get('include_phrases', [])
+        avoid_phrases = voice_data.get('avoid_phrases', [])
+        
+        return (include_phrases if include_phrases else None, 
+                avoid_phrases if avoid_phrases else None)
+    except (json.JSONDecodeError, TypeError):
+        return None, None
+
+
 @app.post('/api/generate')
 def api_generate():
     data = request.get_json(force=True) or {}
@@ -1904,6 +2001,44 @@ def api_generate():
     return jsonify(body), service_response.status
 
 
+@app.post('/api/generate/social')
+def api_generate_social():
+    """Generate social media posts using new generation service with full context."""
+    uid = session.get('user_id')
+    pid = session.get('profile_id')
+    
+    data = request.get_json(silent=True) or {}
+    
+    # Load context from database
+    workspace = _load_workspace_context(uid, pid)
+    voice_samples = _load_voice_samples(uid, pid)
+    include_phrases, avoid_phrases = _load_include_avoid_phrases(uid, pid)
+    
+    # Build request params
+    request_params = {
+        'session_length': data.get('session_length') or data.get('days', 7),
+        'platforms': data.get('platforms') or [],
+        'tone': data.get('tone'),
+        'goals': data.get('goals') or [],
+        'keywords': data.get('keywords') or [],
+        'reel_options': data.get('reel_options') or {},
+        'image_tailor': data.get('image_tailor'),
+    }
+    
+    # Generate using new service
+    result = new_generation_service.generate_social_posts(
+        workspace=workspace,
+        request=request_params,
+        voice_samples=voice_samples,
+        include_phrases=include_phrases,
+        avoid_phrases=avoid_phrases
+    )
+    
+    # Return result with appropriate status code
+    status_code = 200 if result.get('ok') else 400
+    return jsonify(result), status_code
+
+
 @app.post('/api/generate/reels')
 def api_generate_reels():
     """Generate structured reels/shorts scripts with sectional regeneration support."""
@@ -2021,15 +2156,22 @@ def api_generate_review_response():
 
 @app.post('/api/generate/reviews')
 def api_generate_reviews():
-    """Generate structured review responses (short/medium/long)."""
-
-    request_id = _get_request_id()
+    """Generate structured review responses using new generation service."""
+    uid = session.get('user_id')
+    pid = session.get('profile_id')
+    
     data = request.get_json(force=True) or {}
     review_text = (data.get('review_text') or '').strip()
 
     if not review_text:
-        return jsonify({'ok': False, 'error': {'code': 'missing_review', 'message': 'Review text is required.'}, 'request_id': request_id}), 400
+        request_id = _get_request_id()
+        return jsonify({
+            'ok': False, 
+            'error': {'code': 'missing_review', 'message': 'Review text is required.'}, 
+            'request_id': request_id
+        }), 400
 
+    # Check for sensitive content in input
     sensitive_patterns = [
         r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
         r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b",
@@ -2037,6 +2179,7 @@ def api_generate_reviews():
     ]
     for pattern in sensitive_patterns:
         if re.search(pattern, review_text, re.IGNORECASE):
+            request_id = _get_request_id()
             return jsonify({
                 'ok': False,
                 'error': {
@@ -2046,32 +2189,39 @@ def api_generate_reviews():
                 'request_id': request_id
             }), 400
 
-    try:
-        bundle = gen_mod.generate_review_response_bundle(
-            review_text,
-            tone=data.get('tone') or 'professional',
-            company_name=data.get('company') or data.get('company_name') or '',
-            industry=data.get('industry') or '',
-            rating=data.get('rating'),
-            channel=data.get('channel') or '',
-            brand_voice=bool(data.get('brand_voice')),
-            length=data.get('length') or 'medium',
-            variant_action=data.get('variant_action') or 'base',
-        )
-        return jsonify({'ok': True, **bundle, 'request_id': request_id})
-    except ValueError as exc:
-        return jsonify({
-            'ok': False,
-            'error': {'code': 'invalid_review', 'message': str(exc)},
-            'request_id': request_id
-        }), 400
-    except Exception:
-        app.logger.exception("reviews.generation_failed", extra={'event': 'reviews.generation_failed', 'request_id': request_id})
-        return jsonify({
-            'ok': False,
-            'error': {'code': 'generation_failed', 'message': 'Unable to generate a response right now.'},
-            'request_id': request_id
-        }), 500
+    # Load context from database
+    workspace = _load_workspace_context(uid, pid)
+    voice_samples = None
+    include_phrases = None
+    avoid_phrases = None
+    
+    # Only load voice if brand_voice is requested
+    if data.get('use_brand_voice') or data.get('brand_voice'):
+        voice_samples = _load_voice_samples(uid, pid)
+        include_phrases, avoid_phrases = _load_include_avoid_phrases(uid, pid)
+    
+    # Build request params
+    request_params = {
+        'review_text': review_text,
+        'rating': data.get('rating'),
+        'channel': data.get('channel') or '',
+        'tone': data.get('tone') or 'professional',
+        'response_length': data.get('length') or 'medium',
+        'use_brand_voice': bool(data.get('use_brand_voice') or data.get('brand_voice')),
+    }
+    
+    # Generate using new service
+    result = new_generation_service.generate_review_response(
+        workspace=workspace,
+        request=request_params,
+        voice_samples=voice_samples,
+        include_phrases=include_phrases,
+        avoid_phrases=avoid_phrases
+    )
+    
+    # Return result with appropriate status code
+    status_code = 200 if result.get('ok') else (400 if result.get('error', {}).get('code') == 'validation_error' else 500)
+    return jsonify(result), status_code
 
 
 @app.get('/voice-setup')
