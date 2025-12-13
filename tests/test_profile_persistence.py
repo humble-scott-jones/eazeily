@@ -23,7 +23,9 @@ def test_profile_save_and_get(client):
 
     r2 = client.get('/api/profile')
     assert r2.status_code == 200
-    prof = r2.get_json()
+    body = r2.get_json()
+    assert body.get('ok') is True
+    prof = body.get('profile') or {}
     # Company capitalization can be normalized by the app (title() may change punctuation);
     # compare in a case-insensitive, punctuation-agnostic way.
     company_saved = prof.get('company', '') or ''

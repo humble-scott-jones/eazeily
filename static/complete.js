@@ -51,7 +51,9 @@ function updateButtons(){
 async function fetchProfile(){
   const res = await fetch('/api/profile', { credentials: 'include' });
   if (!res.ok) return null;
-  return res.json();
+  const body = await res.json().catch(()=>null);
+  if (!body || body.ok === false) return null;
+  return body.profile || body;
 }
 
 function renderSummary(p){

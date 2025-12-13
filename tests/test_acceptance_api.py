@@ -81,7 +81,9 @@ def test_acceptance_api():
 
     r = session.get(f"{BASE}/api/profile")
     assert r.status_code == 200
-    prof = r.json()
+    prof_body = r.json()
+    assert prof_body.get('ok') is True
+    prof = prof_body.get('profile') or {}
     assert prof.get('company') == 'Testco Llc' or prof.get('company') == 'TestCo LLC'
 
     # Toggle gating flag to require paid for 7-day generation

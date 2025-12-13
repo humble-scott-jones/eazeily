@@ -342,7 +342,9 @@ async function loadSavedProfile(){
   try{
   const res = await fetch('/api/profile', { credentials: 'include' });
     if (!res.ok) return;
-    const p = await res.json();
+    const body = await res.json().catch(()=>null);
+    if (!body || body.ok === false) return;
+    const p = body.profile || body;
     if (!p || !p.id) return;
     // prefill inputs
     if (p.company) {
