@@ -2,6 +2,8 @@
 const DASHBOARD_SEED_STORAGE_KEY = (typeof window !== 'undefined' && window.SEED_STORAGE_KEY) ? window.SEED_STORAGE_KEY : '__swelly_seed_posts';
 const DASHBOARD_PLAN_CACHE_KEY = 'swelly_dashboard_plan_cache';
 const DASHBOARD_PLAN_TTL_MS = 1000 * 60 * 60 * 72; // 72 hours
+const PROFILE_CACHE_KEY = 'swelly_profile_cache';
+const PROFILE_CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const imageAttachmentState = { dataUrl: null, fileName: '' };
 let generatorUI = {};
 let dashboardConfigCache = null;
@@ -328,17 +330,38 @@ async function loadUserProfile(options = {}) {
     profileLoadState.profileStatus = body.profile_status || null;
     profileLoadState.reason = body.reason || null;
     profileLoadState.recommendedAction = body.recommended_action || null;
+    
+    // Cache the successfully loaded profile
+    if (profile && profileLoadState.profileStatus === 'ready') {
+      cacheProfile(profile, profileLoadState.profileStatus);
+    }
   } else {
+    // Try to use cached profile on failure
+    const cached = getCachedProfile();
+    if (cached && cached.profile) {
+      console.log('Using cached profile due to fetch failure');
+      profile = cached.profile;
+      profileLoadState.profileStatus = cached.profileStatus || 'ready';
+      profileLoadState.status = 'loaded_from_cache';
+    }
+    
     const timedOut = fetchError && fetchError.name === 'AbortError';
     const errorMessage = (body && body.error && body.error.message)
       || (timedOut ? 'Profile request timed out. Please retry.' : (fetchError && fetchError.message))
       || (response ? `Profile request failed (HTTP ${response.status})` : 'Profile request failed.');
-    profileLoadState.status = 'error';
-    profileLoadState.error = errorMessage;
-    profileLoadState.requestId = (body && body.request_id) || null;
-    profileLoadState.profileStatus = null;
-    profileLoadState.reason = null;
-    profileLoadState.recommendedAction = null;
+    
+    // Only set error state if we don't have a cached fallback
+    if (!profile) {
+      profileLoadState.status = 'error';
+      profileLoadState.error = errorMessage;
+      profileLoadState.requestId = (body && body.request_id) || null;
+      profileLoadState.profileStatus = null;
+      profileLoadState.reason = null;
+      profileLoadState.recommendedAction = null;
+    } else {
+      // We have cached data, but note there was an issue
+      profileLoadState.error = `${errorMessage} (using cached profile)`;
+    }
   }
 
   if (profile && typeof profile === 'object') {
@@ -382,6 +405,39 @@ function normalizeProfileResponse(payload = {}) {
     return payload.profile;
   }
   return payload;
+}
+
+function cacheProfile(profile, profileStatus) {
+  if (!profile || typeof profile !== 'object') return;
+  try {
+    const cacheData = {
+      profile,
+      profileStatus,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(cacheData));
+  } catch (err) {
+    // Ignore cache failures (e.g., localStorage full or disabled)
+    console.warn('Failed to cache profile:', err);
+  }
+}
+
+function getCachedProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const cacheData = JSON.parse(raw);
+    const age = Date.now() - (cacheData.timestamp || 0);
+    if (age > PROFILE_CACHE_TTL_MS) {
+      // Cache expired
+      localStorage.removeItem(PROFILE_CACHE_KEY);
+      return null;
+    }
+    return cacheData;
+  } catch (err) {
+    // Ignore cache read failures
+    return null;
+  }
 }
 
 function buildProfileDefaults(profile = null) {
