@@ -249,53 +249,22 @@
             </div>
           </div>
 
-          <div id="reel-options" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-4 border border-purple-100">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div id="reels-cta-notice" class="hidden bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-5 border border-purple-200">
+            <div class="flex items-start gap-4">
+              <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                 </svg>
               </div>
-              <div>
-                <h4 class="text-lg font-semibold text-slate-900">Reel Options</h4>
-                <p class="text-xs text-slate-500">Only appears for Instagram Reels & TikTok.</p>
-              </div>
-            </div>
-
-            <div class="grid md:grid-cols-3 gap-4">
-              <div>
-                <label for="reel-style" class="block text-sm font-medium text-slate-700 mb-1">
-                  Reel Style
-                </label>
-                <select id="reel-style" class="planner-select">
-                  <option value="Face-camera tips">Face-Camera Tips</option>
-                  <option value="Property b-roll + captions">Property B-Roll + Captions</option>
-                  <option value="Product b-roll + captions">Product B-Roll + Captions</option>
-                  <option value="Local hotspot montage">Local Hotspot Montage</option>
-                  <option value="Story + before/after">Story + Before/After</option>
-                  <option value="Workout montage">Workout Montage</option>
-                </select>
-              </div>
-              <div>
-                <label for="reel-length" class="block text-sm font-medium text-slate-700 mb-1">
-                  Length (seconds)
-                </label>
-                <select id="reel-length" class="planner-select">
-                  <option value="15">15 seconds</option>
-                  <option value="30" selected>30 seconds</option>
-                  <option value="45">45 seconds</option>
-                  <option value="60">60 seconds</option>
-                </select>
-              </div>
-              <div>
-                <label for="production-tier" class="block text-sm font-medium text-slate-700 mb-1">
-                  Production Tier
-                </label>
-                <select id="production-tier" class="planner-select">
-                  <option value="solo">Solo Creator</option>
-                  <option value="small_team">Small Team</option>
-                  <option value="professional">Professional</option>
-                </select>
+              <div class="flex-1">
+                <h4 class="text-lg font-semibold text-slate-900 mb-1">Reels are configured in the Reels tab →</h4>
+                <p class="text-sm text-slate-600 mb-3">For full script generation with hooks, beats, CTAs, and shot lists, use the dedicated Reels page.</p>
+                <a href="/generate/reels" class="btn-primary btn-sm inline-flex items-center gap-2">
+                  Go to Reels
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                  </svg>
+                </a>
               </div>
             </div>
           </div>

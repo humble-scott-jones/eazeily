@@ -805,14 +805,23 @@ function initGeneratorPlatformPicker() {
 }
 
 function refreshReelOptionsVisibility() {
-  const { reelOptions } = generatorUI;
-  if (!reelOptions) return;
-  const selected = getGeneratorPlatformSelections();
-  const hasVideo = selected.some(key => VIDEO_PLATFORM_KEYS.has(key));
-  if (hasVideo) {
-    reelOptions.classList.remove('hidden');
+  const reelsCtaNotice = document.getElementById('reels-cta-notice');
+  if (!reelsCtaNotice) return;
+  
+  const generatorMode = (document.body.dataset.generatorMode || '').toLowerCase();
+  
+  // Only show CTA in social mode when video platforms are selected
+  if (generatorMode === 'social') {
+    const selected = getGeneratorPlatformSelections();
+    const hasVideo = selected.some(key => VIDEO_PLATFORM_KEYS.has(key));
+    if (hasVideo) {
+      reelsCtaNotice.classList.remove('hidden');
+    } else {
+      reelsCtaNotice.classList.add('hidden');
+    }
   } else {
-    reelOptions.classList.add('hidden');
+    // Never show CTA in reels mode
+    reelsCtaNotice.classList.add('hidden');
   }
 }
 
@@ -821,7 +830,6 @@ function setupContentGeneration() {
   const loadingDiv = document.getElementById('content-loading') || document.getElementById('generator-loading');
   const resultsDiv = document.getElementById('generated-content');
   const contentResults = document.getElementById('content-results');
-  const reelOptions = document.getElementById('reel-options');
   const statusEl = document.getElementById('generator-status');
   const planLengthWrap = document.getElementById('plan-length-buttons');
   const daySelect = document.getElementById('gen-days');
@@ -835,7 +843,7 @@ function setupContentGeneration() {
     if (btn30) btn30.classList.add('hidden');
   }
 
-  generatorUI = { generateBtn, loadingDiv, resultsDiv, contentResults, reelOptions, statusEl };
+  generatorUI = { generateBtn, loadingDiv, resultsDiv, contentResults, statusEl };
   initGeneratorPlatformPicker();
   refreshReelOptionsVisibility();
   syncPreferredPlatformButtons();
@@ -869,14 +877,13 @@ function setupContentGeneration() {
   });
 }
 
-  async function executeContentGeneration(options = {}){
+  async function executeContentGeneration(options = {}) {
     const { daysOverride } = options;
     const {
       generateBtn,
       loadingDiv,
       resultsDiv,
       contentResults,
-      reelOptions,
       statusEl
     } = generatorUI;
     if (!document.getElementById('gen-days')){
@@ -900,15 +907,9 @@ function setupContentGeneration() {
     return;
   }
 
-  const includeReelDetails = reelOptions && !reelOptions.classList.contains('hidden') && platforms.some(key => VIDEO_PLATFORM_KEYS.has(key));
+  // Only include reel details on the dedicated reels page (not on social page)
+  const includeReelDetails = false;
   let details = {};
-  if (includeReelDetails) {
-    details = {
-      reel_style: document.getElementById('reel-style').value,
-      reel_length: parseInt(document.getElementById('reel-length').value, 10),
-      production_tier: document.getElementById('production-tier').value
-    };
-  }
 
     generateBtn?.classList.add('hidden');
     loadingDiv?.classList.remove('hidden');
@@ -920,10 +921,10 @@ function setupContentGeneration() {
       const overrides = {
         platforms,
         tone,
-      details,
-      goals,
-      brand_keywords: keywords
-    };
+        details,
+        goals,
+        brand_keywords: keywords
+      };
     if (imageAttachmentState.dataUrl) {
       overrides.image_data_url = imageAttachmentState.dataUrl;
       const imageContext = document.getElementById('image-context')?.value.trim();
