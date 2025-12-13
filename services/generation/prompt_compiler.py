@@ -695,8 +695,8 @@ class PromptCompiler:
                 'tone': merged.get('tone'),
                 'platforms': merged.get('platforms', []),
                 'session_length': merged.get('session_length'),
-                'goals_count': len(merged.get('goals', [])),
-                'keywords_count': len(merged.get('keywords', []))
+                'goals_count': len(merged.get('goals') or []),
+                'keywords_count': len(merged.get('keywords') or [])
             },
             'voice_fingerprint_applied': bool(voice_fingerprint and voice_fingerprint.get('top_phrases')),
             'template_used': merged.get('template_name'),
