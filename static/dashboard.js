@@ -16,6 +16,32 @@ const generatedViewPrefs = {
 };
 const PROFILE_FETCH_TIMEOUT_MS = 9000;
 const profileLoadState = { status: 'idle', error: null, requestId: null };
+
+function attachAsyncUi({ rootId, overlayId, errorId, defaultMessage, endpoint } = {}) {
+  const root = rootId ? document.getElementById(rootId) : null;
+  const asyncState = (window.AsyncUi && window.AsyncUi.createAsyncStateMachine)
+    ? window.AsyncUi.createAsyncStateMachine(root || document.body)
+    : { setIdle(){}, setRunning(){}, setSuccess(){}, setError(){} };
+  const overlay = (window.AsyncUi && window.AsyncUi.attachLoadingOverlay)
+    ? window.AsyncUi.attachLoadingOverlay(root, { id: overlayId, defaultMessage })
+    : { show(){}, hide(){}, setMessage(){} };
+  const banner = (window.AsyncUi && window.AsyncUi.attachErrorBanner)
+    ? window.AsyncUi.attachErrorBanner(root, { id: errorId })
+    : { show(){}, hide(){} };
+  if (asyncState.setIdle) asyncState.setIdle();
+  return { asyncState, overlay, banner, endpoint, defaultMessage };
+}
+
+function buildDebugPayloadSummary(payload = {}) {
+  const parts = [];
+  if (payload.planLength) parts.push(`days=${payload.planLength}`);
+  if (payload.platforms && payload.platforms.length) parts.push(`platforms=${payload.platforms.join(',')}`);
+  if (payload.tone) parts.push(`tone=${payload.tone}`);
+  if (typeof payload.goalsCount === 'number') parts.push(`goals=${payload.goalsCount}`);
+  if (typeof payload.keywordsCount === 'number') parts.push(`keywords=${payload.keywordsCount}`);
+  return parts.join('; ') || 'no payload recorded';
+}
+
 const ACTIVITY_TYPE_META = {
   generated: { label: 'Generated', icon: '✨', color: 'emerald' },
   edited: { label: 'Edited', icon: '✏️', color: 'blue' },
@@ -696,6 +722,13 @@ function setupContentGeneration() {
   }
 
   generatorUI = { generateBtn, loadingDiv, resultsDiv, contentResults, reelOptions, statusEl };
+  generatorUI.async = attachAsyncUi({
+    rootId: 'content-generator',
+    overlayId: 'generator-overlay',
+    errorId: 'generator-error',
+    defaultMessage: 'Generating your plan…',
+    endpoint: '/api/generate'
+  });
   initGeneratorPlatformPicker();
   refreshReelOptionsVisibility();
   syncPreferredPlatformButtons();
@@ -748,34 +781,38 @@ function setupContentGeneration() {
     const days = typeof daysOverride === 'number'
       ? daysOverride
       : parseInt(document.getElementById('gen-days').value);
-  if (!Number.isNaN(days)) {
-    lastPlanLength = days;
-  }
-  const platforms = getGeneratorPlatformSelections();
-  const tone = document.getElementById('gen-tone').value;
-  const goals = getCurrentGoals();
-  const keywords = getCurrentKeywords();
-  if (!platforms.length) {
-    showToast('Pick at least one platform to keep going.');
-    return;
-  }
+    if (!Number.isNaN(days)) {
+      lastPlanLength = days;
+    }
+    const platforms = getGeneratorPlatformSelections();
+    const tone = document.getElementById('gen-tone').value;
+    const goals = getCurrentGoals();
+    const keywords = getCurrentKeywords();
+    if (!platforms.length) {
+      showToast('Pick at least one platform to keep going.');
+      return;
+    }
 
-  const includeReelDetails = reelOptions && !reelOptions.classList.contains('hidden') && platforms.some(key => VIDEO_PLATFORM_KEYS.has(key));
-  let details = {};
-  if (includeReelDetails) {
-    details = {
-      reel_style: document.getElementById('reel-style').value,
-      reel_length: parseInt(document.getElementById('reel-length').value, 10),
-      production_tier: document.getElementById('production-tier').value
-    };
-  }
+    const includeReelDetails = reelOptions && !reelOptions.classList.contains('hidden') && platforms.some(key => VIDEO_PLATFORM_KEYS.has(key));
+    let details = {};
+    if (includeReelDetails) {
+      details = {
+        reel_style: document.getElementById('reel-style').value,
+        reel_length: parseInt(document.getElementById('reel-length').value, 10),
+        production_tier: document.getElementById('production-tier').value
+      };
+    }
 
     generateBtn?.classList.add('hidden');
     loadingDiv?.classList.remove('hidden');
+    generatorUI.async?.asyncState?.setRunning();
+    generatorUI.async?.overlay?.show('Generating your plan…');
+    generatorUI.async?.banner?.hide();
     setGeneratorStatus('Sending request to the generator…', 'muted');
     if (generateBtn) generateBtn.dataset.busy = '1';
     logGeneratorEvent('click', { planLength: days, platforms, tone, goalsCount: goals.length, keywordsCount: keywords.length });
 
+    let data;
     try {
       const overrides = {
         platforms,
@@ -790,7 +827,7 @@ function setupContentGeneration() {
       if (imageContext) overrides.image_context = imageContext;
     }
 
-      const data = await generate(days, overrides);
+      data = await generate(days, overrides);
       if (!data || data.ok === false || !Array.isArray(data.posts)) {
         const msg = (data && data.error) ? data.error : 'Generator returned no posts.';
         throw new Error(msg);
@@ -805,6 +842,8 @@ function setupContentGeneration() {
       const totalPosts = data.count || (Array.isArray(data.posts) ? data.posts.length : 0);
       setGeneratorStatus(`Plan ready: ${totalPosts || 'draft'} posts generated.`, 'success');
       logGeneratorEvent('success', { planLength: days, platforms, totalPosts });
+      generatorUI.async?.asyncState?.setSuccess();
+      generatorUI.async?.overlay?.hide();
       resultsDiv?.classList.remove('hidden');
       resultsDiv?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
@@ -812,10 +851,25 @@ function setupContentGeneration() {
       const message = (error && error.message) ? error.message : 'Failed to generate content. Please try again.';
       setGeneratorStatus(message, 'error');
       logGeneratorEvent('error', { message, planLength: days, platforms });
+      generatorUI.async?.asyncState?.setError();
+      generatorUI.async?.overlay?.hide();
+      generatorUI.async?.banner?.show(message, {
+        requestId: data?.request_id,
+        endpoint: generatorUI.async?.endpoint,
+        payloadSummary: buildDebugPayloadSummary({
+          planLength: days,
+          platforms,
+          tone,
+          goalsCount: goals.length,
+          keywordsCount: keywords.length
+        }),
+        timestamp: new Date().toISOString()
+      });
       showToast(message);
     } finally {
       generateBtn?.classList.remove('hidden');
       loadingDiv?.classList.add('hidden');
+      generatorUI.async?.overlay?.hide();
       if (generateBtn) delete generateBtn.dataset.busy;
     }
   }
@@ -2196,6 +2250,7 @@ async function generateReviewResponse(reviewText, tone, companyName = '') {
 
 // Helper function to show toast messages
 function showToast(message) {
+  if (typeof window.renderToast === 'function') return window.renderToast(message);
   const toast = document.createElement('div');
   toast.className = 'fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow z-50';
   toast.textContent = message;

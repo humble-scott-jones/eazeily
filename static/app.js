@@ -783,7 +783,17 @@ function closePaywall(){
   payModal.classList.add('hidden');
   clearPaywallMessage();
 }
-function showToast(msg){ const t = document.createElement('div'); t.className='fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.classList.add('opacity-0'), 2200); setTimeout(()=>t.remove(), 2800); }
+function showToast(msg){
+  if (typeof window.renderToast === 'function') return window.renderToast(msg);
+  const t = document.createElement('div');
+  t.className = 'fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow';
+  t.setAttribute('role', 'status');
+  t.setAttribute('aria-live', 'polite');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add('opacity-0'), 2200);
+  setTimeout(() => t.remove(), 2800);
+}
 
 function setButtonLoading(btn, loading){
   if (!btn) return; 
