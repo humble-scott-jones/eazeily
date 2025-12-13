@@ -130,11 +130,20 @@ let generatorHydratedFromProfile = false;
 
 // Publishing queue state initialization
 const PUBLISHING_QUEUE_STORAGE_KEY = 'eazeily_publishing_queue';
-const publishingQueueState = {
-  entries: [],
-  status: 'idle',
-  lastError: null
-};
+
+// Use the global namespaced queue state (initialized by publishing_queue_state.js)
+// This provides a reference to the namespaced state for backward compatibility
+function getPublishingQueueState() {
+  if (window.__EAZEILY__ && window.__EAZEILY__.publishingQueueState) {
+    return window.__EAZEILY__.publishingQueueState;
+  }
+  // Fallback: return a safe empty state if not initialized
+  console.warn('[Eazeily] Publishing queue state not initialized. Returning empty state.');
+  return { entries: [], items: [], status: 'idle', lastError: null };
+}
+
+// Legacy alias for compatibility (deprecated - use getPublishingQueueState() instead)
+const publishingQueueState = getPublishingQueueState();
 
 function logGeneratorEvent(event, meta = {}) {
   try {
@@ -261,9 +270,10 @@ function populateAccountPlatformOptions(list) {
 document.addEventListener('DOMContentLoaded', () => {
   // Dev mode runtime check for queue state
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    if (typeof publishingQueueState === 'undefined' || !publishingQueueState) {
+    const queueState = getPublishingQueueState();
+    if (!queueState) {
       console.warn('[Eazeily Dev Warning] publishingQueueState is not properly initialized. Queue features may not work.');
-    } else if (!publishingQueueState.entries || !Array.isArray(publishingQueueState.entries)) {
+    } else if (!queueState.entries || !Array.isArray(queueState.entries)) {
       console.warn('[Eazeily Dev Warning] publishingQueueState.entries is not an array. Queue features may not work correctly.');
     }
   }
@@ -2165,13 +2175,14 @@ function refreshDayEmptyStates() {
 
 function loadPublishingQueueFromStorage() {
   if (typeof localStorage === 'undefined') return;
-  if (!publishingQueueState) return;
+  const queueState = getPublishingQueueState();
+  if (!queueState) return;
   try {
     const raw = localStorage.getItem(PUBLISHING_QUEUE_STORAGE_KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      publishingQueueState.entries = parsed.map(normalizeQueueEntry).filter(Boolean);
+      queueState.entries = parsed.map(normalizeQueueEntry).filter(Boolean);
     }
   } catch (error) {
     /* ignore */
@@ -2180,9 +2191,10 @@ function loadPublishingQueueFromStorage() {
 
 function persistPublishingQueue() {
   if (typeof localStorage === 'undefined') return;
-  if (!publishingQueueState || !publishingQueueState.entries) return;
+  const queueState = getPublishingQueueState();
+  if (!queueState || !queueState.entries) return;
   try {
-    localStorage.setItem(PUBLISHING_QUEUE_STORAGE_KEY, JSON.stringify(publishingQueueState.entries));
+    localStorage.setItem(PUBLISHING_QUEUE_STORAGE_KEY, JSON.stringify(queueState.entries));
   } catch (error) {
     /* ignore */
   }
@@ -2207,12 +2219,13 @@ function normalizeQueueEntry(entry = {}) {
 }
 
 function ensureQueueEntryForPost(post = {}) {
-  if (!publishingQueueState || !publishingQueueState.entries) return null;
+  const queueState = getPublishingQueueState();
+  if (!queueState || !queueState.entries) return null;
   const key = buildQueueKey(post);
   let existing = findQueueEntry(key);
   if (existing) return existing;
   const created = buildQueueEntryFromPost(post, key);
-  publishingQueueState.entries.push(created);
+  queueState.entries.push(created);
   persistPublishingQueue();
   return created;
 }
@@ -2261,8 +2274,9 @@ function updatePublishingQueueEntry(key, updates = {}) {
 }
 
 function findQueueEntry(key) {
-  if (!publishingQueueState || !publishingQueueState.entries) return null;
-  return publishingQueueState.entries.find(entry => entry.key === key);
+  const queueState = getPublishingQueueState();
+  if (!queueState || !queueState.entries) return null;
+  return queueState.entries.find(entry => entry.key === key);
 }
 
 function renderPublishingQueue() {
@@ -2270,13 +2284,14 @@ function renderPublishingQueue() {
   const list = document.getElementById('publishing-queue-list');
   const empty = document.getElementById('publishing-queue-empty');
   if (!wrap || !list || !empty) return;
-  if (!publishingQueueState || !publishingQueueState.entries) {
+  const queueState = getPublishingQueueState();
+  if (!queueState || !queueState.entries) {
     empty.classList.remove('hidden');
     return;
   }
 
   list.innerHTML = '';
-  if (!publishingQueueState.entries.length) {
+  if (!queueState.entries.length) {
     wrap.classList.add('hidden');
     empty.classList.remove('hidden');
     return;
@@ -2285,7 +2300,7 @@ function renderPublishingQueue() {
   wrap.classList.remove('hidden');
   empty.classList.add('hidden');
 
-  const sorted = [...publishingQueueState.entries].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+  const sorted = [...queueState.entries].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
   sorted.forEach(entry => list.appendChild(renderQueueItem(entry)));
 }
 
