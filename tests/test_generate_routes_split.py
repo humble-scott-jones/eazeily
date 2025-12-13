@@ -8,7 +8,7 @@ def test_social_page_renders_with_marker(client):
     html = response.data.decode('utf-8')
 
     assert 'data-page-id="social"' in html
-    assert 'data-endpoint-marker="/api/generate"' in html
+    assert 'data-endpoint-marker="/api/generate/social"' in html
 
 
 def test_reels_page_renders_with_marker(client):
@@ -18,7 +18,7 @@ def test_reels_page_renders_with_marker(client):
     html = response.data.decode('utf-8')
 
     assert 'data-page-id="reels"' in html
-    assert 'data-endpoint-marker="/api/generate"' in html
+    assert 'data-endpoint-marker="/api/generate/social"' in html
 
 
 def test_reviews_page_renders_with_marker(client):

@@ -6,8 +6,8 @@ import pytest
 @pytest.mark.parametrize(
     "path, marker",
     [
-        ("/generate/social", "/api/generate"),
-        ("/generate/reels", "/api/generate"),
+        ("/generate/social", "/api/generate/social"),
+        ("/generate/reels", "/api/generate/social"),
         ("/generate/reviews", "/api/generate-review-response"),
     ],
 )
