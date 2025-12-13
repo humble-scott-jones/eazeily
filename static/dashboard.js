@@ -1822,7 +1822,7 @@ function renderPublishingQueue() {
   empty.classList.add('hidden');
 
   const sorted = [...publishingQueueState.entries].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
-  sorted.forEach entry => list.appendChild(renderQueueItem(entry)));
+  sorted.forEach(entry => list.appendChild(renderQueueItem(entry)));
 }
 
 function renderQueueItem(entry) {
@@ -2529,6 +2529,7 @@ function renderPostCard(post) {
 
   card.querySelectorAll('[data-download-ref]').forEach(btn => {
     bindDownloadButton(btn, card);
+  });
   card.querySelectorAll('[data-export-variants]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const chunks = [];
