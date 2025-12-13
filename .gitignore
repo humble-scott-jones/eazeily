@@ -2,6 +2,7 @@
 test_venv/
 togetherly.db
 swelly.db
+eazeily.db
 node_modules/
 tmp/
 *.pyc
