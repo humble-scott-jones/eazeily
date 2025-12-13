@@ -227,6 +227,39 @@ def _get_request_id() -> str:
     return rid
 
 
+def _ensure_request_id_in_response(response):
+    """Attach request_id to JSON responses when missing.
+
+    This keeps the API contract consistent without altering legacy
+    endpoints that intentionally omit additional keys (e.g. profile).
+    """
+
+    # Avoid mutating profile contract (handled separately in BUG-001)
+    if request.path.startswith('/api/profile'):
+        return response
+
+    if not response.is_json:
+        return response
+
+    try:
+        data = response.get_json(silent=True)
+    except Exception:
+        return response
+
+    if not isinstance(data, dict):
+        return response
+
+    if 'request_id' in data:
+        return response
+
+    data['request_id'] = _get_request_id()
+
+    # Preserve status code/headers while updating JSON body
+    response.set_data(json.dumps(data))
+    response.headers['Content-Type'] = 'application/json'
+    return response
+
+
 class RequestIdFilter(logging.Filter):
     def filter(self, record):
         record.request_id = getattr(g, 'request_id', 'n/a')
@@ -566,6 +599,7 @@ def _attach_request_id():
 @app.after_request
 def _set_request_id_header(response):
     try:
+        response = _ensure_request_id_in_response(response)
         response.headers['X-Request-Id'] = _get_request_id()
     except Exception:
         pass
@@ -973,6 +1007,66 @@ def readyz():
 def legacy_health():
     """Back-compat endpoint; proxies to /readyz."""
     return readyz()
+
+
+@app.get('/api/debug/health')
+def api_debug_health():
+    request_id = _get_request_id()
+    healthy, db_error = _db_healthcheck()
+    db_info = {
+        'type': 'postgres' if USE_POSTGRES else 'sqlite',
+        'status': 'connected' if healthy else 'unhealthy',
+        'error': db_error if not healthy else None,
+    }
+
+    checks = {
+        'database': 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}",
+        'stripe': 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured',
+        'openai': 'configured' if USE_OPENAI else 'not_configured',
+        'github_feedback': 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured',
+    }
+
+    status = 'healthy' if healthy else 'unhealthy'
+    status_code = 200 if healthy else 503
+    payload = {
+        'ok': healthy,
+        'request_id': request_id,
+        'status': status,
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': checks,
+        'db': db_info,
+    }
+    return jsonify(payload), status_code
+
+
+@app.get('/api/debug/openai-status')
+def api_debug_openai_status():
+    request_id = _get_request_id()
+    configured = bool(os.getenv('OPENAI_API_KEY'))
+    client_ready = bool(USE_OPENAI and openai_client is not None)
+
+    reason = None
+    if OUTBOUND_KILL_SWITCH:
+        reason = 'outbound_kill_switch'
+    elif not configured:
+        reason = 'missing_api_key'
+    elif not client_ready:
+        reason = 'client_not_initialized'
+
+    payload = {
+        'ok': True,
+        'request_id': request_id,
+        'status': 'enabled' if client_ready and not OUTBOUND_KILL_SWITCH else 'disabled',
+        'configured': configured,
+        'kill_switch_active': bool(OUTBOUND_KILL_SWITCH),
+        'client_ready': client_ready,
+    }
+
+    if reason:
+        payload['reason'] = reason
+
+    return jsonify(payload)
 
 def _initial_user_payload():
     uid = session.get('user_id')
