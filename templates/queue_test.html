@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue State Test Page</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .pass { color: green; font-weight: bold; }
+        .fail { color: red; font-weight: bold; }
+        pre {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Publishing Queue State Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Test Results</h2>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Manual Actions</h2>
+        <button onclick="testFindQueueEntry()">Test findQueueEntry()</button>
+        <button onclick="testRenderQueue()">Test renderPublishingQueue()</button>
+        <button onclick="testLoadFromStorage()">Test loadPublishingQueueFromStorage()</button>
+        <button onclick="testPersistQueue()">Test persistPublishingQueue()</button>
+        <button onclick="inspectState()">Inspect State</button>
+        <div id="action-results"></div>
+    </div>
+
+    <div class="test-section" id="publishing-queue" style="display: block;">
+        <h2>Queue Rendering Test</h2>
+        <div id="publishing-queue-list"></div>
+        <div id="publishing-queue-empty">No items in queue (empty state message)</div>
+    </div>
+
+    <!-- Mock minimal localStorage for testing -->
+    <script>
+        // Mock minimal window/document APIs needed by dashboard.js
+        window.SEED_STORAGE_KEY = '__test_seed';
+        
+        // Load dashboard.js inline to test initialization
+        const script = document.createElement('script');
+        script.src = '/static/dashboard.js';
+        script.onerror = function() {
+            document.getElementById('test-results').innerHTML = 
+                '<p class="fail">❌ FAIL: Could not load dashboard.js</p>';
+        };
+        script.onload = function() {
+            runTests();
+        };
+        document.head.appendChild(script);
+
+        function runTests() {
+            const results = [];
+            
+            // Test 1: Check if publishingQueueState is defined
+            if (typeof publishingQueueState !== 'undefined') {
+                results.push('<p class="pass">✓ PASS: publishingQueueState is defined</p>');
+            } else {
+                results.push('<p class="fail">✗ FAIL: publishingQueueState is undefined</p>');
+            }
+
+            // Test 2: Check if PUBLISHING_QUEUE_STORAGE_KEY is defined
+            if (typeof PUBLISHING_QUEUE_STORAGE_KEY !== 'undefined') {
+                results.push('<p class="pass">✓ PASS: PUBLISHING_QUEUE_STORAGE_KEY is defined</p>');
+            } else {
+                results.push('<p class="fail">✗ FAIL: PUBLISHING_QUEUE_STORAGE_KEY is undefined</p>');
+            }
+
+            // Test 3: Check structure of publishingQueueState
+            if (publishingQueueState && typeof publishingQueueState === 'object') {
+                results.push('<p class="pass">✓ PASS: publishingQueueState is an object</p>');
+                
+                if ('entries' in publishingQueueState) {
+                    results.push('<p class="pass">✓ PASS: publishingQueueState has entries property</p>');
+                    
+                    if (Array.isArray(publishingQueueState.entries)) {
+                        results.push('<p class="pass">✓ PASS: publishingQueueState.entries is an array</p>');
+                    } else {
+                        results.push('<p class="fail">✗ FAIL: publishingQueueState.entries is not an array</p>');
+                    }
+                } else {
+                    results.push('<p class="fail">✗ FAIL: publishingQueueState missing entries property</p>');
+                }
+
+                if ('status' in publishingQueueState) {
+                    results.push('<p class="pass">✓ PASS: publishingQueueState has status property</p>');
+                } else {
+                    results.push('<p class="fail">✗ FAIL: publishingQueueState missing status property</p>');
+                }
+            } else {
+                results.push('<p class="fail">✗ FAIL: publishingQueueState is not an object</p>');
+            }
+
+            // Test 4: Check if functions exist
+            const functions = [
+                'loadPublishingQueueFromStorage',
+                'persistPublishingQueue',
+                'findQueueEntry',
+                'renderPublishingQueue',
+                'ensureQueueEntryForPost'
+            ];
+            
+            functions.forEach(fn => {
+                if (typeof window[fn] === 'function') {
+                    results.push(`<p class="pass">✓ PASS: ${fn}() is defined</p>`);
+                } else {
+                    results.push(`<p class="fail">✗ FAIL: ${fn}() is not defined</p>`);
+                }
+            });
+
+            document.getElementById('test-results').innerHTML = results.join('');
+        }
+
+        function testFindQueueEntry() {
+            try {
+                const result = findQueueEntry('nonexistent-key');
+                document.getElementById('action-results').innerHTML = 
+                    `<pre>findQueueEntry('nonexistent-key') returned: ${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('action-results').innerHTML = 
+                    `<pre class="fail">ERROR: ${error.message}</pre>`;
+            }
+        }
+
+        function testRenderQueue() {
+            try {
+                renderPublishingQueue();
+                document.getElementById('action-results').innerHTML = 
+                    '<pre class="pass">renderPublishingQueue() executed without errors</pre>';
+            } catch (error) {
+                document.getElementById('action-results').innerHTML = 
+                    `<pre class="fail">ERROR: ${error.message}</pre>`;
+            }
+        }
+
+        function testLoadFromStorage() {
+            try {
+                loadPublishingQueueFromStorage();
+                document.getElementById('action-results').innerHTML = 
+                    '<pre class="pass">loadPublishingQueueFromStorage() executed without errors</pre>';
+            } catch (error) {
+                document.getElementById('action-results').innerHTML = 
+                    `<pre class="fail">ERROR: ${error.message}</pre>`;
+            }
+        }
+
+        function testPersistQueue() {
+            try {
+                persistPublishingQueue();
+                document.getElementById('action-results').innerHTML = 
+                    '<pre class="pass">persistPublishingQueue() executed without errors</pre>';
+            } catch (error) {
+                document.getElementById('action-results').innerHTML = 
+                    `<pre class="fail">ERROR: ${error.message}</pre>`;
+            }
+        }
+
+        function inspectState() {
+            try {
+                const state = {
+                    publishingQueueState: publishingQueueState,
+                    PUBLISHING_QUEUE_STORAGE_KEY: PUBLISHING_QUEUE_STORAGE_KEY,
+                    storageValue: localStorage.getItem(PUBLISHING_QUEUE_STORAGE_KEY)
+                };
+                document.getElementById('action-results').innerHTML = 
+                    `<pre>${JSON.stringify(state, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById('action-results').innerHTML = 
+                    `<pre class="fail">ERROR: ${error.message}</pre>`;
+            }
+        }
+    </script>
+</body>
+</html>

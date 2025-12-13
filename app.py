@@ -3228,6 +3228,12 @@ def dev_ping():
     return jsonify({'pong': True})
 
 
+@app.get('/__dev__/queue-test')
+def dev_queue_test():
+    """Test page for publishing queue state initialization"""
+    return render_template('queue_test.html')
+
+
 @app.post('/api/feedback')
 def api_feedback():
     if not session.get('user_id') and not session.get('profile_id'):
