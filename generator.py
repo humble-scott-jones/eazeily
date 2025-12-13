@@ -796,6 +796,67 @@ def rolling_pillars():
         for name, hint in PILLARS_BY_DEFAULT:
             yield (name, hint)
 
+def _inject_channel_context(response: str, channel: str) -> str:
+    """Add light channel-specific framing without changing the core answer."""
+    channel = (channel or "").strip().lower()
+    channel_map = {
+        "google": "Thanks for sharing this on Google.",
+        "yelp": "We appreciate you leaving a review on Yelp.",
+        "facebook": "Thank you for the Facebook feedback.",
+        "tripadvisor": "Thanks for letting us know on Tripadvisor.",
+    }
+    prefix = channel_map.get(channel)
+    if prefix:
+        return f"{prefix} {response}".strip()
+    return response
+
+
+def _apply_variant_tone(response: str, variant_action: str) -> str:
+    variant_action = (variant_action or "").strip().lower()
+    if variant_action in {"more formal", "more_formal"}:
+        return response.replace("Thanks", "Thank you").replace(" we're", " we are")
+    if variant_action in {"more friendly", "more_friendly"}:
+        if "😊" not in response:
+            return response + " 😊"
+    return response
+
+
+def _apply_variant_effect(response: str, variant_action: str) -> str:
+    variant_action = (variant_action or "").strip().lower()
+    if variant_action in {"shorter", "short"}:
+        return shorten_response(response, limit=240)
+    if variant_action in {"add cta", "add_cta", "cta"}:
+        if "Let us know" not in response and "reach out" not in response.lower():
+            return response.rstrip() + " Please reply here or reach out so we can follow up together."
+    return response
+
+
+def shorten_response(text: str, limit: int = 320) -> str:
+    """Trim a response to a soft character limit while keeping sentences whole."""
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    # Try to keep full sentences when possible
+    parts = text.split('.')
+    shortened = "".join(p.strip() + "." for p in parts if p.strip())
+    if len(shortened) <= limit:
+        return shortened
+    return text[: limit - 1].rstrip() + "…"
+
+
+def _expand_response(text: str, rating: int = 0, brand_voice: bool = False) -> str:
+    details = []
+    if rating and rating <= 3:
+        details.append("We are reviewing what happened and would love a second chance.")
+    elif rating and rating >= 4:
+        details.append("We shared your kudos with the team already.")
+    if brand_voice:
+        details.append("This keeps your brand voice and cadence intact.")
+    if not details:
+        return text
+    return f"{text} {' '.join(details)}"
+
+
 def generate_review_response(review_text: str, tone: str = "professional", company_name: str = "", industry: str = "") -> dict:
     """
     Generate a professional response to a customer review.
@@ -891,6 +952,65 @@ def generate_review_response(review_text: str, tone: str = "professional", compa
         "response": response,
         "method": "template",
         "detected_sentiment": detected_sentiment
+    }
+
+
+def generate_review_response_bundle(
+    review_text: str,
+    *,
+    tone: str = "professional",
+    company_name: str = "",
+    industry: str = "",
+    rating: int | None = None,
+    channel: str = "",
+    brand_voice: bool = False,
+    length: str = "medium",
+    variant_action: str = "base",
+) -> dict:
+    """Return short/medium/long responses with light variant handling.
+
+    This is intentionally deterministic for tests and to keep UX consistent
+    even when upstream AI providers are disabled.
+    """
+
+    base_payload = generate_review_response(review_text, tone=tone, company_name=company_name, industry=industry)
+    base_response = base_payload.get("response", "")
+
+    rating_val: int | None = None
+    try:
+        if rating is not None:
+            rating_val = int(rating)
+    except (TypeError, ValueError):  # pragma: no cover - safe fallback
+        rating_val = None
+
+    response = _inject_channel_context(base_response, channel)
+    response = _apply_variant_tone(response, variant_action)
+    response = _apply_variant_effect(response, variant_action)
+    response = _expand_response(response, rating_val or 0, brand_voice)
+
+    medium = shorten_response(response, limit=520)
+    short = shorten_response(response, limit=260)
+
+    long_response = response
+    if len(long_response) < 360:
+        long_response = f"{long_response} Thank you again for the thoughtful review."
+    long_response = _expand_response(long_response, rating_val or 0, brand_voice)
+
+    responses = {
+        "short": short,
+        "medium": medium,
+        "long": long_response,
+    }
+
+    selected_length = length if length in responses else "medium"
+
+    return {
+        **base_payload,
+        "responses": responses,
+        "selected_length": selected_length,
+        "variant_action": variant_action or "base",
+        "channel": channel or "general",
+        "rating": rating_val,
     }
 
 
