@@ -843,7 +843,6 @@ function setupContentGeneration() {
       setGeneratorStatus(`Plan ready: ${totalPosts || 'draft'} posts generated.`, 'success');
       logGeneratorEvent('success', { planLength: days, platforms, totalPosts });
       generatorUI.async?.asyncState?.setSuccess();
-      generatorUI.async?.overlay?.hide();
       resultsDiv?.classList.remove('hidden');
       resultsDiv?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
@@ -852,7 +851,6 @@ function setupContentGeneration() {
       setGeneratorStatus(message, 'error');
       logGeneratorEvent('error', { message, planLength: days, platforms });
       generatorUI.async?.asyncState?.setError();
-      generatorUI.async?.overlay?.hide();
       generatorUI.async?.banner?.show(message, {
         requestId: data?.request_id,
         endpoint: generatorUI.async?.endpoint,
