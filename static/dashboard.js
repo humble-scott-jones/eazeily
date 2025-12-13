@@ -15,7 +15,14 @@ const generatedViewPrefs = {
   loaded: false
 };
 const PROFILE_FETCH_TIMEOUT_MS = 9000;
-const profileLoadState = { status: 'idle', error: null, requestId: null };
+const profileLoadState = { 
+  status: 'idle', 
+  error: null, 
+  requestId: null, 
+  profileStatus: null,
+  reason: null,
+  recommendedAction: null
+};
 const ACTIVITY_TYPE_META = {
   generated: { label: 'Generated', icon: '✨', color: 'emerald' },
   edited: { label: 'Edited', icon: '✏️', color: 'blue' },
@@ -318,6 +325,9 @@ async function loadUserProfile(options = {}) {
     profile = normalizeProfileResponse(body);
     profileLoadState.status = 'loaded';
     profileLoadState.requestId = body.request_id || null;
+    profileLoadState.profileStatus = body.profile_status || null;
+    profileLoadState.reason = body.reason || null;
+    profileLoadState.recommendedAction = body.recommended_action || null;
   } else {
     const timedOut = fetchError && fetchError.name === 'AbortError';
     const errorMessage = (body && body.error && body.error.message)
@@ -326,6 +336,9 @@ async function loadUserProfile(options = {}) {
     profileLoadState.status = 'error';
     profileLoadState.error = errorMessage;
     profileLoadState.requestId = (body && body.request_id) || null;
+    profileLoadState.profileStatus = null;
+    profileLoadState.reason = null;
+    profileLoadState.recommendedAction = null;
   }
 
   if (profile && typeof profile === 'object') {
@@ -396,14 +409,49 @@ function renderProfileLoadBanner() {
   if (!banner) return;
   const title = document.getElementById('profile-banner-title');
   const message = document.getElementById('profile-banner-message');
-  const shouldShow = profileLoadState.status === 'error';
+  const retryBtn = document.getElementById('profile-banner-retry');
+  const continueBtn = document.getElementById('profile-banner-continue');
+  
+  // Show banner for errors OR when profile is missing/partial
+  const shouldShow = profileLoadState.status === 'error' 
+    || profileLoadState.profileStatus === 'missing' 
+    || profileLoadState.profileStatus === 'partial';
+  
   banner.classList.toggle('hidden', !shouldShow);
   if (!shouldShow) return;
-  if (title) title.textContent = 'Profile failed to load';
-  if (message) {
-    const detail = profileLoadState.error || 'Something went wrong while loading your profile.';
-    const rid = profileLoadState.requestId ? ` (request ${profileLoadState.requestId})` : '';
-    message.textContent = `${detail}${rid}`;
+  
+  // Customize message based on profile status
+  if (profileLoadState.status === 'error') {
+    // Network/server error
+    if (title) title.textContent = 'Unable to load your profile';
+    if (message) {
+      const detail = profileLoadState.error || 'Something went wrong while loading your profile.';
+      const rid = profileLoadState.requestId ? ` (request ${profileLoadState.requestId})` : '';
+      message.textContent = `${detail}${rid}`;
+    }
+    // Show retry button for errors
+    if (retryBtn) retryBtn.classList.remove('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
+  } else if (profileLoadState.profileStatus === 'missing') {
+    // No profile saved yet
+    if (title) title.textContent = 'Profile not set up yet';
+    if (message) {
+      message.textContent = profileLoadState.reason || 'Complete the Setup Wizard to personalize your content and make it sound like you.';
+    }
+    // Hide retry button for missing profile (nothing to retry)
+    if (retryBtn) retryBtn.classList.add('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
+  } else if (profileLoadState.profileStatus === 'partial') {
+    // Profile exists but incomplete
+    if (title) title.textContent = 'Profile incomplete';
+    if (message) {
+      const reason = profileLoadState.reason || 'Some settings are missing.';
+      const action = profileLoadState.recommendedAction || 'Complete your profile in Settings to get better results.';
+      message.textContent = `${reason} ${action}`;
+    }
+    // Hide retry button for partial profile (already loaded successfully)
+    if (retryBtn) retryBtn.classList.add('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
   }
 }
 
@@ -415,8 +463,13 @@ function setupProfileLoadBannerActions() {
   const cont = document.getElementById('profile-banner-continue');
   if (cont) {
     cont.addEventListener('click', () => {
-      profileLoadState.status = 'loaded';
-      profileLoadState.error = null;
+      // Clear error state and dismiss banner
+      if (profileLoadState.status === 'error') {
+        profileLoadState.status = 'loaded';
+        profileLoadState.error = null;
+      }
+      // For missing/partial, user acknowledges and wants to continue
+      profileLoadState.profileStatus = 'acknowledged';
       renderProfileLoadBanner();
     });
   }

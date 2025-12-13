@@ -923,6 +923,56 @@ def _serialize_template_row(row):
     return data
 
 
+def _determine_profile_status(profile: dict) -> Tuple[str, Optional[str], Optional[str]]:
+    """Determine profile completeness status.
+    
+    Returns:
+        Tuple of (status, reason, recommended_action)
+        status: "missing" | "partial" | "ready"
+    """
+    # Check if profile has any meaningful data (not just empty defaults)
+    has_data = bool(
+        profile.get('company') or 
+        profile.get('industry') or 
+        profile.get('tone') or
+        (profile.get('platforms') and len(profile.get('platforms', []))) or
+        (profile.get('brand_keywords') and len(profile.get('brand_keywords', []))) or
+        (profile.get('goals') and len(profile.get('goals', [])))
+    )
+    
+    if not has_data:
+        return (
+            'missing',
+            'No profile settings saved yet',
+            'Complete the Setup Wizard to personalize your content'
+        )
+    
+    # Check for key fields that make a profile "ready"
+    has_company = bool(profile.get('company'))
+    has_industry = bool(profile.get('industry'))
+    has_tone = bool(profile.get('tone'))
+    has_platforms = bool(profile.get('platforms') and len(profile.get('platforms', [])))
+    
+    # Profile is "ready" if it has at least company/industry AND tone
+    if (has_company or has_industry) and has_tone and has_platforms:
+        return ('ready', None, None)
+    
+    # Otherwise it's partial - has some data but missing key fields
+    missing_fields = []
+    if not has_company and not has_industry:
+        missing_fields.append('company/industry')
+    if not has_tone:
+        missing_fields.append('tone')
+    if not has_platforms:
+        missing_fields.append('platforms')
+    
+    return (
+        'partial',
+        f"Profile is incomplete (missing: {', '.join(missing_fields)})",
+        'Complete your profile in Settings to get better results'
+    )
+
+
 def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> dict:
     base = {
         'id': pid,
@@ -1614,15 +1664,52 @@ def api_profile():
         try:
             db = get_db()
             pid = session.get('profile_id')
+            uid = session.get('user_id')
+            
+            # Log profile fetch attempt
+            app.logger.info("profile.fetch", extra={
+                'event': 'profile.fetch',
+                'request_id': request_id,
+                'profile_id': pid,
+                'user_id': uid or 'anon'
+            })
+            
             row = None
             if pid:
                 row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
 
             # Deserialize
             p = _normalize_profile_payload(row, pid)
-            return jsonify({'ok': True, 'profile': p, 'request_id': request_id})
+            
+            # Determine profile status
+            status, reason, recommended_action = _determine_profile_status(p)
+            
+            # Log profile status
+            app.logger.info("profile.loaded", extra={
+                'event': 'profile.loaded',
+                'request_id': request_id,
+                'profile_id': pid,
+                'user_id': uid or 'anon',
+                'profile_status': status,
+                'has_company': bool(p.get('company')),
+                'has_industry': bool(p.get('industry')),
+                'has_tone': bool(p.get('tone')),
+                'platforms_count': len(p.get('platforms', []))
+            })
+            
+            return jsonify({
+                'ok': True, 
+                'profile': p, 
+                'profile_status': status,
+                'reason': reason,
+                'recommended_action': recommended_action,
+                'request_id': request_id
+            })
         except Exception as exc:
-            app.logger.exception("Failed to load profile", exc_info=exc)
+            app.logger.exception("Failed to load profile", exc_info=exc, extra={
+                'event': 'profile.error',
+                'request_id': request_id
+            })
             return jsonify({
                 'ok': False,
                 'error': {'message': 'Unable to load profile right now.'},
