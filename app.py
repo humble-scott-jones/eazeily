@@ -1480,6 +1480,13 @@ def api_generate():
         if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES:
             return _log_and_abort(400, 'Image too large')
 
+        if not USE_OPENAI or openai_client is None:
+            return _log_and_abort(
+                503,
+                'Image-to-post generation requires OpenAI. Add OPENAI_API_KEY or disable image uploads.',
+                event="generator.failed",
+            )
+
         try:
             # Use the helper for image-based generation
             posts = _generate_posts_from_image(data)
