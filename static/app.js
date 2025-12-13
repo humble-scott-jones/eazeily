@@ -2409,18 +2409,11 @@ function initDashboardModes() {
           }
         });
       }
-      // Show reel options
-      const reelOptions = document.getElementById('reel-options');
-      if (reelOptions) reelOptions.classList.remove('hidden');
 
       // Update generate button text
       const genBtn = document.getElementById('generate-content');
       if (genBtn) genBtn.textContent = 'Generate Reels Plan';
     } else if (modeKey === 'social') {
-      // Hide reel options
-      const reelOptions = document.getElementById('reel-options');
-      if (reelOptions) reelOptions.classList.add('hidden');
-
       // Update generate button text
       const genBtn = document.getElementById('generate-content');
       if (genBtn) genBtn.textContent = 'Generate Content';
