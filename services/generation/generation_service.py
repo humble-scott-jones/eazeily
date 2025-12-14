@@ -30,7 +30,7 @@ from .fallback_generator import (
 from .output_schemas import SuccessResponse, ErrorResponse
 from .prompt_trace import create_trace_from_compiler_output
 from .social_post_ready_pipeline import normalize_and_guardrail
-from .social_quality_gate import evaluate_all_posts, attempt_repair
+from .social_validator import validate_and_repair_posts
 
 
 logger = logging.getLogger(__name__)
@@ -273,70 +273,26 @@ class GenerationService:
             # Merge pipeline warnings with brand_kit warnings
             warnings.extend(pipeline_warnings)
             
-            # Quality gate evaluation
-            quality_result = evaluate_all_posts(normalized_posts)
+            # Apply hard validation gate with repair
+            validation_result = validate_and_repair_posts(
+                posts=normalized_posts,
+                openai_client=self.openai_client if openai_used else None,
+                request_id=request_id
+            )
             
-            if not quality_result['passed']:
-                # Some posts failed quality gate - attempt repair if OpenAI available
-                if self.openai_client:
-                    logger.info(f"[{request_id}] Quality gate failed, attempting repair")
-                    repaired_posts = []
-                    
-                    for result in quality_result['results']:
-                        if result['passed']:
-                            # Post already passed, keep it
-                            repaired_posts.append(normalized_posts[result['post_index']])
-                        else:
-                            # Attempt repair
-                            post_card = normalized_posts[result['post_index']]
-                            repair_result = attempt_repair(
-                                post_card=post_card,
-                                evaluation=result,
-                                openai_client=self.openai_client,
-                                context=context,
-                                request_id=request_id
-                            )
-                            
-                            if repair_result['ok']:
-                                repaired_posts.append(repair_result['repaired_card'])
-                            else:
-                                # Repair failed, include original with warning
-                                repaired_posts.append(post_card)
-                                warnings.append(
-                                    f"{post_card.get('platform')}: {repair_result['error']}"
-                                )
-                    
-                    # Re-evaluate repaired posts
-                    final_quality = evaluate_all_posts(repaired_posts)
-                    if final_quality['passed']:
-                        logger.info(f"[{request_id}] Repair successful, all posts now pass")
-                        normalized_posts = repaired_posts
-                    else:
-                        # Still failing after repair - return error
-                        logger.error(f"[{request_id}] Posts still fail after repair")
-                        return self._build_error_response(
-                            request_id=request_id,
-                            code='output_not_post_ready',
-                            message='Generated content does not meet quality standards after repair',
-                            details={'quality_result': final_quality}
-                        )
-                else:
-                    # No OpenAI for repair - if using fallback, add warning but continue
-                    # The fallback generator returns template/guidance format by design
-                    logger.warning(f"[{request_id}] Quality gate failed, no OpenAI available for repair")
-                    if not openai_used:
-                        warnings.append(
-                            "AI generation unavailable - showing template suggestions that may contain guidance"
-                        )
-                        # Continue with fallback output despite quality gate failures
-                    else:
-                        # OpenAI should have been available but isn't, this is an error
-                        return self._build_error_response(
-                            request_id=request_id,
-                            code='output_not_post_ready',
-                            message='Generated content does not meet quality standards',
-                            details={'quality_result': quality_result}
-                        )
+            if not validation_result['ok']:
+                # Validation failed after repair attempt - BLOCK output
+                logger.error(f"[{request_id}] Validation failed after repair - blocking output")
+                return self._build_error_response(
+                    request_id=request_id,
+                    code=validation_result['error']['code'],
+                    message=validation_result['error']['message'],
+                    details=validation_result['error'].get('details')
+                )
+            
+            # Validation passed (possibly after repair)
+            normalized_posts = validation_result['posts']
+            logger.info(f"[{request_id}] All posts passed validation")
             
             # Check for sensitive content in posts
             for post in normalized_posts:
@@ -366,7 +322,7 @@ class GenerationService:
                 summary={
                     'posts_generated': len(normalized_posts),
                     'voice_applied': voice_guide is not None,
-                    'quality_gate_passed': quality_result['passed'],
+                    'validation_passed': validation_result['ok'],
                     'brand_kit_tier': brand_kit_tier
                 },
                 warnings=warnings if warnings else None,

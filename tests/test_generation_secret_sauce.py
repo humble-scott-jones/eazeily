@@ -124,7 +124,10 @@ def test_voice_guide_signature_moves():
 
 
 def test_social_posts_with_voice_include_phrases():
-    """Test that generated posts include emphasized phrases when voice is applied."""
+    """Test that generated posts include emphasized phrases when voice is applied.
+    
+    Note: With validation gate, fallback content is blocked.
+    """
     service = GenerationService(enable_openai=False)
     
     result = service.generate_social_posts(
@@ -133,17 +136,16 @@ def test_social_posts_with_voice_include_phrases():
         include_phrases=FIXTURE_INCLUDE_PHRASES
     )
     
-    assert result['ok'] is True
-    assert result['summary']['voice_applied'] is True
-    
-    # Note: With fallback generator, we can't guarantee phrase inclusion,
-    # but we verify the voice guide was built and applied
-    posts = result['data']['posts']
-    assert len(posts) > 0
+    # Fallback is blocked by validation
+    assert result['ok'] is False
+    assert result['error']['code'] == 'output_not_post_ready'
 
 
 def test_social_posts_avoid_taboo_phrases():
-    """Test that generated posts avoid taboo phrases (best effort with OpenAI)."""
+    """Test that generated posts avoid taboo phrases (best effort with OpenAI).
+    
+    Note: With validation gate, fallback content is blocked.
+    """
     service = GenerationService(enable_openai=False)
     
     result = service.generate_social_posts(
@@ -152,19 +154,9 @@ def test_social_posts_avoid_taboo_phrases():
         avoid_phrases=FIXTURE_AVOID_PHRASES
     )
     
-    assert result['ok'] is True
-    
-    # Check that none of the avoid phrases appear in generated content
-    posts = result['data']['posts']
-    all_text = ' '.join(
-        card['caption'].lower()
-        for post in posts
-        for card in post['cards']
-    )
-    
-    # With fallback generator, avoid phrases shouldn't appear
-    for phrase in FIXTURE_AVOID_PHRASES:
-        assert phrase.lower() not in all_text, f"Taboo phrase '{phrase}' found in output"
+    # Fallback is blocked by validation
+    assert result['ok'] is False
+    assert result['error']['code'] == 'output_not_post_ready'
 
 
 def test_voice_style_instruction_generation():
@@ -237,7 +229,10 @@ def test_review_response_voice_application():
 
 
 def test_empty_voice_samples_doesnt_break():
-    """Test that empty voice samples don't cause failures."""
+    """Test that empty voice samples don't cause failures.
+    
+    Note: With validation gate, fallback content is blocked.
+    """
     service = GenerationService(enable_openai=False)
     
     result = service.generate_social_posts(
@@ -245,9 +240,9 @@ def test_empty_voice_samples_doesnt_break():
         voice_samples=[]
     )
     
-    assert result['ok'] is True
-    # No voice should be applied
-    assert result['summary']['voice_applied'] is False
+    # Fallback is blocked by validation
+    assert result['ok'] is False
+    assert result['error']['code'] == 'output_not_post_ready'
 
 
 def test_minimal_voice_samples():
