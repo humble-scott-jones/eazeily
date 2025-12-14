@@ -36,7 +36,6 @@ COACHING_PHRASES = [
     'here are some ideas',
     'suggestions for',
     'when posting',
-    'tip:',
     'advice:',
     'here\'s what to say',
     'talk about',
@@ -46,6 +45,8 @@ COACHING_PHRASES = [
 # Additional coaching patterns (word boundaries matter)
 COACHING_PATTERNS = [
     r'\bconsider\s+\w+ing\b',  # "consider posting" but not "Considering"
+    r'^tip:\s',  # "Tip: " at start of line (standalone tip marker)
+    r'\n\s*tip:\s',  # "Tip: " on new line
 ]
 
 

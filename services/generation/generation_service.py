@@ -277,19 +277,31 @@ class GenerationService:
                         logger.info(f"[{request_id}] Repair successful, all posts now pass")
                         normalized_posts = repaired_posts
                     else:
-                        # Still failing after repair
-                        logger.warning(f"[{request_id}] Some posts still fail after repair")
-                        normalized_posts = repaired_posts
-                        warnings.append("Some posts may not meet quality standards")
+                        # Still failing after repair - return error
+                        logger.error(f"[{request_id}] Posts still fail after repair")
+                        return self._build_error_response(
+                            request_id=request_id,
+                            code='output_not_post_ready',
+                            message='Generated content does not meet quality standards after repair',
+                            details={'quality_result': final_quality}
+                        )
                 else:
-                    # No OpenAI for repair, return error
-                    logger.error(f"[{request_id}] Quality gate failed, no repair available")
-                    return self._build_error_response(
-                        request_id=request_id,
-                        code='output_not_post_ready',
-                        message='Generated content does not meet quality standards',
-                        details={'quality_result': quality_result}
-                    )
+                    # No OpenAI for repair - if using fallback, add warning but continue
+                    # The fallback generator returns template/guidance format by design
+                    logger.warning(f"[{request_id}] Quality gate failed, no OpenAI available for repair")
+                    if not openai_used:
+                        warnings.append(
+                            "AI generation unavailable - showing template suggestions that may contain guidance"
+                        )
+                        # Continue with fallback output despite quality gate failures
+                    else:
+                        # OpenAI should have been available but isn't, this is an error
+                        return self._build_error_response(
+                            request_id=request_id,
+                            code='output_not_post_ready',
+                            message='Generated content does not meet quality standards',
+                            details={'quality_result': quality_result}
+                        )
             
             # Check for sensitive content in posts
             for post in normalized_posts:

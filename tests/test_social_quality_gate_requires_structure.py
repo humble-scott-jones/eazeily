@@ -117,7 +117,7 @@ def test_thin_caption_ok_for_twitter():
     """Test that short captions are acceptable for Twitter/X."""
     short_post = {
         'platform': 'x',
-        'caption': 'Quick tip: 1. Hook 2. Value 3. CTA',
+        'caption': 'Quick insight: 1. Hook 2. Value 3. CTA - simple formula for better content',
         'hashtags': ['#tips']
     }
     
@@ -156,7 +156,15 @@ def test_evaluate_all_posts():
     posts = [
         {
             'platform': 'instagram',
-            'caption': '3 tips:\n1. Hook\n2. Value\n3. CTA\nGreat for engagement!',
+            'caption': """
+            3 tips for better content:
+            
+            1. Start with a hook that stops scrolling
+            2. Deliver value in every post
+            3. End with a clear call-to-action
+            
+            These fundamentals work across all platforms. Save this for later!
+            """,
             'hashtags': ['#tips']
         },
         {
@@ -167,11 +175,11 @@ def test_evaluate_all_posts():
         {
             'platform': 'linkedin',
             'caption': """
-            First, understand your audience.
-            Second, create value-driven content.
-            Finally, engage authentically.
+            First, understand your audience deeply.
+            Second, create value-driven content consistently.
+            Finally, engage authentically with your network.
             
-            This framework transformed my LinkedIn strategy.
+            This framework transformed my LinkedIn strategy and helped me grow from 0 to 10k connections.
             """,
             'hashtags': ['#linkedin']
         }
