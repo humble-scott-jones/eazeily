@@ -821,6 +821,19 @@ function closePaywall(){
 }
 function showToast(msg){ const t = document.createElement('div'); t.className='fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.classList.add('opacity-0'), 2200); setTimeout(()=>t.remove(), 2800); }
 
+function showSavingFeedback() {
+  const stepTitle = document.getElementById('step-title');
+  if (stepTitle) {
+    const originalText = stepTitle.textContent;
+    stepTitle.textContent = 'Saving...';
+    stepTitle.classList.add('text-purple-500');
+    setTimeout(() => {
+      stepTitle.classList.remove('text-purple-500');
+      // Text will be updated by showStep
+    }, 600);
+  }
+}
+
 function setButtonLoading(btn, loading){
   if (!btn) return; 
   if (loading){ btn.dataset.orig = btn.innerHTML; btn.disabled = true; btn.innerHTML = btn.dataset.loadingText || 'Loading…'; }
@@ -1146,10 +1159,20 @@ function showStep(n){
 
   const progressBar = document.getElementById('progress-bar');
   const progressText = document.getElementById('progress-text');
+  const stepTitle = document.getElementById('step-title');
   if (progressBar && progressText) {
     const progressPercent = (currentDisplay / totalSteps) * 100;
     progressBar.style.width = progressPercent + '%';
     progressText.textContent = `Step ${currentDisplay} of ${totalSteps}`;
+    
+    // Update step title
+    if (stepTitle) {
+      const steps = getWizardSteps();
+      const currentStepData = steps.find(s => parseInt(s.dataStep) === n);
+      if (currentStepData) {
+        stepTitle.textContent = currentStepData.title;
+      }
+    }
   }
 
   // Persist current step to localStorage
@@ -1197,6 +1220,25 @@ function restoreWizardProgress() {
 // Restore progress on load (before hash navigation)
 restoreWizardProgress();
 
+// Add exit confirmation for mid-wizard navigation
+let wizardCompleted = false;
+window.addEventListener('beforeunload', (e) => {
+  // Only show confirmation if user is in the wizard (step 1-4) and hasn't completed
+  if (step >= 1 && step < 5 && !wizardCompleted) {
+    // Check if user has made any progress (selected industry or beyond)
+    if (answers.industry) {
+      e.preventDefault();
+      e.returnValue = 'You can finish later—progress saved.';
+      return e.returnValue;
+    }
+  }
+});
+
+// Mark wizard as completed when user finishes
+function markWizardCompleted() {
+  wizardCompleted = true;
+}
+
 // Check for hash navigation
 if (window.location.hash === '#step4') {
     setTimeout(() => {
@@ -1223,6 +1265,8 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
   
   if (step === 1){
     if (!answers.industry){ showToast('Pick an industry to keep going'); return; }
+    // Show saving feedback briefly
+    showSavingFeedback();
     step = skipStep2 ? 3 : 2;
     showStep(step);
     return;
@@ -1232,6 +1276,8 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
       showToast('Choose at least one focus so we can tailor ideas');
       return;
     }
+    // Show saving feedback briefly
+    showSavingFeedback();
     step = 3;
     showStep(step);
     return;
@@ -1239,6 +1285,8 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
   if (step === 3){
     if (!answers.tone){ showToast('Pick a tone to keep going'); return; }
     if (!answers.platforms || !answers.platforms.length){ showToast('Choose at least one platform'); return; }
+    // Show saving feedback briefly
+    showSavingFeedback();
     step = 4;
     showStep(step);
     return;
@@ -1246,6 +1294,8 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
   if (step === 4){
     // Brand inspiration step - collect data and move to step 5
     collectBrandInspirationData();
+    // Show saving feedback briefly
+    showSavingFeedback();
     step = 5;
     showStep(step);
     return;
@@ -1272,8 +1322,9 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     updateFinishStatus('info', 'Saving your brand voice…', 'Hang tight while we prepare your dashboard.');
     try{
       await saveProfile();
-      updateFinishStatus('info', 'Generating your first post…', 'We're creating a sample so your dashboard feels ready.');
+      updateFinishStatus('info', 'Generating your first post…', "We're creating a sample so your dashboard feels ready.");
       await seedInitialPosts();
+      markWizardCompleted(); // Mark wizard as completed to prevent exit confirmation
       updateFinishStatus('success', 'Brand voice saved', 'Redirecting in 3 seconds…');
       startFinishCountdown(3, () => { window.location.href = '/generate'; });
     }catch(err){
