@@ -2192,7 +2192,15 @@ def api_generate():
                 return _log_and_abort(500, 'Image generation not available', event="generator.failed", code="image_generation_failed")
             duration_ms = int((time.time() - start_ts) * 1000)
             app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
-            body = {'ok': True, 'data': {'posts': posts, 'count': len(posts)}, 'request_id': request_id, 'posts': posts, 'count': len(posts)}
+            body = {
+                'ok': True,
+                'source': 'openai',
+                'mode': 'generated',
+                'data': {'posts': posts, 'count': len(posts)},
+                'request_id': request_id,
+                'posts': posts,
+                'count': len(posts)
+            }
             return jsonify(body)
         except Exception:
             app.logger.exception("Image generation failed", extra={**request_meta, "event": "generator.failed"})
@@ -2208,6 +2216,7 @@ def api_generate():
         openai_callable=lambda normalized: gen_mod.generate_posts_with_openai(request_id=request_id, **normalized),
         fallback_callable=lambda normalized: generate_posts(**{k: v for k, v in normalized.items() if k != 'include_trends'}),
         use_openai=gen_mod.USE_OPENAI_FOR_POSTS,
+        disable_fallback=flags.get('disableFallbackSuggestions', False),
     )
 
     body = dict(service_response.body)
