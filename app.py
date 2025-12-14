@@ -1319,6 +1319,12 @@ def generate_reviews_page():
     return render_template("generate_reviews.html")
 
 
+@app.get("/preview-demo")
+def preview_demo_page():
+    """Demo page for preview templates with live updates."""
+    return render_template("preview_demo.html")
+
+
 @app.get("/settings")
 def settings_page():
     """Workspace settings for account defaults and voice training."""
