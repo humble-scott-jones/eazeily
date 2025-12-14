@@ -673,6 +673,7 @@ def init_db():
             brand_inspirations TEXT,
             brand_anti_inspirations TEXT,
             vibe_preset TEXT,
+            brand_kit_v1 TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS subscriptions (
@@ -1916,6 +1917,314 @@ def api_profile_v2():
                 'details': str(exc) if app.debug else None
             }
         }), 500
+
+
+def _calculate_brand_kit_completeness(brand_kit: dict) -> Tuple[str, float]:
+    """Calculate completeness score and tier for a brand kit.
+    
+    Returns: (tier, score) where tier is "minimum"|"stronger"|"best" and score is 0-100
+    """
+    score = 0.0
+    max_score = 100.0
+    
+    # Core business section (25 points)
+    business = brand_kit.get('business', {})
+    if business.get('company_name'):
+        score += 5
+    if business.get('industry_id'):
+        score += 5
+    if business.get('service_area'):
+        score += 3
+    if business.get('timezone'):
+        score += 2
+    if business.get('booking_url'):
+        score += 3
+    if business.get('contact_email'):
+        score += 4
+    if business.get('contact_phone'):
+        score += 3
+    
+    # Services section (20 points)
+    services = brand_kit.get('services', {})
+    primary_services = services.get('primary_services', [])
+    if len(primary_services) >= 2:
+        score += 10
+    elif len(primary_services) == 1:
+        score += 5
+    if services.get('addons'):
+        score += 3
+    if services.get('pricing_style'):
+        score += 4
+    if services.get('service_constraints'):
+        score += 3
+    
+    # Audience section (25 points)
+    audience = brand_kit.get('audience', {})
+    target_roles = audience.get('target_roles', [])
+    if len(target_roles) >= 1:
+        score += 8
+    top_pains = audience.get('top_pains', [])
+    if len(top_pains) >= 1:
+        score += 8
+    desired_outcomes = audience.get('desired_outcomes', [])
+    if len(desired_outcomes) >= 1:
+        score += 8
+    if audience.get('sophistication'):
+        score += 1
+    
+    # Positioning section (15 points)
+    positioning = brand_kit.get('positioning', {})
+    differentiators = positioning.get('differentiators', [])
+    if len(differentiators) >= 2:
+        score += 10
+    elif len(differentiators) == 1:
+        score += 5
+    if positioning.get('values'):
+        score += 3
+    if positioning.get('boundaries'):
+        score += 2
+    
+    # Proof section (10 points)
+    proof = brand_kit.get('proof', {})
+    if proof.get('credentials'):
+        score += 3
+    if proof.get('years_in_business'):
+        score += 2
+    if proof.get('volume_markers'):
+        score += 2
+    if proof.get('testimonials'):
+        score += 3
+    
+    # Email section (3 points)
+    email = brand_kit.get('email', {})
+    if email.get('sender_name') or email.get('signoff_style') or email.get('signature_lines'):
+        score += 1
+    if email.get('preferred_cta'):
+        score += 1
+    if email.get('links'):
+        score += 1
+    
+    # Quotes section (2 points)
+    quotes = brand_kit.get('quotes', {})
+    if quotes.get('default_validity_days') or quotes.get('deposit_policy'):
+        score += 1
+    if quotes.get('payment_methods') or quotes.get('turnaround_time'):
+        score += 1
+    
+    # Determine tier based on minimum requirements
+    has_minimum_services = len(primary_services) >= 2
+    has_minimum_audience = (len(target_roles) >= 1 and 
+                           len(top_pains) >= 1 and 
+                           len(desired_outcomes) >= 1)
+    has_minimum_positioning = len(differentiators) >= 2
+    
+    if has_minimum_services and has_minimum_audience and has_minimum_positioning:
+        if score >= 75:
+            tier = "best"
+        elif score >= 50:
+            tier = "stronger"
+        else:
+            tier = "minimum"
+    else:
+        tier = "minimum"
+    
+    return tier, min(score, max_score)
+
+
+def _get_default_brand_kit() -> dict:
+    """Return an empty brand kit structure with all sections."""
+    return {
+        'version': 1,
+        'business': {
+            'company_name': None,
+            'industry_id': '',
+            'service_area': None,
+            'timezone': None,
+            'booking_url': None,
+            'contact_email': None,
+            'contact_phone': None
+        },
+        'services': {
+            'primary_services': [],
+            'addons': [],
+            'pricing_style': None,
+            'service_constraints': []
+        },
+        'audience': {
+            'target_roles': [],
+            'top_pains': [],
+            'desired_outcomes': [],
+            'sophistication': None,
+            'objections': []
+        },
+        'positioning': {
+            'differentiators': [],
+            'values': [],
+            'boundaries': []
+        },
+        'proof': {
+            'credentials': [],
+            'years_in_business': None,
+            'volume_markers': None,
+            'testimonials': None
+        },
+        'email': {
+            'sender_name': None,
+            'signoff_style': None,
+            'signature_lines': None,
+            'preferred_cta': None,
+            'links': None
+        },
+        'quotes': {
+            'default_validity_days': None,
+            'deposit_policy': None,
+            'payment_methods': None,
+            'turnaround_time': None,
+            'terms_bullets': None,
+            'disclaimer': None
+        },
+        'assets': {
+            'logo_asset_id': None,
+            'logo_url': None
+        },
+        'meta': {
+            'tier': 'minimum',
+            'completeness_score': 0,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }
+    }
+
+
+@app.route('/api/brand_kit', methods=['GET', 'POST'])
+def api_brand_kit():
+    """
+    Brand Kit v1 endpoint for managing multi-channel brand information.
+    
+    GET returns the current brand kit or default structure.
+    POST creates/updates the brand kit with the provided data.
+    
+    Response always includes:
+    - ok: bool
+    - request_id: str
+    - brand_kit: dict (the brand kit structure)
+    
+    Brand Kit is separate from Brand Inspiration (which focuses on style/vibe).
+    Brand Kit provides specificity and credibility for Social, Email, and Quote generation.
+    """
+    request_id = _get_request_id()
+    
+    if request.method == 'POST':
+        # Save brand kit
+        uid = session.get('user_id')
+        if not uid:
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Authentication required'
+            }), 401
+        
+        try:
+            data = request.get_json(force=True) or {}
+            brand_kit = data.get('brand_kit', {})
+            
+            # Ensure version is set
+            if 'version' not in brand_kit:
+                brand_kit['version'] = 1
+            
+            # Calculate completeness
+            tier, completeness_score = _calculate_brand_kit_completeness(brand_kit)
+            
+            # Update meta section
+            if 'meta' not in brand_kit:
+                brand_kit['meta'] = {}
+            brand_kit['meta']['tier'] = tier
+            brand_kit['meta']['completeness_score'] = completeness_score
+            brand_kit['meta']['updated_at'] = datetime.now(timezone.utc).isoformat()
+            
+            # Save to database
+            db = get_db()
+            brand_kit_json = json.dumps(brand_kit)
+            db.execute(
+                'UPDATE users SET brand_kit_v1 = ? WHERE id = ?',
+                (brand_kit_json, uid)
+            )
+            db.commit()
+            
+            app.logger.info("brand_kit.saved", extra={
+                'event': 'brand_kit.saved',
+                'request_id': request_id,
+                'user_id': uid,
+                'tier': tier,
+                'completeness_score': completeness_score
+            })
+            
+            return jsonify({
+                'ok': True,
+                'request_id': request_id,
+                'brand_kit': brand_kit
+            })
+            
+        except Exception as exc:
+            app.logger.exception("Failed to save brand_kit", exc_info=exc, extra={
+                'event': 'brand_kit.error',
+                'request_id': request_id
+            })
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Unable to save brand kit right now.'
+            }), 500
+    
+    else:  # GET
+        uid = session.get('user_id')
+        
+        try:
+            brand_kit = _get_default_brand_kit()
+            
+            if uid:
+                db = get_db()
+                user_row = db.execute(
+                    'SELECT brand_kit_v1 FROM users WHERE id = ?',
+                    (uid,)
+                ).fetchone()
+                
+                if user_row:
+                    user_dict = row_to_mapping(user_row)
+                    brand_kit_json = user_dict.get('brand_kit_v1')
+                    if brand_kit_json:
+                        try:
+                            saved_kit = json.loads(brand_kit_json)
+                            # Merge saved data with defaults to ensure all sections exist
+                            brand_kit.update(saved_kit)
+                        except json.JSONDecodeError:
+                            app.logger.warning("Invalid brand_kit JSON", extra={
+                                'request_id': request_id,
+                                'user_id': uid
+                            })
+            
+            app.logger.info("brand_kit.loaded", extra={
+                'event': 'brand_kit.loaded',
+                'request_id': request_id,
+                'user_id': uid or 'anon',
+                'tier': brand_kit.get('meta', {}).get('tier', 'minimum')
+            })
+            
+            return jsonify({
+                'ok': True,
+                'request_id': request_id,
+                'brand_kit': brand_kit
+            })
+            
+        except Exception as exc:
+            app.logger.exception("Failed to load brand_kit", exc_info=exc, extra={
+                'event': 'brand_kit.error',
+                'request_id': request_id
+            })
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Unable to load brand kit right now.'
+            }), 500
 
 
 def _validate_generate_payload(payload: Mapping[str, Any]) -> dict:
