@@ -361,7 +361,12 @@ const answers = {
     email: { name: "", title: "", contact: "" },
     quotes: { deposit: "", turnaround: "", validity: "", payment_methods: "" },
     logo: null
-  }
+  },
+  selected_focus_topic_ids: [],
+  selected_audience_ids: [],
+  selected_offer_ids: [],
+  selected_proof_ids: [],
+  selected_cta_intent_id: null
 };
 
 const prevBtn = document.getElementById("prev");
@@ -907,6 +912,12 @@ function renderIndustryChoices(list){
       answers.brand_keywords = [...manualKeywords];
       answers.details = {};
       renderIndustryQuestions(opt.key);
+      
+      // Fetch and apply GOOD defaults for this industry
+      fetchAndApplyGoodDefaults(opt.key).catch(err => {
+        console.error('Failed to apply good defaults:', err);
+      });
+      
       // set suggested keywords and note placeholder for this industry
       try{
         const noteInput = document.getElementById('note');
@@ -976,6 +987,63 @@ function clearKeywords(){
   const keywordChips = document.querySelectorAll('#suggested-keywords .choice');
   keywordChips.forEach(chip => chip.classList.remove('selected'));
   updateSummary();
+}
+
+// Fetch and apply GOOD defaults for an industry
+async function fetchAndApplyGoodDefaults(industryKey){
+  if (!industryKey) return;
+  
+  try {
+    const response = await fetch(`/api/industry_packs/${industryKey}/good_defaults`, {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch good_defaults for ${industryKey}`);
+      return;
+    }
+    
+    const data = await response.json();
+    if (!data.ok || !data.good_defaults) {
+      console.warn(`Invalid good_defaults response for ${industryKey}`);
+      return;
+    }
+    
+    const chipPresets = data.good_defaults.chip_presets || {};
+    
+    // Auto-apply recommended chip selections (but keep them editable)
+    // Only apply if user hasn't already made selections
+    if (!answers.selected_focus_topic_ids || answers.selected_focus_topic_ids.length === 0) {
+      const focusTopics = chipPresets.focus_topics || [];
+      // Auto-select first 3-4 recommended topics
+      answers.selected_focus_topic_ids = focusTopics.slice(0, 3).map(chip => chip.id);
+    }
+    
+    if (!answers.selected_audience_ids || answers.selected_audience_ids.length === 0) {
+      const audienceChips = chipPresets.audience_chips || [];
+      // Auto-select first 2-3 recommended audience chips
+      answers.selected_audience_ids = audienceChips.slice(0, 2).map(chip => chip.id);
+    }
+    
+    if (!answers.selected_offer_ids || answers.selected_offer_ids.length === 0) {
+      const offerChips = chipPresets.offer_chips || [];
+      // Auto-select first 2-3 recommended offer chips
+      answers.selected_offer_ids = offerChips.slice(0, 2).map(chip => chip.id);
+    }
+    
+    if (!answers.selected_proof_ids || answers.selected_proof_ids.length === 0) {
+      const proofChips = chipPresets.proof_chips || [];
+      // Auto-select first 2-3 recommended proof chips
+      answers.selected_proof_ids = proofChips.slice(0, 2).map(chip => chip.id);
+    }
+    
+    // Store the full chip presets for rendering later if needed
+    window.__industryChipPresets = chipPresets;
+    
+    console.log('Applied GOOD defaults for', industryKey, answers.selected_focus_topic_ids);
+  } catch (error) {
+    console.error('Error fetching good_defaults:', error);
+  }
 }
 
 // handle extra keywords input (comma-separated or Enter)
