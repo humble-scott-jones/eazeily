@@ -133,6 +133,38 @@ class CompilerOutput(TypedDict):
 # Prompt Compiler
 # ============================================================================
 
+# Constants for brand inspiration conversion
+VIBE_PRESETS = {
+    'friendly_modern': {
+        'descriptors': ['friendly', 'approachable', 'contemporary'],
+        'do': ['use casual language', 'keep it light', 'be conversational'],
+        'dont': ['be overly formal', 'use jargon']
+    },
+    'premium_minimal': {
+        'descriptors': ['premium', 'sophisticated', 'minimal'],
+        'do': ['use clean language', 'short impactful sentences', 'focus on quality'],
+        'dont': ['overexplain', 'use excessive emojis', 'be chatty']
+    },
+    'clinical_trustworthy': {
+        'descriptors': ['professional', 'trustworthy', 'authoritative'],
+        'do': ['cite facts', 'be clear and direct', 'maintain credibility'],
+        'dont': ['be casual', 'use slang', 'overuse emojis']
+    },
+    'playful_bold': {
+        'descriptors': ['playful', 'energetic', 'bold'],
+        'do': ['use creative language', 'be enthusiastic', 'take risks'],
+        'dont': ['be boring', 'play it too safe']
+    },
+    'no_emojis_direct': {
+        'descriptors': ['direct', 'straightforward', 'clear'],
+        'do': ['get to the point', 'use plain language', 'focus on facts'],
+        'dont': ['use emojis', 'be vague', 'add fluff']
+    }
+}
+
+MAX_DESCRIPTORS = 5  # Maximum number of descriptors to include in voice inspiration
+
+
 class PromptCompiler:
     """Compiles contexts with deterministic precedence into compact, testable prompts."""
     
@@ -417,41 +449,22 @@ class PromptCompiler:
         do_list: List[str] = []
         dont_list: List[str] = []
         
-        # Map vibe presets to descriptors
-        vibe_mapping = {
-            'friendly_modern': {
-                'descriptors': ['friendly', 'approachable', 'contemporary'],
-                'do': ['use casual language', 'keep it light', 'be conversational'],
-                'dont': ['be overly formal', 'use jargon']
-            },
-            'premium_minimal': {
-                'descriptors': ['premium', 'sophisticated', 'minimal'],
-                'do': ['use clean language', 'short impactful sentences', 'focus on quality'],
-                'dont': ['overexplain', 'use excessive emojis', 'be chatty']
-            },
-            'clinical_trustworthy': {
-                'descriptors': ['professional', 'trustworthy', 'authoritative'],
-                'do': ['cite facts', 'be clear and direct', 'maintain credibility'],
-                'dont': ['be casual', 'use slang', 'overuse emojis']
-            },
-            'playful_bold': {
-                'descriptors': ['playful', 'energetic', 'bold'],
-                'do': ['use creative language', 'be enthusiastic', 'take risks'],
-                'dont': ['be boring', 'play it too safe']
-            },
-            'no_emojis_direct': {
-                'descriptors': ['direct', 'straightforward', 'clear'],
-                'do': ['get to the point', 'use plain language', 'focus on facts'],
-                'dont': ['use emojis', 'be vague', 'add fluff']
-            }
-        }
-        
         # Apply vibe preset if selected
-        if vibe_preset and vibe_preset in vibe_mapping:
-            preset = vibe_mapping[vibe_preset]
+        if vibe_preset and vibe_preset in VIBE_PRESETS:
+            preset = VIBE_PRESETS[vibe_preset]
             descriptors.extend(preset['descriptors'])
             do_list.extend(preset['do'])
             dont_list.extend(preset['dont'])
+        
+        # Helper to check for whole word matches in text
+        def has_word(text: str, words: List[str]) -> bool:
+            """Check if any of the words appear as whole words in text."""
+            import re
+            for word in words:
+                # Use word boundaries to avoid false positives like 'unclear' matching 'clear'
+                if re.search(r'\b' + re.escape(word) + r'\b', text):
+                    return True
+            return False
         
         # Extract descriptors from brand "why" notes
         for inspiration in brand_inspirations:
@@ -459,32 +472,32 @@ class PromptCompiler:
             if not why:
                 continue
             
-            # Parse "why" notes for style cues
-            if any(word in why for word in ['simple', 'clean', 'minimal', 'clear']):
+            # Parse "why" notes for style cues with word boundary matching
+            if has_word(why, ['simple', 'clean', 'minimal', 'clear']):
                 if 'simple' not in descriptors:
                     descriptors.append('simple')
                 if 'short sentences' not in do_list:
                     do_list.append('short sentences')
             
-            if any(word in why for word in ['funny', 'humor', 'wit', 'clever']):
+            if has_word(why, ['funny', 'humor', 'wit', 'clever']):
                 if 'playful' not in descriptors:
                     descriptors.append('playful')
                 if 'add humor where appropriate' not in do_list:
                     do_list.append('add humor where appropriate')
             
-            if any(word in why for word in ['professional', 'serious', 'formal']):
+            if has_word(why, ['professional', 'serious', 'formal']):
                 if 'professional' not in descriptors:
                     descriptors.append('professional')
                 if 'avoid casual language' not in dont_list:
                     dont_list.append('avoid casual language')
             
-            if any(word in why for word in ['warm', 'friendly', 'personal']):
+            if has_word(why, ['warm', 'friendly', 'personal']):
                 if 'warm' not in descriptors:
                     descriptors.append('warm')
                 if 'be personable' not in do_list:
                     do_list.append('be personable')
             
-            if any(word in why for word in ['confident', 'bold', 'strong']):
+            if has_word(why, ['confident', 'bold', 'strong']):
                 if 'confident' not in descriptors:
                     descriptors.append('confident')
                 if 'use strong statements' not in do_list:
@@ -501,11 +514,11 @@ class PromptCompiler:
             why = (anti.get('why') or '').lower()
             name = (anti.get('name') or '').lower()
             
-            if any(word in why or word in name for word in ['salesy', 'pushy', 'aggressive']):
+            if has_word(why + ' ' + name, ['salesy', 'pushy', 'aggressive']):
                 if 'avoid aggressive sales language' not in dont_list:
                     dont_list.append('avoid aggressive sales language')
             
-            if any(word in why or word in name for word in ['boring', 'generic', 'bland']):
+            if has_word(why + ' ' + name, ['boring', 'generic', 'bland']):
                 if 'avoid generic phrases' not in dont_list:
                     dont_list.append('avoid generic phrases')
         
@@ -518,9 +531,9 @@ class PromptCompiler:
             dont_list = ['use overly complex language']
         
         return VoiceInspiration(
-            descriptors=descriptors[:5],  # Limit to top 5
-            do=do_list[:5],
-            dont=dont_list[:5],
+            descriptors=descriptors[:MAX_DESCRIPTORS],
+            do=do_list[:MAX_DESCRIPTORS],
+            dont=dont_list[:MAX_DESCRIPTORS],
             vibe_preset=vibe_preset
         )
     
