@@ -1,0 +1,74 @@
+{
+  "id": "quote_project",
+  "name": "Project Quote",
+  "channel": "quote",
+  "description": "Detailed project-based quote",
+  "baseline": {
+    "title": "Project Quote",
+    "introduction": "Thank you for the opportunity to provide a quote. We've outlined the scope and pricing below.",
+    "scope": "Project scope will be detailed here based on initial consultation.",
+    "line_items": [
+      {
+        "description": "Project Phase 1",
+        "quantity": 1,
+        "unit": "phase",
+        "rate": 0,
+        "total": 0
+      }
+    ],
+    "timeline": "Project timeline: TBD based on confirmation.",
+    "terms": "Standard payment terms apply. Quote valid for 30 days.",
+    "deposit_note": "Deposit required to reserve project start date."
+  },
+  "personalized": {
+    "title": "{service} Project Quote",
+    "introduction": "Thank you for considering {service} for your project. We know {audience} face challenges with {pain}, and we're committed to helping you achieve {outcome}.\n\n{differentiator}\n\n{proof}",
+    "scope": "We will deliver {service} that addresses {pain} and ensures {outcome}.",
+    "line_items": [
+      {
+        "description": "{service} - Complete Solution",
+        "quantity": 1,
+        "unit": "project",
+        "rate": 0,
+        "total": 0
+      }
+    ],
+    "timeline": "Expected completion: Based on scope and your schedule.",
+    "terms": "Quote valid for {validity_days} days. {deposit_policy}",
+    "deposit_note": "{deposit_policy}"
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Custom Software Development"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "growing startups"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "manual processes slowing growth"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "automated workflows and scalable systems"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "Agile methodology with weekly demos and flexible scope"
+    },
+    "proof": {
+      "description": "Social proof or credibility",
+      "example": "Delivered 50+ successful projects for startups"
+    },
+    "validity_days": {
+      "description": "Number of days quote is valid",
+      "example": "45"
+    },
+    "deposit_policy": {
+      "description": "Deposit requirements",
+      "example": "30% deposit to begin, milestone payments throughout"
+    }
+  }
+}

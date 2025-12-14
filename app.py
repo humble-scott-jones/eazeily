@@ -1330,6 +1330,12 @@ def generate_reviews_page():
     return render_template("generate_reviews.html")
 
 
+@app.get("/preview-demo")
+def preview_demo_page():
+    """Demo page for preview templates with live updates."""
+    return render_template("preview_demo.html")
+
+
 @app.get("/settings")
 def settings_page():
     """Workspace settings for account defaults and voice training."""
@@ -4356,6 +4362,54 @@ def dev_trends():
         return jsonify({'trends': trends})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.get('/api/preview-templates')
+def api_get_preview_templates():
+    """Get available preview templates for all channels."""
+    try:
+        from preview_builder import PreviewTemplateBuilder
+        builder = PreviewTemplateBuilder()
+        templates = builder.get_all_templates()
+        return jsonify({'ok': True, 'templates': templates})
+    except Exception as e:
+        logging.error(f"Error loading preview templates: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.get('/api/preview-templates/<channel>')
+def api_get_channel_templates(channel):
+    """Get available preview templates for a specific channel."""
+    try:
+        from preview_builder import PreviewTemplateBuilder
+        builder = PreviewTemplateBuilder()
+        templates = builder.get_templates_for_channel(channel)
+        return jsonify({'ok': True, 'channel': channel, 'templates': templates})
+    except Exception as e:
+        logging.error(f"Error loading channel templates: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.post('/api/preview-templates/<channel>/<template_id>')
+def api_build_preview(channel, template_id):
+    """Build a preview from a template with slot substitution."""
+    try:
+        from preview_builder import PreviewTemplateBuilder
+        
+        data = request.get_json(force=True) or {}
+        slots = data.get('slots', {})
+        use_baseline = data.get('use_baseline', False)
+        
+        builder = PreviewTemplateBuilder()
+        preview = builder.build_preview(channel, template_id, slots, use_baseline)
+        
+        if preview is None:
+            return jsonify({'ok': False, 'error': 'Template not found'}), 404
+        
+        return jsonify({'ok': True, 'preview': preview})
+    except Exception as e:
+        logging.error(f"Error building preview: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @app.post('/api/account/upgrade')

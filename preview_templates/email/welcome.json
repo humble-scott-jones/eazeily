@@ -1,0 +1,46 @@
+{
+  "id": "email_welcome",
+  "name": "Welcome Email",
+  "channel": "email",
+  "description": "First contact welcome email for new subscribers",
+  "baseline": {
+    "subject": "Welcome! We're excited to have you",
+    "body": "Hi there,\n\nThank you for joining us! We're thrilled to welcome you to our community.\n\nWe're here to help you get the most out of our services. Stay tuned for tips, updates, and exclusive offers.\n\nBest regards,\nThe Team",
+    "cta": "Get Started"
+  },
+  "personalized": {
+    "subject": "Welcome to {service} - Let's solve {pain}!",
+    "body": "Hi there,\n\nWelcome to {service}! We know {audience} like you struggle with {pain}, and we're here to help you achieve {outcome}.\n\nWhat makes us different? {differentiator}. {proof}.\n\nReady to get started? {cta}\n\nBest regards,\nThe Team",
+    "cta": "{cta}"
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Premium Meal Planning"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "health-conscious families"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "finding time for healthy meal prep"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "nutritious meals without the stress"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "customized plans based on dietary preferences"
+    },
+    "proof": {
+      "description": "Social proof or credibility",
+      "example": "Trusted by 1000+ families"
+    },
+    "cta": {
+      "description": "Call to action",
+      "example": "View your personalized meal plan"
+    }
+  }
+}

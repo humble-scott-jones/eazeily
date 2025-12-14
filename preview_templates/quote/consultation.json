@@ -1,0 +1,80 @@
+{
+  "id": "quote_consultation",
+  "name": "Consultation Quote",
+  "channel": "quote",
+  "description": "Quote for consultation or advisory services",
+  "baseline": {
+    "title": "Consultation Services Quote",
+    "introduction": "Thank you for your interest in our consultation services. Here's what we propose.",
+    "services": [
+      "Initial consultation and assessment",
+      "Detailed analysis and recommendations",
+      "Follow-up support"
+    ],
+    "line_items": [
+      {
+        "description": "Consultation Session",
+        "quantity": 1,
+        "unit": "session",
+        "rate": 0,
+        "total": 0
+      }
+    ],
+    "terms": "Payment required before consultation. Valid for 30 days.",
+    "deposit_note": "Full payment or deposit required to schedule."
+  },
+  "personalized": {
+    "title": "{service} Consultation",
+    "introduction": "Thank you for reaching out about {service}. We help {audience} overcome {pain} and achieve {outcome}.\n\n{differentiator}\n\n{proof}",
+    "services": [
+      "Comprehensive assessment of {pain}",
+      "Customized strategy for {outcome}",
+      "Action plan with next steps"
+    ],
+    "line_items": [
+      {
+        "description": "{service} - Initial Consultation",
+        "quantity": 1,
+        "unit": "session",
+        "rate": 0,
+        "total": 0
+      }
+    ],
+    "terms": "{deposit_policy}. Quote valid for {validity_days} days.",
+    "deposit_note": "{deposit_policy}"
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Business Strategy Consultation"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "business owners"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "stagnant growth"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "clear growth strategy and action plan"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "20+ years of experience scaling businesses"
+    },
+    "proof": {
+      "description": "Social proof or credibility",
+      "example": "Helped 200+ businesses increase revenue by 30%+"
+    },
+    "validity_days": {
+      "description": "Number of days quote is valid",
+      "example": "14"
+    },
+    "deposit_policy": {
+      "description": "Deposit requirements",
+      "example": "Payment in full required to schedule consultation"
+    }
+  }
+}

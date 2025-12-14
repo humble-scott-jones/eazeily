@@ -1,0 +1,56 @@
+{
+  "id": "social_testimonial",
+  "name": "Testimonial Post",
+  "channel": "social",
+  "description": "Customer success story for social media",
+  "baseline": {
+    "caption": "⭐ \"Amazing service! Highly recommend to anyone looking for quality and professionalism.\" - Happy Customer. See what others are saying and book your appointment today!",
+    "hashtags": ["#testimonial", "#customerreview", "#5star"],
+    "platform_hints": {
+      "instagram": "Feature customer photos (with permission)",
+      "facebook": "Share detailed success stories",
+      "linkedin": "Professional endorsements",
+      "twitter": "Quote graphics work well"
+    }
+  },
+  "personalized": {
+    "caption": "⭐ Success Story: {audience} struggled with {pain}, but {service} helped them achieve {outcome}. \"{proof}\" - Satisfied Customer. {differentiator} is what makes the difference. Ready for your transformation? {cta}",
+    "hashtags": ["#successstory", "#{service}", "#transformation"],
+    "platform_hints": {
+      "instagram": "Before/after visuals are powerful",
+      "facebook": "Video testimonials perform best",
+      "linkedin": "Case study format",
+      "twitter": "Customer quote cards"
+    }
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Personal Training"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "A busy executive"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "finding time to stay fit"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "lost 20 pounds and gained confidence"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "Our flexible scheduling and personalized plans"
+    },
+    "proof": {
+      "description": "Social proof or credibility",
+      "example": "Best decision I made this year!"
+    },
+    "cta": {
+      "description": "Call to action",
+      "example": "Start your fitness journey today"
+    }
+  }
+}
