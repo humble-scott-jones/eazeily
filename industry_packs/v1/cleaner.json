@@ -1,0 +1,317 @@
+{
+  "id": "cleaner",
+  "display_name": "Cleaning Service / Maid Service",
+  "icon": "🧹",
+  "primary_customer_goal": "recurring_clients",
+  "version": "1.0.0",
+  
+  "business_profile_fields": {
+    "required": ["services_offered", "service_area", "hours", "booking_method"],
+    "optional": ["pricing_style", "eco_friendly", "insurance_bonded", "team_size", "specialties"],
+    "example_values": {
+      "services_offered": "residential cleaning, deep cleaning, move-in/out, office cleaning, recurring service",
+      "service_area": "Charleston and surrounding areas within 20 miles",
+      "hours": "Mon-Sat 8am-6pm, closed Sunday",
+      "booking_method": "online booking, phone, text, free estimates"
+    }
+  },
+  
+  "default_channel_strategy": {
+    "default_platforms": ["facebook", "instagram", "google"],
+    "content_cadence": "2-3 posts/week",
+    "best_performing_types": [
+      "before/after transformations",
+      "cleaning tips & hacks",
+      "team spotlights",
+      "customer testimonials",
+      "seasonal cleaning reminders",
+      "service highlights"
+    ]
+  },
+  
+  "keyword_banks": {
+    "seed_keywords": [
+      "house cleaning",
+      "deep cleaning",
+      "cleaning service",
+      "maid service",
+      "home cleaning",
+      "professional cleaning",
+      "eco-friendly cleaning",
+      "move-in cleaning",
+      "recurring cleaning",
+      "spring cleaning",
+      "cleaning tips",
+      "spotless home",
+      "cleaning company",
+      "residential cleaning",
+      "trusted cleaners"
+    ],
+    "topic_clusters": [
+      {
+        "name": "transformation_showcase",
+        "intent": "awareness",
+        "examples": ["before/after photos", "deep clean results", "organization wins", "detailed work highlights"]
+      },
+      {
+        "name": "cleaning_education",
+        "intent": "retention",
+        "examples": ["cleaning hacks", "maintenance tips", "product recommendations", "DIY spot treatments"]
+      },
+      {
+        "name": "booking_conversion",
+        "intent": "conversion",
+        "examples": ["service packages", "first-time offers", "recurring plans", "seasonal specials", "availability alerts"]
+      },
+      {
+        "name": "trust_building",
+        "intent": "awareness",
+        "examples": ["team introductions", "insurance/bonding", "background checks", "training highlights", "testimonials"]
+      },
+      {
+        "name": "seasonal_services",
+        "intent": "conversion",
+        "examples": ["spring deep clean", "holiday prep", "post-party cleanup", "move-in/out service", "seasonal maintenance"]
+      }
+    ],
+    "seasonal_hooks": [
+      "spring cleaning season (March-May)",
+      "summer vacation prep (June-July)",
+      "back to school deep clean (August)",
+      "holiday hosting preparation (November-December)",
+      "New Year fresh start (January)",
+      "post-holiday cleanup (January)"
+    ]
+  },
+  
+  "cta_library": {
+    "booking_ctas": [
+      "Book your free estimate",
+      "Schedule your cleaning today",
+      "Get your quote now",
+      "Reserve your spot",
+      "Book online in minutes",
+      "Call for same-week service",
+      "Start your recurring plan",
+      "Claim your first-time discount"
+    ],
+    "inquiry_ctas": [
+      "Text us for pricing",
+      "DM for a custom quote",
+      "Ask about our services",
+      "Questions? Reach out",
+      "Contact us anytime",
+      "Get your questions answered",
+      "Let's discuss your needs",
+      "Chat with our team"
+    ],
+    "review_referral_ctas": [
+      "Refer a neighbor and save",
+      "Leave us a review",
+      "Share your clean home",
+      "Tell friends about us",
+      "Tag someone who needs this",
+      "Write a Google review",
+      "Recommend us to friends",
+      "Share your experience"
+    ],
+    "offer_ctas": [
+      "First cleaning discount available",
+      "Book recurring and save",
+      "Limited spring special",
+      "Ask about our bundles",
+      "Seasonal promotion active",
+      "Neighbor discount available",
+      "Package deal pricing",
+      "Save with monthly service"
+    ]
+  },
+  
+  "compliance_safety_rules": {
+    "forbidden_claims": [
+      "guaranteed stain removal without disclaimers",
+      "100% germ elimination claims",
+      "allergy cure claims",
+      "before/after photos of client homes without permission"
+    ],
+    "privacy_constraints": [
+      "never share client names or addresses without explicit permission",
+      "blur identifiable home details in photos",
+      "no client schedules or security information",
+      "respect client confidentiality"
+    ],
+    "regulated_language_notes": [
+      "use 'professional-grade' instead of medical claims",
+      "mention 'results may vary' for tough stains",
+      "include 'eco-friendly options available' when relevant",
+      "note 'insured and bonded' for trust building"
+    ],
+    "do_not_generate": [
+      "specific security details about client homes",
+      "pesticide or chemical advice beyond general info",
+      "medical claims about allergens or bacteria",
+      "disparaging comments about client homes or neighborhoods"
+    ]
+  },
+  
+  "content_templates": {
+    "social_templates": {
+      "post_structures": [
+        "hook (cleaning pain point) → value (our solution) → proof (before/after) → CTA (book now)",
+        "cleaning tip hook → step-by-step guidance → pro recommendation → CTA (let us help)",
+        "seasonal reminder → service highlight → benefit → CTA (schedule seasonal clean)"
+      ],
+      "reel_structures": [
+        "hook (messy space) → beats (cleaning process) → transformation reveal → CTA (+ shot list: wide before, detail work, sparkle shots, wide after)",
+        "hook (cleaning hack) → beats (demonstration) → quick tip summary → CTA (+ shot list: close-up product, technique demo, result)",
+        "hook (team intro) → beats (day in life) → happy client → CTA (+ shot list: team arriving, working, attention to detail, completion)"
+      ],
+      "content_angles": [
+        "before/after transformations",
+        "cleaning tips & hacks",
+        "team spotlights",
+        "client testimonials",
+        "process transparency",
+        "eco-friendly focus",
+        "seasonal services",
+        "trust & reliability"
+      ]
+    },
+    "email_templates": {
+      "scenarios": [
+        {
+          "name": "quote_follow_up",
+          "required_fields": ["client_name", "quote_details", "service_type"],
+          "recommended_tone": "friendly",
+          "constraints": ["recap quote", "answer questions", "include booking link", "mention availability"],
+          "suggested_cta": "Book your cleaning"
+        },
+        {
+          "name": "appointment_confirmation",
+          "required_fields": ["client_name", "date", "time", "service_type", "team_members"],
+          "recommended_tone": "professional",
+          "constraints": ["clear date/time", "what to expect", "preparation instructions", "contact info"],
+          "suggested_cta": "Add to calendar"
+        },
+        {
+          "name": "appointment_reminder",
+          "required_fields": ["client_name", "date", "time"],
+          "recommended_tone": "friendly",
+          "constraints": ["24-hour advance notice", "preparation reminders", "team arrival time"],
+          "suggested_cta": "Confirm or reschedule"
+        },
+        {
+          "name": "review_request",
+          "required_fields": ["client_name", "service_date"],
+          "recommended_tone": "grateful",
+          "constraints": ["thank client", "easy review link", "referral mention"],
+          "suggested_cta": "Share your feedback"
+        }
+      ]
+    },
+    "quote_scaffolds": {
+      "applicable": true,
+      "quote_line_item_categories": [
+        "standard cleaning (per visit or per sqft)",
+        "deep cleaning services",
+        "specialty areas (windows, carpets, appliances)",
+        "recurring service discount",
+        "add-on services"
+      ],
+      "assumptions_defaults": [
+        "pricing based on square footage and room count",
+        "rates may vary for heavily soiled areas",
+        "recurring service discounts applied",
+        "minimum service charge may apply",
+        "travel fees for locations over [X] miles"
+      ],
+      "warranty_policy_boilerplate": "Your satisfaction is guaranteed. If you're not happy with any aspect of our cleaning, we'll return to address concerns within 24 hours at no charge. Our team is fully insured and bonded for your protection."
+    },
+    "review_reply_guidelines": {
+      "channel_specific": {
+        "google": "respond within 24 hours, thank reviewer, address specific points",
+        "yelp": "acknowledge feedback professionally, offer resolution privately",
+        "facebook": "respond publicly with gratitude, move detailed discussions to DM"
+      },
+      "empathy_patterns": [
+        "Thank you for trusting us with your home",
+        "We appreciate your feedback",
+        "We're thrilled you love your clean space",
+        "We take your concerns seriously"
+      ],
+      "compliance_notes": [
+        "never share client details publicly",
+        "don't argue or make excuses",
+        "offer to make things right privately",
+        "maintain professional, positive tone"
+      ]
+    }
+  },
+  
+  "example_outputs": {
+    "social_post": {
+      "caption": "🧹 Spring cleaning hack: The 15-minute daily reset\n\nPro tip from our team: Spending just 15 minutes each evening prevents the weekend deep-clean marathon.\n\nOur quick routine:\n✅ Wipe kitchen counters\n✅ Load/unload dishwasher\n✅ Quick vacuum high-traffic areas\n✅ Tidy living spaces\n✅ Take out trash\n\nSmall daily habits = cleaner home all week!\n\nOf course, we're always here when you need a professional deep clean or regular maintenance. April booking now open!\n\n📞 Book online or text us\n\n#CleaningTips #HouseCleaning #CleanHome #CleaningHacks #ProfessionalCleaning #SpringCleaning",
+      "platform": "facebook",
+      "pillar": "cleaning_education"
+    },
+    "reel_script": {
+      "hook": "POV: You haven't deep-cleaned your kitchen in 6 months 😬",
+      "beats": [
+        "0-3s: Wide shot of cluttered, grimy kitchen (text: 'Before')",
+        "3-10s: Team arriving with supplies, quick prep montage",
+        "10-18s: Detailed cleaning shots (cabinets, appliances, floors)",
+        "18-24s: Sparkling transformation reveal with natural light",
+        "24-28s: Homeowner reaction or family enjoying clean space",
+        "28-30s: CTA text"
+      ],
+      "cta": "Get your deep clean quote → link in bio",
+      "shot_list": "Wide before, team in action, close-up scrubbing, gleaming surfaces, wide after, satisfied client",
+      "platform": "instagram",
+      "length_seconds": 30
+    },
+    "email": {
+      "subject": "Your Cleaning Quote - Sparkle Clean Co.",
+      "body": "Hi Jennifer,\n\nThank you for requesting a quote for your 3-bedroom, 2-bath home in West Ashley!\n\nBased on the details you provided, here's your custom quote:\n\n📋 STANDARD CLEANING (recurring bi-weekly)\n- 3 bedrooms, 2 bathrooms, kitchen, living areas\n- Dusting, vacuuming, mopping, bathroom sanitizing, kitchen cleaning\n- $120 per visit\n- 2-3 hours, 2-person team\n\n📋 DEEP CLEANING (one-time or quarterly)\n- Everything in standard PLUS detailed work\n- Baseboards, ceiling fans, inside appliances, cabinet fronts\n- $240 (first visit)\n\n💰 RECURRING DISCOUNT: Save 15% on bi-weekly or weekly service\n\nWe're insured, bonded, and background-checked. All cleaning supplies provided, or we're happy to use your preferred eco-friendly products.\n\nAvailability this month:\n- Tuesday, April 18 at 9am\n- Thursday, April 20 at 1pm  \n- Friday, April 21 at 10am\n\nReady to book? Just reply or use our online scheduler.\n\nQuestions? Text me at (843) 555-0156.\n\nLooking forward to making your home sparkle!\n\nBest,\nMaria Rodriguez\nSparkle Clean Co.\n🔗 Book now: [link]",
+      "scenario": "quote_follow_up",
+      "tone": "friendly"
+    },
+    "review_reply": {
+      "review_text": "Maria and her team are amazing! They transformed my house before my family visited. Every corner was spotless, and they even organized my pantry without me asking. Highly recommend!",
+      "response": "Thank you so much, Jennifer! We're thrilled we could help you prepare for your family's visit. Maria loves going the extra mile, and we're so glad you noticed! We appreciate your trust in our team and can't wait to keep your home sparkling. Thank you for the wonderful review! ✨",
+      "channel": "google",
+      "sentiment": "positive"
+    }
+  },
+  
+  "prompt_integration_hooks": {
+    "industry_pack_id": "cleaner",
+    "constraints_for_model": [
+      "DO: Focus on transformation, reliability, and trust",
+      "DO: Use clean, fresh, energetic language",
+      "DO: Highlight team credentials and insurance",
+      "DO: Show before/after with permission disclaimers",
+      "DO: Emphasize eco-friendly options when mentioned",
+      "DON'T: Make absolute cleanliness or germ-elimination claims",
+      "DON'T: Share client addresses or security details",
+      "DON'T: Guarantee stain removal without disclaimers",
+      "DON'T: Disparage client homes or neighborhoods",
+      "DON'T: Make medical claims about allergens"
+    ],
+    "default_do_dont_list": {
+      "do": [
+        "showcase dramatic before/after transformations",
+        "provide helpful cleaning tips and education",
+        "build trust with credentials and testimonials",
+        "create urgency with seasonal and availability messaging",
+        "emphasize convenience and reliability"
+      ],
+      "dont": [
+        "make absolute cleanliness guarantees",
+        "share client personal information",
+        "judge or criticize client homes",
+        "make health/medical claims",
+        "promise impossible results"
+      ]
+    }
+  }
+}

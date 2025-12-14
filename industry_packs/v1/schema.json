@@ -1,0 +1,265 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IndustryPack",
+  "description": "Schema for industry-specific content generation packs",
+  "type": "object",
+  "required": [
+    "id",
+    "display_name",
+    "primary_customer_goal",
+    "version",
+    "business_profile_fields",
+    "default_channel_strategy",
+    "keyword_banks",
+    "cta_library",
+    "compliance_safety_rules",
+    "content_templates",
+    "example_outputs",
+    "prompt_integration_hooks"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the industry pack",
+      "pattern": "^[a-z_]+$"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable name for the industry"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji or icon representing the industry"
+    },
+    "primary_customer_goal": {
+      "type": "string",
+      "enum": ["bookings", "memberships", "recurring_clients", "sales", "leads"],
+      "description": "Primary business goal for this industry"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this industry pack"
+    },
+    "business_profile_fields": {
+      "type": "object",
+      "required": ["required", "optional", "example_values"],
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Required profile fields for this industry"
+        },
+        "optional": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Optional profile fields"
+        },
+        "example_values": {
+          "type": "object",
+          "description": "Example values for wizard hints"
+        }
+      }
+    },
+    "default_channel_strategy": {
+      "type": "object",
+      "required": ["default_platforms", "content_cadence", "best_performing_types"],
+      "properties": {
+        "default_platforms": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "content_cadence": {
+          "type": "string"
+        },
+        "best_performing_types": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "keyword_banks": {
+      "type": "object",
+      "required": ["seed_keywords", "topic_clusters", "seasonal_hooks"],
+      "properties": {
+        "seed_keywords": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 10
+        },
+        "topic_clusters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "intent", "examples"],
+            "properties": {
+              "name": {"type": "string"},
+              "intent": {
+                "type": "string",
+                "enum": ["awareness", "conversion", "retention"]
+              },
+              "examples": {
+                "type": "array",
+                "items": {"type": "string"}
+              }
+            }
+          }
+        },
+        "seasonal_hooks": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "cta_library": {
+      "type": "object",
+      "required": ["booking_ctas", "inquiry_ctas", "review_referral_ctas", "offer_ctas"],
+      "properties": {
+        "booking_ctas": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 3
+        },
+        "inquiry_ctas": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 3
+        },
+        "review_referral_ctas": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 3
+        },
+        "offer_ctas": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 3
+        }
+      }
+    },
+    "compliance_safety_rules": {
+      "type": "object",
+      "required": ["forbidden_claims", "privacy_constraints", "regulated_language_notes", "do_not_generate"],
+      "properties": {
+        "forbidden_claims": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "privacy_constraints": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "regulated_language_notes": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "do_not_generate": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "content_templates": {
+      "type": "object",
+      "required": ["social_templates", "email_templates", "review_reply_guidelines"],
+      "properties": {
+        "social_templates": {
+          "type": "object",
+          "required": ["post_structures", "reel_structures", "content_angles"],
+          "properties": {
+            "post_structures": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "reel_structures": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "content_angles": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
+        "email_templates": {
+          "type": "object",
+          "required": ["scenarios"],
+          "properties": {
+            "scenarios": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "required_fields", "recommended_tone", "constraints", "suggested_cta"]
+              }
+            }
+          }
+        },
+        "quote_scaffolds": {
+          "type": "object",
+          "properties": {
+            "applicable": {"type": "boolean"},
+            "quote_line_item_categories": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "assumptions_defaults": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "warranty_policy_boilerplate": {"type": "string"}
+          }
+        },
+        "review_reply_guidelines": {
+          "type": "object",
+          "required": ["channel_specific", "empathy_patterns", "compliance_notes"],
+          "properties": {
+            "channel_specific": {"type": "object"},
+            "empathy_patterns": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "compliance_notes": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "example_outputs": {
+      "type": "object",
+      "required": ["social_post", "reel_script", "email", "review_reply"],
+      "properties": {
+        "social_post": {"type": "object"},
+        "reel_script": {"type": "object"},
+        "email": {"type": "object"},
+        "review_reply": {"type": "object"}
+      }
+    },
+    "prompt_integration_hooks": {
+      "type": "object",
+      "required": ["industry_pack_id", "constraints_for_model", "default_do_dont_list"],
+      "properties": {
+        "industry_pack_id": {"type": "string"},
+        "constraints_for_model": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "default_do_dont_list": {
+          "type": "object",
+          "required": ["do", "dont"],
+          "properties": {
+            "do": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "dont": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

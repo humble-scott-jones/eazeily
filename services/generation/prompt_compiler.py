@@ -12,6 +12,16 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, TypedDict
 from datetime import datetime, timezone
+try:
+    from industry_pack_loader import load_industry_pack, get_industry_constraints, get_industry_ctas
+except ImportError:
+    # Fallback if industry_pack_loader is not available
+    def load_industry_pack(industry_id: str) -> Optional[Dict[str, Any]]:
+        return None
+    def get_industry_constraints(industry_id: str) -> Dict[str, list[str]]:
+        return {"do": [], "dont": []}
+    def get_industry_ctas(industry_id: str, cta_type: str = "booking_ctas") -> list[str]:
+        return []
 
 
 logger = logging.getLogger(__name__)
@@ -100,6 +110,8 @@ class ModelReadyContext(TypedDict, total=False):
     """Compiled context for model (compact, only essentials)."""
     company_name: str
     industry: str
+    industry_pack_id: Optional[str]
+    industry_constraints: Optional[Dict[str, List[str]]]
     tone: str
     platforms: List[str]
     goals: Optional[List[str]]
@@ -376,9 +388,38 @@ class PromptCompiler:
                 vibe_preset
             )
         
+        # Load industry pack constraints
+        industry = merged.get('industry', 'business')
+        industry_pack_id = None
+        industry_constraints = None
+        
+        # Try to load industry pack for known industries
+        industry_lower = industry.lower().replace(' ', '_').replace('/', '_')
+        # Map industry names to pack IDs
+        industry_map = {
+            'salon': 'salon',
+            'hair_studio': 'salon',
+            'dentist': 'dentist',
+            'dental_practice': 'dentist',
+            'gym': 'gym',
+            'fitness_center': 'gym',
+            'cleaner': 'cleaner',
+            'cleaning_service': 'cleaner',
+            'maid_service': 'cleaner'
+        }
+        
+        pack_id = industry_map.get(industry_lower)
+        if pack_id:
+            constraints = get_industry_constraints(pack_id)
+            if constraints and (constraints.get('do') or constraints.get('dont')):
+                industry_pack_id = pack_id
+                industry_constraints = constraints
+        
         return ModelReadyContext(
             company_name=merged.get('company', ''),
-            industry=merged.get('industry', 'business'),
+            industry=industry,
+            industry_pack_id=industry_pack_id,
+            industry_constraints=industry_constraints,
             tone=merged.get('tone', 'professional'),
             platforms=merged.get('platforms', []),
             goals=merged.get('goals'),
@@ -656,6 +697,18 @@ class PromptCompiler:
             context_parts.append(f"Offerings: {context['offerings']}")
         if context.get('audience'):
             context_parts.append(f"Audience: {context['audience']}")
+        
+        # Industry-specific constraints (if applicable)
+        if context.get('industry_pack_id') and (industry_constraints := context.get('industry_constraints')):
+            constraint_parts = []
+            constraint_parts.append(f"INDUSTRY GUIDELINES ({context.get('industry_pack_id')}):")
+            
+            if do_list := industry_constraints.get('do'):
+                constraint_parts.append(f"  ✓ DO: {'; '.join(do_list[:5])}")
+            if dont_list := industry_constraints.get('dont'):
+                constraint_parts.append(f"  ✗ DON'T: {'; '.join(dont_list[:5])}")
+            
+            context_parts.append("\n".join(constraint_parts))
         
         # Brand inspiration style (if applied) - lower priority than voice fingerprint
         if context.get('inspiration_applied') and (inspiration_style := context.get('inspiration_style')):
