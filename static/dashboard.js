@@ -131,7 +131,7 @@ let generatorHydratedFromProfile = false;
 // Publishing queue state initialization
 const PUBLISHING_QUEUE_STORAGE_KEY = 'eazeily_publishing_queue';
 
-// Use the global namespaced queue state (initialized by publishing_queue_state.js)
+// Use the global namespaced queue state (initialized by publishing_queue_state_init.js)
 // This provides a reference to the namespaced state for backward compatibility
 function getPublishingQueueState() {
   if (window.__EAZEILY__ && window.__EAZEILY__.publishingQueueState) {
@@ -142,7 +142,7 @@ function getPublishingQueueState() {
   return { entries: [], items: [], status: 'idle', lastError: null };
 }
 
-// Note: publishing_queue_state.js MUST be loaded before dashboard.js (enforced in templates)
+// Note: publishing_queue_state_init.js MUST be loaded before dashboard.js (enforced in templates)
 // This ensures the namespaced state is initialized before we create any references to it.
 
 function logGeneratorEvent(event, meta = {}) {
@@ -2285,9 +2285,15 @@ function renderPublishingQueue() {
   const list = document.getElementById('publishing-queue-list');
   const empty = document.getElementById('publishing-queue-empty');
   if (!wrap || !list || !empty) return;
+  
   const queueState = getPublishingQueueState();
+  
+  // Safety: If queue state is completely unavailable, show empty state with message
   if (!queueState || !queueState.entries) {
+    list.innerHTML = '';
+    empty.textContent = queueState ? 'No scheduled items yet' : 'Queue unavailable';
     empty.classList.remove('hidden');
+    wrap.classList.add('hidden'); // Hide wrapper for consistency
     return;
   }
 
@@ -2295,6 +2301,8 @@ function renderPublishingQueue() {
   if (!queueState.entries.length) {
     wrap.classList.add('hidden');
     empty.classList.remove('hidden');
+    // Restore default message
+    empty.textContent = 'Use "Publish now" or "Schedule" on any card to add it to the queue.';
     return;
   }
 
