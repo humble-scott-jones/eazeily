@@ -1551,7 +1551,107 @@ async function generate(days){
     throw new Error(msg);
   }
 
+  // Store source information for banner display
+  if (body) {
+    body.__source = body.source || 'unknown';
+    body.__mode = body.mode || 'unknown';
+    body.__warnings = body.warnings || [];
+  }
+
   return body;
+}
+
+function showFallbackBanner(warnings = []) {
+  let banner = document.getElementById('fallback-banner');
+  
+  // Create banner if it doesn't exist
+  if (!banner) {
+    const resultsContainer = document.getElementById('content-results');
+    if (!resultsContainer) return;
+    
+    banner = document.createElement('div');
+    banner.id = 'fallback-banner';
+    banner.className = 'bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4';
+    banner.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-medium text-amber-800 mb-1">AI generation temporarily unavailable</h3>
+          <p class="text-sm text-amber-700 mb-3">
+            Showing template-based suggestions instead. These are general-purpose posts that may not match your specific brand voice.
+          </p>
+          <div class="flex gap-2 flex-wrap">
+            <button id="retry-with-ai" class="btn-primary text-sm px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md">
+              Retry with AI
+            </button>
+            <button id="continue-with-suggestions" class="btn-ghost text-sm px-4 py-2 text-amber-800 hover:bg-amber-100 rounded-md">
+              Continue with suggestions
+            </button>
+          </div>
+        </div>
+        <button id="dismiss-fallback-banner" class="flex-shrink-0 text-amber-600 hover:text-amber-800">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+    
+    // Insert before results
+    resultsContainer.parentNode.insertBefore(banner, resultsContainer);
+    
+    // Add event listeners
+    const retryBtn = banner.querySelector('#retry-with-ai');
+    const continueBtn = banner.querySelector('#continue-with-suggestions');
+    const dismissBtn = banner.querySelector('#dismiss-fallback-banner');
+    
+    if (retryBtn) {
+      retryBtn.addEventListener('click', async () => {
+        hideFallbackBanner();
+        // Trigger regeneration
+        const generateBtn = document.querySelector('[data-generate-1]') || document.querySelector('button[onclick*="generate"]');
+        if (generateBtn) {
+          generateBtn.click();
+        } else {
+          // Fallback: try to regenerate with last known parameters
+          try {
+            setButtonLoading(retryBtn, true);
+            const data = await generate(7);
+            renderPosts(data);
+          } catch (err) {
+            console.error('Retry failed:', err);
+          } finally {
+            setButtonLoading(retryBtn, false);
+          }
+        }
+      });
+    }
+    
+    if (continueBtn) {
+      continueBtn.addEventListener('click', () => {
+        hideFallbackBanner();
+      });
+    }
+    
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        hideFallbackBanner();
+      });
+    }
+  }
+  
+  banner.classList.remove('hidden');
+}
+
+function hideFallbackBanner() {
+  const banner = document.getElementById('fallback-banner');
+  if (banner) {
+    banner.classList.add('hidden');
+  }
 }
 
 async function seedInitialPosts(){
@@ -1647,6 +1747,18 @@ function renderPosts(data){
   if (!target) return;
   const isWizardPreview = target === results;
   target.innerHTML = "";
+  
+  // Check if this is fallback content and show banner
+  const source = data.__source || data.source || 'unknown';
+  const mode = data.__mode || data.mode || 'unknown';
+  const warnings = data.__warnings || data.warnings || [];
+  
+  if (source === 'fallback' && mode === 'fallback_suggestions') {
+    showFallbackBanner(warnings);
+  } else {
+    hideFallbackBanner();
+  }
+  
   if (!posts.length){
     target.innerHTML = `<div class="text-sm text-slate-600">No posts yet.</div>`;
     if (isWizardPreview) setPreviewCTAState(false);

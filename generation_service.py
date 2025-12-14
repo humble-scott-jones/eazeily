@@ -67,6 +67,7 @@ class GenerationService:
         openai_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
         fallback_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
         use_openai: bool = False,
+        disable_fallback: bool = False,
     ) -> GenerationResponse:
         start_ts = time.time()
         openai_used = False
@@ -120,8 +121,20 @@ class GenerationService:
                     "generation.openai_failed",
                     extra={"request_id": request_id, "endpoint": endpoint, "error_code": error_code},
                 )
+                
+                # If fallback is disabled, return error immediately
+                if disable_fallback:
+                    return self._build_error(
+                        code=error_code,
+                        request_id=request_id,
+                        message="AI generation failed and fallback is disabled.",
+                        status=503,
+                        openai_used=openai_used,
+                        outcome=error_code,
+                        source="openai",
+                    )
 
-        if data is None and fallback_callable:
+        if data is None and fallback_callable and not disable_fallback:
             try:
                 data = self._run_with_timeout(lambda: fallback_callable(normalized))
                 source = "fallback"

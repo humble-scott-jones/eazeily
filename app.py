@@ -2215,6 +2215,7 @@ def api_generate():
         openai_callable=lambda normalized: gen_mod.generate_posts_with_openai(request_id=request_id, **normalized),
         fallback_callable=lambda normalized: generate_posts(**{k: v for k, v in normalized.items() if k != 'include_trends'}),
         use_openai=gen_mod.USE_OPENAI_FOR_POSTS,
+        disable_fallback=flags.get('disableFallbackSuggestions', False),
     )
 
     body = dict(service_response.body)
