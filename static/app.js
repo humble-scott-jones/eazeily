@@ -366,7 +366,14 @@ const answers = {
   selected_audience_ids: [],
   selected_offer_ids: [],
   selected_proof_ids: [],
-  selected_cta_intent_id: null
+  selected_cta_intent_id: null,
+  custom_chips: {
+    focus_topics: [],
+    audience: [],
+    offers: [],
+    proof: [],
+    ctas: []
+  }
 };
 
 const prevBtn = document.getElementById("prev");
@@ -438,6 +445,26 @@ async function loadSavedProfile(){
     }
     if (p.vibe_preset) {
       answers.vibe_preset = p.vibe_preset;
+    }
+    // Load chip selections
+    if (p.selected_focus_topic_ids && Array.isArray(p.selected_focus_topic_ids)) {
+      answers.selected_focus_topic_ids = p.selected_focus_topic_ids;
+    }
+    if (p.selected_audience_ids && Array.isArray(p.selected_audience_ids)) {
+      answers.selected_audience_ids = p.selected_audience_ids;
+    }
+    if (p.selected_offer_ids && Array.isArray(p.selected_offer_ids)) {
+      answers.selected_offer_ids = p.selected_offer_ids;
+    }
+    if (p.selected_proof_ids && Array.isArray(p.selected_proof_ids)) {
+      answers.selected_proof_ids = p.selected_proof_ids;
+    }
+    if (p.selected_cta_intent_id) {
+      answers.selected_cta_intent_id = p.selected_cta_intent_id;
+    }
+    // Load custom chips
+    if (p.custom_chips && typeof p.custom_chips === 'object') {
+      answers.custom_chips = p.custom_chips;
     }
     updateSummary();
   }catch(e){/* ignore */}
@@ -1030,8 +1057,117 @@ async function fetchAndApplyGoodDefaults(industryKey){
     window.__industryChipPresets = chipPresets;
     
     console.log('Applied GOOD defaults for', industryKey, answers.selected_focus_topic_ids);
+    
+    // Render chip groups with the fetched presets
+    renderChipGroups(chipPresets);
   } catch (error) {
     console.error('Error fetching good_defaults:', error);
+  }
+}
+
+// Store chip group instances globally for easy access
+window.__chipGroups = {};
+
+// Render chip groups with industry presets
+function renderChipGroups(chipPresets) {
+  if (!chipPresets || !window.ChipGroup) {
+    console.warn('ChipGroup not available or no chip presets');
+    return;
+  }
+  
+  // Merge custom chips with presets
+  const mergeCustomChips = (presetChips, customChips) => {
+    const chips = [...presetChips];
+    if (customChips && customChips.length > 0) {
+      customChips.forEach(custom => {
+        if (!chips.find(c => c.id === custom.id)) {
+          chips.push(custom);
+        }
+      });
+    }
+    return chips;
+  };
+  
+  // Focus Topics
+  const focusChips = mergeCustomChips(
+    chipPresets.focus_topics || [],
+    answers.custom_chips?.focus_topics || []
+  );
+  window.__chipGroups.focus = new window.ChipGroup({
+    containerId: 'chip-group-focus-topics',
+    title: 'Focus Topics',
+    subtitle: 'What topics do you post about most?',
+    chips: focusChips,
+    selectedIds: answers.selected_focus_topic_ids || [],
+    maxSelect: 3,
+    allowWriteIn: true,
+    groupKey: 'focus_topics',
+    onChangeSelectedIds: (ids) => {
+      answers.selected_focus_topic_ids = ids;
+    }
+  });
+  
+  // Audience
+  const audienceChips = mergeCustomChips(
+    chipPresets.audience_chips || [],
+    answers.custom_chips?.audience || []
+  );
+  window.__chipGroups.audience = new window.ChipGroup({
+    containerId: 'chip-group-audience',
+    title: 'Audience',
+    subtitle: 'Who are you trying to reach?',
+    chips: audienceChips,
+    selectedIds: answers.selected_audience_ids || [],
+    maxSelect: 2,
+    allowWriteIn: true,
+    groupKey: 'audience',
+    onChangeSelectedIds: (ids) => {
+      answers.selected_audience_ids = ids;
+    }
+  });
+  
+  // Offers
+  const offerChips = mergeCustomChips(
+    chipPresets.offer_chips || [],
+    answers.custom_chips?.offers || []
+  );
+  window.__chipGroups.offers = new window.ChipGroup({
+    containerId: 'chip-group-offers',
+    title: 'Offers & Services',
+    subtitle: 'What do you want to promote?',
+    chips: offerChips,
+    selectedIds: answers.selected_offer_ids || [],
+    maxSelect: 2,
+    allowWriteIn: true,
+    groupKey: 'offers',
+    onChangeSelectedIds: (ids) => {
+      answers.selected_offer_ids = ids;
+    }
+  });
+  
+  // Proof
+  const proofChips = mergeCustomChips(
+    chipPresets.proof_chips || [],
+    answers.custom_chips?.proof || []
+  );
+  window.__chipGroups.proof = new window.ChipGroup({
+    containerId: 'chip-group-proof',
+    title: 'Proof & Credibility',
+    subtitle: 'What makes you trustworthy?',
+    chips: proofChips,
+    selectedIds: answers.selected_proof_ids || [],
+    maxSelect: 2,
+    allowWriteIn: true,
+    groupKey: 'proof',
+    onChangeSelectedIds: (ids) => {
+      answers.selected_proof_ids = ids;
+    }
+  });
+  
+  // Show the chip selection section
+  const chipSection = document.getElementById('chip-selection-section');
+  if (chipSection) {
+    chipSection.classList.remove('hidden');
   }
 }
 
