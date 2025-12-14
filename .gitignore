@@ -18,3 +18,5 @@ pytest-report.xml
 .github/audit-logs/*.json
 .env*
 .envrc
+test_swelly.db
+*.db
