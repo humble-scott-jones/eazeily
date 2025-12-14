@@ -286,6 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const hasActivityPanel = Boolean(document.getElementById('activity-panel'));
 
   setupProfileLoadBannerActions();
+  setupBrandKitBanner();
 
   loadUserProfile({ hydrateGenerator: hasGenerator, hydrateVoice: hasVoiceCoach || document.getElementById('voice-coach-summary') });
 
@@ -572,6 +573,51 @@ function setupProfileLoadBannerActions() {
       // For missing/partial, user acknowledges and wants to continue
       profileLoadState.profileStatus = 'acknowledged';
       renderProfileLoadBanner();
+    });
+  }
+}
+
+function setupBrandKitBanner() {
+  const banner = document.getElementById('brand-kit-banner');
+  if (!banner) return;
+  
+  // Check if user has Brand Kit configured
+  fetch('/api/brand_kit')
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok && data.brand_kit) {
+        const kit = data.brand_kit;
+        const hasMinimalBrandKit = kit.services?.primary_services?.length >= 2 &&
+                                    kit.audience?.target_roles?.length >= 1 &&
+                                    kit.audience?.top_pains?.length >= 1 &&
+                                    kit.audience?.desired_outcomes?.length >= 1;
+        
+        // Show banner only if Brand Kit is not configured or incomplete
+        if (!hasMinimalBrandKit) {
+          // Check if banner was dismissed in this session
+          const dismissed = sessionStorage.getItem('brand_kit_banner_dismissed');
+          if (!dismissed) {
+            banner.classList.remove('hidden');
+          }
+        }
+      } else {
+        // No Brand Kit at all, show banner
+        const dismissed = sessionStorage.getItem('brand_kit_banner_dismissed');
+        if (!dismissed) {
+          banner.classList.remove('hidden');
+        }
+      }
+    })
+    .catch(err => {
+      console.error('Failed to check Brand Kit status:', err);
+    });
+  
+  // Setup dismiss button
+  const dismissBtn = document.getElementById('brand-kit-banner-dismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      banner.classList.add('hidden');
+      sessionStorage.setItem('brand_kit_banner_dismissed', 'true');
     });
   }
 }
