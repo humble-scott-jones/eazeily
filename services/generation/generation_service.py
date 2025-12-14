@@ -29,6 +29,8 @@ from .fallback_generator import (
 )
 from .output_schemas import SuccessResponse, ErrorResponse
 from .prompt_trace import create_trace_from_compiler_output
+from .social_post_ready_pipeline import normalize_and_guardrail
+from .social_quality_gate import evaluate_all_posts, attempt_repair
 
 
 logger = logging.getLogger(__name__)
@@ -218,23 +220,93 @@ class GenerationService:
                 )
                 data = validate_and_repair_social_posts(fallback_result)
             
-            # Check for sensitive content in posts
-            warnings = []
-            for post in data.get('posts', []):
-                for card in post.get('cards', []):
-                    caption = card.get('caption', '')
-                    if warning := detect_sensitive_content(caption):
-                        warnings.append(warning)
-                        card['caption'] = sanitize_public_content(caption)
+            # Apply post-ready pipeline normalization
+            pipeline_result = normalize_and_guardrail(
+                raw_output={'data': data},
+                context=context,
+                request_id=request_id
+            )
             
-            # Build response
+            if not pipeline_result.get('ok'):
+                # Pipeline failed, return error
+                return self._build_error_response(
+                    request_id=request_id,
+                    code=pipeline_result['error']['code'],
+                    message=pipeline_result['error']['message']
+                )
+            
+            normalized_posts = pipeline_result['posts']
+            warnings = list(pipeline_result.get('warnings', []))
+            
+            # Quality gate evaluation
+            quality_result = evaluate_all_posts(normalized_posts)
+            
+            if not quality_result['passed']:
+                # Some posts failed quality gate - attempt repair if OpenAI available
+                if self.openai_client:
+                    logger.info(f"[{request_id}] Quality gate failed, attempting repair")
+                    repaired_posts = []
+                    
+                    for result in quality_result['results']:
+                        if result['passed']:
+                            # Post already passed, keep it
+                            repaired_posts.append(normalized_posts[result['post_index']])
+                        else:
+                            # Attempt repair
+                            post_card = normalized_posts[result['post_index']]
+                            repair_result = attempt_repair(
+                                post_card=post_card,
+                                evaluation=result,
+                                openai_client=self.openai_client,
+                                context=context,
+                                request_id=request_id
+                            )
+                            
+                            if repair_result['ok']:
+                                repaired_posts.append(repair_result['repaired_card'])
+                            else:
+                                # Repair failed, include original with warning
+                                repaired_posts.append(post_card)
+                                warnings.append(
+                                    f"{post_card.get('platform')}: {repair_result['error']}"
+                                )
+                    
+                    # Re-evaluate repaired posts
+                    final_quality = evaluate_all_posts(repaired_posts)
+                    if final_quality['passed']:
+                        logger.info(f"[{request_id}] Repair successful, all posts now pass")
+                        normalized_posts = repaired_posts
+                    else:
+                        # Still failing after repair
+                        logger.warning(f"[{request_id}] Some posts still fail after repair")
+                        normalized_posts = repaired_posts
+                        warnings.append("Some posts may not meet quality standards")
+                else:
+                    # No OpenAI for repair, return error
+                    logger.error(f"[{request_id}] Quality gate failed, no repair available")
+                    return self._build_error_response(
+                        request_id=request_id,
+                        code='output_not_post_ready',
+                        message='Generated content does not meet quality standards',
+                        details={'quality_result': quality_result}
+                    )
+            
+            # Check for sensitive content in posts
+            for post in normalized_posts:
+                caption = post.get('caption', '')
+                if warning := detect_sensitive_content(caption):
+                    warnings.append(warning)
+                    post['caption'] = sanitize_public_content(caption)
+            
+            # Build response with post-ready format
             return self._build_success_response(
                 request_id=request_id,
-                data=data,
+                data={'posts': normalized_posts, 'count': len(normalized_posts)},
                 openai_used=openai_used,
                 summary={
-                    'posts_generated': data.get('count', 0),
-                    'voice_applied': voice_guide is not None
+                    'posts_generated': len(normalized_posts),
+                    'voice_applied': voice_guide is not None,
+                    'quality_gate_passed': quality_result['passed']
                 },
                 warnings=warnings if warnings else None
             )

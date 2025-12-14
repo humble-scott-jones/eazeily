@@ -18,38 +18,51 @@ PLATFORM_RULES = {
     'instagram': {
         'max_length': 2200,
         'hashtag_count': 12,
-        'style': 'Visual-first. Use line breaks, 1-2 short paragraphs. Hashtags at end.',
-        'cta': 'Save + share if this helps; link in bio for more'
+        'style': 'Visual-first. Use line breaks, 1-2 short paragraphs. Spacing between sections. 8-15 hashtags at end.',
+        'cta': 'Save + share if this helps; link in bio for more',
+        'tone': 'Friendly but concise, conversational'
     },
     'facebook': {
         'max_length': 1200,
         'hashtag_count': 4,
-        'style': 'Conversational, community-focused. 2-3 paragraphs. Invite comments.',
-        'cta': 'Drop a comment or share with someone who needs this'
+        'style': 'Conversational, community-focused. 2-3 paragraphs. Invite comments. Fewer hashtags.',
+        'cta': 'Drop a comment or share with someone who needs this',
+        'tone': 'Warm and engaging'
     },
     'linkedin': {
         'max_length': 1300,
         'hashtag_count': 5,
-        'style': 'Professional, value-forward. 1-2 actionable insights. Concise.',
-        'cta': 'Add your perspective below or DM for details'
+        'style': 'Professional, value-forward. Short paragraphs (1-3 lines each). 1-2 actionable insights. 0-3 hashtags max.',
+        'cta': 'Add your perspective below or DM for details',
+        'tone': 'Professional but not stiff'
     },
     'twitter': {
         'max_length': 280,
         'hashtag_count': 3,
-        'style': 'Short, punchy. No walls of text. Thread if needed.',
-        'cta': 'Reply with your take or tag a friend'
+        'style': 'Short, punchy. Maximum 280 characters total. No walls of text. Thread format if longer content needed.',
+        'cta': 'Reply with your take or tag a friend',
+        'tone': 'Direct and engaging'
+    },
+    'x': {  # Twitter/X
+        'max_length': 280,
+        'hashtag_count': 3,
+        'style': 'Short, punchy. Maximum 280 characters total. No walls of text. Thread format if longer content needed.',
+        'cta': 'Reply with your take or tag a friend',
+        'tone': 'Direct and engaging'
     },
     'tiktok': {
         'max_length': 1500,
         'hashtag_count': 5,
         'style': 'Hook in first 3 seconds. Short lines. Video-first mindset.',
-        'cta': 'Try it and tell us how it goes in the comments'
+        'cta': 'Try it and tell us how it goes in the comments',
+        'tone': 'Energetic and authentic'
     },
     'youtube': {
         'max_length': 5000,
         'hashtag_count': 6,
         'style': 'Hook + value promise. Clear structure. Timestamps if long.',
-        'cta': 'Subscribe for more and check the pinned link'
+        'cta': 'Subscribe for more and check the pinned link',
+        'tone': 'Educational and enthusiastic'
     },
 }
 
@@ -69,7 +82,13 @@ def _build_system_message(content_type: str) -> str:
             "- Matches the user's voice and tone precisely\n"
             "- Adapts to each platform's style and constraints\n"
             "- Includes relevant hashtags and CTAs\n"
-            "- Provides media ideas when appropriate"
+            "- Provides media ideas when appropriate\n\n"
+            "CRITICAL OUTPUT RULES:\n"
+            "- Return FINAL post copy only. Do not include advice, suggestions, or meta commentary in captions.\n"
+            "- Hashtags must be returned as a list; do not embed them in caption unless specifically requested.\n"
+            "- Each caption must include at least ONE structure signal: numbered steps, bullets, concrete example, or framework.\n"
+            "- Never use coaching phrases like 'you should', 'consider', 'try to', 'make sure to' in the caption itself.\n"
+            "- Hook + value + example/framework + CTA format expected."
         )
     elif content_type == 'reels':
         return base + (
