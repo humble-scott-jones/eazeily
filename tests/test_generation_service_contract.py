@@ -137,7 +137,11 @@ def test_social_posts_request_id_always_present():
 
 
 def test_social_posts_never_returns_empty():
-    """Test that social posts never returns empty posts array."""
+    """Test that social posts never returns empty posts array.
+    
+    Note: With validation gate enabled, fallback content (which contains scaffold text)
+    will be blocked and return an error. This test now verifies the error handling.
+    """
     service = GenerationService(enable_openai=False)
     
     result = service.generate_social_posts(
@@ -148,16 +152,11 @@ def test_social_posts_never_returns_empty():
         }
     )
     
-    assert result['ok'] is True
-    assert 'data' in result
-    assert 'posts' in result['data']
-    assert len(result['data']['posts']) > 0
-    
-    # Each post should have content
-    for post in result['data']['posts']:
-        assert len(post['cards']) > 0
-        for card in post['cards']:
-            assert len(card['caption']) > 0
+    # With validation gate, fallback content is blocked
+    # because it contains scaffold text like "Platform tip:" and "Share a..."
+    assert result['ok'] is False
+    assert 'error' in result
+    assert result['error']['code'] == 'output_not_post_ready'
 
 
 def test_reel_script_never_returns_empty_hook():
@@ -206,10 +205,10 @@ def test_social_posts_with_voice_samples():
         voice_samples=voice_samples
     )
     
-    assert result['ok'] is True
-    assert 'summary' in result
-    # Voice was applied
-    assert result['summary']['voice_applied'] is True
+    # Fallback content is blocked by validation gate
+    assert result['ok'] is False
+    assert 'error' in result
+    assert result['error']['code'] == 'output_not_post_ready'
 
 
 def test_review_response_with_brand_voice():
@@ -258,15 +257,18 @@ def test_review_response_without_brand_voice():
 
 
 def test_warnings_for_sensitive_content():
-    """Test that sensitive content triggers warnings."""
+    """Test that validation blocks scaffold text.
+    
+    Note: With validation gate enabled, fallback content is blocked
+    because it contains scaffold text. The sensitive content check
+    only runs on content that passes validation.
+    """
     service = GenerationService(enable_openai=False)
     
-    # Note: The fallback generator shouldn't produce sensitive content,
-    # but we can test the mechanism by checking the warnings field exists
     result = service.generate_social_posts(
         request={'session_length': 1, 'platforms': ['instagram']}
     )
     
-    assert result['ok'] is True
-    # Warnings field should be present (even if None)
-    assert 'warnings' in result
+    # Fallback is blocked by validation
+    assert result['ok'] is False
+    assert result['error']['code'] == 'output_not_post_ready'
