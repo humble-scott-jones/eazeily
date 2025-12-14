@@ -298,5 +298,165 @@
         "use fear-based marketing"
       ]
     }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Local clients seeking professional hair services and transformations",
+      "pain_points": [
+        "Finding a stylist who understands their hair",
+        "Bad experiences with previous salons",
+        "Unclear pricing and service expectations",
+        "Difficulty booking appointments",
+        "Hair damage from improper techniques"
+      ],
+      "desired_outcomes": [
+        "Healthy, beautiful hair",
+        "A stylist they can trust",
+        "Consistent quality results",
+        "Professional recommendations for their hair type",
+        "Confidence in their appearance"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Haircuts and styling",
+        "Color services (highlights, balayage, full color)",
+        "Hair treatments and conditioning",
+        "Extensions and weaves",
+        "Blowouts and special occasion styling",
+        "Consultations",
+        "Product recommendations",
+        "Bridal and event hair"
+      ],
+      "ctas": [
+        "Book your appointment today",
+        "Schedule your transformation",
+        "Reserve your spot now",
+        "DM us to book",
+        "Limited availability - book now",
+        "Get on our calendar"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Certified stylists with ongoing training",
+        "5-star reviews from satisfied clients",
+        "Before/after transformations (with consent)",
+        "Years of experience in color and cutting",
+        "Premium product lines (Olaplex, etc.)",
+        "Award-winning salon"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "transformation",
+        "label": "Before/After Transformation",
+        "when_to_use": "Showcase dramatic results and technical skill"
+      },
+      {
+        "key": "education",
+        "label": "Hair Care Tips",
+        "when_to_use": "Build trust through expertise and helpful advice"
+      },
+      {
+        "key": "behind_scenes",
+        "label": "Behind the Scenes",
+        "when_to_use": "Show the process and salon culture"
+      },
+      {
+        "key": "testimonial",
+        "label": "Client Testimonial",
+        "when_to_use": "Leverage social proof and word-of-mouth"
+      },
+      {
+        "key": "trend_alert",
+        "label": "Trend Alert",
+        "when_to_use": "Position salon as current and fashion-forward"
+      },
+      {
+        "key": "team_spotlight",
+        "label": "Stylist Spotlight",
+        "when_to_use": "Build personal connection with stylists"
+      },
+      {
+        "key": "seasonal",
+        "label": "Seasonal Look",
+        "when_to_use": "Tie into seasonal trends and events"
+      },
+      {
+        "key": "product_rec",
+        "label": "Product Recommendation",
+        "when_to_use": "Educate on at-home care and retail"
+      }
+    ],
+    "do_say": [
+      "Book your transformation",
+      "Our stylists specialize in...",
+      "Healthy hair starts with...",
+      "Results may vary based on hair type",
+      "Consultation required for custom services",
+      "We use premium products like..."
+    ],
+    "dont_say": [
+      "Guaranteed results (hair varies)",
+      "Permanent solution (without context)",
+      "Fixes all hair problems",
+      "One-size-fits-all approach",
+      "Cheapest in town",
+      "Miracle treatment"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Hair transformations",
+        "Color services",
+        "Haircuts & styling",
+        "Hair care tips",
+        "Seasonal trends",
+        "Product recommendations",
+        "Stylist expertise",
+        "Healthy hair",
+        "Special occasion hair",
+        "Consultation services",
+        "Hair extensions",
+        "Bridal hair"
+      ],
+      "audience_chips": [
+        "Women seeking color",
+        "First-time clients",
+        "Natural hair clients",
+        "Brides and bridal parties",
+        "Men's grooming",
+        "Teens and young adults",
+        "Busy professionals",
+        "Special occasion clients",
+        "Regular maintenance clients",
+        "Hair transformation seekers"
+      ],
+      "offer_chips": [
+        "Free consultation",
+        "New client discount",
+        "Color correction",
+        "Hair treatments",
+        "Same-day appointments",
+        "Online booking",
+        "Flexible scheduling",
+        "Package deals",
+        "Loyalty program",
+        "Gift certificates"
+      ],
+      "proof_chips": [
+        "Certified colorists",
+        "5-star rated",
+        "10+ years experience",
+        "Before/after portfolio",
+        "Ongoing education",
+        "Premium products used",
+        "Award-winning salon",
+        "Client testimonials",
+        "Instagram portfolio",
+        "Licensed professionals"
+      ]
+    }
   }
 }

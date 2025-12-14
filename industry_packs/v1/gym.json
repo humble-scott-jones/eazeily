@@ -306,5 +306,165 @@
         "suggest extreme or risky exercises"
       ]
     }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Local fitness enthusiasts and people starting their wellness journey",
+      "pain_points": [
+        "Feeling intimidated by gyms",
+        "Lack of motivation or accountability",
+        "Not knowing where to start",
+        "Previous failed fitness attempts",
+        "Busy schedules with limited time"
+      ],
+      "desired_outcomes": [
+        "Improved fitness and strength",
+        "Supportive community",
+        "Sustainable healthy habits",
+        "Confidence in the gym",
+        "Visible progress and results"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Gym membership",
+        "Personal training",
+        "Group fitness classes",
+        "Strength training",
+        "Cardio equipment access",
+        "Nutrition guidance",
+        "Member challenges",
+        "Free trial/consultation"
+      ],
+      "ctas": [
+        "Start your free trial",
+        "Book your consultation",
+        "Join our community",
+        "Sign up for a class",
+        "Limited membership spots",
+        "Schedule your first session"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Certified personal trainers",
+        "Member transformation stories (with permission)",
+        "Years of community service",
+        "Welcoming, judgment-free environment",
+        "Thousands of member workouts completed",
+        "Award-winning facility"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "workout_tips",
+        "label": "Workout Tips & Form",
+        "when_to_use": "Educate and show expertise"
+      },
+      {
+        "key": "transformation",
+        "label": "Member Transformation",
+        "when_to_use": "Inspire with success stories (with consent)"
+      },
+      {
+        "key": "motivation",
+        "label": "Motivational Message",
+        "when_to_use": "Encourage and inspire action"
+      },
+      {
+        "key": "class_preview",
+        "label": "Class Preview",
+        "when_to_use": "Showcase specific offerings"
+      },
+      {
+        "key": "trainer_spotlight",
+        "label": "Trainer Spotlight",
+        "when_to_use": "Build connection with staff"
+      },
+      {
+        "key": "community",
+        "label": "Community Highlight",
+        "when_to_use": "Show supportive culture"
+      },
+      {
+        "key": "challenge",
+        "label": "Member Challenge",
+        "when_to_use": "Drive engagement and participation"
+      },
+      {
+        "key": "facility",
+        "label": "Facility/Equipment",
+        "when_to_use": "Highlight gym features"
+      }
+    ],
+    "do_say": [
+      "All fitness levels welcome",
+      "Start where you are",
+      "Our trainers will guide you",
+      "Results take time and consistency",
+      "Join our supportive community",
+      "Free trial available"
+    ],
+    "dont_say": [
+      "Guaranteed results in X weeks",
+      "Get shredded fast",
+      "No pain, no gain (can be harmful)",
+      "Medical weight loss claims",
+      "Body-shaming language",
+      "Before/afters without consent"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Fitness goals",
+        "Personal training",
+        "Group classes",
+        "Member community",
+        "Workout tips",
+        "Beginner friendly",
+        "Strength training",
+        "Cardio",
+        "Transformations",
+        "Challenges",
+        "Nutrition tips",
+        "Motivation"
+      ],
+      "audience_chips": [
+        "Beginners",
+        "Experienced lifters",
+        "Weight loss seekers",
+        "Busy professionals",
+        "Seniors",
+        "Athletes",
+        "Parents",
+        "Post-rehab clients",
+        "Women's fitness",
+        "Men's fitness"
+      ],
+      "offer_chips": [
+        "Free trial",
+        "Personal training",
+        "Group classes",
+        "24/7 access",
+        "No contract options",
+        "Flexible membership",
+        "Student discounts",
+        "Couples membership",
+        "Nutrition coaching",
+        "Challenge programs"
+      ],
+      "proof_chips": [
+        "Certified trainers",
+        "Member success stories",
+        "Clean facility",
+        "Judgment-free zone",
+        "Community focused",
+        "10+ years local",
+        "Modern equipment",
+        "Supportive culture",
+        "5-star reviews",
+        "Award-winning gym"
+      ]
+    }
   }
 }
