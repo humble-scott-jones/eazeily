@@ -1150,6 +1150,34 @@ def legacy_health():
     return readyz()
 
 
+@app.get('/api/version')
+def api_version():
+    """Return version information for deployment verification."""
+    import subprocess
+    
+    # Try to get git commit SHA
+    commit_sha = os.getenv('GIT_SHA', os.getenv('RAILWAY_GIT_COMMIT_SHA', ''))
+    if not commit_sha:
+        try:
+            result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
+                                    capture_output=True, text=True, timeout=1)
+            if result.returncode == 0:
+                commit_sha = result.stdout.strip()
+        except Exception:
+            commit_sha = 'unknown'
+    
+    # Get build timestamp
+    build_time = os.getenv('BUILD_TIME', datetime.now(timezone.utc).isoformat())
+    
+    return jsonify({
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'commit': commit_sha[:8] if commit_sha else 'unknown',
+        'commit_full': commit_sha,
+        'build_time': build_time,
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    })
+
+
 @app.get('/api/debug/health')
 def api_debug_health():
     request_id = _get_request_id()
@@ -2508,7 +2536,7 @@ def api_generate_reviews():
 @app.get('/brand-inspiration-setup')
 def brand_inspiration_setup_page():
     """Brand inspiration setup page (optional step before voice coach)."""
-    initial_user = _get_initial_user_json()
+    initial_user = _initial_user_payload()
     return render_template('brand_inspiration_setup.html', initial_user=initial_user)
 
 
