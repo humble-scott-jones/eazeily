@@ -3221,10 +3221,21 @@ function renderBrandKitChips(containerId, items, type) {
   items.forEach((item, index) => {
     const chip = document.createElement('span');
     chip.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-700';
-    chip.innerHTML = `
-      ${item}
-      <button type="button" class="ml-1 text-purple-500 hover:text-purple-700" data-remove-chip="${type}" data-chip-index="${index}">×</button>
-    `;
+    
+    // Create text node for the item to prevent XSS
+    const itemText = document.createTextNode(item);
+    chip.appendChild(itemText);
+    
+    // Create button element
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'ml-1 text-purple-500 hover:text-purple-700';
+    removeBtn.dataset.removeChip = type;
+    removeBtn.dataset.chipIndex = index.toString();
+    removeBtn.textContent = '×';
+    
+    chip.appendChild(document.createTextNode(' '));
+    chip.appendChild(removeBtn);
     container.appendChild(chip);
   });
 }
@@ -3269,11 +3280,14 @@ function calculateBrandKitTier() {
   if (document.getElementById('bk-payment-methods')?.value.trim()) score += 5;
   if (answers.brand_kit.logo) score += 10;
   
-  // Determine tier
+  // Determine tier based on score thresholds
   let tier = 'minimum';
-  if (score >= 75) tier = 'best';
-  else if (score >= 50) tier = 'stronger';
-  else if (score >= 25) tier = 'minimum';
+  if (score >= 75) {
+    tier = 'best';
+  } else if (score >= 50) {
+    tier = 'stronger';
+  }
+  // else tier remains 'minimum' (for scores 0-49)
   
   updateBrandKitMeter(tier, score);
 }
@@ -3467,12 +3481,13 @@ async function handleLogoUpload(event) {
       
       // All validations passed
       if (successEl) {
-        successEl.textContent = 'Logo uploaded successfully!';
+        successEl.textContent = 'Logo validated successfully! (Upload will complete when you save Brand Kit)';
         successEl.classList.remove('hidden');
       }
       
-      // Store file reference (in real implementation, upload to server)
-      answers.brand_kit.logo = file.name;
+      // Don't store file reference yet - actual upload would happen on save
+      // For now, just mark that a logo was selected and validated
+      answers.brand_kit.logo = null; // Will be uploaded on save in future implementation
       calculateBrandKitTier();
     };
     img.src = e.target.result;
