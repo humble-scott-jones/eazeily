@@ -1068,25 +1068,25 @@ async function fetchAndApplyGoodDefaults(industryKey){
 // Store chip group instances globally for easy access
 window.__chipGroups = {};
 
+// Helper function to merge custom chips with presets
+function mergeCustomChips(presetChips, customChips) {
+  const chips = [...presetChips];
+  if (customChips && customChips.length > 0) {
+    customChips.forEach(custom => {
+      if (!chips.find(c => c.id === custom.id)) {
+        chips.push(custom);
+      }
+    });
+  }
+  return chips;
+}
+
 // Render chip groups with industry presets
 function renderChipGroups(chipPresets) {
   if (!chipPresets || !window.ChipGroup) {
     console.warn('ChipGroup not available or no chip presets');
     return;
   }
-  
-  // Merge custom chips with presets
-  const mergeCustomChips = (presetChips, customChips) => {
-    const chips = [...presetChips];
-    if (customChips && customChips.length > 0) {
-      customChips.forEach(custom => {
-        if (!chips.find(c => c.id === custom.id)) {
-          chips.push(custom);
-        }
-      });
-    }
-    return chips;
-  };
   
   // Focus Topics
   const focusChips = mergeCustomChips(

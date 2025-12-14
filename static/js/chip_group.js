@@ -80,7 +80,8 @@ class ChipGroup {
       .replace(/^_+|_+$/g, '');
     
     // Add a simple hash to avoid collisions
-    const hash = this._simpleHash(label) % 1000;
+    const HASH_RANGE = 1000; // Range for hash collision avoidance
+    const hash = this._simpleHash(label) % HASH_RANGE;
     return `custom_${slug}_${hash}`;
   }
   
