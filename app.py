@@ -14,6 +14,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Tuple, List
 import requests
 from services.generation import GenerationService as NewGenerationService
+import industry_pack_loader
 # Keep old generation_service for backward compatibility during migration
 try:
     from generation_service import GenerationService as OldGenerationService
@@ -858,6 +859,32 @@ def init_db():
             db.execute("ALTER TABLE profiles ADD COLUMN vibe_preset TEXT;")
         except Exception:
             pass
+    # Add chip selection columns for industry pack GOOD defaults
+    if "selected_focus_topic_ids" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_focus_topic_ids TEXT;")
+        except Exception:
+            pass
+    if "selected_audience_ids" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_audience_ids TEXT;")
+        except Exception:
+            pass
+    if "selected_offer_ids" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_offer_ids TEXT;")
+        except Exception:
+            pass
+    if "selected_proof_ids" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_proof_ids TEXT;")
+        except Exception:
+            pass
+    if "selected_cta_intent_id" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_cta_intent_id TEXT;")
+        except Exception:
+            pass
     # ensure users table has is_admin column (backfill for older DBs)
     try:
         ucols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
@@ -1042,7 +1069,12 @@ def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> di
         'timezone': '',
         'brand_inspirations': [],
         'brand_anti_inspirations': [],
-        'vibe_preset': None
+        'vibe_preset': None,
+        'selected_focus_topic_ids': [],
+        'selected_audience_ids': [],
+        'selected_offer_ids': [],
+        'selected_proof_ids': [],
+        'selected_cta_intent_id': None
     }
 
     if not row:
@@ -1065,6 +1097,11 @@ def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> di
     payload['brand_inspirations'] = _deserialize_json(data.get('brand_inspirations'), []) or []
     payload['brand_anti_inspirations'] = _deserialize_json(data.get('brand_anti_inspirations'), []) or []
     payload['vibe_preset'] = data.get('vibe_preset')
+    payload['selected_focus_topic_ids'] = _deserialize_json(data.get('selected_focus_topic_ids'), []) or []
+    payload['selected_audience_ids'] = _deserialize_json(data.get('selected_audience_ids'), []) or []
+    payload['selected_offer_ids'] = _deserialize_json(data.get('selected_offer_ids'), []) or []
+    payload['selected_proof_ids'] = _deserialize_json(data.get('selected_proof_ids'), []) or []
+    payload['selected_cta_intent_id'] = data.get('selected_cta_intent_id')
     if isinstance(payload['details'], dict):
         payload['timezone'] = payload['details'].get('timezone') or payload['details'].get('tz') or ''
     return payload
@@ -1717,6 +1754,13 @@ def api_profile():
         brand_inspirations = json.dumps(data.get('brand_inspirations') or [])
         brand_anti_inspirations = json.dumps(data.get('brand_anti_inspirations') or [])
         vibe_preset = data.get('vibe_preset') or None
+        
+        # Extract chip selection fields
+        selected_focus_topic_ids = json.dumps(data.get('selected_focus_topic_ids') or [])
+        selected_audience_ids = json.dumps(data.get('selected_audience_ids') or [])
+        selected_offer_ids = json.dumps(data.get('selected_offer_ids') or [])
+        selected_proof_ids = json.dumps(data.get('selected_proof_ids') or [])
+        selected_cta_intent_id = data.get('selected_cta_intent_id') or None
 
         # Upsert
         existing = db.execute('SELECT id FROM profiles WHERE id = ?', (pid,)).fetchone()
@@ -1726,14 +1770,16 @@ def api_profile():
                     UPDATE profiles SET 
                     industry=?, tone=?, platforms=?, brand_keywords=?, niche_keywords=?, 
                     goals=?, company=?, include_images=?, details=?, voice_profile=?,
-                    brand_inspirations=?, brand_anti_inspirations=?, vibe_preset=?
+                    brand_inspirations=?, brand_anti_inspirations=?, vibe_preset=?,
+                    selected_focus_topic_ids=?, selected_audience_ids=?, selected_offer_ids=?,
+                    selected_proof_ids=?, selected_cta_intent_id=?
                     WHERE id=?
-                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, pid))
+                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id, pid))
             else:
                 db.execute('''
-                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile, brand_inspirations, brand_anti_inspirations, vibe_preset)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset))
+                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id))
         except Exception as e:
             # Fallback for missing voice_profile column (if migration failed)
             # We catch all exceptions here to be safe, assuming that if the full save fails,
@@ -2274,6 +2320,66 @@ def api_brand_kit():
                 'request_id': request_id,
                 'error': 'Unable to load brand kit right now.'
             }), 500
+
+
+@app.route('/api/industry_packs/<industry_id>/good_defaults', methods=['GET'])
+def api_industry_good_defaults(industry_id: str):
+    """
+    Get GOOD defaults for an industry pack.
+    
+    Returns chip presets (focus_topics, audience_chips, offer_chips, proof_chips),
+    recommended audience, offers, proof points, and content angles.
+    
+    Response:
+    - ok: bool
+    - request_id: str
+    - industry_id: str
+    - good_defaults: dict (chip_presets, audience, offers, proof, content_angles, etc.)
+    """
+    request_id = _get_request_id()
+    
+    try:
+        # Validate industry_id
+        if not industry_id or not isinstance(industry_id, str):
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Invalid industry_id'
+            }), 400
+        
+        # Load good defaults using industry_pack_loader
+        good_defaults = industry_pack_loader.get_good_defaults(industry_id)
+        
+        if not good_defaults:
+            # Fallback to 'general' industry pack
+            app.logger.info(f"Industry pack '{industry_id}' not found, falling back to 'general'")
+            good_defaults = industry_pack_loader.get_good_defaults('general')
+        
+        app.logger.info("industry.good_defaults.loaded", extra={
+            'event': 'industry.good_defaults.loaded',
+            'request_id': request_id,
+            'industry_id': industry_id,
+            'has_chip_presets': 'chip_presets' in good_defaults
+        })
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'industry_id': industry_id,
+            'good_defaults': good_defaults
+        })
+        
+    except Exception as exc:
+        app.logger.exception("Failed to load good_defaults", exc_info=exc, extra={
+            'event': 'industry.good_defaults.error',
+            'request_id': request_id,
+            'industry_id': industry_id
+        })
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': 'Unable to load industry defaults right now.'
+        }), 500
 
 
 def _validate_generate_payload(payload: Mapping[str, Any]) -> dict:

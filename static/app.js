@@ -361,7 +361,12 @@ const answers = {
     email: { name: "", title: "", contact: "" },
     quotes: { deposit: "", turnaround: "", validity: "", payment_methods: "" },
     logo: null
-  }
+  },
+  selected_focus_topic_ids: [],
+  selected_audience_ids: [],
+  selected_offer_ids: [],
+  selected_proof_ids: [],
+  selected_cta_intent_id: null
 };
 
 const prevBtn = document.getElementById("prev");
@@ -907,6 +912,12 @@ function renderIndustryChoices(list){
       answers.brand_keywords = [...manualKeywords];
       answers.details = {};
       renderIndustryQuestions(opt.key);
+      
+      // Fetch and apply GOOD defaults for this industry
+      fetchAndApplyGoodDefaults(opt.key).catch(err => {
+        console.error('Failed to apply good defaults:', err);
+      });
+      
       // set suggested keywords and note placeholder for this industry
       try{
         const noteInput = document.getElementById('note');
@@ -976,6 +987,52 @@ function clearKeywords(){
   const keywordChips = document.querySelectorAll('#suggested-keywords .choice');
   keywordChips.forEach(chip => chip.classList.remove('selected'));
   updateSummary();
+}
+
+// Fetch and apply GOOD defaults for an industry
+async function fetchAndApplyGoodDefaults(industryKey){
+  if (!industryKey) return;
+  
+  try {
+    const response = await fetch(`/api/industry_packs/${industryKey}/good_defaults`, {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch good_defaults for ${industryKey}`);
+      return;
+    }
+    
+    const data = await response.json();
+    if (!data.ok || !data.good_defaults) {
+      console.warn(`Invalid good_defaults response for ${industryKey}`);
+      return;
+    }
+    
+    const chipPresets = data.good_defaults.chip_presets || {};
+    
+    // Helper function to auto-select chips
+    const autoSelectChips = (answersKey, presetKey, count) => {
+      if (!answers[answersKey] || answers[answersKey].length === 0) {
+        const chips = chipPresets[presetKey] || [];
+        answers[answersKey] = chips.slice(0, count).map(chip => chip.id);
+      }
+    };
+    
+    // Auto-apply recommended chip selections (but keep them editable)
+    // Only apply if user hasn't already made selections
+    autoSelectChips('selected_focus_topic_ids', 'focus_topics', 3);
+    autoSelectChips('selected_audience_ids', 'audience_chips', 2);
+    autoSelectChips('selected_offer_ids', 'offer_chips', 2);
+    autoSelectChips('selected_proof_ids', 'proof_chips', 2);
+    
+    // Store the full chip presets for rendering later if needed
+    window.__industryChipPresets = chipPresets;
+    
+    console.log('Applied GOOD defaults for', industryKey, answers.selected_focus_topic_ids);
+  } catch (error) {
+    console.error('Error fetching good_defaults:', error);
+  }
 }
 
 // handle extra keywords input (comma-separated or Enter)
