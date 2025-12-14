@@ -877,6 +877,7 @@ function renderIndustryChoices(list){
         try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
       }catch(e){/* ignore */}
       updateSummary();
+      updateNextButtonState(); // Update button state after selection
       if (step === 1 && nextBtn && typeof nextBtn.focus === 'function'){
         nextBtn.focus();
       }
@@ -964,6 +965,7 @@ function renderToneChoices(list){
       div.classList.add("selected");
       answers.tone = opt.key;
       updateSummary();
+      updateNextButtonState(); // Update button state after selection
     });
     wrap.appendChild(div);
   });
@@ -984,6 +986,7 @@ function renderPlatformChoices(list){
       else { answers.platforms.splice(idx,1); div.classList.remove("selected"); }
       if (answers.platforms.length === 0) answers.platforms = ["instagram"];
       updateSummary();
+      updateNextButtonState(); // Update button state after selection
     });
     if (answers.platforms.includes(opt.key)) div.classList.add("selected");
     wrap.appendChild(div);
@@ -1067,6 +1070,7 @@ function renderIndustryQuestions(key){
             }
           }
           updateSummary();
+          updateNextButtonState(); // Update button state after selection
         });
         grid.appendChild(chip);
       });
@@ -1079,13 +1083,67 @@ function renderIndustryQuestions(key){
       const input = box.querySelector("input");
       // prefill if previously saved
       try{ if (answers.details && answers.details[q.key]) input.value = answers.details[q.key]; }catch(e){}
-      input.addEventListener("input", () => { answers.details = answers.details || {}; answers.details[q.key] = input.value.trim(); updateSummary(); });
+      input.addEventListener("input", () => { 
+        answers.details = answers.details || {}; 
+        answers.details[q.key] = input.value.trim(); 
+        updateSummary(); 
+        updateNextButtonState(); // Update button state after input
+      });
       wrap.appendChild(box);
     }
   });
   skipStep2 = wrap.children.length === 0;
   updateStepTwoState();
 }
+
+// Exit confirmation
+let wizardHasChanges = false;
+let wizardCompleted = false;
+
+// Track changes in wizard
+function markWizardChanged() {
+  if (!wizardCompleted) {
+    wizardHasChanges = true;
+  }
+}
+
+// Mark wizard as completed (don't show exit warning after finish)
+function markWizardCompleted() {
+  wizardCompleted = true;
+  wizardHasChanges = false;
+}
+
+// Add beforeunload handler for wizard exit confirmation
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', (e) => {
+    // Only show if on wizard page, has changes, and not completed
+    const onWizardPage = window.location.pathname === '/' || window.location.pathname === '/app';
+    if (onWizardPage && wizardHasChanges && !wizardCompleted && step < 5) {
+      const message = 'You can finish later—progress saved.';
+      e.preventDefault();
+      e.returnValue = message; // Standard for most browsers
+      return message; // For some older browsers
+    }
+  });
+}
+
+// Track changes when user makes selections
+const originalUpdateSummary = updateSummary;
+function updateSummary() {
+  markWizardChanged();
+  if (originalUpdateSummary) {
+    originalUpdateSummary();
+  }
+}
+
+// Step titles for each step
+const STEP_TITLES = {
+  1: 'Choose your industry',
+  2: 'Add quick context',
+  3: 'Dial in your tone and channels',
+  4: 'Brand Inspiration (Optional)',
+  5: 'Lock in keywords & notes'
+};
 
 function showStep(n){
   if (skipStep2 && n === 2){
@@ -1100,10 +1158,17 @@ function showStep(n){
     if (active) active.classList.remove('hidden');
   }
   if (prevBtn) prevBtn.disabled = step === 1;
-  if (nextBtn) nextBtn.textContent = step >= 5 ? 'Finish' : 'Next';
+  if (nextBtn) nextBtn.textContent = step >= 5 ? 'Finish' : 'Continue';
   if (stepsBar){
     const dots = stepsBar.querySelectorAll('.step') || [];
     dots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
+  }
+
+  // Update mobile stepper
+  const stepsMobile = document.getElementById('steps-mobile');
+  if (stepsMobile) {
+    const mobileDots = stepsMobile.querySelectorAll('.step') || [];
+    mobileDots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
   }
 
   const progressBar = document.getElementById('progress-bar');
@@ -1114,8 +1179,90 @@ function showStep(n){
     progressText.textContent = `Step ${step} of 5`;
   }
 
+  // Update step counter and title display
+  const stepCounter = document.getElementById('step-counter');
+  const stepTitle = document.getElementById('step-title');
+  const stepTitleMobile = document.getElementById('step-title-mobile');
+  const progressBarVisual = document.getElementById('progress-bar-visual');
+  
+  if (stepCounter) {
+    stepCounter.textContent = `Step ${step} of 5`;
+  }
+  
+  const currentStepTitle = STEP_TITLES[step] || '';
+  if (stepTitle) {
+    stepTitle.textContent = currentStepTitle;
+  }
+  if (stepTitleMobile) {
+    stepTitleMobile.textContent = currentStepTitle;
+  }
+  
+  if (progressBarVisual) {
+    const progressPercent = (step / 5) * 100;
+    progressBarVisual.style.width = progressPercent + '%';
+  }
+
+  // Update next button state based on validation
+  updateNextButtonState();
+
   if (step !== 5){
     clearFinishStatus();
+  }
+}
+
+// Check if current step has required fields filled
+function isCurrentStepValid(){
+  if (step === 1){
+    return !!answers.industry;
+  }
+  if (step === 2){
+    // Step 2 can be skipped if no questions, or at least one answer is provided
+    return skipStep2 || hasStepTwoAnswer();
+  }
+  if (step === 3){
+    return !!answers.tone && answers.platforms && answers.platforms.length > 0;
+  }
+  if (step === 4){
+    // Step 4 is optional - always valid
+    return true;
+  }
+  if (step === 5){
+    // Step 5 requires at least attempting to finish
+    return true;
+  }
+  return false;
+}
+
+// Update next button state based on validation
+function updateNextButtonState(){
+  if (!nextBtn) return;
+  
+  const isValid = isCurrentStepValid();
+  
+  // For step 4 (optional), always enable Next
+  if (step === 4) {
+    nextBtn.disabled = false;
+    nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    nextBtn.title = '';
+    return;
+  }
+  
+  if (isValid) {
+    nextBtn.disabled = false;
+    nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    nextBtn.title = '';
+  } else {
+    nextBtn.disabled = true;
+    nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    
+    // Set helpful title based on step
+    if (step === 1) {
+      nextBtn.title = 'Please select an industry to continue';
+    } else if (step === 2) {
+      nextBtn.title = 'Please answer at least one question to continue';
+    } else if (step === 3) {
+      nextBtn.title = 'Please select a tone and at least one platform';
+    }
   }
 }
 
@@ -1139,6 +1286,14 @@ if (prevBtn) prevBtn.addEventListener("click", ()=>{
 if (nextBtn) nextBtn.addEventListener("click", async ()=>{
   if (step === 1){
     if (!answers.industry){ showToast('Pick an industry to keep going'); return; }
+    // Show saving feedback
+    if (nextBtn) {
+      nextBtn.dataset.loadingText = 'Saving…';
+      setButtonLoading(nextBtn, true);
+    }
+    // Small delay to show saving feedback
+    await new Promise(resolve => setTimeout(resolve, 300));
+    if (nextBtn) setButtonLoading(nextBtn, false);
     step = skipStep2 ? 3 : 2;
     showStep(step);
     return;
@@ -1148,6 +1303,13 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
       showToast('Choose at least one focus so we can tailor ideas');
       return;
     }
+    // Show saving feedback
+    if (nextBtn) {
+      nextBtn.dataset.loadingText = 'Saving…';
+      setButtonLoading(nextBtn, true);
+    }
+    await new Promise(resolve => setTimeout(resolve, 300));
+    if (nextBtn) setButtonLoading(nextBtn, false);
     step = 3;
     showStep(step);
     return;
@@ -1155,6 +1317,13 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
   if (step === 3){
     if (!answers.tone){ showToast('Pick a tone to keep going'); return; }
     if (!answers.platforms || !answers.platforms.length){ showToast('Choose at least one platform'); return; }
+    // Show saving feedback
+    if (nextBtn) {
+      nextBtn.dataset.loadingText = 'Saving…';
+      setButtonLoading(nextBtn, true);
+    }
+    await new Promise(resolve => setTimeout(resolve, 300));
+    if (nextBtn) setButtonLoading(nextBtn, false);
     step = 4;
     showStep(step);
     return;
@@ -1162,6 +1331,13 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
   if (step === 4){
     // Brand inspiration step - collect data and move to step 5
     collectBrandInspirationData();
+    // Show saving feedback
+    if (nextBtn) {
+      nextBtn.dataset.loadingText = 'Saving…';
+      setButtonLoading(nextBtn, true);
+    }
+    await new Promise(resolve => setTimeout(resolve, 300));
+    if (nextBtn) setButtonLoading(nextBtn, false);
     step = 5;
     showStep(step);
     return;
@@ -1189,6 +1365,7 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
       await saveProfile();
       updateFinishStatus('info', 'Generating your first post…', 'We're creating a sample so your dashboard feels ready.');
       await seedInitialPosts();
+      markWizardCompleted(); // Mark wizard as completed
       updateFinishStatus('success', 'Brand voice saved', 'Redirecting in 3 seconds…');
       startFinishCountdown(3, () => { window.location.href = '/generate'; });
     }catch(err){
