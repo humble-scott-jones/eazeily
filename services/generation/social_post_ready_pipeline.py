@@ -10,6 +10,10 @@ from typing import Any, Dict, List, Optional, TypedDict
 logger = logging.getLogger(__name__)
 
 
+# Constants
+HASHTAG_LINE_THRESHOLD = 0.5  # Minimum ratio of hashtag words to consider a line as hashtag-heavy
+
+
 class SocialPostCard(TypedDict, total=False):
     """Post-ready social media card for a single platform.
     
@@ -88,7 +92,7 @@ def _extract_hashtags_from_caption(caption: str) -> tuple[str, List[str]]:
     for line in lines:
         # Check if line is mostly hashtags
         words = line.strip().split()
-        if words and sum(1 for w in words if w.startswith('#')) / len(words) > 0.5:
+        if words and sum(1 for w in words if w.startswith('#')) / len(words) > HASHTAG_LINE_THRESHOLD:
             # Extract hashtags from this line
             for word in words:
                 if word.startswith('#'):
@@ -107,7 +111,6 @@ def _normalize_platform_name(platform: str) -> str:
         'ig': 'instagram',
         'fb': 'facebook',
         'li': 'linkedin',
-        'tiktok': 'x',  # Map TikTok to x for now (short form)
     }
     platform_lower = platform.lower().strip()
     return platform_map.get(platform_lower, platform_lower)
