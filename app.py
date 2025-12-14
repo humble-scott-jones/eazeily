@@ -1896,6 +1896,7 @@ def _normalize_generate_payload(payload: Mapping[str, Any]) -> dict:
     normalized['voice_profile'] = payload.get('voice_profile') or {}
     normalized['profile'] = payload.get('profile') or None
     normalized['include_trends'] = bool(payload.get('include_trends'))
+    normalized['variant_types'] = list(payload.get('variant_types') or [])
     return normalized
 
 
