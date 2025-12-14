@@ -820,6 +820,18 @@ def init_db():
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE INDEX IF NOT EXISTS idx_templates_owner_scope ON templates(owner_user_id, scope);
+        CREATE TABLE IF NOT EXISTS user_chip_selections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            profile_id TEXT,
+            industry TEXT NOT NULL,
+            chip_category TEXT NOT NULL,
+            selected_chips TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, profile_id, industry, chip_category)
+        );
+        CREATE INDEX IF NOT EXISTS idx_chip_selections_lookup ON user_chip_selections(user_id, profile_id, industry);
         """
     )
     # Backfill for upgrades
@@ -1958,6 +1970,213 @@ def api_profile_v2():
                 'code': 'internal_error',
                 'message': 'Unable to load profile right now.',
                 'details': str(exc) if app.debug else None
+            }
+        }), 500
+
+
+@app.get("/api/industry_packs/<industry_id>/chips")
+def api_industry_pack_chips(industry_id: str):
+    """
+    Get chip presets for a specific industry pack.
+    
+    Returns:
+        JSON with chip_presets organized by category (focus_topics, audience_chips, offer_chips, proof_chips)
+    """
+    request_id = _get_request_id()
+    
+    try:
+        from industry_pack_loader import get_good_defaults
+        
+        # Get good defaults for this industry (falls back to general if not found)
+        good_defaults = get_good_defaults(industry_id)
+        chip_presets = good_defaults.get('chip_presets', {})
+        
+        # Ensure we have at least empty arrays for each category
+        response_chips = {
+            'focus_topics': chip_presets.get('focus_topics', []),
+            'audience_chips': chip_presets.get('audience_chips', []),
+            'offer_chips': chip_presets.get('offer_chips', []),
+            'proof_chips': chip_presets.get('proof_chips', []),
+            'cta_chips': chip_presets.get('cta_chips', [])
+        }
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'industry_id': industry_id,
+            'chip_presets': response_chips
+        })
+        
+    except Exception as exc:
+        app.logger.exception(f"Failed to load industry pack chips for {industry_id}", exc_info=exc)
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {
+                'code': 'load_failed',
+                'message': f'Failed to load chip presets for industry: {industry_id}'
+            }
+        }), 500
+
+
+@app.get("/api/user_chip_selections")
+def api_get_user_chip_selections():
+    """
+    Get saved chip selections for the current user/profile and industry.
+    
+    Query params:
+        industry: Industry ID to fetch selections for
+    
+    Returns:
+        JSON with saved selections organized by chip category
+    """
+    request_id = _get_request_id()
+    industry = request.args.get('industry')
+    
+    if not industry:
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {'code': 'missing_industry', 'message': 'Industry parameter required'}
+        }), 400
+    
+    try:
+        db = get_db()
+        uid = session.get('user_id')
+        pid = session.get('profile_id')
+        
+        # Build query based on what identifiers we have
+        if uid and pid:
+            query = '''
+                SELECT chip_category, selected_chips, updated_at
+                FROM user_chip_selections
+                WHERE user_id = ? AND profile_id = ? AND industry = ?
+                ORDER BY updated_at DESC
+            '''
+            rows = db.execute(query, (uid, pid, industry)).fetchall()
+        elif pid:
+            query = '''
+                SELECT chip_category, selected_chips, updated_at
+                FROM user_chip_selections
+                WHERE profile_id = ? AND industry = ? AND user_id IS NULL
+                ORDER BY updated_at DESC
+            '''
+            rows = db.execute(query, (pid, industry)).fetchall()
+        else:
+            # No user or profile, return empty
+            return jsonify({
+                'ok': True,
+                'request_id': request_id,
+                'industry': industry,
+                'selections': {},
+                'has_saved_selections': False
+            })
+        
+        # Build selections dict
+        selections = {}
+        for row in rows:
+            category = row['chip_category']
+            chips_json = row['selected_chips']
+            try:
+                selections[category] = json.loads(chips_json)
+            except (json.JSONDecodeError, TypeError):
+                selections[category] = []
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'industry': industry,
+            'selections': selections,
+            'has_saved_selections': len(selections) > 0
+        })
+        
+    except Exception as exc:
+        app.logger.exception("Failed to get user chip selections", exc_info=exc)
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {
+                'code': 'fetch_failed',
+                'message': 'Failed to retrieve chip selections'
+            }
+        }), 500
+
+
+@app.post("/api/user_chip_selections")
+def api_save_user_chip_selections():
+    """
+    Save chip selections for the current user/profile and industry.
+    
+    Request body:
+        {
+            "industry": "salon",
+            "selections": {
+                "focus_topics": ["chip_id_1", "chip_id_2"],
+                "audience_chips": ["chip_id_3"],
+                ...
+            }
+        }
+    
+    Returns:
+        JSON confirmation
+    """
+    request_id = _get_request_id()
+    
+    try:
+        data = request.get_json(force=True) or {}
+        industry = data.get('industry')
+        selections = data.get('selections', {})
+        
+        if not industry:
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': {'code': 'missing_industry', 'message': 'Industry is required'}
+            }), 400
+        
+        db = get_db()
+        uid = session.get('user_id')
+        pid = session.get('profile_id')
+        
+        # Need at least a profile ID to save selections
+        if not pid:
+            pid = str(uuid.uuid4())
+            session['profile_id'] = pid
+        
+        # Save each category
+        saved_count = 0
+        for category, chip_ids in selections.items():
+            if not isinstance(chip_ids, list):
+                continue
+            
+            chips_json = json.dumps(chip_ids)
+            
+            # Upsert the selection
+            db.execute('''
+                INSERT INTO user_chip_selections (user_id, profile_id, industry, chip_category, selected_chips, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id, profile_id, industry, chip_category)
+                DO UPDATE SET selected_chips = ?, updated_at = CURRENT_TIMESTAMP
+            ''', (uid, pid, industry, category, chips_json, chips_json))
+            saved_count += 1
+        
+        db.commit()
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'industry': industry,
+            'saved_categories': saved_count
+        })
+        
+    except Exception as exc:
+        app.logger.exception("Failed to save user chip selections", exc_info=exc)
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {
+                'code': 'save_failed',
+                'message': 'Failed to save chip selections'
             }
         }), 500
 
