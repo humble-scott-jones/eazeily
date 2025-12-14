@@ -18,37 +18,43 @@ PLATFORM_RULES = {
     'instagram': {
         'max_length': 2200,
         'hashtag_count': 12,
-        'style': 'Visual-first. Use line breaks, 1-2 short paragraphs. Hashtags at end.',
+        'style': 'Visual-first. Use line breaks, spacing for readability. 8-15 hashtags at end.',
+        'richness': 'Include numbered steps, bullets, or concrete examples. Longer-form OK.',
         'cta': 'Save + share if this helps; link in bio for more'
     },
     'facebook': {
         'max_length': 1200,
         'hashtag_count': 4,
         'style': 'Conversational, community-focused. 2-3 paragraphs. Invite comments.',
+        'richness': 'Use bullets or examples to make scannable. Moderate length.',
         'cta': 'Drop a comment or share with someone who needs this'
     },
     'linkedin': {
         'max_length': 1300,
         'hashtag_count': 5,
-        'style': 'Professional, value-forward. 1-2 actionable insights. Concise.',
+        'style': 'Professional, value-forward. 1-2 actionable insights. Fewer hashtags (0-3).',
+        'richness': 'Include numbered insights, data points, or case examples. More formal.',
         'cta': 'Add your perspective below or DM for details'
     },
     'twitter': {
         'max_length': 280,
         'hashtag_count': 3,
-        'style': 'Short, punchy. No walls of text. Thread if needed.',
+        'style': 'Short, punchy. Concise (≤280 chars). Optional short follow-up if needed.',
+        'richness': 'Pack value in few words. 1-3 hashtags max.',
         'cta': 'Reply with your take or tag a friend'
     },
     'tiktok': {
         'max_length': 1500,
         'hashtag_count': 5,
         'style': 'Hook in first 3 seconds. Short lines. Video-first mindset.',
+        'richness': 'Use bullets or numbered tips. Video caption style.',
         'cta': 'Try it and tell us how it goes in the comments'
     },
     'youtube': {
         'max_length': 5000,
         'hashtag_count': 6,
         'style': 'Hook + value promise. Clear structure. Timestamps if long.',
+        'richness': 'Detailed steps, timestamps, or chapters. Can be longer.',
         'cta': 'Subscribe for more and check the pinned link'
     },
 }
@@ -65,11 +71,21 @@ def _build_system_message(content_type: str) -> str:
     
     if content_type == 'social':
         return base + (
-            "\n\nFor social media posts, create content that:\n"
-            "- Matches the user's voice and tone precisely\n"
-            "- Adapts to each platform's style and constraints\n"
-            "- Includes relevant hashtags and CTAs\n"
-            "- Provides media ideas when appropriate"
+            "\n\nFor social media posts, create FINAL POST COPY ONLY:\n"
+            "CRITICAL RULES:\n"
+            "- Return ONLY final, paste-ready captions (NO coaching, NO meta commentary)\n"
+            "- NEVER use phrases like 'you should', 'consider adding', 'talk about', 'make sure to'\n"
+            "- NO advice language - write AS IF you ARE the brand, speaking directly to the audience\n"
+            "- Include: hook + value + proof/differentiator (if context available) + clear CTA\n"
+            "- Each post must be RICH and SPECIFIC with at least ONE of:\n"
+            "  * 3+ numbered steps (1., 2., 3.)\n"
+            "  * 3+ checklist bullets\n"
+            "  * Myth vs fact structure\n"
+            "  * Concrete example scenario with industry context\n"
+            "- Adapt to each platform's style and length requirements\n"
+            "- Include platform-appropriate hashtags (IG: 8-15, LinkedIn: 0-3, Twitter: 1-3)\n"
+            "- Use available context (company name, industry, tone) to personalize\n"
+            "- Match the user's voice and tone precisely"
         )
     elif content_type == 'reels':
         return base + (
