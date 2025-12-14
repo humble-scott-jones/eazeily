@@ -2505,6 +2505,13 @@ def api_generate_reviews():
     return jsonify(result), status_code
 
 
+@app.get('/brand-inspiration-setup')
+def brand_inspiration_setup_page():
+    """Brand inspiration setup page (optional step before voice coach)."""
+    initial_user = _get_initial_user_json()
+    return render_template('brand_inspiration_setup.html', initial_user=initial_user)
+
+
 @app.get('/voice-setup')
 def voice_setup_page():
     uid = session.get('user_id')
