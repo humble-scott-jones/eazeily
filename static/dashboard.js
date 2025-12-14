@@ -330,6 +330,16 @@ async function loadUserProfile(options = {}) {
   profileLoadState.status = 'loading';
   profileLoadState.error = null;
   renderProfileLoadBanner();
+  
+  // Show loading state in voice pill
+  const pill = document.getElementById('voice-pill');
+  if (pill) {
+    pill.textContent = 'Loading profile...';
+  }
+  const profileSummary = document.getElementById('profile-defaults-summary');
+  if (profileSummary) {
+    profileSummary.textContent = 'Loading profile...';
+  }
 
   try {
     await ensureAccountFormFields();
@@ -337,61 +347,66 @@ async function loadUserProfile(options = {}) {
     /* ignore form prep errors */
   }
 
+  // Use the Profile Hydrator V2 module with 10s timeout
+  let result = null;
   let profile = null;
-  let response = null;
-  let body = null;
-  let fetchError = null;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(new Error('profile-timeout')), PROFILE_FETCH_TIMEOUT_MS);
-
+  
   try {
-    response = await fetch('/api/profile', { credentials: 'include', signal: controller.signal });
-    body = await response.json().catch(() => null);
-  } catch (error) {
-    fetchError = error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  if (response && response.ok && body && body.ok !== false) {
-    profile = normalizeProfileResponse(body);
-    profileLoadState.status = 'loaded';
-    profileLoadState.requestId = body.request_id || null;
-    profileLoadState.profileStatus = body.profile_status || null;
-    profileLoadState.reason = body.reason || null;
-    profileLoadState.recommendedAction = body.recommended_action || null;
-    
-    // Cache the successfully loaded profile
-    if (profile && profileLoadState.profileStatus === 'ready') {
-      cacheProfile(profile, profileLoadState.profileStatus);
-    }
-  } else {
-    // Try to use cached profile on failure
-    const cached = getCachedProfile();
-    if (cached && cached.profile) {
-      console.log('Using cached profile due to fetch failure');
-      profile = cached.profile;
-      profileLoadState.profileStatus = cached.profileStatus || 'ready';
-      profileLoadState.status = 'loaded_from_cache';
-    }
-    
-    const timedOut = fetchError && fetchError.name === 'AbortError';
-    const errorMessage = (body && body.error && body.error.message)
-      || (timedOut ? 'Profile request timed out. Please retry.' : (fetchError && fetchError.message))
-      || (response ? `Profile request failed (HTTP ${response.status})` : 'Profile request failed.');
-    
-    // Only set error state if we don't have a cached fallback
-    if (!profile) {
-      profileLoadState.status = 'error';
-      profileLoadState.error = errorMessage;
-      profileLoadState.requestId = (body && body.request_id) || null;
-      profileLoadState.profileStatus = null;
-      profileLoadState.reason = null;
-      profileLoadState.recommendedAction = null;
+    // Check if hydrateProfileV2 is available (from profile_hydrator_v2.js)
+    if (typeof window.hydrateProfileV2 === 'function') {
+      console.log('[Dashboard] Using Profile Hydrator V2');
+      result = await window.hydrateProfileV2({
+        timeoutMs: 10000, // 10 second timeout as per spec
+        bypassCache: force
+      });
+      
+      // Map hydrator state to profileLoadState
+      if (result.state === 'loaded') {
+        profile = result.profile;
+        profileLoadState.status = 'loaded';
+        profileLoadState.requestId = result.request_id;
+        profileLoadState.profileStatus = result.profile_status;
+        profileLoadState.reason = result.warnings.length > 0 ? result.warnings.join('; ') : null;
+        profileLoadState.recommendedAction = null;
+      } else if (result.state === 'error') {
+        profileLoadState.status = 'error';
+        profileLoadState.error = result.error?.message || 'Failed to load profile';
+        profileLoadState.requestId = result.request_id;
+        profileLoadState.profileStatus = result.profile_status || null;
+        profileLoadState.reason = null;
+        profileLoadState.recommendedAction = null;
+      }
     } else {
-      // We have cached data, but note there was an issue
-      profileLoadState.error = `${errorMessage} (using cached profile)`;
+      // Fallback to legacy fetch if hydrator not available
+      console.warn('[Dashboard] Profile Hydrator V2 not available, using legacy fetch');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(new Error('profile-timeout')), PROFILE_FETCH_TIMEOUT_MS);
+      
+      try {
+        const response = await fetch('/api/profile', { credentials: 'include', signal: controller.signal });
+        const body = await response.json().catch(() => null);
+        
+        if (response && response.ok && body && body.ok !== false) {
+          profile = normalizeProfileResponse(body);
+          profileLoadState.status = 'loaded';
+          profileLoadState.requestId = body.request_id || null;
+          profileLoadState.profileStatus = body.profile_status || null;
+          profileLoadState.reason = body.reason || null;
+          profileLoadState.recommendedAction = body.recommended_action || null;
+        } else {
+          const errorMessage = (body && body.error && body.error.message) || 'Profile request failed';
+          profileLoadState.status = 'error';
+          profileLoadState.error = errorMessage;
+          profileLoadState.requestId = (body && body.request_id) || null;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
+  } catch (error) {
+    profileLoadState.status = 'error';
+    profileLoadState.error = error.message || 'Unexpected error loading profile';
+    console.error('Failed to load user profile:', error);
   }
 
   if (profile && typeof profile === 'object') {
@@ -4083,7 +4098,16 @@ function hydrateVoiceSummary(data = {}, options = {}){
   setVoiceSummaryField('platforms', source.platforms.map(formatPlatformLabel).join(', '), { missingLabel, ctaLabel });
   const pill = document.getElementById('voice-pill');
   if (pill){
-    pill.textContent = source.company ? `Voice locked: ${source.company}` : 'Voice ready to sync';
+    // Show clear status based on profile state
+    if (options.loading) {
+      pill.textContent = 'Loading profile...';
+    } else if (options.profileMissing) {
+      pill.textContent = 'Voice not set up — Complete setup wizard';
+    } else if (source.company) {
+      pill.textContent = `Voice locked: ${source.company}`;
+    } else {
+      pill.textContent = 'Voice ready to sync';
+    }
   }
   updateToneNote(source.tone);
 }
