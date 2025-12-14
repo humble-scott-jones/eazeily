@@ -1,0 +1,67 @@
+{
+  "model_context": {
+    "company_name": "Gym Example Co.",
+    "industry": "Gym",
+    "industry_pack_id": "gym",
+    "industry_constraints": {
+      "do": [
+        "educate on proper exercise form",
+        "celebrate member progress and effort",
+        "showcase community and trainer support",
+        "motivate with positive, inclusive language",
+        "highlight safety and expertise"
+      ],
+      "dont": [
+        "guarantee specific results or timeframes",
+        "make medical or health claims",
+        "promote unhealthy body standards",
+        "share member data without permission",
+        "suggest extreme or risky exercises"
+      ]
+    },
+    "tone": "professional",
+    "platforms": [
+      "instagram"
+    ],
+    "goals": [
+      "engagement",
+      "bookings"
+    ],
+    "keywords": [
+      "quality",
+      "local",
+      "professional"
+    ],
+    "session_length": 7,
+    "offerings": "high-quality services",
+    "audience": "local community",
+    "voice_applied": false,
+    "voice_style": null,
+    "template_applied": false,
+    "inspiration_applied": false,
+    "inspiration_style": null
+  },
+  "prompt_set": {
+    "system": "You are Eazeily, an expert social media content generator. Generate engaging, on-brand content that sounds natural and human. CRITICAL: Return ONLY valid JSON matching the exact schema provided. Never include private contact information (phone, email, address) in public posts. IMPORTANT: Do not imitate or reproduce trademarked slogans or recognizable brand phrases. Use only general style cues and tone inspiration.",
+    "context": "Company: Gym Example Co.\nIndustry: Gym\nOfferings: high-quality services\nAudience: local community\nINDUSTRY GUIDELINES (gym):\n  \u2713 DO: educate on proper exercise form; celebrate member progress and effort; showcase community and trainer support; motivate with positive, inclusive language; highlight safety and expertise\n  \u2717 DON'T: guarantee specific results or timeframes; make medical or health claims; promote unhealthy body standards; share member data without permission; suggest extreme or risky exercises",
+    "request": "GENERATE: 7 social media posts\nTONE: professional\nPLATFORMS: instagram\nPLATFORM RULES:\n  INSTAGRAM: Visual-first. 2200 chars max. 12 hashtags. Line breaks.\nGOALS: engagement, bookings\nKEYWORDS: quality, local, professional"
+  },
+  "trace_summary": {
+    "content_type": "social",
+    "selections": {
+      "tone": "professional",
+      "platforms": [
+        "instagram"
+      ],
+      "session_length": 7,
+      "goals_count": 2,
+      "keywords_count": 3
+    },
+    "voice_fingerprint_applied": false,
+    "template_used": null,
+    "flags": {
+      "voice_applied": false,
+      "template_applied": false
+    }
+  }
+}
