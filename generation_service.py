@@ -42,10 +42,12 @@ class GenerationService:
             return "bad_output"
         return "unknown"
 
-    def _build_error(self, *, code: str, request_id: str, message: str, status: int, openai_used: bool, outcome: str) -> GenerationResponse:
+    def _build_error(self, *, code: str, request_id: str, message: str, status: int, openai_used: bool, outcome: str, source: str = "fallback") -> GenerationResponse:
         body = {
             "ok": False,
             "request_id": request_id,
+            "source": source,
+            "mode": "error",
             "error": {
                 "code": code,
                 "message": message,
@@ -199,7 +201,20 @@ class GenerationService:
             extra={"source": source, "latency_ms": latency_ms},
         )
 
-        body = {"ok": True, "request_id": request_id, "data": validated_data}
+        # Build response with source and mode
+        mode = "generated" if source == "openai" else "fallback_suggestions"
+        body = {
+            "ok": True,
+            "request_id": request_id,
+            "source": source,
+            "mode": mode,
+            "data": validated_data
+        }
+        
+        # Add warnings if using fallback
+        if source == "fallback":
+            body["warnings"] = ["AI generation temporarily unavailable - showing template suggestions"]
+        
         return GenerationResponse(
             ok=True,
             status=200,

@@ -81,6 +81,8 @@ class GenerationService:
         return {
             'ok': False,
             'request_id': request_id,
+            'source': 'fallback',
+            'mode': 'error',
             'error': {
                 'code': code,
                 'message': message,
@@ -97,9 +99,21 @@ class GenerationService:
         warnings: Optional[List[str]] = None
     ) -> SuccessResponse:
         """Build standardized success response."""
+        source = "openai" if openai_used else "fallback"
+        mode = "generated" if openai_used else "fallback_suggestions"
+        
+        # Add fallback warning if not using OpenAI
+        if not openai_used:
+            if warnings is None:
+                warnings = []
+            if "AI generation temporarily unavailable - showing template suggestions" not in warnings:
+                warnings.insert(0, "AI generation temporarily unavailable - showing template suggestions")
+        
         return {
             'ok': True,
             'request_id': request_id,
+            'source': source,
+            'mode': mode,
             'openai_used': openai_used,
             'fallback_used': not openai_used,
             'data': data,
