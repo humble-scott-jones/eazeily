@@ -307,6 +307,39 @@ async function loadConfig(){
   try{ await loadSavedProfile(); }catch(e){/* ignore */}
 }
 
+// Step registry - single source of truth for wizard steps
+function getWizardSteps() {
+  const steps = [
+    { id: 'industry', stepNumber: 1, dataStep: '1', title: 'Choose your industry', isEnabled: true },
+    { id: 'context', stepNumber: 2, dataStep: '2', title: 'Add quick context', isEnabled: !skipStep2 },
+    { id: 'tone-platforms', stepNumber: 3, dataStep: '3', title: 'Dial in your tone and channels', isEnabled: true },
+    { id: 'brand-inspiration', stepNumber: 4, dataStep: '4', title: 'Brand Inspiration', isEnabled: true },
+    { id: 'keywords', stepNumber: 5, dataStep: '5', title: 'Lock in keywords & notes', isEnabled: true }
+  ];
+  
+  // Filter to enabled steps only
+  const enabledSteps = steps.filter(s => s.isEnabled);
+  
+  // Renumber to consecutive indices for display
+  enabledSteps.forEach((s, idx) => {
+    s.displayIndex = idx + 1;
+  });
+  
+  return enabledSteps;
+}
+
+function getTotalSteps() {
+  return getWizardSteps().length;
+}
+
+function getCurrentStepIndex() {
+  // Find current step in the enabled steps list
+  const steps = getWizardSteps();
+  const currentStepData = step; // This is the data-step value
+  const foundIndex = steps.findIndex(s => parseInt(s.dataStep) === currentStepData);
+  return foundIndex >= 0 ? foundIndex : 0;
+}
+
 let step = 1;
 const answers = {
   industry: "", tone: "", platforms: ["instagram"],
@@ -1099,25 +1132,70 @@ function showStep(n){
     const active = document.querySelector(`.step-panel[data-step="${n}"]`);
     if (active) active.classList.remove('hidden');
   }
+  
+  // Use dynamic step calculations
+  const totalSteps = getTotalSteps();
+  const currentIndex = getCurrentStepIndex();
+  const currentDisplay = currentIndex + 1;
+  
   if (prevBtn) prevBtn.disabled = step === 1;
-  if (nextBtn) nextBtn.textContent = step >= 5 ? 'Finish' : 'Next';
-  if (stepsBar){
-    const dots = stepsBar.querySelectorAll('.step') || [];
-    dots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
-  }
+  if (nextBtn) nextBtn.textContent = currentDisplay >= totalSteps ? 'Finish' : 'Next';
+  
+  // Update step indicators
+  updateStepIndicators();
 
   const progressBar = document.getElementById('progress-bar');
   const progressText = document.getElementById('progress-text');
   if (progressBar && progressText) {
-    const progressPercent = (step / 5) * 100;
+    const progressPercent = (currentDisplay / totalSteps) * 100;
     progressBar.style.width = progressPercent + '%';
-    progressText.textContent = `Step ${step} of 5`;
+    progressText.textContent = `Step ${currentDisplay} of ${totalSteps}`;
   }
 
-  if (step !== 5){
+  // Persist current step to localStorage
+  try {
+    localStorage.setItem('wizard_current_step', step.toString());
+    localStorage.setItem('wizard_step_timestamp', Date.now().toString());
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+
+  if (currentDisplay !== totalSteps){
     clearFinishStatus();
   }
 }
+
+// Restore wizard progress from localStorage (with TTL)
+function restoreWizardProgress() {
+  try {
+    const savedStep = localStorage.getItem('wizard_current_step');
+    const timestamp = localStorage.getItem('wizard_step_timestamp');
+    
+    if (savedStep && timestamp) {
+      const age = Date.now() - parseInt(timestamp);
+      const TTL = 24 * 60 * 60 * 1000; // 24 hours
+      
+      // Only restore if within TTL and not explicitly navigating via hash
+      if (age < TTL && !window.location.hash) {
+        const restoredStep = parseInt(savedStep);
+        if (restoredStep > 1 && restoredStep <= 5) {
+          step = restoredStep;
+          // Don't call showStep yet - will be called after boot
+          console.log('Restored wizard progress to step', step);
+        }
+      } else if (age >= TTL) {
+        // Clear stale data
+        localStorage.removeItem('wizard_current_step');
+        localStorage.removeItem('wizard_step_timestamp');
+      }
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+}
+
+// Restore progress on load (before hash navigation)
+restoreWizardProgress();
 
 // Check for hash navigation
 if (window.location.hash === '#step4') {
@@ -1137,6 +1215,12 @@ if (prevBtn) prevBtn.addEventListener("click", ()=>{
   showStep(step);
 });
 if (nextBtn) nextBtn.addEventListener("click", async ()=>{
+  // Check if we're on the last step
+  const totalSteps = getTotalSteps();
+  const currentIndex = getCurrentStepIndex();
+  const currentDisplay = currentIndex + 1;
+  const isLastStep = currentDisplay >= totalSteps;
+  
   if (step === 1){
     if (!answers.industry){ showToast('Pick an industry to keep going'); return; }
     step = skipStep2 ? 3 : 2;
@@ -1166,7 +1250,8 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     showStep(step);
     return;
   }
-  if (step === 5){
+  if (isLastStep){
+    // This is the final step - save profile and finish
     // collect keywords from selected chips and extra input
     const extra = document.getElementById('extra-keywords');
     if (extra && extra.value.trim()){
@@ -1396,6 +1481,30 @@ function updateStepTwoState(){
   } else {
     empty.classList.add('hidden');
   }
+  // Update stepper indicators after step count may have changed
+  updateStepIndicators();
+}
+
+function updateStepIndicators() {
+  // Update both desktop and mobile step indicators
+  const desktopSteps = document.getElementById('steps');
+  const mobileSteps = document.getElementById('steps-mobile');
+  const totalSteps = getTotalSteps();
+  const currentIndex = getCurrentStepIndex();
+  const currentDisplay = currentIndex + 1;
+  
+  [desktopSteps, mobileSteps].forEach(container => {
+    if (!container) return;
+    const dots = container.querySelectorAll('.step');
+    dots.forEach((dot, i) => {
+      if (i < totalSteps) {
+        dot.style.display = '';
+        dot.classList.toggle('active', (i + 1) <= currentDisplay);
+      } else {
+        dot.style.display = 'none';
+      }
+    });
+  });
 }
 
 function hasStepTwoAnswer(){
