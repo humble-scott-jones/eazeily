@@ -4,6 +4,7 @@ Implements deterministic merge order:
   request > template > profile defaults > workspace defaults
 """
 
+import json
 from typing import Any, Dict, Optional, List
 from .output_schemas import GenerationContext, WorkspaceContext, VoiceStyleGuide, BrandKitV1
 
@@ -245,7 +246,6 @@ def extract_brand_kit_from_user_data(user_data: Dict[str, Any]) -> Optional[Bran
     if 'services' in user_data:
         services = user_data['services']
         if isinstance(services, str):
-            import json
             try:
                 services = json.loads(services)
             except (json.JSONDecodeError, ValueError):
@@ -268,7 +268,6 @@ def extract_brand_kit_from_user_data(user_data: Dict[str, Any]) -> Optional[Bran
     if 'differentiators' in user_data:
         differentiators = user_data['differentiators']
         if isinstance(differentiators, str):
-            import json
             try:
                 differentiators = json.loads(differentiators)
             except (json.JSONDecodeError, ValueError):
@@ -279,7 +278,6 @@ def extract_brand_kit_from_user_data(user_data: Dict[str, Any]) -> Optional[Bran
     if 'proof' in user_data:
         proof = user_data['proof']
         if isinstance(proof, str):
-            import json
             try:
                 proof = json.loads(proof)
             except (json.JSONDecodeError, ValueError):

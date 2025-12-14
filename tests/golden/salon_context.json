@@ -39,7 +39,10 @@
     "voice_style": null,
     "template_applied": false,
     "inspiration_applied": false,
-    "inspiration_style": null
+    "inspiration_style": null,
+    "brand_kit_applied": false,
+    "brand_kit": null,
+    "brand_kit_tier": null
   },
   "prompt_set": {
     "system": "You are Eazeily, an expert social media content generator. Generate engaging, on-brand content that sounds natural and human. CRITICAL: Return ONLY valid JSON matching the exact schema provided. Never include private contact information (phone, email, address) in public posts. IMPORTANT: Do not imitate or reproduce trademarked slogans or recognizable brand phrases. Use only general style cues and tone inspiration.",

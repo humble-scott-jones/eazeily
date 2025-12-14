@@ -112,11 +112,10 @@ class GenerationService:
             if "AI generation temporarily unavailable - showing template suggestions" not in warnings:
                 warnings.insert(0, "AI generation temporarily unavailable - showing template suggestions")
         
-        return {
+        response: SuccessResponse = {
             'ok': True,
             'request_id': request_id,
             'source': source,
-            'mode': mode,
             'openai_used': openai_used,
             'fallback_used': not openai_used,
             'data': data,
@@ -124,6 +123,11 @@ class GenerationService:
             'warnings': warnings,
             'used_signals': used_signals
         }
+        
+        # Add legacy 'mode' field for backward compatibility (not in SuccessResponse type)
+        response['mode'] = mode  # type: ignore
+        
+        return response
     
     def generate_social_posts(
         self,

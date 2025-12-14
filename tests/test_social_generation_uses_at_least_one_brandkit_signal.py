@@ -304,7 +304,10 @@ def test_brand_kit_limits_items_in_prompt():
     assert 'BRAND KIT' in context_section
     
     # Check that services are included (implementation shows first 5)
-    services_line = [line for line in context_section.split('\n') if 'Services:' in line][0]
+    services_lines = [line for line in context_section.split('\n') if 'Services:' in line]
+    assert len(services_lines) > 0, "Services line should exist in context"
+    
+    services_line = services_lines[0]
     # Count commas to see how many services are listed (5 services = 4 commas)
     # Note: The implementation uses [:5] slicing, so max 5 services
     service_items = services_line.split('Services:')[1].strip().split(',')
