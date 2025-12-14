@@ -182,8 +182,55 @@
             </div>
           </div>
 
+          <div class="planner-row" id="chip-suggestions-row">
+            <div class="planner-label">4. Content focus</div>
+            <div class="planner-body space-y-4">
+              <p class="text-sm text-slate-600">Select topics and angles that match your goals. These suggestions adapt to your industry.</p>
+              
+              <div class="space-y-3">
+                <div class="chip-group-container">
+                  <label class="block text-xs uppercase tracking-wide text-slate-500 mb-2">Focus topics</label>
+                  <div id="focus-topics-chips" class="chip-group" role="group" aria-label="Focus topics"></div>
+                  <div class="mt-2 flex gap-2">
+                    <button type="button" class="btn-ghost btn-xs" data-show-more="focus_topics">Show more</button>
+                    <button type="button" class="btn-ghost btn-xs" data-add-custom="focus_topics">+ Other...</button>
+                  </div>
+                </div>
+                
+                <div class="chip-group-container">
+                  <label class="block text-xs uppercase tracking-wide text-slate-500 mb-2">Target audience</label>
+                  <div id="audience-chips" class="chip-group" role="group" aria-label="Audience"></div>
+                  <div class="mt-2 flex gap-2">
+                    <button type="button" class="btn-ghost btn-xs" data-show-more="audience_chips">Show more</button>
+                    <button type="button" class="btn-ghost btn-xs" data-add-custom="audience_chips">+ Other...</button>
+                  </div>
+                </div>
+                
+                <div class="chip-group-container">
+                  <label class="block text-xs uppercase tracking-wide text-slate-500 mb-2">Offers & services</label>
+                  <div id="offer-chips" class="chip-group" role="group" aria-label="Offers"></div>
+                  <div class="mt-2 flex gap-2">
+                    <button type="button" class="btn-ghost btn-xs" data-show-more="offer_chips">Show more</button>
+                    <button type="button" class="btn-ghost btn-xs" data-add-custom="offer_chips">+ Other...</button>
+                  </div>
+                </div>
+                
+                <div class="chip-group-container">
+                  <label class="block text-xs uppercase tracking-wide text-slate-500 mb-2">Proof & credibility</label>
+                  <div id="proof-chips" class="chip-group" role="group" aria-label="Proof"></div>
+                  <div class="mt-2 flex gap-2">
+                    <button type="button" class="btn-ghost btn-xs" data-show-more="proof_chips">Show more</button>
+                    <button type="button" class="btn-ghost btn-xs" data-add-custom="proof_chips">+ Other...</button>
+                  </div>
+                </div>
+              </div>
+              
+              <p class="planner-hint">Your selections are saved automatically and restored when you return.</p>
+            </div>
+          </div>
+
           <div class="planner-row">
-            <div class="planner-label">4. Templates & goals</div>
+            <div class="planner-label">5. Templates & goals</div>
             <div class="planner-body space-y-4">
               <div class="grid md:grid-cols-2 gap-4">
                 <div class="space-y-2">
@@ -284,7 +331,7 @@
           </div>
 
           <div class="planner-row">
-            <div class="planner-label">5. Visual inspiration</div>
+            <div class="planner-label">6. Visual inspiration</div>
             <div class="planner-body">
               <div class="rounded-2xl border border-dashed border-purple-200 bg-gradient-to-r from-white to-purple-50 p-5">
                 <div class="flex flex-wrap items-center justify-between gap-3">
@@ -422,6 +469,7 @@
 
   <script src="/static/js/publishing_queue_state_init.js" defer></script>
   <script src="/static/js/profile_hydrator_v2.js" defer></script>
+  <script src="/static/js/chip_selector.js" defer></script>
   <script src="/static/app.js" defer></script>
   <script src="/static/social_copy_first_renderer.js" defer></script>
   <script src="/static/dashboard.js" defer></script>

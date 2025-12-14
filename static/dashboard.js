@@ -430,6 +430,17 @@ async function loadUserProfile(options = {}) {
     hydrateVoiceSummary(profileDefaults, { profileMissing: !profileDefaults.hasProfile });
   }
 
+  // Initialize chip selector if available
+  if (typeof window.initChipSelector === 'function' && profileDefaults.industry) {
+    const industryKey = profileDefaults.industry_key || profileDefaults.industry || '';
+    if (industryKey) {
+      console.log('[Dashboard] Initializing chip selector for industry:', industryKey);
+      window.initChipSelector(industryKey).catch(err => {
+        console.warn('[Dashboard] Failed to initialize chip selector:', err);
+      });
+    }
+  }
+
   const statusEl = document.getElementById('generator-status');
   if (statusEl && profileLoadState.status !== 'error') {
     statusEl.classList.add('hidden');
@@ -495,6 +506,7 @@ function buildProfileDefaults(profile = null) {
   return {
     tone: source.tone || 'friendly',
     industry: source.industry || source.industry_key || 'Business',
+    industry_key: source.industry_key || source.industry || '',
     keywords,
     goals,
     platforms,
