@@ -16,6 +16,8 @@ class SocialPostCard(TypedDict, total=False):
     cta: Optional[str]
     media_idea: Optional[str]
     alt_text: Optional[str]
+    image_prompt: Optional[str]
+    notes: Optional[List[str]]  # Strategy notes, collapsed in UI
     character_count: Optional[int]
 
 

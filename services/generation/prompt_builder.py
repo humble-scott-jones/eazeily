@@ -69,7 +69,13 @@ def _build_system_message(content_type: str) -> str:
             "- Matches the user's voice and tone precisely\n"
             "- Adapts to each platform's style and constraints\n"
             "- Includes relevant hashtags and CTAs\n"
-            "- Provides media ideas when appropriate"
+            "- Provides media ideas when appropriate\n"
+            "\n"
+            "CRITICAL - Return FINAL post copy only:\n"
+            "- Do NOT include advice, suggestions, or coaching phrases like 'you should', 'consider', 'try to'\n"
+            "- Do NOT use bullet lists explaining what to do\n"
+            "- The caption must be paste-ready, finished copy that can be posted immediately\n"
+            "- Any strategy notes MUST go in the separate 'notes' field, never in the caption"
         )
     elif content_type == 'reels':
         return base + (
@@ -190,17 +196,41 @@ def build_social_prompt(
                     "cards": [
                         {
                             "platform": "platform_name",
-                            "caption": "post text",
+                            "caption": "FINAL paste-ready post text with line breaks",
                             "hashtags": ["tag1", "tag2"],
-                            "hook": "optional opening hook",
-                            "cta": "optional call to action",
-                            "media_idea": "optional visual suggestion"
+                            "cta": "optional call to action line",
+                            "alt_text": "optional image alt text for accessibility",
+                            "image_prompt": "optional image generation prompt",
+                            "notes": ["optional strategy note 1", "optional strategy note 2"]
                         }
                     ],
                     "voice_note": "why this fits your voice"
                 }
             ]
         }
+        
+        # Add platform-specific richness guidelines
+        richness_guide = "\n\nPLATFORM RICHNESS DEFAULTS:\n"
+        if 'instagram' in platforms:
+            richness_guide += (
+                "Instagram: 1 hook line + spacing + 2-4 value lines + CTA. "
+                "8-15 hashtags at end. Use line breaks for readability.\n"
+            )
+        if 'linkedin' in platforms:
+            richness_guide += (
+                "LinkedIn: Strong first line + short paragraphs + 0-3 hashtags. "
+                "Professional tone, no emoji spam. Focus on value.\n"
+            )
+        if 'twitter' in platforms or 'x' in platforms:
+            richness_guide += (
+                "X/Twitter: <= 280 chars. Punchy, no walls of text. Thread if needed.\n"
+            )
+        if 'facebook' in platforms:
+            richness_guide += (
+                "Facebook: Conversational, 2-3 paragraphs. 4-8 hashtags max. Community-focused.\n"
+            )
+        
+        user_parts.append(richness_guide)
         user_parts.append(f"\nOUTPUT FORMAT (JSON):\n{json.dumps(schema, indent=2)}")
     
     messages = [

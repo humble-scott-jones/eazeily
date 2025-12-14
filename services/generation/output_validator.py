@@ -1,7 +1,7 @@
 """Output validator - validates and repairs generated content."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List, Tuple
 from .output_schemas import (
     validate_social_posts,
     validate_reel_script,
@@ -248,6 +248,110 @@ def sanitize_public_content(text: str) -> str:
     )
     
     return text
+
+
+# Coaching phrase detection patterns
+COACHING_PHRASES = [
+    r'\byou should\b',
+    r'\bconsider\b',
+    r'\btry to\b',
+    r'\bmake sure to\b',
+    r'\bdon\'t forget to\b',
+    r'\bremember to\b',
+    r'\bhere\'s what to say\b',
+    r'\bhere\'s how\b',
+    r'\bthink about\b',
+    r'\bfeel free to\b',
+    r'\byou could\b',
+    r'\byou might want to\b',
+    r'\bit\'s important to\b',
+    r'\bbe sure to\b',
+]
+
+
+def detect_coaching_phrases(text: str) -> Optional[List[str]]:
+    """Detect coaching/advisory phrases in text that should not be in final copy.
+    
+    Args:
+        text: Text to scan for coaching phrases
+        
+    Returns:
+        List of detected coaching phrases, or None if none found
+    """
+    import re
+    
+    detected = []
+    text_lower = text.lower()
+    
+    for pattern in COACHING_PHRASES:
+        matches = re.findall(pattern, text_lower, re.IGNORECASE)
+        if matches:
+            detected.extend(matches)
+    
+    return detected if detected else None
+
+
+def repair_coaching_caption(
+    caption: str,
+    openai_client: Optional[Any] = None
+) -> Tuple[str, bool]:
+    """Attempt to repair a caption that contains coaching phrases.
+    
+    Args:
+        caption: Caption text to repair
+        openai_client: OpenAI client for repair (optional)
+        
+    Returns:
+        Tuple of (repaired_caption, was_repaired)
+    """
+    detected = detect_coaching_phrases(caption)
+    if not detected:
+        return caption, False
+    
+    if not openai_client:
+        # If no client available, just return original
+        logger.warning(f"Coaching phrases detected but no OpenAI client for repair: {detected}")
+        return caption, False
+    
+    try:
+        # Build repair prompt
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a content editor. "
+                    "Rewrite the given text into final, paste-ready social media copy. "
+                    "Remove all coaching language, advice, and meta-commentary. "
+                    "Keep the core message and meaning intact. "
+                    "Return ONLY the rewritten caption, nothing else."
+                )
+            },
+            {
+                "role": "user",
+                "content": f"Rewrite this caption to remove coaching phrases and make it paste-ready:\n\n{caption}"
+            }
+        ]
+        
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0.3,
+            max_tokens=500
+        )
+        
+        repaired = response.choices[0].message.content.strip()
+        
+        # Verify repair actually removed coaching phrases
+        if detect_coaching_phrases(repaired):
+            logger.warning("Repair pass did not fully remove coaching phrases")
+            return caption, False
+        
+        logger.info(f"Successfully repaired coaching caption")
+        return repaired, True
+        
+    except Exception as e:
+        logger.error(f"Failed to repair coaching caption: {e}")
+        return caption, False
 
 
 def validate_with_schema_enforcement(

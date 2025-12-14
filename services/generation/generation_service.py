@@ -218,8 +218,28 @@ class GenerationService:
                 )
                 data = validate_and_repair_social_posts(fallback_result)
             
+            # Check for coaching phrases and attempt repair
+            from .output_validator import detect_coaching_phrases, repair_coaching_caption
+            coaching_warnings = []
+            for post in data.get('posts', []):
+                for card in post.get('cards', []):
+                    caption = card.get('caption', '')
+                    if detect_coaching_phrases(caption):
+                        logger.warning(f"[{request_id}] Coaching phrases detected in caption")
+                        repaired, was_repaired = repair_coaching_caption(caption, self.openai_client)
+                        if was_repaired:
+                            card['caption'] = repaired
+                            coaching_warnings.append("Caption repaired to remove coaching language")
+                        else:
+                            # If repair failed, return error
+                            return self._build_error_response(
+                                request_id=request_id,
+                                code='output_not_post_ready',
+                                message='Generated content contains coaching language and could not be repaired'
+                            )
+            
             # Check for sensitive content in posts
-            warnings = []
+            warnings = coaching_warnings
             for post in data.get('posts', []):
                 for card in post.get('cards', []):
                     caption = card.get('caption', '')
