@@ -3199,6 +3199,18 @@ function setupBrandKitListeners() {
       input.addEventListener('input', calculateBrandKitTier);
     }
   });
+  
+  // Event delegation for chip removal buttons
+  document.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('[data-remove-chip]');
+    if (removeBtn) {
+      const type = removeBtn.dataset.removeChip;
+      const index = parseInt(removeBtn.dataset.chipIndex, 10);
+      if (!isNaN(index)) {
+        removeBrandKitChip(type, index);
+      }
+    }
+  });
 }
 
 function renderBrandKitChips(containerId, items, type) {
@@ -3211,14 +3223,13 @@ function renderBrandKitChips(containerId, items, type) {
     chip.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-700';
     chip.innerHTML = `
       ${item}
-      <button type="button" class="ml-1 text-purple-500 hover:text-purple-700" onclick="removeBrandKitChip('${type}', ${index})">×</button>
+      <button type="button" class="ml-1 text-purple-500 hover:text-purple-700" data-remove-chip="${type}" data-chip-index="${index}">×</button>
     `;
     container.appendChild(chip);
   });
 }
 
-// Make this global so it can be called from inline onclick
-window.removeBrandKitChip = function(type, index) {
+function removeBrandKitChip(type, index) {
   if (type === 'services') {
     answers.brand_kit.services.splice(index, 1);
     renderBrandKitChips('bk-services-chips', answers.brand_kit.services, 'services');
@@ -3227,7 +3238,7 @@ window.removeBrandKitChip = function(type, index) {
     renderBrandKitChips('bk-differentiators-chips', answers.brand_kit.differentiators, 'differentiators');
   }
   calculateBrandKitTier();
-};
+}
 
 function calculateBrandKitTier() {
   // Count filled fields
