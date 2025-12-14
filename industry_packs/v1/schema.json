@@ -15,7 +15,8 @@
     "compliance_safety_rules",
     "content_templates",
     "example_outputs",
-    "prompt_integration_hooks"
+    "prompt_integration_hooks",
+    "good_defaults"
   ],
   "properties": {
     "id": {
@@ -256,6 +257,129 @@
             "dont": {
               "type": "array",
               "items": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "good_defaults": {
+      "type": "object",
+      "description": "GOOD defaults for industry-specific chip presets and natural outputs",
+      "required": ["audience", "offers", "proof", "content_angles", "do_say", "dont_say", "chip_presets"],
+      "properties": {
+        "audience": {
+          "type": "object",
+          "required": ["who", "pain_points", "desired_outcomes"],
+          "properties": {
+            "who": {
+              "type": "string",
+              "description": "Plain English description of target audience"
+            },
+            "pain_points": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 3,
+              "maxItems": 5,
+              "description": "3-5 key pain points"
+            },
+            "desired_outcomes": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 3,
+              "maxItems": 5,
+              "description": "3-5 desired outcomes"
+            }
+          }
+        },
+        "offers": {
+          "type": "object",
+          "required": ["common_services", "ctas"],
+          "properties": {
+            "common_services": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 5,
+              "maxItems": 8,
+              "description": "5-8 common services"
+            },
+            "ctas": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 4,
+              "maxItems": 6,
+              "description": "4-6 varied CTAs"
+            }
+          }
+        },
+        "proof": {
+          "type": "object",
+          "required": ["common_proof_points"],
+          "properties": {
+            "common_proof_points": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 4,
+              "maxItems": 6,
+              "description": "4-6 safe, non-claims-y proof points"
+            }
+          }
+        },
+        "content_angles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "label", "when_to_use"],
+            "properties": {
+              "key": {"type": "string"},
+              "label": {"type": "string"},
+              "when_to_use": {"type": "string"}
+            }
+          },
+          "minItems": 6,
+          "maxItems": 8,
+          "description": "6-8 angles that feel natural for that industry"
+        },
+        "do_say": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Sound like this - positive examples"
+        },
+        "dont_say": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Blocks generic or risky language"
+        },
+        "chip_presets": {
+          "type": "object",
+          "required": ["focus_topics", "audience_chips", "offer_chips", "proof_chips"],
+          "properties": {
+            "focus_topics": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 8,
+              "maxItems": 12,
+              "description": "8-12 chips shown by default"
+            },
+            "audience_chips": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 6,
+              "maxItems": 10,
+              "description": "6-10 audience chips"
+            },
+            "offer_chips": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 6,
+              "maxItems": 10,
+              "description": "6-10 offer chips"
+            },
+            "proof_chips": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 6,
+              "maxItems": 10,
+              "description": "6-10 proof chips"
             }
           }
         }
