@@ -1369,7 +1369,7 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     updateFinishStatus('info', 'Saving your brand voice…', 'Hang tight while we prepare your dashboard.');
     try{
       await saveProfile();
-      updateFinishStatus('info', 'Generating your first post…', 'We're creating a sample so your dashboard feels ready.');
+      updateFinishStatus('info', 'Generating your first post…', 'We\'re creating a sample so your dashboard feels ready.');
       await seedInitialPosts();
       markWizardCompleted(); // Mark wizard as completed
       updateFinishStatus('success', 'Brand voice saved', 'Redirecting in 3 seconds…');
