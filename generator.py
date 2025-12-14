@@ -1096,44 +1096,25 @@ def generate_posts(
         day = start_day + timedelta(days=i)
         pillar_name, pillar_hint = next(pillar_stream)
 
-        # Generate platform-specific variants only if explicitly requested
-        # Default behavior: no extra variants (empty dict)
-        variants = {}
-        if variant_types:
-            # Only generate variants if user explicitly opted in
-            variant_targets = list(dict.fromkeys(list(platforms) + list(DEFAULT_VARIANT_PLATFORMS)))
-            base_platform = platforms[0] if platforms else 'instagram'
-            variants = build_platform_variants(
-                to_sentence_case(industry),
-                tone,
-                pillar_name,
-                pillar_hint,
-                base_platform,
-                brand_keywords,
-                hashtags,
-                goals,
-                company,
-                details.get("note"),
-                variant_targets,
-                voice_profile,
-            )
-        else:
-            # No variants requested: only generate content for selected platforms
-            base_platform = platforms[0] if platforms else 'instagram'
-            variants = build_platform_variants(
-                to_sentence_case(industry),
-                tone,
-                pillar_name,
-                pillar_hint,
-                base_platform,
-                brand_keywords,
-                hashtags,
-                goals,
-                company,
-                details.get("note"),
-                platforms,  # Only generate for selected platforms, no extras
-                voice_profile,
-            )
+        # Generate platform-specific content only for selected platforms
+        # Previous behavior: always included DEFAULT_VARIANT_PLATFORMS (all platforms)
+        # New behavior: only generate for explicitly selected platforms
+        # Note: variant_types parameter is reserved for future style variants feature
+        base_platform = platforms[0] if platforms else 'instagram'
+        variants = build_platform_variants(
+            to_sentence_case(industry),
+            tone,
+            pillar_name,
+            pillar_hint,
+            base_platform,
+            brand_keywords,
+            hashtags,
+            goals,
+            company,
+            details.get("note"),
+            platforms,  # Only generate for selected platforms, not all DEFAULT_VARIANT_PLATFORMS
+            voice_profile,
+        )
 
         # Create one post per platform (maintains backward compatibility)
         for p in platforms:

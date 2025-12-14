@@ -15,6 +15,18 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Parameters that are handled explicitly and should not be passed through kwargs
+_EXPLICIT_PARAMS = {
+    'days', 'session_length',
+    'platforms',
+    'tone',
+    'industry',
+    'company_name', 'company',
+    'goals',
+    'keywords', 'brand_keywords',
+    'variant_types'
+}
+
 
 def generate_social_posts_fallback(
     session_length: int = 7,
@@ -58,7 +70,7 @@ def generate_social_posts_fallback(
             goals=goals,
             brand_keywords=keywords,
             variant_types=variant_types,
-            **{k: v for k, v in kwargs.items() if k not in ['days', 'platforms', 'tone', 'industry', 'company_name', 'company', 'goals', 'keywords', 'brand_keywords', 'variant_types']}
+            **{k: v for k, v in kwargs.items() if k not in _EXPLICIT_PARAMS}
         )
         
         # Normalize to expected format with 'cards'
