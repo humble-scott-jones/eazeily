@@ -59,6 +59,16 @@ VOICE_SAMPLE_MIN_LEN = 8  # Minimum character length for voice profile samples
 VOICE_SAMPLE_MIN_COUNT = 5  # Minimum number of samples required
 VOICE_SAMPLE_MAX_COUNT = 10  # Maximum number of samples allowed
 DEFAULT_PROFILE_TONE = 'friendly'  # Default tone when profile doesn't specify one
+
+# Brand Kit v1 completeness scoring constants
+BRAND_KIT_MIN_SERVICES = 2  # Minimum primary services for "minimum" tier
+BRAND_KIT_MIN_AUDIENCE_ROLES = 1  # Minimum target roles for "minimum" tier
+BRAND_KIT_MIN_AUDIENCE_PAINS = 1  # Minimum top pains for "minimum" tier
+BRAND_KIT_MIN_AUDIENCE_OUTCOMES = 1  # Minimum desired outcomes for "minimum" tier
+BRAND_KIT_MIN_DIFFERENTIATORS = 2  # Minimum differentiators for "minimum" tier
+BRAND_KIT_TIER_BEST_THRESHOLD = 75  # Score threshold for "best" tier
+BRAND_KIT_TIER_STRONGER_THRESHOLD = 50  # Score threshold for "stronger" tier
+
 try:
     TEAM_MEMBER_LIMIT = int(os.getenv('TEAM_MEMBER_LIMIT', '10'))
 except (TypeError, ValueError):
@@ -1947,7 +1957,7 @@ def _calculate_brand_kit_completeness(brand_kit: dict) -> Tuple[str, float]:
     # Services section (20 points)
     services = brand_kit.get('services', {})
     primary_services = services.get('primary_services', [])
-    if len(primary_services) >= 2:
+    if len(primary_services) >= BRAND_KIT_MIN_SERVICES:
         score += 10
     elif len(primary_services) == 1:
         score += 5
@@ -1961,13 +1971,13 @@ def _calculate_brand_kit_completeness(brand_kit: dict) -> Tuple[str, float]:
     # Audience section (25 points)
     audience = brand_kit.get('audience', {})
     target_roles = audience.get('target_roles', [])
-    if len(target_roles) >= 1:
+    if len(target_roles) >= BRAND_KIT_MIN_AUDIENCE_ROLES:
         score += 8
     top_pains = audience.get('top_pains', [])
-    if len(top_pains) >= 1:
+    if len(top_pains) >= BRAND_KIT_MIN_AUDIENCE_PAINS:
         score += 8
     desired_outcomes = audience.get('desired_outcomes', [])
-    if len(desired_outcomes) >= 1:
+    if len(desired_outcomes) >= BRAND_KIT_MIN_AUDIENCE_OUTCOMES:
         score += 8
     if audience.get('sophistication'):
         score += 1
@@ -1975,7 +1985,7 @@ def _calculate_brand_kit_completeness(brand_kit: dict) -> Tuple[str, float]:
     # Positioning section (15 points)
     positioning = brand_kit.get('positioning', {})
     differentiators = positioning.get('differentiators', [])
-    if len(differentiators) >= 2:
+    if len(differentiators) >= BRAND_KIT_MIN_DIFFERENTIATORS:
         score += 10
     elif len(differentiators) == 1:
         score += 5
@@ -2012,16 +2022,16 @@ def _calculate_brand_kit_completeness(brand_kit: dict) -> Tuple[str, float]:
         score += 1
     
     # Determine tier based on minimum requirements
-    has_minimum_services = len(primary_services) >= 2
-    has_minimum_audience = (len(target_roles) >= 1 and 
-                           len(top_pains) >= 1 and 
-                           len(desired_outcomes) >= 1)
-    has_minimum_positioning = len(differentiators) >= 2
+    has_minimum_services = len(primary_services) >= BRAND_KIT_MIN_SERVICES
+    has_minimum_audience = (len(target_roles) >= BRAND_KIT_MIN_AUDIENCE_ROLES and 
+                           len(top_pains) >= BRAND_KIT_MIN_AUDIENCE_PAINS and 
+                           len(desired_outcomes) >= BRAND_KIT_MIN_AUDIENCE_OUTCOMES)
+    has_minimum_positioning = len(differentiators) >= BRAND_KIT_MIN_DIFFERENTIATORS
     
     if has_minimum_services and has_minimum_audience and has_minimum_positioning:
-        if score >= 75:
+        if score >= BRAND_KIT_TIER_BEST_THRESHOLD:
             tier = "best"
-        elif score >= 50:
+        elif score >= BRAND_KIT_TIER_STRONGER_THRESHOLD:
             tier = "stronger"
         else:
             tier = "minimum"
@@ -2065,8 +2075,8 @@ def _get_default_brand_kit() -> dict:
         'proof': {
             'credentials': [],
             'years_in_business': None,
-            'volume_markers': None,
-            'testimonials': None
+            'volume_markers': [],
+            'testimonials': []
         },
         'email': {
             'sender_name': None,
@@ -2194,8 +2204,14 @@ def api_brand_kit():
                     if brand_kit_json:
                         try:
                             saved_kit = json.loads(brand_kit_json)
-                            # Merge saved data with defaults to ensure all sections exist
-                            brand_kit.update(saved_kit)
+                            # Deep merge saved data with defaults to ensure all sections exist
+                            for section_key, section_value in saved_kit.items():
+                                if section_key in brand_kit and isinstance(brand_kit[section_key], dict) and isinstance(section_value, dict):
+                                    # Merge nested dictionaries
+                                    brand_kit[section_key].update(section_value)
+                                else:
+                                    # Replace non-dict values directly
+                                    brand_kit[section_key] = section_value
                         except json.JSONDecodeError:
                             app.logger.warning("Invalid brand_kit JSON", extra={
                                 'request_id': request_id,
