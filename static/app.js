@@ -411,6 +411,16 @@ async function loadSavedProfile(){
         if (label) label.textContent = VOICE_INTENSITY_LABELS[answers.details.intensity] || 'Moderate';
       }
     }
+    // Load brand inspiration data
+    if (p.brand_inspirations && Array.isArray(p.brand_inspirations)) {
+      answers.brand_inspirations = p.brand_inspirations;
+    }
+    if (p.brand_anti_inspirations && Array.isArray(p.brand_anti_inspirations)) {
+      answers.brand_anti_inspirations = p.brand_anti_inspirations;
+    }
+    if (p.vibe_preset) {
+      answers.vibe_preset = p.vibe_preset;
+    }
     updateSummary();
   }catch(e){/* ignore */}
 }
@@ -1181,6 +1191,11 @@ function showStep(n){
     localStorage.setItem('wizard_step_timestamp', Date.now().toString());
   } catch (e) {
     // Ignore localStorage errors
+  }
+
+  // Hydrate brand inspiration UI when showing step 4
+  if (n === 4) {
+    hydrateBrandInspirationUI();
   }
 
   if (currentDisplay !== totalSteps){
@@ -2737,6 +2752,10 @@ function initDashboardModes() {
   }
 }
 
+// Brand inspiration constants
+const MAX_BRANDS = 4;
+const MAX_ANTI_BRANDS = 3;
+
 // Initialize brand inspiration step
 function initBrandInspiration() {
   const addBrandBtn = document.getElementById('wizard-add-brand-btn');
@@ -2746,6 +2765,9 @@ function initBrandInspiration() {
   
   // Add initial brand input
   addWizardBrandInput();
+  
+  // Initialize anti-brand counter (even though there are 0 items)
+  updateAntiBrandCounter();
   
   // Add brand button handler
   addBrandBtn.addEventListener('click', () => addWizardBrandInput());
@@ -2775,11 +2797,58 @@ function initBrandInspiration() {
   });
 }
 
-function addWizardBrandInput() {
+function updateBrandCounter() {
+  const container = document.getElementById('wizard-brand-inspirations');
+  const addBtn = document.getElementById('wizard-add-brand-btn');
+  if (!container || !addBtn) return;
+  
+  const count = container.children.length;
+  
+  // Update button text with counter
+  const btnText = addBtn.querySelector('span');
+  if (btnText) {
+    btnText.textContent = `+ Add brand (${count}/${MAX_BRANDS})`;
+  }
+  
+  // Disable button if at max
+  if (count >= MAX_BRANDS) {
+    addBtn.disabled = true;
+    addBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    addBtn.disabled = false;
+    addBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+function updateAntiBrandCounter() {
+  const container = document.getElementById('wizard-brand-anti-inspirations');
+  const addBtn = document.getElementById('wizard-add-anti-brand-btn');
+  if (!container || !addBtn) return;
+  
+  const count = container.children.length;
+  
+  // Update button text with counter
+  const btnText = addBtn.querySelector('span');
+  if (btnText) {
+    btnText.textContent = `+ Add brand to avoid (${count}/${MAX_ANTI_BRANDS})`;
+  }
+  
+  // Disable button if at max
+  if (count >= MAX_ANTI_BRANDS) {
+    addBtn.disabled = true;
+    addBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    addBtn.disabled = false;
+    addBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+function addWizardBrandInput(name = '', why = '') {
   const container = document.getElementById('wizard-brand-inspirations');
   if (!container) return;
   
-  const index = container.children.length;
+  if (container.children.length >= MAX_BRANDS) return;
+  
   const div = document.createElement('div');
   div.className = 'space-y-2';
   div.innerHTML = `
@@ -2788,6 +2857,7 @@ function addWizardBrandInput() {
         type="text" 
         placeholder="Brand name (e.g., Apple)" 
         class="brand-name flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700"
+        value="${escapeHtml(name)}"
       />
       <button type="button" class="remove-brand-btn px-3 py-2 text-slate-400 hover:text-red-500 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2799,6 +2869,7 @@ function addWizardBrandInput() {
       type="text" 
       placeholder="Why? (e.g., clean and minimal)" 
       class="brand-why w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700 text-sm"
+      value="${escapeHtml(why)}"
     />
   `;
   
@@ -2806,15 +2877,18 @@ function addWizardBrandInput() {
   
   // Add remove handler
   div.querySelector('.remove-brand-btn').addEventListener('click', () => {
-    if (container.children.length > 1) {
-      div.remove();
-    }
+    div.remove();
+    updateBrandCounter();
   });
+  
+  updateBrandCounter();
 }
 
-function addWizardAntiBrandInput() {
+function addWizardAntiBrandInput(name = '', why = '') {
   const container = document.getElementById('wizard-brand-anti-inspirations');
   if (!container) return;
+  
+  if (container.children.length >= MAX_ANTI_BRANDS) return;
   
   const div = document.createElement('div');
   div.className = 'space-y-2';
@@ -2824,6 +2898,7 @@ function addWizardAntiBrandInput() {
         type="text" 
         placeholder="Brand name" 
         class="anti-brand-name flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700"
+        value="${escapeHtml(name)}"
       />
       <button type="button" class="remove-anti-brand-btn px-3 py-2 text-slate-400 hover:text-red-500 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2835,6 +2910,7 @@ function addWizardAntiBrandInput() {
       type="text" 
       placeholder="Why avoid?" 
       class="anti-brand-why w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700 text-sm"
+      value="${escapeHtml(why)}"
     />
   `;
   
@@ -2843,7 +2919,55 @@ function addWizardAntiBrandInput() {
   // Add remove handler
   div.querySelector('.remove-anti-brand-btn').addEventListener('click', () => {
     div.remove();
+    updateAntiBrandCounter();
   });
+  
+  updateAntiBrandCounter();
+}
+
+// Hydrate brand inspiration UI with saved data
+function hydrateBrandInspirationUI() {
+  const brandContainer = document.getElementById('wizard-brand-inspirations');
+  const antiBrandContainer = document.getElementById('wizard-brand-anti-inspirations');
+  
+  if (!brandContainer || !antiBrandContainer) return;
+  
+  // Clear existing inputs
+  brandContainer.innerHTML = '';
+  antiBrandContainer.innerHTML = '';
+  
+  // Hydrate brand inspirations
+  if (answers.brand_inspirations && answers.brand_inspirations.length > 0) {
+    answers.brand_inspirations.forEach(brand => {
+      addWizardBrandInput(brand.name || '', brand.why || '');
+    });
+  } else {
+    // Add at least one empty input
+    addWizardBrandInput();
+  }
+  
+  // Hydrate anti-inspirations
+  if (answers.brand_anti_inspirations && answers.brand_anti_inspirations.length > 0) {
+    answers.brand_anti_inspirations.forEach(brand => {
+      addWizardAntiBrandInput(brand.name || '', brand.why || '');
+    });
+  }
+  
+  // Hydrate vibe preset
+  if (answers.vibe_preset) {
+    // Use safer attribute selector to avoid CSS injection
+    const vibeButtons = document.querySelectorAll('.wizard-vibe-preset-btn');
+    vibeButtons.forEach(btn => {
+      if (btn.dataset.vibe === answers.vibe_preset) {
+        btn.classList.add('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+        btn.classList.remove('border-slate-200', 'text-slate-700');
+      }
+    });
+  }
+  
+  // Update counters
+  updateBrandCounter();
+  updateAntiBrandCounter();
 }
 
 // Call initialization
