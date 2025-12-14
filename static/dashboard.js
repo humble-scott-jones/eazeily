@@ -2814,6 +2814,85 @@ function renderPosts(data) {
   });
 
   applyPlatformFilters();
+  
+  // Set up queue toggle functionality
+  setupQueueToggle();
+  
+  // Set up toolbar filter toggle (collapsed by default for 1-day plans)
+  setupToolbarFilterToggle(data);
+  
+  // Display generation timestamp
+  updateGenerationTimestamp();
+}
+
+function setupQueueToggle() {
+  const toggleBtn = document.getElementById('toggle-queue');
+  const queueContent = document.getElementById('queue-content');
+  const toggleIcon = document.getElementById('queue-toggle-icon');
+  const toggleText = document.getElementById('queue-toggle-text');
+  
+  if (!toggleBtn || !queueContent) return;
+  
+  // Start collapsed by default
+  const isExpanded = localStorage.getItem('queue-expanded') === 'true';
+  if (isExpanded) {
+    queueContent.classList.remove('hidden');
+    toggleIcon.textContent = '▾';
+    toggleText.textContent = 'Hide queue';
+    toggleBtn.setAttribute('aria-expanded', 'true');
+  }
+  
+  toggleBtn.addEventListener('click', () => {
+    const nowExpanded = queueContent.classList.toggle('hidden');
+    const expanded = !nowExpanded;
+    toggleIcon.textContent = expanded ? '▾' : '▸';
+    toggleText.textContent = expanded ? 'Hide queue' : 'Show queue';
+    toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    localStorage.setItem('queue-expanded', expanded ? 'true' : 'false');
+  });
+}
+
+function setupToolbarFilterToggle(data) {
+  const toolbar = document.getElementById('generated-toolbar');
+  const toggleBtn = document.getElementById('toggle-toolbar-filters');
+  const filtersContent = document.getElementById('toolbar-filters-content');
+  const toggleIcon = document.getElementById('toolbar-toggle-icon');
+  
+  if (!toggleBtn || !filtersContent || !toolbar) return;
+  
+  // For 1-day plans, start collapsed by default
+  const planLength = (data && data.days) || lastPlanLength || 1;
+  const shouldStartCollapsed = planLength === 1;
+  
+  const savedState = localStorage.getItem('toolbar-filters-expanded');
+  const isExpanded = savedState !== null ? savedState === 'true' : !shouldStartCollapsed;
+  
+  if (!isExpanded) {
+    filtersContent.classList.add('hidden');
+    toggleIcon.textContent = '▸';
+  } else {
+    filtersContent.classList.remove('hidden');
+    toggleIcon.textContent = '▾';
+  }
+  
+  toggleBtn.addEventListener('click', () => {
+    const nowHidden = filtersContent.classList.toggle('hidden');
+    const expanded = !nowHidden;
+    toggleIcon.textContent = expanded ? '▾' : '▸';
+    localStorage.setItem('toolbar-filters-expanded', expanded ? 'true' : 'false');
+  });
+}
+
+function updateGenerationTimestamp() {
+  const timestampEl = document.getElementById('generation-timestamp');
+  if (!timestampEl) return;
+  
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  timestampEl.textContent = `Generated just now (${timeStr})`;
+  
+  // Store timestamp in localStorage for persistence
+  localStorage.setItem('last-generation-time', now.toISOString());
 }
 
 function buildPostSnapshot(post = {}) {
@@ -2931,9 +3010,12 @@ function renderPostCard(post) {
         <span class="font-medium text-slate-900">${formatPlatformLabel(platformKey)}</span>
         ${hasVariants ? '<span class="text-xs text-purple-600 font-medium">• Multi-platform</span>' : ''}
       </div>
-      <div class="flex gap-2">
-        <button class="btn-ghost text-xs" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
-        <span id="${stampId}" class="copy-timestamp"></span>
+      <button class="btn-primary text-sm py-2 px-4" data-copy-target="${editorId}" data-stamp-target="${stampId}">📋 Copy</button>
+    </div>
+
+    <div class="flex gap-2 mb-3">
+      <span id="${stampId}" class="copy-timestamp text-xs text-slate-500"></span>
+      <div class="ml-auto flex gap-2">
         <button class="btn-ghost text-xs" data-like="1" data-day="${post.day_index}" data-platform="${post.platform}">👍</button>
         <button class="btn-ghost text-xs" data-like="-1" data-day="${post.day_index}" data-platform="${post.platform}">👎</button>
       </div>
