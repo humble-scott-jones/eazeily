@@ -2899,6 +2899,7 @@ function renderPostCard(post) {
   const platformKey = normalizePlatformKey(post.platform || DEFAULT_GENERATOR_PLATFORM);
   const platformColor = platformColors[platformKey] || 'from-gray-500 to-gray-600';
   const editorId = `post-editor-${post.day_index}-${platformKey}-${Math.random().toString(36).slice(2,7)}`;
+  const hashtagsId = `hashtags-${post.day_index}-${platformKey}-${Math.random().toString(36).slice(2,7)}`;
   const stampId = `${editorId}-stamp`;
   const variantsMarkup = post.variants ? renderPlatformVariants(post.variants, post.platform) : '';
   const voiceScore = typeof post.voice_match_score === 'number' ? post.voice_match_score : null;
@@ -2922,18 +2923,31 @@ function renderPostCard(post) {
   const queueStatus = queueStatusClass(queueEntry.status);
   const fallbackStampId = `${stampId}-fallback`;
 
+  // Extract hashtags separately from caption
+  const hashtags = extractHashtags(post) || [];
+  const hashtagsText = hashtags.map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
+  
+  // Build strategy notes section if present
+  const notes = Array.isArray(post.notes) ? post.notes : [];
+  const notesMarkup = notes.length > 0
+    ? `<details class="mt-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+        <summary class="text-xs font-semibold text-slate-700 cursor-pointer">Strategy notes (optional)</summary>
+        <ul class="mt-2 space-y-1">
+          ${notes.map(note => `<li class="text-xs text-slate-600">• ${escapeHtml(note)}</li>`).join('')}
+        </ul>
+      </details>`
+    : '';
+
   card.innerHTML = `
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 bg-gradient-to-r ${platformColor} rounded-full flex items-center justify-center">
           <span class="text-white text-xs font-bold">${(platformKey.charAt(0) || 'S').toUpperCase()}</span>
         </div>
         <span class="font-medium text-slate-900">${formatPlatformLabel(platformKey)}</span>
-        ${hasVariants ? '<span class="text-xs text-purple-600 font-medium">• Multi-platform</span>' : ''}
+        ${post.day_index ? `<span class="text-xs text-slate-500">• Day ${post.day_index}</span>` : ''}
       </div>
       <div class="flex gap-2">
-        <button class="btn-ghost text-xs" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
-        <span id="${stampId}" class="copy-timestamp"></span>
         <button class="btn-ghost text-xs" data-like="1" data-day="${post.day_index}" data-platform="${post.platform}">👍</button>
         <button class="btn-ghost text-xs" data-like="-1" data-day="${post.day_index}" data-platform="${post.platform}">👎</button>
       </div>
@@ -2943,12 +2957,54 @@ function renderPostCard(post) {
 
     ${voiceScoreBlock}
     ${guardrailBlock}
-
-    <div class="text-xs text-slate-500 mb-2"><strong>Image prompt:</strong> ${escapeHtml(post.image_prompt)}</div>
-
-    <label class="text-xs font-semibold text-slate-500 tracking-wide">Caption</label>
     ${warningMarkup}
-    <textarea id="${editorId}" class="post-editor mb-3" data-platform="${post.platform}">${escapeHtml(post.caption)}</textarea>
+
+    <!-- Caption Section (Copy-First) -->
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-xs font-semibold text-slate-700 tracking-wide uppercase">Caption</label>
+        <button class="btn-ghost text-xs px-2 py-1 flex items-center gap-1" data-copy-caption="${editorId}">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          Copy
+        </button>
+      </div>
+      <textarea id="${editorId}" class="post-editor border border-slate-300 rounded-lg p-3 w-full font-mono text-sm" data-platform="${post.platform}" style="min-height: 120px;">${escapeHtml(post.caption)}</textarea>
+    </div>
+
+    <!-- Hashtags Section (Separate) -->
+    ${hashtags.length > 0 ? `
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <label class="text-xs font-semibold text-slate-700 tracking-wide uppercase">Hashtags</label>
+        <button class="btn-ghost text-xs px-2 py-1 flex items-center gap-1" data-copy-hashtags="${hashtagsId}">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          Copy
+        </button>
+      </div>
+      <div id="${hashtagsId}" class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-700 font-mono">${escapeHtml(hashtagsText)}</div>
+    </div>
+    ` : ''}
+
+    <!-- Combined Copy Button -->
+    <div class="flex flex-wrap gap-2 mb-3">
+      <button class="btn-primary text-xs px-3 py-2 flex items-center gap-1" data-copy-combined="${editorId}" data-hashtags-id="${hashtagsId}">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+        Copy Caption + Hashtags
+      </button>
+      <button class="btn-ghost btn-sm" data-regenerate-hook>Regenerate hook</button>
+      <button class="btn-ghost btn-sm" data-regenerate-cta>Regenerate CTA</button>
+    </div>
+    <span id="${stampId}" class="copy-timestamp text-xs text-emerald-600"></span>
+
+    ${notesMarkup}
+
+    ${post.image_prompt ? `<div class="text-xs text-slate-500 mt-3"><strong>Image prompt:</strong> ${escapeHtml(post.image_prompt)}</div>` : ''}
 
     ${post.reel ? renderReelSection(post.reel) : ''}
 
@@ -2956,8 +3012,6 @@ function renderPostCard(post) {
 
     <div class="flex flex-wrap gap-2 mt-3">
       <button class="btn-ghost btn-sm" data-generate-variants>Generate variants</button>
-      <button class="btn-ghost btn-sm" data-regenerate-hook>Regenerate hook</button>
-      <button class="btn-ghost btn-sm" data-regenerate-cta>Regenerate CTA</button>
     </div>
     <div class="grid md:grid-cols-3 gap-3 mt-2 hidden" data-variant-wrap></div>
     <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mt-3" data-quality-hints></div>
@@ -3014,6 +3068,84 @@ function renderPostCard(post) {
     const stampEl = stampTarget ? card.querySelector(`#${stampTarget}`) : null;
     bindCopyButton(btn, targetEditor, stampEl, card);
   });
+
+  // New copy buttons for copy-first layout
+  const copyCaptionBtn = card.querySelector('[data-copy-caption]');
+  if (copyCaptionBtn) {
+    copyCaptionBtn.addEventListener('click', async () => {
+      const captionId = copyCaptionBtn.getAttribute('data-copy-caption');
+      const captionEl = card.querySelector(`#${captionId}`);
+      if (captionEl) {
+        try {
+          await navigator.clipboard.writeText(captionEl.value);
+          const stampEl = card.querySelector(`#${stampId}`);
+          if (stampEl) {
+            stampEl.textContent = '✓ Caption copied';
+            setTimeout(() => { stampEl.textContent = ''; }, 2000);
+          }
+          showToast('Caption copied to clipboard');
+        } catch (err) {
+          console.error('Failed to copy caption', err);
+          showToast('Unable to copy caption');
+        }
+      }
+    });
+  }
+
+  const copyHashtagsBtn = card.querySelector('[data-copy-hashtags]');
+  if (copyHashtagsBtn) {
+    copyHashtagsBtn.addEventListener('click', async () => {
+      const hashtagsId = copyHashtagsBtn.getAttribute('data-copy-hashtags');
+      const hashtagsEl = card.querySelector(`#${hashtagsId}`);
+      if (hashtagsEl) {
+        try {
+          await navigator.clipboard.writeText(hashtagsEl.textContent);
+          const stampEl = card.querySelector(`#${stampId}`);
+          if (stampEl) {
+            stampEl.textContent = '✓ Hashtags copied';
+            setTimeout(() => { stampEl.textContent = ''; }, 2000);
+          }
+          showToast('Hashtags copied to clipboard');
+        } catch (err) {
+          console.error('Failed to copy hashtags', err);
+          showToast('Unable to copy hashtags');
+        }
+      }
+    });
+  }
+
+  const copyCombinedBtn = card.querySelector('[data-copy-combined]');
+  if (copyCombinedBtn) {
+    copyCombinedBtn.addEventListener('click', async () => {
+      const captionId = copyCombinedBtn.getAttribute('data-copy-combined');
+      const hashtagsId = copyCombinedBtn.getAttribute('data-hashtags-id');
+      const captionEl = card.querySelector(`#${captionId}`);
+      const hashtagsEl = card.querySelector(`#${hashtagsId}`);
+      
+      let combinedText = '';
+      if (captionEl) {
+        combinedText = captionEl.value;
+      }
+      if (hashtagsEl && hashtagsEl.textContent.trim()) {
+        combinedText += '\n\n' + hashtagsEl.textContent.trim();
+      }
+      
+      if (combinedText) {
+        try {
+          await navigator.clipboard.writeText(combinedText);
+          const stampEl = card.querySelector(`#${stampId}`);
+          if (stampEl) {
+            stampEl.textContent = '✓ Caption + Hashtags copied';
+            setTimeout(() => { stampEl.textContent = ''; }, 3000);
+          }
+          showToast('Caption and hashtags copied to clipboard');
+        } catch (err) {
+          console.error('Failed to copy combined', err);
+          showToast('Unable to copy to clipboard');
+        }
+      }
+    });
+  }
 
   card.querySelectorAll('[data-download-ref]').forEach(btn => {
     bindDownloadButton(btn, card);
