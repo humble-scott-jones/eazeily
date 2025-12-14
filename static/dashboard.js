@@ -2722,6 +2722,23 @@ function renderPosts(data) {
     return;
   }
 
+  // Check if response is in post-ready format (SocialPostCard)
+  // If so, use the copy-first renderer
+  if (window.SocialCopyFirstRenderer && window.SocialCopyFirstRenderer.isPostReadyFormat(data)) {
+    window.SocialCopyFirstRenderer.renderSocialPostCards(posts, resultsDiv);
+    
+    // Still render the publishing queue for compatibility
+    syncQueueWithPosts(posts);
+    renderPublishingQueue();
+    setupQueueToggle();
+    
+    // Display generation timestamp
+    updateGenerationTimestamp();
+    
+    return;
+  }
+
+  // Otherwise use legacy renderer (existing code below)
   syncQueueWithPosts(posts);
   renderPublishingQueue();
 
@@ -3412,13 +3429,17 @@ function renderReelSection(reel) {
 }
 
 // Render platform variants when multiple platforms are selected
+// Only show if variants were explicitly requested and present
 function renderPlatformVariants(variants, currentPlatform) {
   if (!variants) return '';
 
   const entries = Object.entries(variants).map(([platform, value]) => {
     return { platform, data: normalizeVariantPayload(value) };
   });
+  
+  // Don't show variants section if empty or only contains current platform
   if (!entries.length) return '';
+  if (entries.length === 1 && entries[0].platform === currentPlatform) return '';
 
   return `
     <div class="mt-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">

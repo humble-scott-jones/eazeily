@@ -30,11 +30,13 @@ def test_api_generate_social_endpoint_exists(client):
     assert 'posts' in data
     assert len(data['posts']) > 0
     
-    # Check post structure
+    # Check post structure (SocialPostCard format)
     post = data['posts'][0]
-    assert 'date' in post
-    assert 'pillar' in post
-    assert 'cards' in post
+    assert 'platform' in post
+    assert 'caption' in post
+    assert 'hashtags' in post
+    # Optional fields may or may not be present
+    # 'cta', 'image_prompt', 'notes' are optional
 
 
 def test_api_generate_reviews_with_new_service(client):
