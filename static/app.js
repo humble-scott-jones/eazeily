@@ -2762,6 +2762,9 @@ function initBrandInspiration() {
   // Add initial brand input
   addWizardBrandInput();
   
+  // Initialize anti-brand counter (even though there are 0 items)
+  updateAntiBrandCounter();
+  
   // Add brand button handler
   addBrandBtn.addEventListener('click', () => addWizardBrandInput());
   
