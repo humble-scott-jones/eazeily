@@ -303,6 +303,8 @@ async function loadConfig(){
   renderPlatformChoices(CFG.platforms || []);
   showStep(step);
   updateSummary();
+  // Initialize button state after rendering
+  updateNextButtonState();
   // now that config is rendered, try to load any saved profile (so industries map correctly)
   try{ await loadSavedProfile(); }catch(e){/* ignore */}
 }
@@ -379,10 +381,14 @@ async function loadSavedProfile(){
       }
     }
     updateSummary();
+    updateNextButtonState(); // Update button state after loading profile
   }catch(e){/* ignore */}
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize button state on load
+  setTimeout(() => updateNextButtonState(), 100);
+  
   // load content metadata
   (async ()=>{
     try{

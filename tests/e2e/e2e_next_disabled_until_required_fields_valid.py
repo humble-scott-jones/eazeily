@@ -51,8 +51,8 @@ def test_next_button_disabled_on_step1_without_industry():
             page = browser.new_page()
             page.goto(f"{BASE}/app", wait_until="networkidle")
             
-            # Wait for config to load
-            time.sleep(2)
+            # Wait briefly for initial render (but before auto-select at 1.5s)
+            time.sleep(0.5)
             
             # Check Next button is disabled initially
             next_button = page.query_selector('#next')
