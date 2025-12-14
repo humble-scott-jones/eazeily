@@ -648,6 +648,9 @@ def init_db():
             include_images INTEGER DEFAULT 1,
             details TEXT,
             voice_profile TEXT,
+            brand_inspirations TEXT,
+            brand_anti_inspirations TEXT,
+            vibe_preset TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS feedback (
@@ -667,6 +670,9 @@ def init_db():
             free_sample_used INTEGER DEFAULT 0,
             stripe_customer_id TEXT,
             voice_profile TEXT,
+            brand_inspirations TEXT,
+            brand_anti_inspirations TEXT,
+            vibe_preset TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS subscriptions (
@@ -826,6 +832,21 @@ def init_db():
             db.execute("ALTER TABLE profiles ADD COLUMN voice_profile TEXT;")
         except Exception:
             pass
+    if "brand_inspirations" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN brand_inspirations TEXT;")
+        except Exception:
+            pass
+    if "brand_anti_inspirations" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN brand_anti_inspirations TEXT;")
+        except Exception:
+            pass
+    if "vibe_preset" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN vibe_preset TEXT;")
+        except Exception:
+            pass
     # ensure users table has is_admin column (backfill for older DBs)
     try:
         ucols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
@@ -842,6 +863,21 @@ def init_db():
         if "subscription_tier" not in ucols:
             try:
                 db.execute("ALTER TABLE users ADD COLUMN subscription_tier TEXT;")
+            except Exception:
+                pass
+        if "brand_inspirations" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN brand_inspirations TEXT;")
+            except Exception:
+                pass
+        if "brand_anti_inspirations" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN brand_anti_inspirations TEXT;")
+            except Exception:
+                pass
+        if "vibe_preset" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN vibe_preset TEXT;")
             except Exception:
                 pass
     except Exception:
@@ -992,7 +1028,10 @@ def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> di
         'include_images': False,
         'details': {},
         'voice_profile': {},
-        'timezone': ''
+        'timezone': '',
+        'brand_inspirations': [],
+        'brand_anti_inspirations': [],
+        'vibe_preset': None
     }
 
     if not row:
@@ -1012,6 +1051,9 @@ def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> di
     payload['include_images'] = bool(data.get('include_images'))
     payload['details'] = _deserialize_json(data.get('details'), {}) or {}
     payload['voice_profile'] = _deserialize_json(data.get('voice_profile'), {}) or {}
+    payload['brand_inspirations'] = _deserialize_json(data.get('brand_inspirations'), []) or []
+    payload['brand_anti_inspirations'] = _deserialize_json(data.get('brand_anti_inspirations'), []) or []
+    payload['vibe_preset'] = data.get('vibe_preset')
     if isinstance(payload['details'], dict):
         payload['timezone'] = payload['details'].get('timezone') or payload['details'].get('tz') or ''
     return payload
@@ -1621,6 +1663,9 @@ def api_profile():
         include_images = 1 if data.get('include_images') else 0
         details = json.dumps(data.get('details') or {})
         voice_profile_data = json.dumps(data.get('voice_profile') or {})
+        brand_inspirations = json.dumps(data.get('brand_inspirations') or [])
+        brand_anti_inspirations = json.dumps(data.get('brand_anti_inspirations') or [])
+        vibe_preset = data.get('vibe_preset') or None
 
         # Upsert
         existing = db.execute('SELECT id FROM profiles WHERE id = ?', (pid,)).fetchone()
@@ -1629,14 +1674,15 @@ def api_profile():
                 db.execute('''
                     UPDATE profiles SET 
                     industry=?, tone=?, platforms=?, brand_keywords=?, niche_keywords=?, 
-                    goals=?, company=?, include_images=?, details=?, voice_profile=?
+                    goals=?, company=?, include_images=?, details=?, voice_profile=?,
+                    brand_inspirations=?, brand_anti_inspirations=?, vibe_preset=?
                     WHERE id=?
-                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, pid))
+                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, pid))
             else:
                 db.execute('''
-                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data))
+                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile, brand_inspirations, brand_anti_inspirations, vibe_preset)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset))
         except Exception as e:
             # Fallback for missing voice_profile column (if migration failed)
             # We catch all exceptions here to be safe, assuming that if the full save fails,

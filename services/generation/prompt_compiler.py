@@ -31,6 +31,23 @@ class ProfileDefaults(TypedDict, total=False):
     offerings: Optional[str]
     audience: Optional[str]
     taboo_topics: Optional[List[str]]
+    brand_inspirations: Optional[List[Dict[str, str]]]  # [{ name: str, why?: str }]
+    brand_anti_inspirations: Optional[List[Dict[str, str]]]
+    vibe_preset: Optional[str]
+
+
+class BrandInspiration(TypedDict, total=False):
+    """Brand inspiration entry."""
+    name: str
+    why: Optional[str]
+
+
+class VoiceInspiration(TypedDict, total=False):
+    """Derived voice inspiration from brand inspirations."""
+    descriptors: List[str]  # ["warm", "confident", "premium", ...]
+    do: List[str]  # ["short hooks", "clear CTA", ...]
+    dont: List[str]  # ["salesy language", "overuse emojis", ...]
+    vibe_preset: Optional[str]
 
 
 class VoiceFingerprint(TypedDict, total=False):
@@ -93,6 +110,8 @@ class ModelReadyContext(TypedDict, total=False):
     voice_applied: bool
     voice_style: Optional[Dict[str, Any]]  # compact voice constraints
     template_applied: bool
+    inspiration_applied: bool
+    inspiration_style: Optional[VoiceInspiration]  # brand inspiration descriptors
 
 
 class PromptSet(TypedDict):
@@ -284,6 +303,9 @@ class PromptCompiler:
             merged['offerings'] = self.profile_defaults.get('offerings')
             merged['audience'] = self.profile_defaults.get('audience')
             merged['taboo_topics'] = self.profile_defaults.get('taboo_topics', [])
+            merged['brand_inspirations'] = self.profile_defaults.get('brand_inspirations', [])
+            merged['brand_anti_inspirations'] = self.profile_defaults.get('brand_anti_inspirations', [])
+            merged['vibe_preset'] = self.profile_defaults.get('vibe_preset')
         
         # Layer 2: Voice fingerprint (constraints, not overridden)
         # Voice is stored separately and applied as constraints
@@ -340,6 +362,20 @@ class PromptCompiler:
             if micro_examples := voice_fingerprint.get('micro_examples'):
                 voice_style['micro_examples'] = micro_examples
         
+        # Build brand inspiration descriptors
+        brand_inspirations = merged.get('brand_inspirations', [])
+        brand_anti_inspirations = merged.get('brand_anti_inspirations', [])
+        vibe_preset = merged.get('vibe_preset')
+        
+        inspiration_applied = bool(brand_inspirations or vibe_preset)
+        inspiration_style = None
+        if inspiration_applied:
+            inspiration_style = self._convert_inspirations_to_descriptors(
+                brand_inspirations,
+                brand_anti_inspirations,
+                vibe_preset
+            )
+        
         return ModelReadyContext(
             company_name=merged.get('company', ''),
             industry=merged.get('industry', 'business'),
@@ -352,7 +388,140 @@ class PromptCompiler:
             audience=merged.get('audience'),
             voice_applied=voice_applied,
             voice_style=voice_style,
-            template_applied=bool(merged.get('template_name'))
+            template_applied=bool(merged.get('template_name')),
+            inspiration_applied=inspiration_applied,
+            inspiration_style=inspiration_style
+        )
+    
+    def _convert_inspirations_to_descriptors(
+        self,
+        brand_inspirations: List[Dict[str, str]],
+        brand_anti_inspirations: List[Dict[str, str]],
+        vibe_preset: Optional[str]
+    ) -> VoiceInspiration:
+        """Convert brand inspirations into safe, actionable style descriptors.
+        
+        This method translates user's brand references into general style cues
+        WITHOUT copying specific brand language. It uses the "why" notes to
+        derive tone descriptors and behavioral guidelines.
+        
+        Args:
+            brand_inspirations: List of brands with optional "why" explanations
+            brand_anti_inspirations: Brands to avoid (anti-patterns)
+            vibe_preset: Optional preset vibe selection
+            
+        Returns:
+            VoiceInspiration with descriptors, do's, and don'ts
+        """
+        descriptors: List[str] = []
+        do_list: List[str] = []
+        dont_list: List[str] = []
+        
+        # Map vibe presets to descriptors
+        vibe_mapping = {
+            'friendly_modern': {
+                'descriptors': ['friendly', 'approachable', 'contemporary'],
+                'do': ['use casual language', 'keep it light', 'be conversational'],
+                'dont': ['be overly formal', 'use jargon']
+            },
+            'premium_minimal': {
+                'descriptors': ['premium', 'sophisticated', 'minimal'],
+                'do': ['use clean language', 'short impactful sentences', 'focus on quality'],
+                'dont': ['overexplain', 'use excessive emojis', 'be chatty']
+            },
+            'clinical_trustworthy': {
+                'descriptors': ['professional', 'trustworthy', 'authoritative'],
+                'do': ['cite facts', 'be clear and direct', 'maintain credibility'],
+                'dont': ['be casual', 'use slang', 'overuse emojis']
+            },
+            'playful_bold': {
+                'descriptors': ['playful', 'energetic', 'bold'],
+                'do': ['use creative language', 'be enthusiastic', 'take risks'],
+                'dont': ['be boring', 'play it too safe']
+            },
+            'no_emojis_direct': {
+                'descriptors': ['direct', 'straightforward', 'clear'],
+                'do': ['get to the point', 'use plain language', 'focus on facts'],
+                'dont': ['use emojis', 'be vague', 'add fluff']
+            }
+        }
+        
+        # Apply vibe preset if selected
+        if vibe_preset and vibe_preset in vibe_mapping:
+            preset = vibe_mapping[vibe_preset]
+            descriptors.extend(preset['descriptors'])
+            do_list.extend(preset['do'])
+            dont_list.extend(preset['dont'])
+        
+        # Extract descriptors from brand "why" notes
+        for inspiration in brand_inspirations:
+            why = (inspiration.get('why') or '').lower()
+            if not why:
+                continue
+            
+            # Parse "why" notes for style cues
+            if any(word in why for word in ['simple', 'clean', 'minimal', 'clear']):
+                if 'simple' not in descriptors:
+                    descriptors.append('simple')
+                if 'short sentences' not in do_list:
+                    do_list.append('short sentences')
+            
+            if any(word in why for word in ['funny', 'humor', 'wit', 'clever']):
+                if 'playful' not in descriptors:
+                    descriptors.append('playful')
+                if 'add humor where appropriate' not in do_list:
+                    do_list.append('add humor where appropriate')
+            
+            if any(word in why for word in ['professional', 'serious', 'formal']):
+                if 'professional' not in descriptors:
+                    descriptors.append('professional')
+                if 'avoid casual language' not in dont_list:
+                    dont_list.append('avoid casual language')
+            
+            if any(word in why for word in ['warm', 'friendly', 'personal']):
+                if 'warm' not in descriptors:
+                    descriptors.append('warm')
+                if 'be personable' not in do_list:
+                    do_list.append('be personable')
+            
+            if any(word in why for word in ['confident', 'bold', 'strong']):
+                if 'confident' not in descriptors:
+                    descriptors.append('confident')
+                if 'use strong statements' not in do_list:
+                    do_list.append('use strong statements')
+            
+            if 'no fluff' in why or 'no-nonsense' in why:
+                if 'direct' not in descriptors:
+                    descriptors.append('direct')
+                if 'avoid unnecessary words' not in dont_list:
+                    dont_list.append('avoid unnecessary words')
+        
+        # Extract anti-patterns from "anti" inspirations
+        for anti in brand_anti_inspirations:
+            why = (anti.get('why') or '').lower()
+            name = (anti.get('name') or '').lower()
+            
+            if any(word in why or word in name for word in ['salesy', 'pushy', 'aggressive']):
+                if 'avoid aggressive sales language' not in dont_list:
+                    dont_list.append('avoid aggressive sales language')
+            
+            if any(word in why or word in name for word in ['boring', 'generic', 'bland']):
+                if 'avoid generic phrases' not in dont_list:
+                    dont_list.append('avoid generic phrases')
+        
+        # Defaults if nothing extracted
+        if not descriptors:
+            descriptors = ['authentic', 'engaging']
+        if not do_list:
+            do_list = ['be clear and concise']
+        if not dont_list:
+            dont_list = ['use overly complex language']
+        
+        return VoiceInspiration(
+            descriptors=descriptors[:5],  # Limit to top 5
+            do=do_list[:5],
+            dont=dont_list[:5],
+            vibe_preset=vibe_preset
         )
     
     # ========================================================================
@@ -467,12 +636,14 @@ class PromptCompiler:
     def _build_social_prompt_set(self, context: ModelReadyContext) -> PromptSet:
         """Build complete prompt set for social generation with voice anchoring."""
         
-        # System message
+        # System message with safety constraint
         system = (
             "You are Eazeily, an expert social media content generator. "
             "Generate engaging, on-brand content that sounds natural and human. "
             "CRITICAL: Return ONLY valid JSON matching the exact schema provided. "
-            "Never include private contact information (phone, email, address) in public posts."
+            "Never include private contact information (phone, email, address) in public posts. "
+            "IMPORTANT: Do not imitate or reproduce trademarked slogans or recognizable brand phrases. "
+            "Use only general style cues and tone inspiration."
         )
         
         # Context section (compact)
@@ -486,10 +657,24 @@ class PromptCompiler:
         if context.get('audience'):
             context_parts.append(f"Audience: {context['audience']}")
         
-        # Voice style (if applied)
+        # Brand inspiration style (if applied) - lower priority than voice fingerprint
+        if context.get('inspiration_applied') and (inspiration_style := context.get('inspiration_style')):
+            inspiration_parts = []
+            inspiration_parts.append(f"BRAND INSPIRATION (style cues only):")
+            
+            if descriptors := inspiration_style.get('descriptors'):
+                inspiration_parts.append(f"  Tone: {', '.join(descriptors)}")
+            if do_list := inspiration_style.get('do'):
+                inspiration_parts.append(f"  Do: {'; '.join(do_list)}")
+            if dont_list := inspiration_style.get('dont'):
+                inspiration_parts.append(f"  Don't: {'; '.join(dont_list)}")
+            
+            context_parts.append("\n".join(inspiration_parts))
+        
+        # Voice style (if applied) - higher priority, overrides inspiration
         if context.get('voice_applied') and (voice_style := context.get('voice_style')):
             voice_parts = []
-            voice_parts.append(f"VOICE STYLE:")
+            voice_parts.append(f"VOICE STYLE (personal fingerprint - highest priority):")
             voice_parts.append(f"  Sentence length: {voice_style.get('sentence_length', 'medium')}")
             
             if include := voice_style.get('include_naturally'):
