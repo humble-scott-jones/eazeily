@@ -312,7 +312,10 @@ const answers = {
   industry: "", tone: "", platforms: ["instagram"],
   brand_keywords: [], niche_keywords: [], include_images: true,
   company: "",
-  goals: [], details: {}
+  goals: [], details: {},
+  brand_inspirations: [],
+  brand_anti_inspirations: [],
+  vibe_preset: null
 };
 
 const prevBtn = document.getElementById("prev");
@@ -1097,7 +1100,7 @@ function showStep(n){
     if (active) active.classList.remove('hidden');
   }
   if (prevBtn) prevBtn.disabled = step === 1;
-  if (nextBtn) nextBtn.textContent = step >= 4 ? 'Finish' : 'Next';
+  if (nextBtn) nextBtn.textContent = step >= 5 ? 'Finish' : 'Next';
   if (stepsBar){
     const dots = stepsBar.querySelectorAll('.step') || [];
     dots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
@@ -1106,12 +1109,12 @@ function showStep(n){
   const progressBar = document.getElementById('progress-bar');
   const progressText = document.getElementById('progress-text');
   if (progressBar && progressText) {
-    const progressPercent = (step / 4) * 100;
+    const progressPercent = (step / 5) * 100;
     progressBar.style.width = progressPercent + '%';
-    progressText.textContent = `Step ${step} of 4`;
+    progressText.textContent = `Step ${step} of 5`;
   }
 
-  if (step !== 4){
+  if (step !== 5){
     clearFinishStatus();
   }
 }
@@ -1157,6 +1160,13 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     return;
   }
   if (step === 4){
+    // Brand inspiration step - collect data and move to step 5
+    collectBrandInspirationData();
+    step = 5;
+    showStep(step);
+    return;
+  }
+  if (step === 5){
     // collect keywords from selected chips and extra input
     const extra = document.getElementById('extra-keywords');
     if (extra && extra.value.trim()){
@@ -1177,7 +1187,7 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     updateFinishStatus('info', 'Saving your brand voice…', 'Hang tight while we prepare your dashboard.');
     try{
       await saveProfile();
-      updateFinishStatus('info', 'Generating your first post…', 'We’re creating a sample so your dashboard feels ready.');
+      updateFinishStatus('info', 'Generating your first post…', 'We're creating a sample so your dashboard feels ready.');
       await seedInitialPosts();
       updateFinishStatus('success', 'Brand voice saved', 'Redirecting in 3 seconds…');
       startFinishCountdown(3, () => { window.location.href = '/generate'; });
@@ -1191,6 +1201,28 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     return;
   }
 });
+
+function collectBrandInspirationData() {
+  // Collect brand inspirations
+  const brandInputs = document.querySelectorAll('#wizard-brand-inspirations .brand-name');
+  const brandWhyInputs = document.querySelectorAll('#wizard-brand-inspirations .brand-why');
+  answers.brand_inspirations = Array.from(brandInputs).map((input, i) => ({
+    name: input.value.trim(),
+    why: brandWhyInputs[i]?.value.trim() || ''
+  })).filter(b => b.name);
+  
+  // Collect anti-inspirations
+  const antiInputs = document.querySelectorAll('#wizard-brand-anti-inspirations .anti-brand-name');
+  const antiWhyInputs = document.querySelectorAll('#wizard-brand-anti-inspirations .anti-brand-why');
+  answers.brand_anti_inspirations = Array.from(antiInputs).map((input, i) => ({
+    name: input.value.trim(),
+    why: antiWhyInputs[i]?.value.trim() || ''
+  })).filter(b => b.name);
+  
+  // Get selected vibe preset
+  const selectedVibe = document.querySelector('.wizard-vibe-preset-btn.border-indigo-500');
+  answers.vibe_preset = selectedVibe ? selectedVibe.dataset.vibe : null;
+}
 
 async function saveProfile(){
   const version = (CFG && CFG.version) ? CFG.version : "local";
@@ -2543,4 +2575,120 @@ function initDashboardModes() {
   if (modes[preferredMode]) {
     applyMode(preferredMode);
   }
+}
+
+// Initialize brand inspiration step
+function initBrandInspiration() {
+  const addBrandBtn = document.getElementById('wizard-add-brand-btn');
+  const addAntiBrandBtn = document.getElementById('wizard-add-anti-brand-btn');
+  
+  if (!addBrandBtn || !addAntiBrandBtn) return; // Not on wizard page
+  
+  // Add initial brand input
+  addWizardBrandInput();
+  
+  // Add brand button handler
+  addBrandBtn.addEventListener('click', () => addWizardBrandInput());
+  
+  // Add anti-brand button handler
+  addAntiBrandBtn.addEventListener('click', () => addWizardAntiBrandInput());
+  
+  // Vibe preset button handlers
+  document.querySelectorAll('.wizard-vibe-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const vibe = btn.dataset.vibe;
+      // Toggle selection
+      const isSelected = btn.classList.contains('border-indigo-500');
+      
+      // Clear all selections
+      document.querySelectorAll('.wizard-vibe-preset-btn').forEach(b => {
+        b.classList.remove('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+        b.classList.add('border-slate-200', 'text-slate-700');
+      });
+      
+      // Toggle this one
+      if (!isSelected) {
+        btn.classList.add('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+        btn.classList.remove('border-slate-200', 'text-slate-700');
+      }
+    });
+  });
+}
+
+function addWizardBrandInput() {
+  const container = document.getElementById('wizard-brand-inspirations');
+  if (!container) return;
+  
+  const index = container.children.length;
+  const div = document.createElement('div');
+  div.className = 'space-y-2';
+  div.innerHTML = `
+    <div class="flex gap-2">
+      <input 
+        type="text" 
+        placeholder="Brand name (e.g., Apple)" 
+        class="brand-name flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700"
+      />
+      <button type="button" class="remove-brand-btn px-3 py-2 text-slate-400 hover:text-red-500 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <input 
+      type="text" 
+      placeholder="Why? (e.g., clean and minimal)" 
+      class="brand-why w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700 text-sm"
+    />
+  `;
+  
+  container.appendChild(div);
+  
+  // Add remove handler
+  div.querySelector('.remove-brand-btn').addEventListener('click', () => {
+    if (container.children.length > 1) {
+      div.remove();
+    }
+  });
+}
+
+function addWizardAntiBrandInput() {
+  const container = document.getElementById('wizard-brand-anti-inspirations');
+  if (!container) return;
+  
+  const div = document.createElement('div');
+  div.className = 'space-y-2';
+  div.innerHTML = `
+    <div class="flex gap-2">
+      <input 
+        type="text" 
+        placeholder="Brand name" 
+        class="anti-brand-name flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700"
+      />
+      <button type="button" class="remove-anti-brand-btn px-3 py-2 text-slate-400 hover:text-red-500 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <input 
+      type="text" 
+      placeholder="Why avoid?" 
+      class="anti-brand-why w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700 text-sm"
+    />
+  `;
+  
+  container.appendChild(div);
+  
+  // Add remove handler
+  div.querySelector('.remove-anti-brand-btn').addEventListener('click', () => {
+    div.remove();
+  });
+}
+
+// Call initialization
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initBrandInspiration);
+} else {
+  initBrandInspiration();
 }

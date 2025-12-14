@@ -76,6 +76,8 @@
             <span class="step">3</span>
             <div class="bar"></div>
             <span class="step">4</span>
+            <div class="bar"></div>
+            <span class="step">5</span>
           </div>
         </div>
 
@@ -88,6 +90,8 @@
           <span class="step">3</span>
           <div class="bar"></div>
           <span class="step">4</span>
+          <div class="bar"></div>
+          <span class="step">5</span>
         </div>
 
         <!-- Pro Tips -->
@@ -208,6 +212,68 @@
           <div class="space-y-6">
             <div class="space-y-2">
               <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 4</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Brand Inspiration (Optional)</h2>
+              <p class="text-slate-600">Name 3–4 brands whose content you admire. We'll use them for tone and structure—not to copy wording.</p>
+            </div>
+            
+            <!-- Helper copy -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+              <p><strong>How we use this:</strong> We analyze these brands for tone, structure, and style cues. We never copy or imitate specific slogans or brand phrases.</p>
+            </div>
+
+            <div class="space-y-6">
+              <!-- Brand inspirations -->
+              <div class="space-y-4">
+                <label class="block text-lg font-semibold text-slate-900">Brands You Like</label>
+                <div id="wizard-brand-inspirations" class="space-y-3">
+                  <!-- Dynamic brand inputs will go here -->
+                </div>
+                <button id="wizard-add-brand-btn" type="button" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
+                  <span>+ Add brand</span>
+                </button>
+              </div>
+
+              <!-- Anti-inspirations -->
+              <div class="space-y-4">
+                <label class="block text-lg font-semibold text-slate-900">Brands to Avoid (Optional)</label>
+                <p class="text-sm text-slate-500">Any brands you do NOT want to sound like?</p>
+                <div id="wizard-brand-anti-inspirations" class="space-y-3">
+                  <!-- Dynamic anti-inspiration inputs will go here -->
+                </div>
+                <button id="wizard-add-anti-brand-btn" type="button" class="text-sm text-slate-600 hover:text-slate-700 font-medium flex items-center gap-1">
+                  <span>+ Add brand to avoid</span>
+                </button>
+              </div>
+
+              <!-- Vibe presets fallback -->
+              <div class="space-y-4 pt-6 border-t border-slate-200">
+                <p class="text-lg font-semibold text-slate-900">Or pick a vibe instead:</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="friendly_modern">
+                    Friendly & Modern
+                  </button>
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="premium_minimal">
+                    Premium & Minimal
+                  </button>
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="clinical_trustworthy">
+                    Clinical & Trustworthy
+                  </button>
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="playful_bold">
+                    Playful & Bold
+                  </button>
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="no_emojis_direct">
+                    No Emojis / Direct
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="5">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 5</p>
               <h2 class="text-2xl font-semibold text-slate-900">Lock in keywords & notes</h2>
               <p class="text-slate-600">Pick the themes you want us to emphasize, then leave a quick note or promo so your first draft feels current.</p>
             </div>
