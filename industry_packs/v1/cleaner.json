@@ -313,5 +313,165 @@
         "promise impossible results"
       ]
     }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Busy homeowners and renters seeking reliable cleaning services",
+      "pain_points": [
+        "No time to clean properly",
+        "Finding trustworthy cleaners",
+        "Inconsistent quality from previous services",
+        "Concerns about safety and security",
+        "Unclear pricing or hidden fees"
+      ],
+      "desired_outcomes": [
+        "Consistently clean home",
+        "More free time for family/hobbies",
+        "Trustworthy, reliable service",
+        "Peace of mind",
+        "Transparent, fair pricing"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Recurring cleaning (weekly, biweekly, monthly)",
+        "Deep cleaning",
+        "Move-in/move-out cleaning",
+        "Spring cleaning",
+        "Post-construction cleaning",
+        "Eco-friendly cleaning options",
+        "Custom cleaning plans",
+        "Same-day service"
+      ],
+      "ctas": [
+        "Book your cleaning today",
+        "Get a free quote",
+        "Schedule your first clean",
+        "Limited availability - book now",
+        "Try our service risk-free",
+        "Contact us for pricing"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Bonded and insured",
+        "Background-checked cleaners",
+        "Hundreds of satisfied customers",
+        "5-star reviews",
+        "Years serving the local community",
+        "Satisfaction guarantee"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "before_after",
+        "label": "Before/After",
+        "when_to_use": "Showcase transformation and quality"
+      },
+      {
+        "key": "cleaning_tips",
+        "label": "Cleaning Tips",
+        "when_to_use": "Build trust through expertise"
+      },
+      {
+        "key": "process",
+        "label": "Our Process",
+        "when_to_use": "Show thoroughness and professionalism"
+      },
+      {
+        "key": "testimonial",
+        "label": "Customer Testimonial",
+        "when_to_use": "Leverage social proof and trust"
+      },
+      {
+        "key": "seasonal",
+        "label": "Seasonal Cleaning",
+        "when_to_use": "Tie into spring/holiday cleaning needs"
+      },
+      {
+        "key": "team",
+        "label": "Meet the Team",
+        "when_to_use": "Build personal trust and connection"
+      },
+      {
+        "key": "eco_friendly",
+        "label": "Eco-Friendly Focus",
+        "when_to_use": "Highlight green cleaning options"
+      },
+      {
+        "key": "availability",
+        "label": "Availability Update",
+        "when_to_use": "Create urgency for booking"
+      }
+    ],
+    "do_say": [
+      "Bonded and insured for your peace of mind",
+      "We bring all supplies and equipment",
+      "Customizable cleaning plans",
+      "Your satisfaction is guaranteed",
+      "Book your free estimate",
+      "Trusted by local families"
+    ],
+    "dont_say": [
+      "Perfect clean guaranteed (be realistic)",
+      "Cheapest service in town",
+      "We'll judge your home (never)",
+      "Medical-grade sanitization (without credentials)",
+      "Before/after without permission",
+      "One-size-fits-all cleaning"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Deep cleaning",
+        "Recurring service",
+        "Move-in/move-out",
+        "Spring cleaning",
+        "Eco-friendly",
+        "Time savings",
+        "Trusted service",
+        "Custom plans",
+        "Before/after",
+        "Satisfaction guarantee",
+        "Local family business",
+        "Flexible scheduling"
+      ],
+      "audience_chips": [
+        "Busy families",
+        "Working professionals",
+        "New homeowners",
+        "Renters",
+        "Seniors",
+        "Parents",
+        "Pet owners",
+        "Eco-conscious clients",
+        "First-time users",
+        "Regular customers"
+      ],
+      "offer_chips": [
+        "Free estimate",
+        "Recurring discount",
+        "First clean special",
+        "Flexible scheduling",
+        "Same-day service",
+        "Custom cleaning plan",
+        "Eco-friendly options",
+        "No contract required",
+        "Satisfaction guarantee",
+        "Online booking"
+      ],
+      "proof_chips": [
+        "Bonded & insured",
+        "Background checked",
+        "5-star reviews",
+        "10+ years local",
+        "Satisfaction guarantee",
+        "Hundreds of happy homes",
+        "Licensed business",
+        "Professional equipment",
+        "Reliable service",
+        "Trusted cleaners"
+      ]
+    }
   }
 }

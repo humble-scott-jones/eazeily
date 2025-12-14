@@ -312,5 +312,165 @@
         "make fear-based appeals"
       ]
     }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Local families and individuals seeking quality dental care",
+      "pain_points": [
+        "Fear or anxiety about dental visits",
+        "Uncertainty about dental costs and insurance",
+        "Finding a dentist they can trust",
+        "Scheduling conflicts and availability",
+        "Past negative dental experiences"
+      ],
+      "desired_outcomes": [
+        "Healthy teeth and gums",
+        "Pain-free dental experience",
+        "Clear understanding of treatment options",
+        "Affordable, transparent pricing",
+        "A dentist they can trust long-term"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Routine cleanings and checkups",
+        "Preventive care",
+        "Fillings and restorations",
+        "Cosmetic dentistry (whitening, veneers)",
+        "Crowns and bridges",
+        "Root canals",
+        "Dental implants",
+        "Emergency dental care"
+      ],
+      "ctas": [
+        "Schedule your checkup today",
+        "Book your appointment online",
+        "Call to schedule",
+        "New patient special available",
+        "Get your free consultation",
+        "Same-day appointments available"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Board-certified dentists",
+        "Years of experience serving the community",
+        "Modern technology and techniques",
+        "5-star patient reviews",
+        "Most insurance plans accepted",
+        "Gentle, patient-focused care"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "education",
+        "label": "Oral Health Education",
+        "when_to_use": "Build trust through helpful tips and information"
+      },
+      {
+        "key": "myth_busting",
+        "label": "Myth vs. Fact",
+        "when_to_use": "Address common misconceptions and fears"
+      },
+      {
+        "key": "procedure_explain",
+        "label": "Procedure Explanation",
+        "when_to_use": "Demystify treatments and reduce anxiety"
+      },
+      {
+        "key": "tech_showcase",
+        "label": "Technology Showcase",
+        "when_to_use": "Highlight modern equipment and techniques"
+      },
+      {
+        "key": "team_intro",
+        "label": "Meet the Team",
+        "when_to_use": "Build personal connection and trust"
+      },
+      {
+        "key": "testimonial",
+        "label": "Patient Testimonial",
+        "when_to_use": "Leverage social proof (HIPAA-compliant)"
+      },
+      {
+        "key": "preventive",
+        "label": "Preventive Care Reminder",
+        "when_to_use": "Encourage regular visits and good habits"
+      },
+      {
+        "key": "faq",
+        "label": "FAQ Response",
+        "when_to_use": "Answer common questions proactively"
+      }
+    ],
+    "do_say": [
+      "Schedule your routine checkup",
+      "Most insurance plans accepted",
+      "Gentle, patient-focused care",
+      "We take time to explain your options",
+      "Results may vary by individual",
+      "Consultation required for treatment planning"
+    ],
+    "dont_say": [
+      "Guaranteed pain-free (be honest)",
+      "Cure all dental problems",
+      "Specific diagnoses without examination",
+      "Treatment recommendations without consultation",
+      "Share patient information",
+      "Fear-based messaging"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Preventive care",
+        "Routine cleanings",
+        "Cosmetic dentistry",
+        "Dental technology",
+        "Patient comfort",
+        "Family dentistry",
+        "Emergency care",
+        "Oral health tips",
+        "New patient welcome",
+        "Insurance accepted",
+        "Gentle care",
+        "Experienced team"
+      ],
+      "audience_chips": [
+        "Families",
+        "Children",
+        "Seniors",
+        "New patients",
+        "Anxious patients",
+        "Cosmetic seekers",
+        "Emergency patients",
+        "Insurance holders",
+        "Budget-conscious patients",
+        "Health-focused individuals"
+      ],
+      "offer_chips": [
+        "Free consultation",
+        "New patient exam",
+        "Flexible scheduling",
+        "Insurance accepted",
+        "Payment plans available",
+        "Same-day appointments",
+        "Emergency care",
+        "Online booking",
+        "Family packages",
+        "Senior discounts"
+      ],
+      "proof_chips": [
+        "Board-certified",
+        "20+ years experience",
+        "5-star reviews",
+        "Modern technology",
+        "Continuing education",
+        "Community trusted",
+        "Gentle approach",
+        "Patient testimonials",
+        "Insurance friendly",
+        "Family-owned practice"
+      ]
+    }
   }
 }
