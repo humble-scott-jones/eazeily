@@ -1011,31 +1011,20 @@ async function fetchAndApplyGoodDefaults(industryKey){
     
     const chipPresets = data.good_defaults.chip_presets || {};
     
+    // Helper function to auto-select chips
+    const autoSelectChips = (answersKey, presetKey, count) => {
+      if (!answers[answersKey] || answers[answersKey].length === 0) {
+        const chips = chipPresets[presetKey] || [];
+        answers[answersKey] = chips.slice(0, count).map(chip => chip.id);
+      }
+    };
+    
     // Auto-apply recommended chip selections (but keep them editable)
     // Only apply if user hasn't already made selections
-    if (!answers.selected_focus_topic_ids || answers.selected_focus_topic_ids.length === 0) {
-      const focusTopics = chipPresets.focus_topics || [];
-      // Auto-select first 3-4 recommended topics
-      answers.selected_focus_topic_ids = focusTopics.slice(0, 3).map(chip => chip.id);
-    }
-    
-    if (!answers.selected_audience_ids || answers.selected_audience_ids.length === 0) {
-      const audienceChips = chipPresets.audience_chips || [];
-      // Auto-select first 2-3 recommended audience chips
-      answers.selected_audience_ids = audienceChips.slice(0, 2).map(chip => chip.id);
-    }
-    
-    if (!answers.selected_offer_ids || answers.selected_offer_ids.length === 0) {
-      const offerChips = chipPresets.offer_chips || [];
-      // Auto-select first 2-3 recommended offer chips
-      answers.selected_offer_ids = offerChips.slice(0, 2).map(chip => chip.id);
-    }
-    
-    if (!answers.selected_proof_ids || answers.selected_proof_ids.length === 0) {
-      const proofChips = chipPresets.proof_chips || [];
-      // Auto-select first 2-3 recommended proof chips
-      answers.selected_proof_ids = proofChips.slice(0, 2).map(chip => chip.id);
-    }
+    autoSelectChips('selected_focus_topic_ids', 'focus_topics', 3);
+    autoSelectChips('selected_audience_ids', 'audience_chips', 2);
+    autoSelectChips('selected_offer_ids', 'offer_chips', 2);
+    autoSelectChips('selected_proof_ids', 'proof_chips', 2);
     
     // Store the full chip presets for rendering later if needed
     window.__industryChipPresets = chipPresets;
