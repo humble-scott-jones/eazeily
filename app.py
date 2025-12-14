@@ -1757,6 +1757,7 @@ def api_profile():
         return jsonify({'ok': True, 'id': pid, 'request_id': request_id})
 
     else: # GET
+        start_time = time.time()
         try:
             db = get_db()
             pid = session.get('profile_id')
@@ -1767,7 +1768,8 @@ def api_profile():
                 'event': 'profile.fetch',
                 'request_id': request_id,
                 'profile_id': pid,
-                'user_id': uid or 'anon'
+                'user_id': uid or 'anon',
+                'route': '/api/profile'
             })
             
             row = None
@@ -1780,6 +1782,9 @@ def api_profile():
             # Determine profile status
             status, reason, recommended_action = _determine_profile_status(p)
             
+            # Calculate latency
+            latency_ms = (time.time() - start_time) * 1000
+            
             # Log profile status
             app.logger.info("profile.loaded", extra={
                 'event': 'profile.loaded',
@@ -1790,7 +1795,9 @@ def api_profile():
                 'has_company': bool(p.get('company')),
                 'has_industry': bool(p.get('industry')),
                 'has_tone': bool(p.get('tone')),
-                'platforms_count': len(p.get('platforms', []))
+                'platforms_count': len(p.get('platforms', [])),
+                'latency_ms': round(latency_ms, 2),
+                'route': '/api/profile'
             })
             
             return jsonify({
@@ -1802,9 +1809,12 @@ def api_profile():
                 'request_id': request_id
             })
         except Exception as exc:
+            latency_ms = (time.time() - start_time) * 1000
             app.logger.exception("Failed to load profile", exc_info=exc, extra={
                 'event': 'profile.error',
-                'request_id': request_id
+                'request_id': request_id,
+                'latency_ms': round(latency_ms, 2),
+                'route': '/api/profile'
             })
             return jsonify({
                 'ok': False,
@@ -1831,6 +1841,7 @@ def api_profile_v2():
     - error: { code, message, details? }
     """
     request_id = _get_request_id()
+    start_time = time.time()
     
     try:
         db = get_db()
@@ -1842,7 +1853,8 @@ def api_profile_v2():
             'event': 'profile_v2.fetch',
             'request_id': request_id,
             'profile_id': pid,
-            'user_id': uid or 'anon'
+            'user_id': uid or 'anon',
+            'route': '/api/profile_v2'
         })
         
         row = None
@@ -1898,6 +1910,9 @@ def api_profile_v2():
             'details': profile_data.get('details', {})
         }
         
+        # Calculate latency
+        latency_ms = (time.time() - start_time) * 1000
+        
         # Log success
         app.logger.info("profile_v2.loaded", extra={
             'event': 'profile_v2.loaded',
@@ -1908,7 +1923,10 @@ def api_profile_v2():
             'has_company': bool(profile_response['company']),
             'has_industry': bool(profile_response['industry']),
             'has_tone': bool(profile_response['signature_tone']),
-            'platforms_count': len(profile_response['platforms'])
+            'platforms_count': len(profile_response['platforms']),
+            'latency_ms': round(latency_ms, 2),
+            'route': '/api/profile_v2',
+            'status_reason': reason if status != 'ready' else None
         })
         
         return jsonify({
@@ -1920,9 +1938,12 @@ def api_profile_v2():
         })
         
     except Exception as exc:
+        latency_ms = (time.time() - start_time) * 1000
         app.logger.exception("Failed to load profile_v2", exc_info=exc, extra={
             'event': 'profile_v2.error',
-            'request_id': request_id
+            'request_id': request_id,
+            'latency_ms': round(latency_ms, 2),
+            'route': '/api/profile_v2'
         })
         return jsonify({
             'ok': False,
