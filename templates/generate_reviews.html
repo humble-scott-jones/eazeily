@@ -180,6 +180,7 @@
   </main>
 
   <script src="/static/js/publishing_queue_state.js"></script>
+  <script src="/static/app.js"></script>
   <script>
     const form = document.getElementById('review-form');
     const reviewInput = document.getElementById('review-text');
@@ -353,5 +354,6 @@
       updateCharCount();
     });
   </script>
+  {% include 'auth_modal.html' %}
 </body>
 </html>
