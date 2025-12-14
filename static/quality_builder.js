@@ -133,12 +133,15 @@ function setupEventListeners() {
   document.getElementById('preview-tab-email')?.addEventListener('click', () => showPreviewTab('email'));
   document.getElementById('preview-tab-quote')?.addEventListener('click', () => showPreviewTab('quote'));
   
-  // Text inputs with live update
-  ['qb-business-name', 'qb-service-area'].forEach(id => {
+  // Text inputs with live update - use mapping for clarity
+  const inputFieldMap = {
+    'qb-business-name': 'businessName',
+    'qb-service-area': 'serviceArea'
+  };
+  
+  Object.entries(inputFieldMap).forEach(([id, dataKey]) => {
     document.getElementById(id)?.addEventListener('input', (e) => {
-      const key = id.replace('qb-', '').replace('-', '');
-      if (key === 'businessname') qualityData.businessName = e.target.value;
-      if (key === 'servicearea') qualityData.serviceArea = e.target.value;
+      qualityData[dataKey] = e.target.value;
       updateQualityScore();
       updatePreview();
     });
@@ -452,14 +455,84 @@ async function loadExistingData() {
     if (res.ok) {
       const data = await res.json();
       if (data && data.industry) {
+        // Map profile fields to qualityData
         qualityData.industry = data.industry;
-        // TODO: Map other fields from profile to qualityData
+        qualityData.businessName = data.company || '';
+        qualityData.platforms = data.platforms || [];
+        
+        // Map brand_kit fields if available
+        if (data.brand_kit) {
+          const bk = data.brand_kit;
+          qualityData.services = bk.services || [];
+          qualityData.audiences = bk.audience ? bk.audience.split(',').map(s => s.trim()).filter(Boolean) : [];
+          qualityData.pains = bk.pain ? bk.pain.split(',').map(s => s.trim()).filter(Boolean) : [];
+          qualityData.outcomes = bk.outcome ? bk.outcome.split(',').map(s => s.trim()).filter(Boolean) : [];
+          qualityData.differentiators = bk.differentiators || [];
+          qualityData.proof = bk.proof ? bk.proof.split(',').map(s => s.trim()).filter(Boolean) : [];
+          qualityData.ctaIntent = bk.cta_intent || null;
+          qualityData.offerShape = bk.offer_shape || null;
+          qualityData.objections = bk.objections ? bk.objections.split(',').map(s => s.trim()).filter(Boolean) : [];
+          qualityData.policies = bk.policies ? bk.policies.split(',').map(s => s.trim()).filter(Boolean) : [];
+        }
+        
+        // Update UI with loaded data
+        updateUIFromLoadedData();
         updateQualityScore();
         updatePreview();
       }
     }
   } catch (e) {
     console.log('No existing profile data');
+  }
+}
+
+function updateUIFromLoadedData() {
+  // Update industry selection
+  if (qualityData.industry) {
+    const btn = document.querySelector(`.industry-btn[data-industry="${qualityData.industry}"]`);
+    if (btn) btn.click();
+  }
+  
+  // Update business name
+  const businessNameInput = document.getElementById('qb-business-name');
+  if (businessNameInput) businessNameInput.value = qualityData.businessName;
+  
+  // Update platforms
+  qualityData.platforms.forEach(platform => {
+    const btn = document.querySelector(`.platform-btn[data-platform="${platform}"]`);
+    if (btn) btn.click();
+  });
+  
+  // Update chips
+  qualityData.services.forEach(service => {
+    addChip(document.getElementById('qb-services-chips'), service, 'services');
+  });
+  qualityData.audiences.forEach(audience => {
+    addChip(document.getElementById('qb-audience-chips'), audience, 'audiences');
+  });
+  qualityData.pains.forEach(pain => {
+    addChip(document.getElementById('qb-pain-chips'), pain, 'pains');
+  });
+  qualityData.outcomes.forEach(outcome => {
+    addChip(document.getElementById('qb-outcome-chips'), outcome, 'outcomes');
+  });
+  qualityData.differentiators.forEach(diff => {
+    addChip(document.getElementById('qb-differentiators-chips'), diff, 'differentiators');
+  });
+  qualityData.proof.forEach(proof => {
+    addChip(document.getElementById('qb-proof-chips'), proof, 'proof');
+  });
+  
+  // Update CTA intent
+  if (qualityData.ctaIntent) {
+    const btn = document.querySelector(`.cta-intent-btn[data-value="${qualityData.ctaIntent}"]`);
+    if (btn) btn.click();
+  }
+  
+  // Update offer shape
+  if (qualityData.offerShape) {
+    const btn = document.querySelector(`.offer-shape-btn[data-value="${qualityData.offerShape}"]`);
+    if (btn) btn.click();
   }
 }
 
