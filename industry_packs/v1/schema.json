@@ -355,31 +355,79 @@
           "properties": {
             "focus_topics": {
               "type": "array",
-              "items": {"type": "string"},
+              "items": {
+                "oneOf": [
+                  {"type": "string"},
+                  {
+                    "type": "object",
+                    "required": ["id", "label"],
+                    "properties": {
+                      "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+                      "label": {"type": "string"}
+                    }
+                  }
+                ]
+              },
               "minItems": 8,
               "maxItems": 12,
-              "description": "8-12 chips shown by default"
+              "description": "8-12 chips shown by default (string or {id, label} object)"
             },
             "audience_chips": {
               "type": "array",
-              "items": {"type": "string"},
+              "items": {
+                "oneOf": [
+                  {"type": "string"},
+                  {
+                    "type": "object",
+                    "required": ["id", "label"],
+                    "properties": {
+                      "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+                      "label": {"type": "string"}
+                    }
+                  }
+                ]
+              },
               "minItems": 6,
               "maxItems": 10,
-              "description": "6-10 audience chips"
+              "description": "6-10 audience chips (string or {id, label} object)"
             },
             "offer_chips": {
               "type": "array",
-              "items": {"type": "string"},
+              "items": {
+                "oneOf": [
+                  {"type": "string"},
+                  {
+                    "type": "object",
+                    "required": ["id", "label"],
+                    "properties": {
+                      "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+                      "label": {"type": "string"}
+                    }
+                  }
+                ]
+              },
               "minItems": 6,
               "maxItems": 10,
-              "description": "6-10 offer chips"
+              "description": "6-10 offer chips (string or {id, label} object)"
             },
             "proof_chips": {
               "type": "array",
-              "items": {"type": "string"},
+              "items": {
+                "oneOf": [
+                  {"type": "string"},
+                  {
+                    "type": "object",
+                    "required": ["id", "label"],
+                    "properties": {
+                      "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+                      "label": {"type": "string"}
+                    }
+                  }
+                ]
+              },
               "minItems": 6,
               "maxItems": 10,
-              "description": "6-10 proof chips"
+              "description": "6-10 proof chips (string or {id, label} object)"
             }
           }
         }

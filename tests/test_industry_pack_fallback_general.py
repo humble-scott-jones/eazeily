@@ -142,14 +142,16 @@ def test_chip_presets_in_general_are_industry_agnostic():
     
     # Should have generic terms
     generic_terms = ['Quality service', 'Customer satisfaction', 'Professional']
-    found_generic = any(any(term.lower() in chip.lower() for term in generic_terms) 
+    # Chips are now objects with {id, label}, check labels
+    found_generic = any(any(term.lower() in chip['label'].lower() for term in generic_terms) 
                        for chip in focus_topics)
     
     assert found_generic, "General pack should have generic focus topics"
     
     # Should not have industry-specific terms
     specific_terms = ['haircut', 'dental', 'workout', 'cleaning']
-    found_specific = any(any(term.lower() in chip.lower() for term in specific_terms) 
+    # Chips are now objects with {id, label}, check labels
+    found_specific = any(any(term.lower() in chip['label'].lower() for term in specific_terms) 
                         for chip in focus_topics)
     
     assert not found_specific, "General pack should not have industry-specific terms"

@@ -3,14 +3,166 @@
 import json
 import logging
 import os
+import re
+import hashlib
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, List
 
 logger = logging.getLogger(__name__)
 
 # Cache for loaded industry packs
 _INDUSTRY_PACKS_CACHE: Dict[str, Dict[str, Any]] = {}
 _SCHEMA_CACHE: Optional[Dict[str, Any]] = None
+
+
+def _slugify(text: str) -> str:
+    """Convert text to a slug suitable for chip IDs.
+    
+    Args:
+        text: The text to slugify
+        
+    Returns:
+        Lowercase slug with underscores
+    """
+    # Convert to lowercase
+    slug = text.lower()
+    # Replace spaces and special chars with underscores
+    slug = re.sub(r'[^a-z0-9]+', '_', slug)
+    # Remove leading/trailing underscores
+    slug = slug.strip('_')
+    # Collapse multiple underscores
+    slug = re.sub(r'_+', '_', slug)
+    return slug
+
+
+def generate_chip_id(label: str, existing_ids: Optional[set] = None) -> str:
+    """Generate a stable ID for a chip based on its label.
+    
+    Args:
+        label: The chip label/display text
+        existing_ids: Set of existing IDs to check for collisions
+        
+    Returns:
+        A stable, unique chip ID
+    """
+    if existing_ids is None:
+        existing_ids = set()
+    
+    # Start with slugified label
+    base_id = _slugify(label)
+    
+    # If no collision, return base ID
+    if base_id not in existing_ids:
+        return base_id
+    
+    # Handle collision: append short hash
+    label_hash = hashlib.md5(label.encode('utf-8')).hexdigest()[:6]
+    collision_id = f"{base_id}_{label_hash}"
+    
+    return collision_id
+
+
+def normalize_chip(chip: Union[str, Dict[str, Any]], existing_ids: Optional[set] = None) -> Dict[str, str]:
+    """Normalize a chip to {id, label} format.
+    
+    Accepts both string chips (legacy) and object chips (new format).
+    For string chips, generates a stable ID using slugify + hash.
+    
+    Args:
+        chip: Either a string (legacy) or dict with {id, label} (new)
+        existing_ids: Set of existing IDs to check for collisions
+        
+    Returns:
+        Dict with 'id' and 'label' keys
+    """
+    if existing_ids is None:
+        existing_ids = set()
+    
+    # If already an object, validate and return
+    if isinstance(chip, dict):
+        if 'id' in chip and 'label' in chip:
+            return {'id': chip['id'], 'label': chip['label']}
+        # If has label but no id, generate id
+        if 'label' in chip:
+            chip_id = generate_chip_id(chip['label'], existing_ids)
+            return {'id': chip_id, 'label': chip['label']}
+        # If has id but no label, use id as label
+        if 'id' in chip:
+            return {'id': chip['id'], 'label': chip['id']}
+        # Fallback for malformed objects
+        logger.warning(f"Malformed chip object: {chip}, using string representation")
+        label = str(chip)
+        chip_id = generate_chip_id(label, existing_ids)
+        return {'id': chip_id, 'label': label}
+    
+    # Legacy string format - generate ID from label
+    if isinstance(chip, str):
+        label = chip
+        chip_id = generate_chip_id(label, existing_ids)
+        return {'id': chip_id, 'label': label}
+    
+    # Unexpected type - convert to string
+    logger.warning(f"Unexpected chip type: {type(chip)}, converting to string")
+    label = str(chip)
+    chip_id = generate_chip_id(label, existing_ids)
+    return {'id': chip_id, 'label': label}
+
+
+def normalize_chip_list(chips: List[Union[str, Dict[str, Any]]]) -> List[Dict[str, str]]:
+    """Normalize a list of chips to {id, label} format.
+    
+    Args:
+        chips: List of chips (strings or objects)
+        
+    Returns:
+        List of normalized chip objects with unique IDs
+    """
+    existing_ids = set()
+    normalized = []
+    has_legacy_chips = False
+    id_counter = {}  # Track how many times we've seen each base ID
+    
+    for chip in chips:
+        # Track if we encounter any string chips
+        if isinstance(chip, str):
+            has_legacy_chips = True
+        
+        # First, get the normalized chip without collision handling
+        temp_chip = normalize_chip(chip, set())
+        base_id = temp_chip['id']
+        
+        # Check if this ID already exists
+        if base_id in existing_ids:
+            # Generate collision ID with counter
+            if base_id not in id_counter:
+                id_counter[base_id] = 1
+            else:
+                id_counter[base_id] += 1
+            
+            # Create unique ID with hash that includes counter
+            unique_suffix = hashlib.md5(f"{temp_chip['label']}_{id_counter[base_id]}".encode('utf-8')).hexdigest()[:6]
+            final_id = f"{base_id}_{unique_suffix}"
+            
+            # Make sure even the final_id is unique (unlikely but possible)
+            while final_id in existing_ids:
+                id_counter[base_id] += 1
+                unique_suffix = hashlib.md5(f"{temp_chip['label']}_{id_counter[base_id]}".encode('utf-8')).hexdigest()[:6]
+                final_id = f"{base_id}_{unique_suffix}"
+            
+            normalized_chip = {'id': final_id, 'label': temp_chip['label']}
+        else:
+            normalized_chip = temp_chip
+        
+        existing_ids.add(normalized_chip['id'])
+        normalized.append(normalized_chip)
+    
+    # Log warning if legacy string chips were encountered
+    if has_legacy_chips:
+        logger.warning(
+            "Chip pack using legacy string chips; consider upgrading to objects with {id, label}"
+        )
+    
+    return normalized
 
 
 def get_industry_packs_dir() -> Path:
@@ -56,6 +208,16 @@ def load_industry_pack(industry_id: str) -> Optional[Dict[str, Any]]:
     try:
         with open(pack_path, 'r', encoding='utf-8') as f:
             pack_data = json.load(f)
+            
+            # Normalize chips in good_defaults.chip_presets if present
+            if 'good_defaults' in pack_data and 'chip_presets' in pack_data['good_defaults']:
+                chip_presets = pack_data['good_defaults']['chip_presets']
+                
+                # Normalize each chip category
+                for chip_category in ['focus_topics', 'audience_chips', 'offer_chips', 'proof_chips']:
+                    if chip_category in chip_presets:
+                        chip_presets[chip_category] = normalize_chip_list(chip_presets[chip_category])
+            
             _INDUSTRY_PACKS_CACHE[industry_id] = pack_data
             logger.debug(f"Loaded industry pack: {industry_id}")
             return pack_data
