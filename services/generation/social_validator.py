@@ -57,21 +57,28 @@ BANNED_PHRASES = [
 # Additional scaffold patterns (regex)
 SCAFFOLD_PATTERNS = [
     r'\bconsider\s+\w+ing\b',  # "consider posting" but not "Considering"
-    r'^tip:\s',  # "Tip: " at start of line
-    r'\n\s*tip:\s',  # "Tip: " on new line
-    r'^platform\s+tip',  # "Platform tip" at start
-    r'^focus:\s',  # "Focus: " at start
+    r'(?:^|\n)\s*tip\s*:',  # "Tip: " at start of string or line
+    r'(?:^|\n)\s*platform\s+tip',  # "Platform tip" at start of string or line
+    r'(?:^|\n)\s*focus\s*:',  # "Focus: " at start of string or line
     r'\bshare\s+a\s+',  # "share a story/tip/etc"
-    r'^from\s',  # "From: " at start (scaffold marker)
-    r'\n\s*from\s*:',  # "From: " on new line
-    r'^advice\s*:',  # "Advice: " at start
-    r'\n\s*advice\s*:',  # "Advice: " on new line
-    r'^example\s*:',  # "Example: " at start (as scaffold marker, not "For example:")
-    r'\n\s*example\s*:',  # "Example: " on new line
-    r'^note\s*:',  # "Note: " at start
-    r'\n\s*note\s*:',  # "Note: " on new line
-    r'^suggestion\s*:',  # "Suggestion: " at start
-    r'\n\s*suggestion\s*:',  # "Suggestion: " on new line
+    r'(?:^|\n)\s*from\s*:',  # "From: " at start of string or line (scaffold marker)
+    r'(?:^|\n)\s*advice\s*:',  # "Advice: " at start of string or line
+    r'(?:^|\n)\s*example\s*:',  # "Example: " at start (as scaffold marker, not "For example:")
+    r'(?:^|\n)\s*note\s*:',  # "Note: " at start of string or line
+    r'(?:^|\n)\s*suggestion\s*:',  # "Suggestion: " at start of string or line
+]
+
+# Repair prompt requirements (used in build_repair_prompt)
+REPAIR_REQUIREMENTS = [
+    "FINAL post copy only (no coaching phrases like \"you should\", \"consider\", \"try to\", \"platform tip\", \"share a\", \"focus:\")",
+    "Include at least ONE structure signal:",
+    "   - Numbered steps (1-3+)",
+    "   - Bullet points or checklist",
+    "   - Myth vs fact pattern",
+    "   - Concrete example with \"For example...\" or \"Imagine...\"",
+    "Hook + value + concrete example/framework + CTA",
+    "Match platform best practices for {platform}",
+    "Return ONLY the caption text, nothing else"
 ]
 
 # Structure signal patterns (at least one required for richness)
@@ -108,7 +115,7 @@ def contains_banned_phrases(text: str) -> Optional[str]:
     # Check pattern matches
     for pattern in SCAFFOLD_PATTERNS:
         if re.search(pattern, text_lower):
-            return f"Contains scaffold pattern (matched: {pattern})"
+            return "Contains scaffold/meta language pattern"
     
     return None
 
@@ -127,6 +134,10 @@ def has_structure_signal(caption: str) -> bool:
         
     Returns:
         True if structure signal found, False otherwise
+        
+    Note:
+        Uses DOTALL flag for multiline patterns (e.g., myth vs fact),
+        allowing patterns to match across line boundaries.
     """
     for pattern in STRUCTURE_PATTERNS:
         if re.search(pattern, caption, re.DOTALL):
@@ -172,7 +183,7 @@ def validate_hashtags(hashtags: List[str], platform: str) -> Optional[str]:
     # Check each hashtag format
     for tag in hashtags:
         if not isinstance(tag, str):
-            return f"Hashtag must be string, got {type(tag)}"
+            return f"Hashtag must be string, got {type(tag).__name__}"
         
         # Remove leading # if present
         tag_clean = tag.lstrip('#')
@@ -310,6 +321,12 @@ def build_repair_prompt(
     # Build issue description
     issues_text = "\n".join(f"- {error}" for error in errors)
     
+    # Build requirements list (format platform placeholder)
+    requirements_text = "\n".join(
+        f"{i+1}. {req.format(platform=platform)}" 
+        for i, req in enumerate(REPAIR_REQUIREMENTS)
+    )
+    
     # Build repair request
     user_msg = f"""Rewrite this {platform} caption to fix these issues:
 
@@ -321,15 +338,7 @@ Original caption:
 ---
 
 Requirements for the rewritten caption:
-1. FINAL post copy only (no coaching phrases like "you should", "consider", "try to", "platform tip", "share a", "focus:")
-2. Include at least ONE structure signal:
-   - Numbered steps (1-3+)
-   - Bullet points or checklist
-   - Myth vs fact pattern
-   - Concrete example with "For example..." or "Imagine..."
-3. Hook + value + concrete example/framework + CTA
-4. Match platform best practices for {platform}
-5. Return ONLY the caption text, nothing else
+{requirements_text}
 
 Rewritten caption:"""
     
