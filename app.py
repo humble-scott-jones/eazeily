@@ -1286,6 +1286,12 @@ def index():
     return render_template("index.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
 
+@app.get("/quality-builder")
+def quality_builder():
+    """Quality Builder - Single-page tiered setup flow."""
+    return render_template("quality_builder.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
+
+
 @app.get("/generate")
 def generate_page():
     """Redirect to the primary generation tab."""
