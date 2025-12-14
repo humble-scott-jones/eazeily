@@ -199,7 +199,8 @@ class GenerationService:
                     industry=params.get('industry', 'business'),
                     company_name=params.get('company_name', ''),
                     goals=params.get('goals'),
-                    keywords=params.get('keywords')
+                    keywords=params.get('keywords'),
+                    variant_types=params.get('variant_types', [])
                 )
                 data = validate_and_repair_social_posts(fallback_result)
             
