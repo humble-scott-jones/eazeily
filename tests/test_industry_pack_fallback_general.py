@@ -108,19 +108,18 @@ def test_get_good_defaults_for_unknown_industry():
     assert 'chip_presets' in good_defaults
 
 
-def test_get_good_defaults_returns_dict_not_none():
-    """Test that get_good_defaults never returns None, even in edge cases."""
-    # Test various edge cases
-    test_cases = ['', 'nonexistent', None, 123, 'general']
+def test_get_good_defaults_returns_dict_for_valid_strings():
+    """Test that get_good_defaults returns a dict for string inputs (valid or invalid)."""
+    # Test various string inputs (valid and invalid industry names)
+    test_cases = ['', 'nonexistent', 'general', 'unknown_xyz', 'salon']
     
     for test_input in test_cases:
-        try:
-            result = get_good_defaults(test_input)
-            assert isinstance(result, dict), \
-                f"get_good_defaults should return dict for {test_input}"
-        except (TypeError, AttributeError):
-            # Some invalid inputs might raise errors, which is acceptable
-            pass
+        result = get_good_defaults(test_input)
+        assert isinstance(result, dict), \
+            f"get_good_defaults should return dict for string input '{test_input}'"
+        # Should always have chip_presets due to fallback
+        assert 'chip_presets' in result or result == {}, \
+            f"Result should have chip_presets or be empty dict"
 
 
 def test_other_industry_uses_fallback():

@@ -323,10 +323,16 @@ def get_good_defaults(industry_id: str) -> Dict[str, Any]:
     """Get GOOD defaults for an industry (chip presets, audience, offers, etc).
     
     Args:
-        industry_id: The industry pack identifier
+        industry_id: The industry pack identifier (must be a string)
         
     Returns:
         Dict containing good_defaults, or empty dict if not found
+        
+    Raises:
+        TypeError: If industry_id is not a string
     """
+    if not isinstance(industry_id, str):
+        raise TypeError(f"industry_id must be a string, got {type(industry_id).__name__}")
+    
     pack = get_industry_pack(industry_id)
     return pack.get("good_defaults", {})

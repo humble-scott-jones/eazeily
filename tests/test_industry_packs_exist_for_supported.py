@@ -128,5 +128,11 @@ def test_all_packs_have_good_defaults_structure():
                 f"Industry '{industry}' chip_presets missing: {chip_type}"
             assert isinstance(chip_presets[chip_type], list), \
                 f"Industry '{industry}' chip_presets.{chip_type} should be a list"
-            assert len(chip_presets[chip_type]) >= 6, \
-                f"Industry '{industry}' chip_presets.{chip_type} should have at least 6 items"
+            
+            # Validate minimum counts per schema
+            if chip_type == 'focus_topics':
+                assert len(chip_presets[chip_type]) >= 8, \
+                    f"Industry '{industry}' chip_presets.{chip_type} should have at least 8 items (schema requires 8-12)"
+            else:  # audience_chips, offer_chips, proof_chips
+                assert len(chip_presets[chip_type]) >= 6, \
+                    f"Industry '{industry}' chip_presets.{chip_type} should have at least 6 items (schema requires 6-10)"
