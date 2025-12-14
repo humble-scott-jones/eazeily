@@ -27,6 +27,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+# Brand Kit prompt configuration
+MAX_SERVICES_IN_PROMPT = 5
+MAX_PROOF_IN_PROMPT = 3
+MAX_DIFFERENTIATORS_IN_PROMPT = 3
+
+
 # ============================================================================
 # Canonical Input Types
 # ============================================================================
@@ -753,13 +759,16 @@ class PromptCompiler:
             brand_kit_parts.append("BRAND KIT (MUST USE in every post):")
             
             if services := brand_kit.get('services'):
-                brand_kit_parts.append(f"  Services: {', '.join(services[:5])}")
+                services_to_show = services[:MAX_SERVICES_IN_PROMPT]
+                brand_kit_parts.append(f"  Services: {', '.join(services_to_show)}")
             
             if differentiators := brand_kit.get('differentiators'):
-                brand_kit_parts.append(f"  What makes you different: {', '.join(differentiators[:3])}")
+                diff_to_show = differentiators[:MAX_DIFFERENTIATORS_IN_PROMPT]
+                brand_kit_parts.append(f"  What makes you different: {', '.join(diff_to_show)}")
             
             if proof := brand_kit.get('proof'):
-                brand_kit_parts.append(f"  Proof/credentials: {', '.join(proof[:3])}")
+                proof_to_show = proof[:MAX_PROOF_IN_PROMPT]
+                brand_kit_parts.append(f"  Proof/credentials: {', '.join(proof_to_show)}")
             
             audience_parts = []
             if role := brand_kit.get('audience_role'):

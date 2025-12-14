@@ -1,4 +1,12 @@
-"""Tests that social generation incorporates Brand Kit signals as required."""
+"""Tests that social generation incorporates Brand Kit signals as required.
+
+Tests verify that when Brand Kit is present (services, audience, proof, differentiators),
+the prompt compiler includes these signals in prompts with explicit MUST USE rules:
+- Each post MUST include at least ONE: service mention OR differentiator OR proof point
+- Each post MUST include at least ONE: pain/outcome reference OR audience callout
+
+Also tests tier evaluation, backward compatibility, and integration with brand inspiration.
+"""
 
 import pytest
 from services.generation.prompt_compiler import PromptCompiler, ProfileDefaults, RunToggles

@@ -1,4 +1,13 @@
-"""Tests for context_builder Brand Kit and Brand Inspiration integration."""
+"""Tests for context_builder Brand Kit and Brand Inspiration integration.
+
+Tests verify that context_builder properly handles:
+- Brand Kit v1 (services, audience, proof, differentiators) 
+- Brand Inspiration (style descriptors)
+- Both working together in the same context
+- Tier evaluation (minimum/stronger/best/incomplete)
+- Extraction from various data formats (JSON, CSV, structured)
+- Backward compatibility when brand_kit is not present
+"""
 
 import pytest
 from services.generation.context_builder import (
