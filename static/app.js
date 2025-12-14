@@ -1100,7 +1100,7 @@ function showStep(n){
     if (active) active.classList.remove('hidden');
   }
   if (prevBtn) prevBtn.disabled = step === 1;
-  if (nextBtn) nextBtn.textContent = step >= 4 ? 'Finish' : 'Next';
+  if (nextBtn) nextBtn.textContent = step >= 5 ? 'Finish' : 'Next';
   if (stepsBar){
     const dots = stepsBar.querySelectorAll('.step') || [];
     dots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
@@ -1109,12 +1109,12 @@ function showStep(n){
   const progressBar = document.getElementById('progress-bar');
   const progressText = document.getElementById('progress-text');
   if (progressBar && progressText) {
-    const progressPercent = (step / 4) * 100;
+    const progressPercent = (step / 5) * 100;
     progressBar.style.width = progressPercent + '%';
-    progressText.textContent = `Step ${step} of 4`;
+    progressText.textContent = `Step ${step} of 5`;
   }
 
-  if (step !== 4){
+  if (step !== 5){
     clearFinishStatus();
   }
 }
@@ -1158,7 +1158,8 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     step = 4;
     showStep(step);
     return;
-  }  if (step === 4){
+  }
+  if (step === 4){
     // Brand inspiration step - collect data and move to step 5
     collectBrandInspirationData();
     step = 5;
