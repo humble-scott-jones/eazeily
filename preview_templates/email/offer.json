@@ -1,0 +1,50 @@
+{
+  "id": "email_offer",
+  "name": "Special Offer Email",
+  "channel": "email",
+  "description": "Promotional email with special offer",
+  "baseline": {
+    "subject": "Limited Time Offer - Don't Miss Out!",
+    "body": "Hi,\n\nWe have an exclusive offer just for you! For a limited time, take advantage of our special promotion.\n\nThis offer won't last long, so act fast to secure your spot.\n\nBook now and experience the difference!\n\nBest regards,\nThe Team",
+    "cta": "Claim Your Offer"
+  },
+  "personalized": {
+    "subject": "🎁 Special Offer: {service} for {audience}",
+    "body": "Hi,\n\nTired of {pain}? We have a special offer on {service} that helps {audience} achieve {outcome}.\n\n{differentiator} - that's what makes us the right choice.\n\n{proof}, and now it's your turn!\n\nLimited time: {cta}\n\nOffer valid for {validity_days} days only!\n\nBest regards,\nThe Team",
+    "cta": "{cta}"
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Virtual Assistant Services"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "entrepreneurs"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "administrative overwhelm"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "focus on growing your business"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "Dedicated US-based assistants with industry experience"
+    },
+    "proof": {
+      "description": "Social proof or credibility",
+      "example": "We've saved our clients 20+ hours per week on average"
+    },
+    "cta": {
+      "description": "Call to action",
+      "example": "Get 50% off your first month"
+    },
+    "validity_days": {
+      "description": "Number of days offer is valid",
+      "example": "7"
+    }
+  }
+}

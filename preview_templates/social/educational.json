@@ -1,0 +1,52 @@
+{
+  "id": "social_educational",
+  "name": "Educational Post",
+  "channel": "social",
+  "description": "Value-driven educational content for social media",
+  "baseline": {
+    "caption": "💡 Pro tip: Learn how to get better results with these simple strategies. Follow for more expert advice!",
+    "hashtags": ["#protips", "#expertise", "#education"],
+    "platform_hints": {
+      "instagram": "Use carousel posts for step-by-step guides",
+      "facebook": "Long-form explanations work well",
+      "linkedin": "Share professional insights",
+      "twitter": "Thread your tips"
+    }
+  },
+  "personalized": {
+    "caption": "💡 Expert Insight: Did you know {pain} affects {audience}? Here's how {service} helps you achieve {outcome}. {differentiator} makes all the difference. Want to learn more? {cta}",
+    "hashtags": ["#expertadvice", "#{service}", "#{audience}"],
+    "platform_hints": {
+      "instagram": "Show before/after examples",
+      "facebook": "Engage with questions",
+      "linkedin": "Data and case studies",
+      "twitter": "Quick actionable tips"
+    }
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Professional Organization Services"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "homeowners"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "cluttered spaces"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "an organized, stress-free home"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "Our proven KonMari-inspired system"
+    },
+    "cta": {
+      "description": "Call to action",
+      "example": "Book a free consultation"
+    }
+  }
+}
