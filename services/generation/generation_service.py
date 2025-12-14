@@ -98,7 +98,8 @@ class GenerationService:
         data: Dict[str, Any],
         openai_used: bool,
         summary: Optional[Dict[str, Any]] = None,
-        warnings: Optional[List[str]] = None
+        warnings: Optional[List[str]] = None,
+        used_signals: Optional[Dict[str, Any]] = None
     ) -> SuccessResponse:
         """Build standardized success response."""
         source = "openai" if openai_used else "fallback"
@@ -111,17 +112,22 @@ class GenerationService:
             if "AI generation temporarily unavailable - showing template suggestions" not in warnings:
                 warnings.insert(0, "AI generation temporarily unavailable - showing template suggestions")
         
-        return {
+        response: SuccessResponse = {
             'ok': True,
             'request_id': request_id,
             'source': source,
-            'mode': mode,
             'openai_used': openai_used,
             'fallback_used': not openai_used,
             'data': data,
             'summary': summary,
-            'warnings': warnings
+            'warnings': warnings,
+            'used_signals': used_signals
         }
+        
+        # Add legacy 'mode' field for backward compatibility (not in SuccessResponse type)
+        response['mode'] = mode  # type: ignore
+        
+        return response
     
     def generate_social_posts(
         self,
@@ -132,7 +138,8 @@ class GenerationService:
         request: Optional[Dict[str, Any]] = None,
         voice_samples: Optional[List[str]] = None,
         include_phrases: Optional[List[str]] = None,
-        avoid_phrases: Optional[List[str]] = None
+        avoid_phrases: Optional[List[str]] = None,
+        brand_kit: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Generate social media posts with full context and voice personalization.
         
@@ -145,6 +152,7 @@ class GenerationService:
             voice_samples: List of voice sample texts for style guide
             include_phrases: Phrases to emphasize in output
             avoid_phrases: Phrases to avoid in output
+            brand_kit: Brand Kit v1 data (services, audience, proof, etc.)
             
         Returns:
             Success or error response dict
@@ -169,16 +177,40 @@ class GenerationService:
                 profile=profile,
                 template=template,
                 request=request,
-                voice_guide=voice_guide
+                voice_guide=voice_guide,
+                brand_kit=brand_kit
             )
             
             # Extract merged params
             params = extract_merged_params(context)
             session_length = params.get('session_length', 7)
             
+            # Check brand_kit completeness and add warnings
+            workspace_ctx = context.get('workspace', {})
+            brand_kit_tier = workspace_ctx.get('brand_kit_tier')
+            brand_kit_data = workspace_ctx.get('brand_kit')
+            
+            # Initialize warnings list
+            warnings: List[str] = []
+            
+            if not brand_kit_data or not brand_kit_data.get('services'):
+                warnings.append(
+                    'Brand Kit incomplete: Add services to improve content quality and specificity'
+                )
+            elif brand_kit_tier == 'minimum':
+                warnings.append(
+                    'Brand Kit basic: Add audience details (pain/outcome) to improve targeting'
+                )
+            elif brand_kit_tier == 'stronger':
+                warnings.append(
+                    'Brand Kit good: Add proof or differentiators to strengthen credibility'
+                )
+            # 'best' tier gets no warning
+            
             logger.info(
                 f"[{request_id}] Context merged: session_length={session_length}, "
-                f"platforms={params.get('platforms')}, tone={params.get('tone')}"
+                f"platforms={params.get('platforms')}, tone={params.get('tone')}, "
+                f"brand_kit_tier={brand_kit_tier}"
             )
             
             # Try OpenAI first
@@ -236,7 +268,10 @@ class GenerationService:
                 )
             
             normalized_posts = pipeline_result['posts']
-            warnings = list(pipeline_result.get('warnings', []))
+            pipeline_warnings = list(pipeline_result.get('warnings', []))
+            
+            # Merge pipeline warnings with brand_kit warnings
+            warnings.extend(pipeline_warnings)
             
             # Quality gate evaluation
             quality_result = evaluate_all_posts(normalized_posts)
@@ -310,6 +345,19 @@ class GenerationService:
                     warnings.append(warning)
                     post['caption'] = sanitize_public_content(caption)
             
+            # Prepare used_signals metadata (placeholder for future implementation)
+            # TODO: Implement signal extraction from generated posts
+            used_signals = None
+            if brand_kit_data and brand_kit_data.get('services'):
+                # When brand_kit is present, prepare structure for signal tracking
+                used_signals = {
+                    'services_used': [],
+                    'pains_used': [],
+                    'outcomes_used': [],
+                    'proof_used': [],
+                    'differentiators_used': []
+                }
+            
             # Build response with post-ready format
             return self._build_success_response(
                 request_id=request_id,
@@ -318,9 +366,11 @@ class GenerationService:
                 summary={
                     'posts_generated': len(normalized_posts),
                     'voice_applied': voice_guide is not None,
-                    'quality_gate_passed': quality_result['passed']
+                    'quality_gate_passed': quality_result['passed'],
+                    'brand_kit_tier': brand_kit_tier
                 },
-                warnings=warnings if warnings else None
+                warnings=warnings if warnings else None,
+                used_signals=used_signals
             )
             
         except ValidationError as e:

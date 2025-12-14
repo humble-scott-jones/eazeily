@@ -97,6 +97,19 @@ class VoiceStyleGuide(TypedDict, total=False):
     micro_examples: Optional[VoiceMicroExamples]  # voice anchoring examples
 
 
+class BrandKitV1(TypedDict, total=False):
+    """Brand Kit v1 - specificity fields for better generation."""
+    services: Optional[List[str]]  # What you offer
+    audience_role: Optional[str]  # Who they are
+    audience_pain: Optional[str]  # What problem they face
+    audience_outcome: Optional[str]  # What they achieve
+    audience_objection: Optional[str]  # What holds them back
+    differentiators: Optional[List[str]]  # What makes you different
+    proof: Optional[List[str]]  # Social proof, credentials, results
+    email_signature: Optional[str]  # Sender/signoff for emails
+    quote_terms: Optional[str]  # Terms for quotes (validity, deposit, etc.)
+
+
 class WorkspaceContext(TypedDict, total=False):
     """Workspace profile and settings."""
     company_name: str
@@ -106,6 +119,8 @@ class WorkspaceContext(TypedDict, total=False):
     offerings: Optional[str]
     audience: Optional[str]
     compliance_notes: Optional[str]
+    brand_kit: Optional[BrandKitV1]
+    brand_kit_tier: Optional[str]  # "minimum" | "stronger" | "best"
 
 
 class GenerationContext(TypedDict, total=False):
@@ -124,6 +139,15 @@ class ErrorDetail(TypedDict):
     details: Optional[Dict[str, Any]]
 
 
+class UsedSignals(TypedDict, total=False):
+    """Metadata tracking which Brand Kit signals were used in generation."""
+    services_used: List[str]
+    pains_used: List[str]
+    outcomes_used: List[str]
+    proof_used: List[str]
+    differentiators_used: List[str]
+
+
 class SuccessResponse(TypedDict):
     """Standard success response."""
     ok: bool  # True
@@ -133,6 +157,8 @@ class SuccessResponse(TypedDict):
     data: Dict[str, Any]
     summary: Optional[Dict[str, Any]]
     warnings: Optional[List[str]]
+    used_signals: Optional[UsedSignals]
+    source: Optional[str]
 
 
 class ErrorResponse(TypedDict):

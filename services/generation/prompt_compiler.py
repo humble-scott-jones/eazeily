@@ -27,6 +27,12 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+# Brand Kit prompt configuration
+MAX_SERVICES_IN_PROMPT = 5
+MAX_PROOF_IN_PROMPT = 3
+MAX_DIFFERENTIATORS_IN_PROMPT = 3
+
+
 # ============================================================================
 # Canonical Input Types
 # ============================================================================
@@ -44,6 +50,7 @@ class ProfileDefaults(TypedDict, total=False):
     brand_inspirations: Optional[List[Dict[str, str]]]  # [{ name: str, why?: str }]
     brand_anti_inspirations: Optional[List[Dict[str, str]]]
     vibe_preset: Optional[str]
+    brand_kit: Optional[Dict[str, Any]]  # Brand Kit v1 data
 
 
 class BrandInspiration(TypedDict, total=False):
@@ -124,6 +131,9 @@ class ModelReadyContext(TypedDict, total=False):
     template_applied: bool
     inspiration_applied: bool
     inspiration_style: Optional[VoiceInspiration]  # brand inspiration descriptors
+    brand_kit_applied: bool
+    brand_kit: Optional[Dict[str, Any]]  # Brand Kit v1 data
+    brand_kit_tier: Optional[str]  # "minimum" | "stronger" | "best"
 
 
 class PromptSet(TypedDict):
@@ -318,6 +328,7 @@ class PromptCompiler:
             merged['brand_inspirations'] = self.profile_defaults.get('brand_inspirations', [])
             merged['brand_anti_inspirations'] = self.profile_defaults.get('brand_anti_inspirations', [])
             merged['vibe_preset'] = self.profile_defaults.get('vibe_preset')
+            merged['brand_kit'] = self.profile_defaults.get('brand_kit')
         
         # Layer 2: Voice fingerprint (constraints, not overridden)
         # Voice is stored separately and applied as constraints
@@ -415,6 +426,13 @@ class PromptCompiler:
                 industry_pack_id = pack_id
                 industry_constraints = constraints
         
+        # Extract and evaluate Brand Kit
+        brand_kit = merged.get('brand_kit')
+        brand_kit_applied = bool(brand_kit and brand_kit.get('services'))
+        brand_kit_tier = None
+        if brand_kit_applied:
+            brand_kit_tier = self._evaluate_brand_kit_tier(brand_kit)
+        
         return ModelReadyContext(
             company_name=merged.get('company', ''),
             industry=industry,
@@ -431,7 +449,10 @@ class PromptCompiler:
             voice_style=voice_style,
             template_applied=bool(merged.get('template_name')),
             inspiration_applied=inspiration_applied,
-            inspiration_style=inspiration_style
+            inspiration_style=inspiration_style,
+            brand_kit_applied=brand_kit_applied,
+            brand_kit=brand_kit,
+            brand_kit_tier=brand_kit_tier
         )
     
     def _convert_inspirations_to_descriptors(
@@ -565,6 +586,40 @@ class PromptCompiler:
             vibe_preset=vibe_preset
         )
     
+    def _evaluate_brand_kit_tier(self, brand_kit: Dict[str, Any]) -> str:
+        """Evaluate Brand Kit completeness tier.
+        
+        Tiers:
+        - "minimum": At least 1 service
+        - "stronger": Services + audience (role/pain/outcome) 
+        - "best": Services + audience + (proof or differentiators)
+        
+        Args:
+            brand_kit: Brand Kit data
+            
+        Returns:
+            Tier string: "minimum" | "stronger" | "best" | "incomplete"
+        """
+        has_services = bool(brand_kit.get('services'))
+        has_audience = bool(
+            brand_kit.get('audience_role') or 
+            brand_kit.get('audience_pain') or 
+            brand_kit.get('audience_outcome')
+        )
+        has_proof_or_diff = bool(
+            brand_kit.get('proof') or 
+            brand_kit.get('differentiators')
+        )
+        
+        if has_services and has_audience and has_proof_or_diff:
+            return "best"
+        elif has_services and has_audience:
+            return "stronger"
+        elif has_services:
+            return "minimum"
+        else:
+            return "incomplete"
+    
     # ========================================================================
     # Schema Builders
     # ========================================================================
@@ -697,6 +752,43 @@ class PromptCompiler:
             context_parts.append(f"Offerings: {context['offerings']}")
         if context.get('audience'):
             context_parts.append(f"Audience: {context['audience']}")
+        
+        # Brand Kit signals (if present) - MUST USE rules
+        if context.get('brand_kit_applied') and (brand_kit := context.get('brand_kit')):
+            brand_kit_parts = []
+            brand_kit_parts.append("BRAND KIT (MUST USE in every post):")
+            
+            if services := brand_kit.get('services'):
+                services_to_show = services[:MAX_SERVICES_IN_PROMPT]
+                brand_kit_parts.append(f"  Services: {', '.join(services_to_show)}")
+            
+            if differentiators := brand_kit.get('differentiators'):
+                diff_to_show = differentiators[:MAX_DIFFERENTIATORS_IN_PROMPT]
+                brand_kit_parts.append(f"  What makes you different: {', '.join(diff_to_show)}")
+            
+            if proof := brand_kit.get('proof'):
+                proof_to_show = proof[:MAX_PROOF_IN_PROMPT]
+                brand_kit_parts.append(f"  Proof/credentials: {', '.join(proof_to_show)}")
+            
+            audience_parts = []
+            if role := brand_kit.get('audience_role'):
+                audience_parts.append(f"Who: {role}")
+            if pain := brand_kit.get('audience_pain'):
+                audience_parts.append(f"Pain: {pain}")
+            if outcome := brand_kit.get('audience_outcome'):
+                audience_parts.append(f"Outcome: {outcome}")
+            if objection := brand_kit.get('audience_objection'):
+                audience_parts.append(f"Objection: {objection}")
+            
+            if audience_parts:
+                brand_kit_parts.append(f"  Audience: {' | '.join(audience_parts)}")
+            
+            # MUST USE rules for social posts
+            brand_kit_parts.append("\n  CONTENT REQUIREMENTS (each post MUST include):")
+            brand_kit_parts.append("    ✓ At least ONE: service mention OR differentiator OR proof point")
+            brand_kit_parts.append("    ✓ At least ONE: pain/outcome reference OR audience callout")
+            
+            context_parts.append("\n".join(brand_kit_parts))
         
         # Industry-specific constraints (if applicable)
         if context.get('industry_pack_id') and (industry_constraints := context.get('industry_constraints')):

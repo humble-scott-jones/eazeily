@@ -4,8 +4,9 @@ Implements deterministic merge order:
   request > template > profile defaults > workspace defaults
 """
 
+import json
 from typing import Any, Dict, Optional, List
-from .output_schemas import GenerationContext, WorkspaceContext, VoiceStyleGuide
+from .output_schemas import GenerationContext, WorkspaceContext, VoiceStyleGuide, BrandKitV1
 
 
 def merge_contexts(
@@ -13,7 +14,8 @@ def merge_contexts(
     profile: Optional[Dict[str, Any]] = None,
     template: Optional[Dict[str, Any]] = None,
     request: Optional[Dict[str, Any]] = None,
-    voice_guide: Optional[VoiceStyleGuide] = None
+    voice_guide: Optional[VoiceStyleGuide] = None,
+    brand_kit: Optional[BrandKitV1] = None
 ) -> GenerationContext:
     """Merge multiple context sources with deterministic precedence.
     
@@ -29,10 +31,16 @@ def merge_contexts(
         template: Saved template (pre-configured settings)
         request: This request's toggles/parameters
         voice_guide: Derived voice style guide from samples
+        brand_kit: Brand Kit v1 data (services, audience, proof, etc.)
         
     Returns:
         GenerationContext with merged settings
     """
+    # Extract and evaluate brand_kit
+    brand_kit_tier = None
+    if brand_kit:
+        brand_kit_tier = evaluate_brand_kit_tier(brand_kit)
+    
     # Start with workspace defaults
     workspace_ctx = WorkspaceContext(
         company_name=workspace.get('company_name', '') if workspace else '',
@@ -42,6 +50,8 @@ def merge_contexts(
         offerings=workspace.get('offerings') if workspace else None,
         audience=workspace.get('audience') if workspace else None,
         compliance_notes=workspace.get('compliance_notes') if workspace else None,
+        brand_kit=brand_kit,
+        brand_kit_tier=brand_kit_tier
     )
     
     # Merge order: start with workspace, then layer profile, template, request
@@ -179,3 +189,159 @@ def get_workspace_summary(context: GenerationContext) -> str:
         parts.append(f"Audience: {audience}")
     
     return ". ".join(parts) + "." if parts else ""
+
+
+def evaluate_brand_kit_tier(brand_kit: BrandKitV1) -> str:
+    """Evaluate Brand Kit completeness tier.
+    
+    Tiers:
+    - "minimum": At least 1 service
+    - "stronger": Services + audience (role/pain/outcome) 
+    - "best": Services + audience + (proof or differentiators)
+    
+    Args:
+        brand_kit: Brand Kit data
+        
+    Returns:
+        Tier string: "minimum" | "stronger" | "best"
+    """
+    has_services = bool(brand_kit.get('services'))
+    has_audience = bool(
+        brand_kit.get('audience_role') or 
+        brand_kit.get('audience_pain') or 
+        brand_kit.get('audience_outcome')
+    )
+    has_proof_or_diff = bool(
+        brand_kit.get('proof') or 
+        brand_kit.get('differentiators')
+    )
+    
+    if has_services and has_audience and has_proof_or_diff:
+        return "best"
+    elif has_services and has_audience:
+        return "stronger"
+    elif has_services:
+        return "minimum"
+    else:
+        return "incomplete"
+
+
+def extract_brand_kit_from_user_data(user_data: Dict[str, Any]) -> Optional[BrandKitV1]:
+    """Extract Brand Kit v1 from user/profile data.
+    
+    Args:
+        user_data: User or profile dict that may contain brand_kit fields
+        
+    Returns:
+        BrandKitV1 dict or None if no brand kit data found
+    """
+    # Check if brand_kit is already structured
+    if 'brand_kit' in user_data and isinstance(user_data['brand_kit'], dict):
+        return user_data['brand_kit']
+    
+    # Otherwise, construct from individual fields (backward compatibility)
+    brand_kit: BrandKitV1 = {}
+    
+    # Map fields - these might be stored as JSON strings or direct fields
+    if 'services' in user_data:
+        services = user_data['services']
+        if isinstance(services, str):
+            try:
+                services = json.loads(services)
+            except (json.JSONDecodeError, ValueError):
+                services = [s.strip() for s in services.split(',') if s.strip()]
+        if services:
+            brand_kit['services'] = services
+    
+    if 'audience_role' in user_data and user_data['audience_role']:
+        brand_kit['audience_role'] = user_data['audience_role']
+    
+    if 'audience_pain' in user_data and user_data['audience_pain']:
+        brand_kit['audience_pain'] = user_data['audience_pain']
+    
+    if 'audience_outcome' in user_data and user_data['audience_outcome']:
+        brand_kit['audience_outcome'] = user_data['audience_outcome']
+    
+    if 'audience_objection' in user_data and user_data['audience_objection']:
+        brand_kit['audience_objection'] = user_data['audience_objection']
+    
+    if 'differentiators' in user_data:
+        differentiators = user_data['differentiators']
+        if isinstance(differentiators, str):
+            try:
+                differentiators = json.loads(differentiators)
+            except (json.JSONDecodeError, ValueError):
+                differentiators = [d.strip() for d in differentiators.split(',') if d.strip()]
+        if differentiators:
+            brand_kit['differentiators'] = differentiators
+    
+    if 'proof' in user_data:
+        proof = user_data['proof']
+        if isinstance(proof, str):
+            try:
+                proof = json.loads(proof)
+            except (json.JSONDecodeError, ValueError):
+                proof = [p.strip() for p in proof.split(',') if p.strip()]
+        if proof:
+            brand_kit['proof'] = proof
+    
+    if 'email_signature' in user_data and user_data['email_signature']:
+        brand_kit['email_signature'] = user_data['email_signature']
+    
+    if 'quote_terms' in user_data and user_data['quote_terms']:
+        brand_kit['quote_terms'] = user_data['quote_terms']
+    
+    return brand_kit if brand_kit else None
+
+
+def format_brand_kit_bullets(brand_kit: BrandKitV1) -> Dict[str, str]:
+    """Format Brand Kit data as bullet-point text sections.
+    
+    Args:
+        brand_kit: Brand Kit data
+        
+    Returns:
+        Dict with formatted sections: business_summary, services_bullets, 
+        audience_bullets, proof_bullets, differentiators_bullets
+    """
+    sections = {}
+    
+    # Business summary (compact)
+    summary_parts = []
+    if services := brand_kit.get('services'):
+        summary_parts.append(f"Services: {', '.join(services[:3])}")
+    if role := brand_kit.get('audience_role'):
+        summary_parts.append(f"For: {role}")
+    sections['business_summary'] = ". ".join(summary_parts) + "." if summary_parts else ""
+    
+    # Services bullets
+    if services := brand_kit.get('services'):
+        sections['services_bullets'] = "\n".join([f"• {s}" for s in services])
+    else:
+        sections['services_bullets'] = ""
+    
+    # Audience bullets (role/pain/outcome/objection)
+    audience_bullets = []
+    if role := brand_kit.get('audience_role'):
+        audience_bullets.append(f"• Who: {role}")
+    if pain := brand_kit.get('audience_pain'):
+        audience_bullets.append(f"• Pain: {pain}")
+    if outcome := brand_kit.get('audience_outcome'):
+        audience_bullets.append(f"• Outcome: {outcome}")
+    if objection := brand_kit.get('audience_objection'):
+        audience_bullets.append(f"• Objection: {objection}")
+    sections['audience_bullets'] = "\n".join(audience_bullets)
+    
+    # Proof bullets
+    if proof := brand_kit.get('proof'):
+        sections['proof_bullets'] = "\n".join([f"• {p}" for p in proof])
+    else:
+        sections['proof_bullets'] = ""
+    
+    # Differentiators bullets
+    if diff := brand_kit.get('differentiators'):
+        sections['differentiators_bullets'] = "\n".join([f"• {d}" for d in diff])
+    else:
+        sections['differentiators_bullets'] = ""
+    
+    return sections
