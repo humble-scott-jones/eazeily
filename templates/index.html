@@ -78,6 +78,8 @@
             <span class="step">4</span>
             <div class="bar"></div>
             <span class="step">5</span>
+            <div class="bar"></div>
+            <span class="step">6</span>
           </div>
         </div>
 
@@ -92,12 +94,14 @@
           <span class="step">4</span>
           <div class="bar"></div>
           <span class="step">5</span>
+          <div class="bar"></div>
+          <span class="step">6</span>
         </div>
 
         <!-- Progress Text and Bar -->
         <div class="mb-6">
           <div class="flex items-center justify-between mb-2">
-            <p id="progress-text" class="text-sm font-semibold text-slate-700">Step 1 of 5</p>
+            <p id="progress-text" class="text-sm font-semibold text-slate-700">Step 1 of 6</p>
             <p id="step-title" class="text-sm font-medium text-purple-600">Choose your industry</p>
           </div>
           <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
@@ -152,6 +156,186 @@
           <div class="space-y-6">
             <div class="space-y-2">
               <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 2</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Brand Kit (Recommended)</h2>
+              <p class="text-slate-600 text-lg font-medium">This is how Eazeily writes posts that sound like YOUR business.</p>
+            </div>
+
+            <!-- Good/Better/Best Meter -->
+            <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-slate-900">Your Brand Kit Completeness</h3>
+                <span id="brand-kit-tier" class="px-3 py-1 rounded-full text-sm font-medium bg-slate-200 text-slate-700">Good</span>
+              </div>
+              <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
+                <div id="brand-kit-meter" class="bg-gradient-to-r from-yellow-400 to-yellow-500 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
+              </div>
+              <p id="brand-kit-helper" class="text-sm text-slate-700">Fill these 5 fields and you'll get posts you can copy/paste with your services and results included.</p>
+            </div>
+
+            <!-- Show me an example toggle -->
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <button type="button" id="show-example-toggle" class="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center gap-2">
+                <span>▶</span>
+                <span>Show me an example</span>
+              </button>
+              <div id="example-comparison" class="hidden mt-4 space-y-4">
+                <div class="space-y-2">
+                  <p class="text-xs uppercase tracking-wide text-slate-500 font-semibold">BEFORE (Good tier)</p>
+                  <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm text-slate-700">
+                    "Ready to get started? We offer great services to help you succeed. Contact us today!"
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <p class="text-xs uppercase tracking-wide text-purple-600 font-semibold">AFTER (Best tier)</p>
+                  <div class="bg-purple-50 rounded-lg p-4 border border-purple-200 text-sm text-slate-700">
+                    "Ready to transform your online presence? As a trusted web design agency with 10+ years experience, we've helped 200+ businesses increase conversions by 40%. Our proven process: strategy first, beautiful design, ongoing support. Book your free consultation today → [link]"
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="brand-kit-form" class="space-y-6">
+              <!-- GOOD tier fields -->
+              <div class="space-y-5 p-5 rounded-xl border-2 border-green-200 bg-green-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-green-500 text-white">GOOD</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Minimum inputs (2 minutes)</h4>
+                </div>
+
+                <!-- 1. Business name -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Business name (optional)</label>
+                  <input type="text" id="bk-business-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" />
+                </div>
+
+                <!-- 2. Services (pick 3-5) -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Services (pick 3-5)</label>
+                  <p class="text-xs text-slate-500">What do you offer?</p>
+                  <div id="bk-services-chips" class="flex flex-wrap gap-2 mb-2"></div>
+                  <input type="text" id="bk-services-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" />
+                  <button type="button" class="text-xs text-purple-600 hover:text-purple-700 font-medium" data-suggestion-target="bk-services-input" data-suggestions='["Consultation","Custom Design","Installation","Training","Support"]'>Not sure? Use a suggestion</button>
+                </div>
+
+                <!-- 3. Who you help -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Who you help (audience)</label>
+                  <p class="text-xs text-slate-500">Who is your target customer?</p>
+                  <input type="text" id="bk-audience" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., busy professionals, first-time homebuyers" />
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="busy professionals">busy professionals</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="small business owners">small business owners</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="families">families</button>
+                  </div>
+                </div>
+
+                <!-- 4. What problem you solve -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">What problem you solve (pain)</label>
+                  <p class="text-xs text-slate-500">What challenge do your customers face?</p>
+                  <input type="text" id="bk-pain" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., wasting time on manual tasks" />
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="wasting time">wasting time</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="feeling overwhelmed">feeling overwhelmed</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="not seeing results">not seeing results</button>
+                  </div>
+                </div>
+
+                <!-- 5. Result you deliver -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">The result you deliver (outcome)</label>
+                  <p class="text-xs text-slate-500">What transformation do they get?</p>
+                  <input type="text" id="bk-outcome" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., save 10 hours per week" />
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="save time">save time</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="increase revenue">increase revenue</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="feel confident">feel confident</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- BETTER tier fields -->
+              <div class="space-y-5 p-5 rounded-xl border-2 border-blue-200 bg-blue-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-blue-500 text-white">BETTER</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Better inputs (add 2 more)</h4>
+                  <p class="text-sm text-slate-600">Add 2 more and your posts will feel more credible (we'll include proof and why someone should choose you).</p>
+                </div>
+
+                <!-- 6. Differentiators -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Differentiators (pick 1-3)</label>
+                  <p class="text-xs text-slate-500">What makes you unique?</p>
+                  <div id="bk-differentiators-chips" class="flex flex-wrap gap-2 mb-2"></div>
+                  <input type="text" id="bk-differentiators-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" />
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Fast turnaround">Fast turnaround</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Personalized service">Personalized service</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Family-owned">Family-owned</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Certified experts">Certified experts</button>
+                  </div>
+                </div>
+
+                <!-- 7. Proof -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Proof (credentials, experience)</label>
+                  <p class="text-xs text-slate-500">Years in business, certifications, #clients, testimonial snippet</p>
+                  <input type="text" id="bk-proof" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., 10+ years experience, 500+ happy clients" />
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="10+ years experience">10+ years experience</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Licensed & insured">Licensed & insured</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Award-winning">Award-winning</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- BEST tier fields -->
+              <div class="space-y-5 p-5 rounded-xl border-2 border-purple-200 bg-purple-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-purple-600 text-white">BEST</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Best inputs (optional)</h4>
+                  <p class="text-sm text-slate-600">Add business details once and we'll also generate ready-to-send emails and quote templates.</p>
+                </div>
+
+                <!-- 8. Email signature defaults -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Email signature (name/title/contact)</label>
+                  <input type="text" id="bk-email-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Your name" />
+                  <input type="text" id="bk-email-title" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Your title" />
+                  <input type="text" id="bk-email-contact" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Email or phone" />
+                </div>
+
+                <!-- 9. Quote defaults -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Quote defaults</label>
+                  <input type="text" id="bk-deposit" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Deposit % (e.g., 50%)" />
+                  <input type="text" id="bk-turnaround" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Turnaround time (e.g., 2-3 weeks)" />
+                  <input type="text" id="bk-validity" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Quote validity (e.g., 30 days)" />
+                  <input type="text" id="bk-payment-methods" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Payment methods (e.g., Cash, Venmo, PayPal)" />
+                </div>
+
+                <!-- 10. Logo upload -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Logo upload (optional)</label>
+                  <p class="text-xs text-slate-500">PNG, JPG, or WebP • Max 2MB • Max 2000x2000px</p>
+                  <input type="file" id="bk-logo-upload" accept="image/png,image/jpeg,image/webp" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
+                  <p id="bk-logo-error" class="text-xs text-red-600 hidden"></p>
+                  <p id="bk-logo-success" class="text-xs text-green-600 hidden"></p>
+                </div>
+              </div>
+
+              <!-- Skip option -->
+              <div class="text-center pt-4">
+                <button type="button" id="skip-brand-kit" class="text-sm text-slate-500 hover:text-slate-700 underline">Skip for now (you can add this later in Settings)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="3">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 3</p>
               <h2 class="text-2xl font-semibold text-slate-900">Add quick context</h2>
               <p class="text-slate-600">Answer any follow-up questions so we can highlight the right goals, locations, and reel styles. If your industry doesn’t need this, we’ll skip ahead automatically.</p>
             </div>
@@ -165,10 +349,10 @@
           </div>
         </div>
 
-        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="3">
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="4">
           <div class="space-y-6">
             <div class="space-y-2">
-              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 3</p>
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 4</p>
               <h2 class="text-2xl font-semibold text-slate-900">Dial in your tone and channels</h2>
               <p class="text-slate-600">Choose how your brand should sound and where we should publish. Tone and platform selections stay visible side-by-side so you can tweak both without leaving the step.</p>
             </div>
@@ -219,10 +403,10 @@
           </div>
         </div>
 
-        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="4">
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="5">
           <div class="space-y-6">
             <div class="space-y-2">
-              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 4</p>
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 5</p>
               <h2 class="text-2xl font-semibold text-slate-900">Brand Inspiration (Optional)</h2>
               <p class="text-slate-600">Name 3–4 brands whose content you admire. We'll use them for tone and structure—not to copy wording.</p>
             </div>
@@ -281,10 +465,10 @@
           </div>
         </div>
 
-        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="5">
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="6">
           <div class="space-y-6">
             <div class="space-y-2">
-              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 5</p>
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 6</p>
               <h2 class="text-2xl font-semibold text-slate-900">Lock in keywords & notes</h2>
               <p class="text-slate-600">Pick the themes you want us to emphasize, then leave a quick note or promo so your first draft feels current.</p>
             </div>

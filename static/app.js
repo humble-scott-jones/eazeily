@@ -311,10 +311,11 @@ async function loadConfig(){
 function getWizardSteps() {
   const steps = [
     { id: 'industry', stepNumber: 1, dataStep: '1', title: 'Choose your industry', isEnabled: true },
-    { id: 'context', stepNumber: 2, dataStep: '2', title: 'Add quick context', isEnabled: !skipStep2 },
-    { id: 'tone-platforms', stepNumber: 3, dataStep: '3', title: 'Dial in your tone and channels', isEnabled: true },
-    { id: 'brand-inspiration', stepNumber: 4, dataStep: '4', title: 'Brand Inspiration', isEnabled: true },
-    { id: 'keywords', stepNumber: 5, dataStep: '5', title: 'Lock in keywords & notes', isEnabled: true }
+    { id: 'brand-kit', stepNumber: 2, dataStep: '2', title: 'Brand Kit (Recommended)', isEnabled: true },
+    { id: 'context', stepNumber: 3, dataStep: '3', title: 'Add quick context', isEnabled: !skipStep2 },
+    { id: 'tone-platforms', stepNumber: 4, dataStep: '4', title: 'Dial in your tone and channels', isEnabled: true },
+    { id: 'brand-inspiration', stepNumber: 5, dataStep: '5', title: 'Brand Inspiration', isEnabled: true },
+    { id: 'keywords', stepNumber: 6, dataStep: '6', title: 'Lock in keywords & notes', isEnabled: true }
   ];
   
   // Filter to enabled steps only
@@ -348,7 +349,19 @@ const answers = {
   goals: [], details: {},
   brand_inspirations: [],
   brand_anti_inspirations: [],
-  vibe_preset: null
+  vibe_preset: null,
+  brand_kit: {
+    business_name: "",
+    services: [],
+    audience: "",
+    pain: "",
+    outcome: "",
+    differentiators: [],
+    proof: "",
+    email: { name: "", title: "", contact: "" },
+    quotes: { deposit: "", turnaround: "", validity: "", payment_methods: "" },
+    logo: null
+  }
 };
 
 const prevBtn = document.getElementById("prev");
@@ -1144,8 +1157,9 @@ function renderIndustryQuestions(key){
 }
 
 function showStep(n){
-  if (skipStep2 && n === 2){
-    n = 3;
+  // If context step (3) should be skipped and we're navigating to it, skip to step 4
+  if (skipStep2 && n === 3){
+    n = 4;
   }
   step = n;
   if (nextBtn) setButtonLoading(nextBtn, false);
@@ -1193,8 +1207,13 @@ function showStep(n){
     // Ignore localStorage errors
   }
 
-  // Hydrate brand inspiration UI when showing step 4
-  if (n === 4) {
+  // Hydrate Brand Kit UI when showing step 2
+  if (n === 2) {
+    hydrateBrandKitUI();
+  }
+
+  // Hydrate brand inspiration UI when showing step 5
+  if (n === 5) {
     hydrateBrandInspirationUI();
   }
 
@@ -1264,8 +1283,8 @@ if (window.location.hash === '#step4') {
 }
 
 if (prevBtn) prevBtn.addEventListener("click", ()=>{
-  if (step === 3 && skipStep2){
-    step = 1;
+  if (step === 4 && skipStep2){
+    step = 2; // Skip back over context step (3) to Brand Kit
   } else {
     step = Math.max(1, step-1);
   }
@@ -1282,24 +1301,25 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     if (!answers.industry){ showToast('Pick an industry to keep going'); return; }
     // Show saving feedback briefly
     showSavingFeedback();
-    step = skipStep2 ? 3 : 2;
+    step = 2; // Always go to Brand Kit step
     showStep(step);
     return;
   }
   if (step === 2){
-    if (!skipStep2 && !hasStepTwoAnswer()){
-      showToast('Choose at least one focus so we can tailor ideas');
-      return;
-    }
+    // Brand Kit step - collect data and save
+    collectBrandKitData();
+    await saveBrandKit();
     // Show saving feedback briefly
     showSavingFeedback();
-    step = 3;
+    step = skipStep2 ? 4 : 3; // Skip context if empty
     showStep(step);
     return;
   }
   if (step === 3){
-    if (!answers.tone){ showToast('Pick a tone to keep going'); return; }
-    if (!answers.platforms || !answers.platforms.length){ showToast('Choose at least one platform'); return; }
+    if (!skipStep2 && !hasStepTwoAnswer()){
+      showToast('Choose at least one focus so we can tailor ideas');
+      return;
+    }
     // Show saving feedback briefly
     showSavingFeedback();
     step = 4;
@@ -1307,11 +1327,20 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     return;
   }
   if (step === 4){
-    // Brand inspiration step - collect data and move to step 5
-    collectBrandInspirationData();
+    if (!answers.tone){ showToast('Pick a tone to keep going'); return; }
+    if (!answers.platforms || !answers.platforms.length){ showToast('Choose at least one platform'); return; }
     // Show saving feedback briefly
     showSavingFeedback();
     step = 5;
+    showStep(step);
+    return;
+  }
+  if (step === 5){
+    // Brand inspiration step - collect data and move to step 6
+    collectBrandInspirationData();
+    // Show saving feedback briefly
+    showSavingFeedback();
+    step = 6;
     showStep(step);
     return;
   }
@@ -2969,6 +2998,481 @@ function hydrateBrandInspirationUI() {
   updateBrandCounter();
   updateAntiBrandCounter();
 }
+
+// ============================================================================
+// Brand Kit Wizard Functions
+// ============================================================================
+
+function hydrateBrandKitUI() {
+  // Load existing brand kit data from backend
+  loadBrandKit();
+  
+  // Setup event listeners for Brand Kit UI
+  setupBrandKitListeners();
+}
+
+async function loadBrandKit() {
+  try {
+    const response = await fetch('/api/brand_kit');
+    const data = await response.json();
+    
+    if (data.ok && data.brand_kit) {
+      const kit = data.brand_kit;
+      
+      // Hydrate business name
+      const businessNameInput = document.getElementById('bk-business-name');
+      if (businessNameInput && kit.business && kit.business.company_name) {
+        businessNameInput.value = kit.business.company_name;
+      }
+      
+      // Hydrate services
+      if (kit.services && kit.services.primary_services) {
+        answers.brand_kit.services = kit.services.primary_services;
+        renderBrandKitChips('bk-services-chips', answers.brand_kit.services, 'services');
+      }
+      
+      // Hydrate audience
+      const audienceInput = document.getElementById('bk-audience');
+      if (audienceInput && kit.audience && kit.audience.target_roles && kit.audience.target_roles.length > 0) {
+        audienceInput.value = kit.audience.target_roles[0];
+      }
+      
+      // Hydrate pain
+      const painInput = document.getElementById('bk-pain');
+      if (painInput && kit.audience && kit.audience.top_pains && kit.audience.top_pains.length > 0) {
+        painInput.value = kit.audience.top_pains[0];
+      }
+      
+      // Hydrate outcome
+      const outcomeInput = document.getElementById('bk-outcome');
+      if (outcomeInput && kit.audience && kit.audience.desired_outcomes && kit.audience.desired_outcomes.length > 0) {
+        outcomeInput.value = kit.audience.desired_outcomes[0];
+      }
+      
+      // Hydrate differentiators
+      if (kit.positioning && kit.positioning.differentiators) {
+        answers.brand_kit.differentiators = kit.positioning.differentiators;
+        renderBrandKitChips('bk-differentiators-chips', answers.brand_kit.differentiators, 'differentiators');
+      }
+      
+      // Hydrate proof
+      const proofInput = document.getElementById('bk-proof');
+      if (proofInput && kit.proof) {
+        const proofParts = [];
+        if (kit.proof.years_in_business) proofParts.push(`${kit.proof.years_in_business} years experience`);
+        if (kit.proof.credentials && kit.proof.credentials.length > 0) proofParts.push(kit.proof.credentials.join(', '));
+        if (proofParts.length > 0) {
+          proofInput.value = proofParts.join(', ');
+        }
+      }
+      
+      // Hydrate email fields
+      if (kit.email) {
+        const emailNameInput = document.getElementById('bk-email-name');
+        const emailTitleInput = document.getElementById('bk-email-title');
+        const emailContactInput = document.getElementById('bk-email-contact');
+        if (emailNameInput && kit.email.sender_name) emailNameInput.value = kit.email.sender_name;
+        if (emailTitleInput && kit.email.signoff_style) emailTitleInput.value = kit.email.signoff_style;
+        if (emailContactInput && kit.email.signature_lines) emailContactInput.value = kit.email.signature_lines;
+      }
+      
+      // Hydrate quote fields
+      if (kit.quotes) {
+        const depositInput = document.getElementById('bk-deposit');
+        const turnaroundInput = document.getElementById('bk-turnaround');
+        const validityInput = document.getElementById('bk-validity');
+        const paymentInput = document.getElementById('bk-payment-methods');
+        if (depositInput && kit.quotes.deposit_policy) depositInput.value = kit.quotes.deposit_policy;
+        if (turnaroundInput && kit.quotes.turnaround_time) turnaroundInput.value = kit.quotes.turnaround_time;
+        if (validityInput && kit.quotes.default_validity_days) validityInput.value = `${kit.quotes.default_validity_days} days`;
+        if (paymentInput && kit.quotes.payment_methods) paymentInput.value = kit.quotes.payment_methods;
+      }
+      
+      // Update meter based on loaded data
+      updateBrandKitMeter(kit.meta?.tier || 'minimum', kit.meta?.completeness_score || 0);
+    }
+  } catch (error) {
+    console.error('Failed to load brand kit:', error);
+  }
+}
+
+function setupBrandKitListeners() {
+  // Services input - Enter key to add
+  const servicesInput = document.getElementById('bk-services-input');
+  if (servicesInput) {
+    servicesInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = servicesInput.value.trim();
+        if (value && answers.brand_kit.services.length < 5) {
+          answers.brand_kit.services.push(value);
+          renderBrandKitChips('bk-services-chips', answers.brand_kit.services, 'services');
+          servicesInput.value = '';
+          calculateBrandKitTier();
+        }
+      }
+    });
+  }
+  
+  // Differentiators input - Enter key to add
+  const diffInput = document.getElementById('bk-differentiators-input');
+  if (diffInput) {
+    diffInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = diffInput.value.trim();
+        if (value && answers.brand_kit.differentiators.length < 3) {
+          answers.brand_kit.differentiators.push(value);
+          renderBrandKitChips('bk-differentiators-chips', answers.brand_kit.differentiators, 'differentiators');
+          diffInput.value = '';
+          calculateBrandKitTier();
+        }
+      }
+    });
+  }
+  
+  // Chip suggestion buttons
+  const chipSuggestions = document.querySelectorAll('.chip-suggestion');
+  chipSuggestions.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      const value = btn.dataset.value;
+      const input = document.getElementById(targetId);
+      if (input) {
+        input.value = value;
+        input.dispatchEvent(new Event('input'));
+      }
+    });
+  });
+  
+  // Suggestion buttons that insert predefined values
+  const suggestionButtons = document.querySelectorAll('[data-suggestion-target]');
+  suggestionButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.suggestionTarget;
+      const suggestions = JSON.parse(btn.dataset.suggestions || '[]');
+      const input = document.getElementById(targetId);
+      if (input && suggestions.length > 0) {
+        // Insert first suggestion
+        input.value = suggestions[0];
+        input.dispatchEvent(new Event('input'));
+      }
+    });
+  });
+  
+  // Example toggle
+  const exampleToggle = document.getElementById('show-example-toggle');
+  const exampleComparison = document.getElementById('example-comparison');
+  if (exampleToggle && exampleComparison) {
+    exampleToggle.addEventListener('click', () => {
+      exampleComparison.classList.toggle('hidden');
+      const icon = exampleToggle.querySelector('span');
+      if (icon) {
+        icon.textContent = exampleComparison.classList.contains('hidden') ? '▶' : '▼';
+      }
+    });
+  }
+  
+  // Skip button
+  const skipBtn = document.getElementById('skip-brand-kit');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', () => {
+      // Just proceed to next step without saving
+      step = skipStep2 ? 4 : 3;
+      showStep(step);
+    });
+  }
+  
+  // Logo upload validation
+  const logoUpload = document.getElementById('bk-logo-upload');
+  if (logoUpload) {
+    logoUpload.addEventListener('change', handleLogoUpload);
+  }
+  
+  // Input change listeners for meter updates
+  const inputIds = ['bk-business-name', 'bk-audience', 'bk-pain', 'bk-outcome', 'bk-proof', 
+                    'bk-email-name', 'bk-email-title', 'bk-email-contact',
+                    'bk-deposit', 'bk-turnaround', 'bk-validity', 'bk-payment-methods'];
+  inputIds.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('input', calculateBrandKitTier);
+    }
+  });
+}
+
+function renderBrandKitChips(containerId, items, type) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  container.innerHTML = '';
+  items.forEach((item, index) => {
+    const chip = document.createElement('span');
+    chip.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-700';
+    chip.innerHTML = `
+      ${item}
+      <button type="button" class="ml-1 text-purple-500 hover:text-purple-700" onclick="removeBrandKitChip('${type}', ${index})">×</button>
+    `;
+    container.appendChild(chip);
+  });
+}
+
+// Make this global so it can be called from inline onclick
+window.removeBrandKitChip = function(type, index) {
+  if (type === 'services') {
+    answers.brand_kit.services.splice(index, 1);
+    renderBrandKitChips('bk-services-chips', answers.brand_kit.services, 'services');
+  } else if (type === 'differentiators') {
+    answers.brand_kit.differentiators.splice(index, 1);
+    renderBrandKitChips('bk-differentiators-chips', answers.brand_kit.differentiators, 'differentiators');
+  }
+  calculateBrandKitTier();
+};
+
+function calculateBrandKitTier() {
+  // Count filled fields
+  let score = 0;
+  const maxScore = 100;
+  
+  // GOOD tier (25 points)
+  const businessName = document.getElementById('bk-business-name')?.value.trim() || '';
+  if (businessName) score += 5;
+  if (answers.brand_kit.services.length >= 2) score += 10;
+  else if (answers.brand_kit.services.length === 1) score += 5;
+  if (document.getElementById('bk-audience')?.value.trim()) score += 5;
+  if (document.getElementById('bk-pain')?.value.trim()) score += 3;
+  if (document.getElementById('bk-outcome')?.value.trim()) score += 2;
+  
+  // BETTER tier (25 points)
+  if (answers.brand_kit.differentiators.length >= 2) score += 15;
+  else if (answers.brand_kit.differentiators.length === 1) score += 7;
+  if (document.getElementById('bk-proof')?.value.trim()) score += 10;
+  
+  // BEST tier (50 points)
+  if (document.getElementById('bk-email-name')?.value.trim()) score += 5;
+  if (document.getElementById('bk-email-title')?.value.trim()) score += 5;
+  if (document.getElementById('bk-email-contact')?.value.trim()) score += 5;
+  if (document.getElementById('bk-deposit')?.value.trim()) score += 5;
+  if (document.getElementById('bk-turnaround')?.value.trim()) score += 5;
+  if (document.getElementById('bk-validity')?.value.trim()) score += 5;
+  if (document.getElementById('bk-payment-methods')?.value.trim()) score += 5;
+  if (answers.brand_kit.logo) score += 10;
+  
+  // Determine tier
+  let tier = 'minimum';
+  if (score >= 75) tier = 'best';
+  else if (score >= 50) tier = 'stronger';
+  else if (score >= 25) tier = 'minimum';
+  
+  updateBrandKitMeter(tier, score);
+}
+
+function updateBrandKitMeter(tier, score) {
+  const meterEl = document.getElementById('brand-kit-meter');
+  const tierEl = document.getElementById('brand-kit-tier');
+  const helperEl = document.getElementById('brand-kit-helper');
+  
+  if (meterEl) {
+    meterEl.style.width = `${score}%`;
+    
+    // Update color based on tier
+    meterEl.className = 'h-full rounded-full transition-all duration-500';
+    if (tier === 'best') {
+      meterEl.classList.add('bg-gradient-to-r', 'from-purple-500', 'to-purple-600');
+    } else if (tier === 'stronger') {
+      meterEl.classList.add('bg-gradient-to-r', 'from-blue-500', 'to-blue-600');
+    } else {
+      meterEl.classList.add('bg-gradient-to-r', 'from-yellow-400', 'to-yellow-500');
+    }
+  }
+  
+  if (tierEl) {
+    tierEl.textContent = tier === 'minimum' ? 'Good' : tier === 'stronger' ? 'Better' : 'Best';
+    tierEl.className = 'px-3 py-1 rounded-full text-sm font-medium';
+    if (tier === 'best') {
+      tierEl.classList.add('bg-purple-100', 'text-purple-700');
+    } else if (tier === 'stronger') {
+      tierEl.classList.add('bg-blue-100', 'text-blue-700');
+    } else {
+      tierEl.classList.add('bg-yellow-100', 'text-yellow-700');
+    }
+  }
+  
+  if (helperEl) {
+    if (tier === 'best') {
+      helperEl.textContent = 'Amazing! Your Brand Kit is complete. We'll generate ready-to-send emails and quotes for you.';
+    } else if (tier === 'stronger') {
+      helperEl.textContent = 'Add 2 more and your posts will feel more credible (we'll include proof and why someone should choose you).';
+    } else {
+      helperEl.textContent = 'Fill these 5 fields and you'll get posts you can copy/paste with your services and results included.';
+    }
+  }
+}
+
+function collectBrandKitData() {
+  // Collect all Brand Kit form data into answers.brand_kit
+  answers.brand_kit.business_name = document.getElementById('bk-business-name')?.value.trim() || '';
+  answers.brand_kit.audience = document.getElementById('bk-audience')?.value.trim() || '';
+  answers.brand_kit.pain = document.getElementById('bk-pain')?.value.trim() || '';
+  answers.brand_kit.outcome = document.getElementById('bk-outcome')?.value.trim() || '';
+  answers.brand_kit.proof = document.getElementById('bk-proof')?.value.trim() || '';
+  
+  answers.brand_kit.email = {
+    name: document.getElementById('bk-email-name')?.value.trim() || '',
+    title: document.getElementById('bk-email-title')?.value.trim() || '',
+    contact: document.getElementById('bk-email-contact')?.value.trim() || ''
+  };
+  
+  answers.brand_kit.quotes = {
+    deposit: document.getElementById('bk-deposit')?.value.trim() || '',
+    turnaround: document.getElementById('bk-turnaround')?.value.trim() || '',
+    validity: document.getElementById('bk-validity')?.value.trim() || '',
+    payment_methods: document.getElementById('bk-payment-methods')?.value.trim() || ''
+  };
+}
+
+async function saveBrandKit() {
+  try {
+    // Build brand kit payload matching backend schema
+    const brandKitPayload = {
+      version: 1,
+      business: {
+        company_name: answers.brand_kit.business_name || null,
+        industry_id: answers.industry || '',
+        service_area: null,
+        timezone: null,
+        booking_url: null,
+        contact_email: answers.brand_kit.email.contact || null,
+        contact_phone: null
+      },
+      services: {
+        primary_services: answers.brand_kit.services || [],
+        addons: [],
+        pricing_style: null,
+        service_constraints: []
+      },
+      audience: {
+        target_roles: answers.brand_kit.audience ? [answers.brand_kit.audience] : [],
+        top_pains: answers.brand_kit.pain ? [answers.brand_kit.pain] : [],
+        desired_outcomes: answers.brand_kit.outcome ? [answers.brand_kit.outcome] : [],
+        sophistication: null,
+        objections: []
+      },
+      positioning: {
+        differentiators: answers.brand_kit.differentiators || [],
+        values: [],
+        boundaries: []
+      },
+      proof: {
+        credentials: [],
+        years_in_business: null,
+        volume_markers: [],
+        testimonials: answers.brand_kit.proof ? [answers.brand_kit.proof] : []
+      },
+      email: {
+        sender_name: answers.brand_kit.email.name || null,
+        signoff_style: answers.brand_kit.email.title || null,
+        signature_lines: answers.brand_kit.email.contact || null,
+        preferred_cta: null,
+        links: null
+      },
+      quotes: {
+        default_validity_days: null,
+        deposit_policy: answers.brand_kit.quotes.deposit || null,
+        payment_methods: answers.brand_kit.quotes.payment_methods || null,
+        turnaround_time: answers.brand_kit.quotes.turnaround || null,
+        terms_bullets: null,
+        disclaimer: null
+      },
+      assets: {
+        logo_asset_id: answers.brand_kit.logo || null,
+        logo_url: null
+      }
+    };
+    
+    const response = await fetch('/api/brand_kit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brand_kit: brandKitPayload })
+    });
+    
+    const data = await response.json();
+    if (!data.ok) {
+      console.error('Failed to save brand kit:', data.error);
+    }
+  } catch (error) {
+    console.error('Error saving brand kit:', error);
+  }
+}
+
+async function handleLogoUpload(event) {
+  const file = event.target.files[0];
+  const errorEl = document.getElementById('bk-logo-error');
+  const successEl = document.getElementById('bk-logo-success');
+  
+  // Reset messages
+  if (errorEl) errorEl.classList.add('hidden');
+  if (successEl) successEl.classList.add('hidden');
+  
+  if (!file) return;
+  
+  // Validate file type
+  const validTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!validTypes.includes(file.type)) {
+    if (errorEl) {
+      errorEl.textContent = 'Please upload a PNG, JPG, or WebP image.';
+      errorEl.classList.remove('hidden');
+    }
+    event.target.value = '';
+    return;
+  }
+  
+  // Validate file size (2MB max)
+  const maxSize = 2 * 1024 * 1024; // 2MB
+  if (file.size > maxSize) {
+    if (errorEl) {
+      errorEl.textContent = 'File size must be under 2MB.';
+      errorEl.classList.remove('hidden');
+    }
+    event.target.value = '';
+    return;
+  }
+  
+  // Validate dimensions
+  const img = new Image();
+  const reader = new FileReader();
+  
+  reader.onload = (e) => {
+    img.onload = () => {
+      const maxDim = 2000;
+      if (img.width > maxDim || img.height > maxDim) {
+        if (errorEl) {
+          errorEl.textContent = `Image dimensions must be ${maxDim}x${maxDim} or smaller. Your image is ${img.width}x${img.height}.`;
+          errorEl.classList.remove('hidden');
+        }
+        event.target.value = '';
+        return;
+      }
+      
+      // All validations passed
+      if (successEl) {
+        successEl.textContent = 'Logo uploaded successfully!';
+        successEl.classList.remove('hidden');
+      }
+      
+      // Store file reference (in real implementation, upload to server)
+      answers.brand_kit.logo = file.name;
+      calculateBrandKitTier();
+    };
+    img.src = e.target.result;
+  };
+  
+  reader.readAsDataURL(file);
+}
+
+// ============================================================================
+// End Brand Kit Functions
+// ============================================================================
 
 // Call initialization
 if (document.readyState === 'loading') {
