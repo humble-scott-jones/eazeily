@@ -253,7 +253,7 @@ def sanitize_public_content(text: str) -> str:
 # Coaching phrase detection patterns
 COACHING_PHRASES = [
     r'\byou should\b',
-    r'\bconsider\b',
+    r'\bconsider (adding|posting|using|trying|including|making)\b',  # More specific to avoid false positives
     r'\btry to\b',
     r'\bmake sure to\b',
     r'\bdon\'t forget to\b',
@@ -284,7 +284,7 @@ def detect_coaching_phrases(text: str) -> Optional[List[str]]:
     text_lower = text.lower()
     
     for pattern in COACHING_PHRASES:
-        matches = re.findall(pattern, text_lower, re.IGNORECASE)
+        matches = re.findall(pattern, text_lower)
         if matches:
             detected.extend(matches)
     
