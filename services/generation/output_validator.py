@@ -268,6 +268,10 @@ COACHING_PHRASES = [
     r'\bbe sure to\b',
 ]
 
+# Pre-compile regex patterns for performance
+import re
+_COMPILED_COACHING_PATTERNS = [re.compile(pattern) for pattern in COACHING_PHRASES]
+
 
 def detect_coaching_phrases(text: str) -> Optional[List[str]]:
     """Detect coaching/advisory phrases in text that should not be in final copy.
@@ -278,13 +282,11 @@ def detect_coaching_phrases(text: str) -> Optional[List[str]]:
     Returns:
         List of detected coaching phrases, or None if none found
     """
-    import re
-    
     detected = []
     text_lower = text.lower()
     
-    for pattern in COACHING_PHRASES:
-        matches = re.findall(pattern, text_lower)
+    for pattern in _COMPILED_COACHING_PATTERNS:
+        matches = pattern.findall(text_lower)
         if matches:
             detected.extend(matches)
     
@@ -332,14 +334,12 @@ def repair_coaching_caption(
             }
         ]
         
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+        # Use the OpenAIClient wrapper for consistent error handling and retry logic
+        repaired = openai_client.generate_text(
             messages=messages,
             temperature=0.3,
             max_tokens=500
-        )
-        
-        repaired = response.choices[0].message.content.strip()
+        ).strip()
         
         # Verify repair actually removed coaching phrases
         if detect_coaching_phrases(repaired):

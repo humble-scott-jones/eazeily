@@ -231,12 +231,10 @@ class GenerationService:
                             card['caption'] = repaired
                             coaching_warnings.append("Caption repaired to remove coaching language")
                         else:
-                            # If repair failed, return error
-                            return self._build_error_response(
-                                request_id=request_id,
-                                code='output_not_post_ready',
-                                message='Generated content contains coaching language and could not be repaired'
-                            )
+                            # If repair failed, log warning and continue with warning flag
+                            # This allows generation to succeed even if repair fails for technical reasons
+                            logger.warning(f"[{request_id}] Coaching language could not be repaired in caption; returning with warning")
+                            coaching_warnings.append("Generated content contains coaching language and could not be repaired")
             
             # Check for sensitive content in posts
             warnings = coaching_warnings

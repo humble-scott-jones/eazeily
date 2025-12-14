@@ -1,6 +1,5 @@
 """Test that generated captions never contain coaching language."""
 
-import pytest
 from services.generation.output_validator import detect_coaching_phrases
 
 
@@ -70,6 +69,19 @@ def test_detect_coaching_phrases_none_for_action_verbs():
     text = "Join us for our grand opening. You'll love our new location!"
     detected = detect_coaching_phrases(text)
     assert detected is None
+
+
+def test_action_verb_try_without_to_is_allowed():
+    """Test that 'Try' as action verb (without 'to') is allowed in captions."""
+    captions_with_try = [
+        "Try our seasonal pumpkin spice latte this fall!",
+        "Try it today and see the difference.",
+        "New customers can try our service free for 30 days."
+    ]
+    
+    for caption in captions_with_try:
+        detected = detect_coaching_phrases(caption)
+        assert detected is None, f"'Try' without 'to' should not be flagged: {caption}"
 
 
 def test_detect_coaching_phrases_case_insensitive():
