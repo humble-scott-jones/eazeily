@@ -343,13 +343,16 @@
       </div>
 
       <div id="generated-content" class="hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="w-8 h-8 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
-            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center">
+              <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-900">Generated Content</h2>
           </div>
-          <h2 class="text-2xl font-bold text-slate-900">Generated Content</h2>
+          <div class="text-sm text-slate-500" id="generation-timestamp"></div>
         </div>
         <p class="text-sm text-slate-600 mb-6">We auto-save your latest plan in this browser for 72 hours so you can leave the page and pick up right where you left off.</p>
         <div id="plan-note-banner" class="hidden mb-6 p-4 rounded-2xl border border-amber-200 bg-amber-50/80">
@@ -363,8 +366,12 @@
           </div>
         </div>
         <div id="generated-toolbar" class="generated-toolbar hidden">
-          <div class="generated-toolbar__filters">
-            <p class="generated-toolbar__label">Filter platforms</p>
+          <div class="generated-toolbar__header">
+            <button type="button" class="btn-ghost btn-sm" id="toggle-toolbar-filters">
+              <span id="toolbar-toggle-icon">▾</span> Filter platforms
+            </button>
+          </div>
+          <div class="generated-toolbar__filters" id="toolbar-filters-content">
             <div id="platform-filter-chips" class="filter-chip-group"></div>
           </div>
           <div class="generated-toolbar__actions">
@@ -374,8 +381,13 @@
         </div>
         <div id="publishing-queue" class="hidden mb-6 bg-white/70 backdrop-blur-sm border border-slate-200 rounded-2xl p-5 shadow">
           <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p class="text-xs uppercase tracking-[0.35em] text-slate-500">Unified queue</p>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <p class="text-xs uppercase tracking-[0.35em] text-slate-500">Unified queue</p>
+                <button type="button" class="btn-ghost btn-xs" id="toggle-queue" aria-expanded="false">
+                  <span id="queue-toggle-icon">▸</span> <span id="queue-toggle-text">Show queue</span>
+                </button>
+              </div>
               <h3 class="text-lg font-semibold text-slate-900">Publish now or schedule without leaving this page</h3>
               <p class="text-sm text-slate-600">Badges track each platform’s status. Retry failed posts or copy the text anytime.</p>
             </div>
@@ -384,8 +396,10 @@
               <p class="text-[11px] text-slate-400">Times are shown in your browser timezone.</p>
             </div>
           </div>
-          <div id="publishing-queue-list" class="mt-4 space-y-3"></div>
+          <div id="queue-content" class="hidden">
+            <div id="publishing-queue-list" class="mt-4 space-y-3"></div>
           <div id="publishing-queue-empty" class="mt-4 text-sm text-slate-500">Use “Publish now” or “Schedule” on any card to add it to the queue.</div>
+          </div>
         </div>
         <div id="content-results" class="space-y-4"></div>
       </div>
