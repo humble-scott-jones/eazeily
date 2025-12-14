@@ -1043,11 +1043,17 @@ def generate_posts(
     company: str = "",
     details: Optional[Mapping[str, Any]] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
+    variant_types: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
     """Generate a list of posts for the requested period.
 
     Supports both keyword arguments and a single profile mapping. The mapping
     may contain keys like days, start_day, industry, tone, platforms, etc.
+    
+    Args:
+        variant_types: List of variant types to generate. Empty list means no variants.
+                      None means default behavior (no variants). 
+                      Possible values: ['shorter', 'more_professional', 'more_playful', 'more_direct_cta']
     """
 
     if isinstance(profile, Mapping):
@@ -1063,6 +1069,7 @@ def generate_posts(
         goals = default.get("goals", goals)
         company = default.get("company", company)
         details = default.get("details", details)
+        variant_types = default.get("variant_types", variant_types)
 
     days = int(days or 7)
     start_day = _coerce_start_day(start_day)
@@ -1078,6 +1085,8 @@ def generate_posts(
     voice_profile = voice_profile or details.get('voice_profile') or {}
     voice_profile = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
     company = company or ""
+    # Default: no variants unless explicitly requested
+    variant_types = list(variant_types or [])
 
     posts: list[dict[str, Any]] = []
     pillar_stream = rolling_pillars()
@@ -1087,8 +1096,10 @@ def generate_posts(
         day = start_day + timedelta(days=i)
         pillar_name, pillar_hint = next(pillar_stream)
 
-        # Generate platform-specific variants for this day (always include default variant set)
-        variant_targets = list(dict.fromkeys(list(platforms) + list(DEFAULT_VARIANT_PLATFORMS)))
+        # Generate platform-specific content only for selected platforms
+        # Previous behavior: always included DEFAULT_VARIANT_PLATFORMS (all platforms)
+        # New behavior: only generate for explicitly selected platforms
+        # Note: variant_types parameter is reserved for future style variants feature
         base_platform = platforms[0] if platforms else 'instagram'
         variants = build_platform_variants(
             to_sentence_case(industry),
@@ -1101,7 +1112,7 @@ def generate_posts(
             goals,
             company,
             details.get("note"),
-            variant_targets,
+            platforms,  # Only generate for selected platforms, not all DEFAULT_VARIANT_PLATFORMS
             voice_profile,
         )
 

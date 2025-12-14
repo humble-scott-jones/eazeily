@@ -157,6 +157,7 @@ def extract_merged_params(context: GenerationContext) -> Dict[str, Any]:
         'intensity': request_data.get('intensity'),
         'reel_options': request_data.get('reel_options', {}),
         'use_brand_voice': request_data.get('use_brand_voice', False),
+        'variant_types': request_data.get('variant_types', []),
     }
 
 

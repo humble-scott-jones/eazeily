@@ -15,6 +15,18 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Parameters that are handled explicitly and should not be passed through kwargs
+_EXPLICIT_PARAMS = {
+    'days', 'session_length',
+    'platforms',
+    'tone',
+    'industry',
+    'company_name', 'company',
+    'goals',
+    'keywords', 'brand_keywords',
+    'variant_types'
+}
+
 
 def generate_social_posts_fallback(
     session_length: int = 7,
@@ -24,6 +36,7 @@ def generate_social_posts_fallback(
     company_name: str = '',
     goals: Optional[List[str]] = None,
     keywords: Optional[List[str]] = None,
+    variant_types: Optional[List[str]] = None,
     **kwargs
 ) -> Dict[str, Any]:
     """Generate social posts using deterministic fallback logic.
@@ -36,6 +49,7 @@ def generate_social_posts_fallback(
         company_name: Company name
         goals: Content goals
         keywords: Keywords to include
+        variant_types: List of variant types to generate (e.g., ['shorter', 'more_professional'])
         **kwargs: Additional params passed to generator
         
     Returns:
@@ -52,20 +66,60 @@ def generate_social_posts_fallback(
             platforms=platforms or ['instagram', 'facebook', 'linkedin'],
             tone=tone,
             industry=industry,
-            company_name=company_name,
+            company=company_name,  # Fixed: use 'company' not 'company_name'
             goals=goals,
-            keywords=keywords,
-            **{k: v for k, v in kwargs.items() if k not in ['days', 'platforms', 'tone', 'industry', 'company_name', 'goals', 'keywords']}
+            brand_keywords=keywords,
+            variant_types=variant_types,
+            **{k: v for k, v in kwargs.items() if k not in _EXPLICIT_PARAMS}
         )
         
-        # Normalize to expected format
+        # Normalize to expected format with 'cards'
+        # generator.py returns one post per platform, but we need posts grouped by day with cards array
         if not isinstance(posts, list):
             posts = []
         
+        # Group posts by day_index and convert to cards format
+        normalized_posts = []
+        posts_by_day = {}
+        
+        for post in posts:
+            if not isinstance(post, dict):
+                continue
+            
+            day_index = post.get('day_index', 1)
+            if day_index not in posts_by_day:
+                posts_by_day[day_index] = {
+                    'date': post.get('date', ''),
+                    'pillar': post.get('pillar', 'Engagement'),
+                    'cards': [],
+                    'voice_note': post.get('voice_note')
+                }
+            
+            # Convert post to card format
+            card = {
+                'platform': post.get('platform', 'instagram'),
+                'caption': post.get('caption', ''),
+                'hashtags': post.get('hashtags', []),
+                'hook': post.get('hook'),
+                'cta': post.get('cta'),
+                'media_idea': post.get('image_prompt'),
+                'alt_text': post.get('alt_text'),
+                'warnings': post.get('warnings'),
+                'thumbnail_note': post.get('thumbnail_note'),
+            }
+            
+            # Remove None values
+            card = {k: v for k, v in card.items() if v is not None}
+            
+            posts_by_day[day_index]['cards'].append(card)
+        
+        # Convert to list sorted by day
+        normalized_posts = [posts_by_day[day] for day in sorted(posts_by_day.keys())]
+        
         return {
-            'posts': posts,
-            'count': len(posts),
-            'summary': f"Generated {len(posts)} posts using deterministic fallback"
+            'posts': normalized_posts,
+            'count': len(normalized_posts),
+            'summary': f"Generated {len(normalized_posts)} posts using deterministic fallback"
         }
         
     except Exception as e:
