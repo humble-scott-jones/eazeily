@@ -2752,6 +2752,10 @@ function initDashboardModes() {
   }
 }
 
+// Brand inspiration constants
+const MAX_BRANDS = 4;
+const MAX_ANTI_BRANDS = 3;
+
 // Initialize brand inspiration step
 function initBrandInspiration() {
   const addBrandBtn = document.getElementById('wizard-add-brand-btn');
@@ -2799,7 +2803,6 @@ function updateBrandCounter() {
   if (!container || !addBtn) return;
   
   const count = container.children.length;
-  const MAX_BRANDS = 4;
   
   // Update button text with counter
   const btnText = addBtn.querySelector('span');
@@ -2823,7 +2826,6 @@ function updateAntiBrandCounter() {
   if (!container || !addBtn) return;
   
   const count = container.children.length;
-  const MAX_ANTI_BRANDS = 3;
   
   // Update button text with counter
   const btnText = addBtn.querySelector('span');
@@ -2845,7 +2847,6 @@ function addWizardBrandInput(name = '', why = '') {
   const container = document.getElementById('wizard-brand-inspirations');
   if (!container) return;
   
-  const MAX_BRANDS = 4;
   if (container.children.length >= MAX_BRANDS) return;
   
   const div = document.createElement('div');
@@ -2887,7 +2888,6 @@ function addWizardAntiBrandInput(name = '', why = '') {
   const container = document.getElementById('wizard-brand-anti-inspirations');
   if (!container) return;
   
-  const MAX_ANTI_BRANDS = 3;
   if (container.children.length >= MAX_ANTI_BRANDS) return;
   
   const div = document.createElement('div');
@@ -2955,11 +2955,14 @@ function hydrateBrandInspirationUI() {
   
   // Hydrate vibe preset
   if (answers.vibe_preset) {
-    const vibeBtn = document.querySelector(`.wizard-vibe-preset-btn[data-vibe="${answers.vibe_preset}"]`);
-    if (vibeBtn) {
-      vibeBtn.classList.add('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
-      vibeBtn.classList.remove('border-slate-200', 'text-slate-700');
-    }
+    // Use safer attribute selector to avoid CSS injection
+    const vibeButtons = document.querySelectorAll('.wizard-vibe-preset-btn');
+    vibeButtons.forEach(btn => {
+      if (btn.dataset.vibe === answers.vibe_preset) {
+        btn.classList.add('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+        btn.classList.remove('border-slate-200', 'text-slate-700');
+      }
+    });
   }
   
   // Update counters
