@@ -645,6 +645,16 @@ function closeAuthModal(){
   modal.classList.add('hidden');
   modal.dataset.authView = 'login';
   clearAuthMessage();
+  _restoreLastFocus();
+}
+
+// restore focus helper for modals
+function _restoreLastFocus(){
+  try{
+    const prev = window.__lastFocusedBeforeModal;
+    if (prev && typeof prev.focus === 'function') prev.focus({preventScroll:true});
+  }catch(e){ /* ignore */ }
+  try{ delete window.__lastFocusedBeforeModal; }catch(e){}
 }
 
 function navigateAuthView(view = 'login', opts = {}){
@@ -692,6 +702,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initEmailSync();
 
+  // navigation: mark current page links with aria-current for assistive tech
+  try{
+    const loc = window.location && window.location.pathname ? window.location.pathname.replace(/\/$/, '') : '/';
+    document.querySelectorAll('header a[href]').forEach(a => {
+      try{
+        const href = a.getAttribute('href') || '';
+        const url = new URL(href, window.location.origin);
+        const path = url.pathname.replace(/\/$/, '');
+        if (path === loc){ a.setAttribute('aria-current', 'page'); }
+        else { a.removeAttribute('aria-current'); }
+      }catch(e){}
+    });
+  }catch(e){}
+
   // paywall sign-in link (for users who already have an account)
   const paywallSigninLink = document.getElementById('paywall-signin-link');
   if (paywallSigninLink){
@@ -701,6 +725,11 @@ document.addEventListener('DOMContentLoaded', () => {
       openAuthModal('login', { prefillEmail: email || getKnownEmailValue() });
     });
   }
+
+  // paywall close buttons / backdrop
+  document.querySelectorAll('[data-paywall-close]').forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); closePaywall(); }));
+  const payModal = document.getElementById('paywall-modal');
+  payModal?.addEventListener('click', (e) => { if (e.target === payModal) closePaywall(); });
 
   // login submit
   const loginForm = document.getElementById('login-form');
@@ -873,9 +902,29 @@ function closePaywall(){
   if (!payModal) return;
   payModal.classList.add('hidden');
   clearPaywallMessage();
+  _restoreLastFocus();
 }
 function showToast(msg){ const t = document.createElement('div'); t.className='fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-2 rounded shadow'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.classList.add('opacity-0'), 2200); setTimeout(()=>t.remove(), 2800); }
 
+function showGlobalAlert(msg, type='error'){
+  if (!msg) return;
+  let el = document.getElementById('global-alert');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'global-alert';
+    el.setAttribute('role','alert');
+    el.setAttribute('aria-live','assertive');
+    el.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 p-3 rounded-xl shadow';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  // basic color palette mapping
+  el.classList.remove('bg-red-50','text-red-700','bg-green-50','text-green-700','bg-blue-50','text-blue-700');
+  if (type === 'success') el.classList.add('bg-green-50','text-green-700');
+  else if (type === 'info') el.classList.add('bg-blue-50','text-blue-700');
+  else el.classList.add('bg-red-50','text-red-700');
+  // auto-dismiss
+  setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 5000);
 function showSavingFeedback() {
   const stepTitle = document.getElementById('step-title');
   if (stepTitle) {
@@ -897,11 +946,19 @@ function setButtonLoading(btn, loading){
 
 // focus trap helper (basic)
 function trapFocus(modal){
+  // capture the element that had focus before opening the modal so we can
+  // restore it when the modal closes
+  try{ window.__lastFocusedBeforeModal = document.activeElement; }catch(e){}
   const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
   const first = focusable[0];
   const last = focusable[focusable.length-1];
   function keyHandler(e){
-    if (e.key === 'Escape') { modal.classList.add('hidden'); document.removeEventListener('keydown', keyHandler); }
+    if (e.key === 'Escape') {
+      modal.classList.add('hidden');
+      document.removeEventListener('keydown', keyHandler);
+      try{ if (window.__lastFocusedBeforeModal && typeof window.__lastFocusedBeforeModal.focus === 'function') window.__lastFocusedBeforeModal.focus({preventScroll:true}); }catch(e){}
+      try{ delete window.__lastFocusedBeforeModal; }catch(e){}
+    }
     if (e.key === 'Tab'){
       if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
       else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
@@ -2270,16 +2327,16 @@ function renderCard(post){
         <div class="text-sm mb-2"><strong>Hashtags:</strong> ${escapeHtml((r.hashtags||[]).join(' '))}</div>
         <div class="text-sm mb-2"><strong>CTA:</strong> ${escapeHtml(r.cta || '')}</div>
         <div class="flex gap-2 mt-2">
-          <button class="btn-ghost text-xs" data-copy-reel-script>Copy Reel Script</button>
-          <button class="btn-ghost text-xs" data-copy-srt>Copy SRT Prompt</button>
-          <button class="btn-ghost text-xs" data-copy-thumb>Copy Thumbnail Prompt</button>
+          <button class="btn-ghost text-xs" data-copy-reel-script aria-label="Copy reel script">Copy Reel Script</button>
+          <button class="btn-ghost text-xs" data-copy-srt aria-label="Copy SRT prompt">Copy SRT Prompt</button>
+          <button class="btn-ghost text-xs" data-copy-thumb aria-label="Copy thumbnail prompt">Copy Thumbnail Prompt</button>
         </div>
       </div>
     ` : ''}
     <div class="mt-3 flex items-center gap-2">
-      <button class="btn-ghost text-xs" data-copy="${escapeAttr(post.caption)}">Copy</button>
-      <button class="btn-ghost text-xs" data-like="1" data-day="${post.day_index}" data-platform="${post.platform}">👍</button>
-      <button class="btn-ghost text-xs" data-like="-1" data-day="${post.day_index}" data-platform="${post.platform}">👎</button>
+  <button class="btn-ghost text-xs" data-copy="${escapeAttr(post.caption)}" aria-label="Copy post caption">Copy</button>
+  <button class="btn-ghost text-xs" data-like="1" data-day="${post.day_index}" data-platform="${post.platform}" aria-label="Like this post">👍</button>
+  <button class="btn-ghost text-xs" data-like="-1" data-day="${post.day_index}" data-platform="${post.platform}" aria-label="Dislike this post">👎</button>
     </div>
   `;
   card.querySelector("[data-copy]")?.addEventListener("click", async (ev) => {
