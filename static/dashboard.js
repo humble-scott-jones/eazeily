@@ -878,24 +878,8 @@ function initGeneratorPlatformPicker() {
 }
 
 function refreshReelOptionsVisibility() {
-  const reelsCtaNotice = document.getElementById('reels-cta-notice');
-  if (!reelsCtaNotice) return;
-  
-  const generatorMode = (document.body.dataset.generatorMode || '').toLowerCase();
-  
-  // Only show CTA in social mode when video platforms are selected
-  if (generatorMode === 'social') {
-    const selected = getGeneratorPlatformSelections();
-    const hasVideo = selected.some(key => VIDEO_PLATFORM_KEYS.has(key));
-    if (hasVideo) {
-      reelsCtaNotice.classList.remove('hidden');
-    } else {
-      reelsCtaNotice.classList.add('hidden');
-    }
-  } else {
-    // Never show CTA in reels mode
-    reelsCtaNotice.classList.add('hidden');
-  }
+  // No-op: reels CTA notice has been removed from social page
+  // Kept for backward compatibility to avoid breaking existing code
 }
 
 function setupContentGeneration() {
