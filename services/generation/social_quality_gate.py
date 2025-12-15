@@ -241,7 +241,7 @@ Requirements for the rewritten caption:
    - Concrete example with "For example..." or "Imagine..."
 3. Hook + value + concrete example/framework + CTA
 4. Match platform best practices for {platform}
-5. Return ONLY the caption text, nothing else
+5. Return ONLY the paste-ready caption text, nothing else
 
 Rewritten caption:"""
     

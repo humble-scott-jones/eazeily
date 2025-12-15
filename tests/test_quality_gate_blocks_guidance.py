@@ -127,7 +127,13 @@ def test_evaluate_all_posts_aggregates_results():
     posts = [
         {
             'platform': 'instagram',
-            'caption': '1. Great tip\n2. Book now',
+            'caption': """Transform your hair with these expert tips:
+
+1. Deep condition weekly
+2. Use heat protectant
+3. Book your consultation today
+
+Ready for healthier hair? Let's make it happen! 💇✨""",
             'hashtags': ['#Hair']
         },
         {
@@ -137,7 +143,14 @@ def test_evaluate_all_posts_aggregates_results():
         },
         {
             'platform': 'linkedin',
-            'caption': '• Expert stylists\n• Premium service',
+            'caption': """Professional hair care services:
+
+• Expert certified stylists
+• Premium product lines
+• Personalized consultations
+• 10+ years of experience
+
+Elevate your professional image. Schedule your appointment today.""",
             'hashtags': []
         }
     ]

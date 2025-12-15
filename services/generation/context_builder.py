@@ -107,39 +107,56 @@ def merge_contexts(
         if 'use_brand_voice' in request:
             merged['use_brand_voice'] = request['use_brand_voice']
         
-        # Chip selections
+        # Chip selections - request overrides profile
         if 'selected_audience_ids' in request:
             merged['selected_audience_ids'] = request['selected_audience_ids']
+        elif profile and 'selected_audience_ids' in profile:
+            merged['selected_audience_ids'] = profile['selected_audience_ids']
+        
         if 'selected_offer_ids' in request:
             merged['selected_offer_ids'] = request['selected_offer_ids']
+        elif profile and 'selected_offer_ids' in profile:
+            merged['selected_offer_ids'] = profile['selected_offer_ids']
+        
         if 'selected_proof_ids' in request:
             merged['selected_proof_ids'] = request['selected_proof_ids']
+        elif profile and 'selected_proof_ids' in profile:
+            merged['selected_proof_ids'] = profile['selected_proof_ids']
+        
         if 'selected_focus_topic_ids' in request:
             merged['selected_focus_topic_ids'] = request['selected_focus_topic_ids']
+        elif profile and 'selected_focus_topic_ids' in profile:
+            merged['selected_focus_topic_ids'] = profile['selected_focus_topic_ids']
+        
         if 'selected_cta_intent_id' in request:
             merged['selected_cta_intent_id'] = request['selected_cta_intent_id']
+        elif profile and 'selected_cta_intent_id' in profile:
+            merged['selected_cta_intent_id'] = profile['selected_cta_intent_id']
+        
         if 'custom_chips' in request:
             merged['custom_chips'] = request['custom_chips']
+        elif profile and 'custom_chips' in profile:
+            merged['custom_chips'] = profile['custom_chips']
         
         # Copy any other request-specific params
         for key in request:
             if key not in merged:
                 merged[key] = request[key]
-    
-    # If profile has chip selections and request doesn't override, use profile
-    if profile and not request:
-        if 'selected_audience_ids' in profile:
-            merged['selected_audience_ids'] = profile['selected_audience_ids']
-        if 'selected_offer_ids' in profile:
-            merged['selected_offer_ids'] = profile['selected_offer_ids']
-        if 'selected_proof_ids' in profile:
-            merged['selected_proof_ids'] = profile['selected_proof_ids']
-        if 'selected_focus_topic_ids' in profile:
-            merged['selected_focus_topic_ids'] = profile['selected_focus_topic_ids']
-        if 'selected_cta_intent_id' in profile:
-            merged['selected_cta_intent_id'] = profile['selected_cta_intent_id']
-        if 'custom_chips' in profile:
-            merged['custom_chips'] = profile['custom_chips']
+    else:
+        # No request, use profile chips if available
+        if profile:
+            if 'selected_audience_ids' in profile:
+                merged['selected_audience_ids'] = profile['selected_audience_ids']
+            if 'selected_offer_ids' in profile:
+                merged['selected_offer_ids'] = profile['selected_offer_ids']
+            if 'selected_proof_ids' in profile:
+                merged['selected_proof_ids'] = profile['selected_proof_ids']
+            if 'selected_focus_topic_ids' in profile:
+                merged['selected_focus_topic_ids'] = profile['selected_focus_topic_ids']
+            if 'selected_cta_intent_id' in profile:
+                merged['selected_cta_intent_id'] = profile['selected_cta_intent_id']
+            if 'custom_chips' in profile:
+                merged['custom_chips'] = profile['custom_chips']
     
     # Build final context
     context = GenerationContext(
