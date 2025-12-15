@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Variants Display</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .post-card { border: 2px solid #e2e8f0; padding: 1rem; margin: 1rem 0; border-radius: 0.5rem; }
+        .variants-section { background: #eff6ff; border: 1px solid #bfdbfe; padding: 1rem; margin-top: 0.5rem; border-radius: 0.5rem; }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Platform Variants Display Test</h1>
+        
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">Test Case 1: Single Platform (Instagram only)</h2>
+            <div class="post-card">
+                <div class="font-semibold text-lg mb-2">📸 Instagram Post</div>
+                <div class="text-gray-600">This is an Instagram caption...</div>
+                <div id="test1-variants" class="text-sm text-gray-500 mt-2"></div>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">Test Case 2: Multiple Platforms (Instagram + Facebook)</h2>
+            
+            <div class="post-card">
+                <div class="font-semibold text-lg mb-2">📸 Instagram Post</div>
+                <div class="text-gray-600">This is an Instagram caption...</div>
+                <div id="test2a-variants"></div>
+            </div>
+
+            <div class="post-card">
+                <div class="font-semibold text-lg mb-2">👥 Facebook Post</div>
+                <div class="text-gray-600">This is a Facebook caption...</div>
+                <div id="test2b-variants"></div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h3 class="font-semibold mb-2">Expected Behavior:</h3>
+            <ul class="list-disc pl-5 space-y-1 text-sm">
+                <li><strong>Test 1 (Instagram only):</strong> No variants section should appear (only 1 platform selected)</li>
+                <li><strong>Test 2a (Instagram post):</strong> Should show Facebook variant only (not Instagram)</li>
+                <li><strong>Test 2b (Facebook post):</strong> Should show Instagram variant only (not Facebook)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Simulate the renderPlatformVariants function behavior
+        function renderPlatformVariants(variants, currentPlatform) {
+            if (!variants) return '';
+
+            // Filter out current platform from variants - only show OTHER platforms
+            const entries = Object.entries(variants)
+                .filter(([platform]) => platform !== currentPlatform)
+                .map(([platform, value]) => ({ platform, data: value }));
+            
+            // Don't show variants section if no other platforms to show
+            if (!entries.length) return '';
+
+            let html = '<div class="variants-section">';
+            html += '<div class="font-semibold text-sm mb-2">Platform variants - Adapted for other channels</div>';
+            html += '<div class="space-y-2">';
+            entries.forEach(({platform, data}) => {
+                html += `<div class="bg-white p-2 rounded border border-blue-200">`;
+                html += `<div class="font-semibold text-xs text-blue-900">${platform.toUpperCase()}</div>`;
+                html += `<div class="text-xs text-gray-700">${data.text || data}</div>`;
+                html += '</div>';
+            });
+            html += '</div></div>';
+            return html;
+        }
+
+        // Test Case 1: Single platform
+        const test1Variants = { instagram: { text: 'Instagram version' } };
+        document.getElementById('test1-variants').innerHTML = 
+            renderPlatformVariants(test1Variants, 'instagram') || 
+            '<div class="text-green-600">✓ No variants section (correct!)</div>';
+
+        // Test Case 2a: Instagram post with multiple platforms
+        const test2Variants = {
+            instagram: { text: 'Instagram version' },
+            facebook: { text: 'Facebook version adapted for longer content' }
+        };
+        document.getElementById('test2a-variants').innerHTML = 
+            renderPlatformVariants(test2Variants, 'instagram') ||
+            '<div class="text-red-600">✗ ERROR: Should show Facebook variant</div>';
+
+        // Test Case 2b: Facebook post with multiple platforms  
+        document.getElementById('test2b-variants').innerHTML = 
+            renderPlatformVariants(test2Variants, 'facebook') ||
+            '<div class="text-red-600">✗ ERROR: Should show Instagram variant</div>';
+    </script>
+</body>
+</html>
