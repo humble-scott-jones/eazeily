@@ -12,6 +12,10 @@
     {"key": "healthcare", "icon": "🩺", "label": "Healthcare", "suggested_keywords": ["patient tips","team","clinic hours","wellness"], "note_placeholder": "e.g., flu shot clinics, new telehealth hours"},
     {"key": "church", "icon": "⛪", "label": "Church", "suggested_keywords": ["Sunday service","community","sermon","worship","volunteer"], "note_placeholder": "e.g., upcoming sermon series, volunteer opportunities"},
   {"key": "house_host", "icon": "🏠", "label": "House Host / Vacation Rental", "suggested_keywords": ["guest experience","local tips","amenities","check-in","attractions"], "note_placeholder": "e.g., summer availability, new hot tub installation"},
+    {"key": "salon", "icon": "💇", "label": "Salon / Hair Studio", "suggested_keywords": ["hair transformation","balayage","haircut","styling","hair care"], "note_placeholder": "e.g., spring color trends, new stylist introduction"},
+    {"key": "dentist", "icon": "🦷", "label": "Dentist / Dental Practice", "suggested_keywords": ["dental health","teeth cleaning","smile makeover","preventive care"], "note_placeholder": "e.g., checkup reminders, new patient special"},
+    {"key": "gym", "icon": "🏋️", "label": "Gym / Fitness Center", "suggested_keywords": ["fitness goals","workout tips","transformation","personal training"], "note_placeholder": "e.g., new class schedule, membership promotion"},
+    {"key": "cleaner", "icon": "🧹", "label": "Cleaning Service", "suggested_keywords": ["house cleaning","deep cleaning","before and after","cleaning tips"], "note_placeholder": "e.g., spring cleaning special, recurring service discount"},
     {"key": "other", "icon": "✨", "label": "Other / Custom", "suggested_keywords": ["about","what we do","behind the scenes"], "note_placeholder": "One-line note about this month's focus"}
   ],
   "tones": [
@@ -80,6 +84,22 @@
     "house_host": [
       {"type":"chips","key":"goals","label":"What do you want to focus on?","options":["Guest experience","Local recommendations","Property highlights","Booking tips","Seasonal availability","Amenity showcase"]},
       {"type":"chips","key":"reel_style","label":"Reel style","options":["Property tour","Local attractions","Guest testimonials","Check-in process","Amenity highlights","Seasonal activities"]}
+    ],
+    "salon": [
+      {"type":"chips","key":"goals","label":"What do you want to focus on?","options":["Transformations","Styling tips","Team spotlights","Seasonal trends"]},
+      {"type":"chips","key":"reel_style","label":"Reel style","options":["Before/after transformation","Styling tutorial","Product demonstration","Team spotlight"]}
+    ],
+    "dentist": [
+      {"type":"chips","key":"goals","label":"What do you want to focus on?","options":["Education","Team introductions","Technology showcase","Patient testimonials"]},
+      {"type":"chips","key":"reel_style","label":"Reel style","options":["Educational tips","Myth-busting","Procedure explanation","Team spotlight"]}
+    ],
+    "gym": [
+      {"type":"chips","key":"goals","label":"What do you want to focus on?","options":["Workout tips","Transformations","Member spotlights","Class previews"]},
+      {"type":"chips","key":"reel_style","label":"Reel style","options":["Workout tutorial","Transformation story","Class preview","Trainer spotlight"]}
+    ],
+    "cleaner": [
+      {"type":"chips","key":"goals","label":"What do you want to focus on?","options":["Before/after","Cleaning tips","Team highlights","Seasonal services"]},
+      {"type":"chips","key":"reel_style","label":"Reel style","options":["Before/after transformation","Cleaning hack","Process showcase","Team spotlight"]}
     ],
     "other": [
       {"type":"text","key":"describe","label":"Tell us a sentence about your work","placeholder":"One line about what you do"},

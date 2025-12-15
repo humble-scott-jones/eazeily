@@ -1,0 +1,470 @@
+{
+  "id": "gym",
+  "display_name": "Gym / Fitness Center",
+  "icon": "🏋️",
+  "primary_customer_goal": "memberships",
+  "version": "1.0.0",
+  
+  "business_profile_fields": {
+    "required": ["services_offered", "service_area", "hours", "membership_types"],
+    "optional": ["equipment_highlights", "class_schedule", "trainer_credentials", "amenities", "trial_offers"],
+    "example_values": {
+      "services_offered": "strength training, cardio, group classes, personal training, nutrition coaching",
+      "service_area": "Charleston downtown, 2 locations",
+      "hours": "Mon-Fri 5am-10pm, Sat-Sun 7am-8pm",
+      "membership_types": "month-to-month, annual, day passes, class packs"
+    }
+  },
+  
+  "default_channel_strategy": {
+    "default_platforms": ["instagram", "tiktok", "facebook"],
+    "content_cadence": "4-5 posts/week",
+    "best_performing_types": [
+      "workout tips & tutorials",
+      "transformation stories",
+      "member spotlights",
+      "class previews",
+      "motivational content",
+      "trainer introductions",
+      "facility highlights"
+    ]
+  },
+  
+  "keyword_banks": {
+    "seed_keywords": [
+      "fitness goals",
+      "workout motivation",
+      "strength training",
+      "gym life",
+      "fitness journey",
+      "personal training",
+      "group fitness",
+      "healthy lifestyle",
+      "workout tips",
+      "fitness community",
+      "cardio workout",
+      "muscle building",
+      "weight loss",
+      "fitness transformation",
+      "gym motivation"
+    ],
+    "topic_clusters": [
+      {
+        "name": "workout_education",
+        "intent": "awareness",
+        "examples": ["exercise form tips", "workout routines", "training splits", "progressive overload"]
+      },
+      {
+        "name": "transformation_motivation",
+        "intent": "conversion",
+        "examples": ["member success stories", "progress photos", "milestone celebrations", "consistency wins"]
+      },
+      {
+        "name": "membership_conversion",
+        "intent": "conversion",
+        "examples": ["trial offers", "membership benefits", "class previews", "facility tours", "limited promotions"]
+      },
+      {
+        "name": "community_building",
+        "intent": "retention",
+        "examples": ["member spotlights", "gym events", "challenges", "team culture"]
+      },
+      {
+        "name": "expertise_showcase",
+        "intent": "awareness",
+        "examples": ["trainer credentials", "equipment quality", "program design", "safety protocols"]
+      }
+    ],
+    "seasonal_hooks": [
+      "New Year resolutions (January)",
+      "spring break prep (February-March)",
+      "summer body goals (April-June)",
+      "back to routine (September)",
+      "holiday fitness (November-December)",
+      "fitness challenges (quarterly)"
+    ]
+  },
+  
+  "cta_library": {
+    "booking_ctas": [
+      "Start your free trial",
+      "Book your tour today",
+      "Schedule your assessment",
+      "Join us now",
+      "Get your day pass",
+      "Reserve your class spot",
+      "Sign up for a trial week",
+      "Claim your membership deal"
+    ],
+    "inquiry_ctas": [
+      "DM us for membership info",
+      "Ask about our programs",
+      "Questions? We're here",
+      "Let's chat about your goals",
+      "Contact us for pricing",
+      "Learn about our classes",
+      "Reach out anytime",
+      "Get your questions answered"
+    ],
+    "review_referral_ctas": [
+      "Bring a friend for free",
+      "Share your progress",
+      "Tag your workout buddy",
+      "Refer a friend and save",
+      "Tell us your story",
+      "Leave us a review",
+      "Join our community",
+      "Share your transformation"
+    ],
+    "offer_ctas": [
+      "Limited time membership deal",
+      "First month discount",
+      "No enrollment fee",
+      "Special pricing available",
+      "Try us free for 7 days",
+      "Student/military discount",
+      "Couples membership special",
+      "Class pack on sale"
+    ]
+  },
+  
+  "compliance_safety_rules": {
+    "forbidden_claims": [
+      "guaranteed weight loss amounts or timeframes",
+      "specific body transformation promises",
+      "medical claims about health outcomes",
+      "before/after images without 'results may vary' disclaimer"
+    ],
+    "privacy_constraints": [
+      "never share member progress without explicit written consent",
+      "blur faces in gym floor photos unless members approved",
+      "no body measurements or weight numbers without permission"
+    ],
+    "regulated_language_notes": [
+      "use 'results may vary' for all transformation content",
+      "include 'combined with proper nutrition' for weight loss topics",
+      "mention 'consult physician before starting' for new exercise programs",
+      "use 'individual results vary' for testimonials"
+    ],
+    "do_not_generate": [
+      "specific medical advice or diagnoses",
+      "meal plans without certified nutritionist",
+      "supplement recommendations without disclaimers",
+      "claims about treating medical conditions",
+      "extreme or unsafe exercise suggestions"
+    ]
+  },
+  
+  "content_templates": {
+    "social_templates": {
+      "post_structures": [
+        "hook (fitness challenge) → value (exercise tip) → proof (trainer expertise) → CTA (try it today)",
+        "transformation story → journey highlights → lesson learned → CTA (start yours)",
+        "workout preview → benefits explanation → community vibe → CTA (join a class)"
+      ],
+      "reel_structures": [
+        "hook (common mistake) → beats (form correction) → proper technique → CTA (+ shot list: side-by-side comparisons, trainer demo, member performing)",
+        "hook (workout challenge) → beats (exercise sequence) → final result → CTA (+ shot list: multiple angles, energy shots, community atmosphere)",
+        "hook (transformation reveal) → beats (journey story) → current state → CTA (+ shot list: progress photos, workout clips, member testimonial)"
+      ],
+      "content_angles": [
+        "workout tutorials",
+        "transformation stories",
+        "exercise tips",
+        "trainer spotlights",
+        "member success",
+        "class previews",
+        "facility highlights",
+        "motivation & mindset"
+      ]
+    },
+    "email_templates": {
+      "scenarios": [
+        {
+          "name": "lead_reply",
+          "required_fields": ["name", "fitness_goals"],
+          "recommended_tone": "friendly",
+          "constraints": ["address specific goals", "mention trial offer", "include next steps"],
+          "suggested_cta": "Schedule your free tour"
+        },
+        {
+          "name": "trial_confirmation",
+          "required_fields": ["name", "start_date", "trial_type"],
+          "recommended_tone": "professional",
+          "constraints": ["what to bring", "what to expect", "cancellation policy"],
+          "suggested_cta": "Download our app"
+        },
+        {
+          "name": "membership_follow_up",
+          "required_fields": ["name", "trial_completion_date"],
+          "recommended_tone": "friendly",
+          "constraints": ["recap experience", "membership options", "limited time offer if applicable"],
+          "suggested_cta": "Join today"
+        }
+      ]
+    },
+    "quote_scaffolds": {
+      "applicable": true,
+      "quote_line_item_categories": [
+        "membership tiers",
+        "personal training sessions",
+        "class packages",
+        "add-on services",
+        "enrollment/annual fees"
+      ],
+      "assumptions_defaults": [
+        "pricing shown is for [monthly/annual] membership",
+        "no long-term contracts on month-to-month plans",
+        "cancellation policy: 30-day notice required",
+        "rates subject to change with 60-day notice"
+      ],
+      "warranty_policy_boilerplate": "Your satisfaction is guaranteed. If you're not happy within the first 30 days, we'll refund your membership fee. Facility and equipment maintenance is ongoing to ensure safe, quality training environment."
+    },
+    "review_reply_guidelines": {
+      "channel_specific": {
+        "google": "respond within 24 hours, highlight specific feedback, invite back",
+        "yelp": "acknowledge concerns, offer resolution, keep professional",
+        "facebook": "respond publicly, show community values, move detailed issues to DM"
+      },
+      "empathy_patterns": [
+        "Thanks for being part of our community",
+        "We appreciate your feedback",
+        "Great to hear about your progress",
+        "We're sorry to hear about your experience"
+      ],
+      "compliance_notes": [
+        "don't share other member information",
+        "avoid making health/medical claims in responses",
+        "offer to discuss privately for complaints",
+        "maintain positive, professional tone"
+      ]
+    }
+  },
+  
+  "example_outputs": {
+    "social_post": {
+      "caption": "💪 Squat form check: are you making this mistake?\n\nWe see it all the time - knees caving inward during squats. This puts unnecessary stress on your joints and limits your strength gains.\n\nThe fix:\n✅ Push knees out in line with toes\n✅ Engage your glutes throughout the movement\n✅ Keep core tight\n✅ Control the descent\n\nResults? Safer squats, stronger legs, better gains.\n\nOur trainers are here to help perfect your form. Drop in for a free assessment this week!\n\n👉 Link in bio to schedule\n\n#WorkoutTips #SquatForm #StrengthTraining #GymLife #FitnessEducation #ProperForm",
+      "platform": "instagram",
+      "pillar": "workout_education"
+    },
+    "reel_script": {
+      "hook": "POV: You finally nailed your first pull-up 🎯",
+      "beats": [
+        "0-3s: Member struggling with assisted pull-ups (text: 'Started here')",
+        "3-10s: Quick progression montage (resistance bands, negatives, partial reps)",
+        "10-15s: Coach providing cues and support",
+        "15-22s: The first unassisted pull-up success with celebration",
+        "22-28s: Member smiling, fist bump with trainer",
+        "28-30s: CTA text"
+      ],
+      "cta": "Start your transformation → Try us free for 7 days",
+      "shot_list": "Wide gym shot, close-up of hands on bar, coach demonstrating, member attempting, success reaction, community celebrating",
+      "platform": "tiktok",
+      "length_seconds": 30
+    },
+    "email": {
+      "subject": "Let's Talk About Your Fitness Goals, Sarah",
+      "body": "Hi Sarah,\n\nThanks for reaching out about membership at IronWorks Fitness!\n\nI saw that you're interested in strength training and group classes. Great combo! Our members who focus on both tend to see amazing results and really enjoy the community aspect.\n\nHere's what we offer that fits your goals:\n\n🏋️ Full strength training area with Olympic platforms, racks, and free weights\n💪 20+ weekly group classes including HIIT, strength circuits, and yoga\n🎯 Complimentary fitness assessment and program design\n👥 Supportive community (we're big on celebrating everyone's wins!)\n\nMembership Options:\n- Unlimited: $89/month (no contract)\n- 12-month commitment: $69/month\n- Both include all classes and open gym\n\nSpecial: This week only - waived enrollment fee ($99 value) + free week trial\n\nWhen can you come in for a tour? I'm here tomorrow at 10am and 5pm, or we can schedule another time that works for you.\n\nLooking forward to meeting you!\n\nMike\nMembership Director\nIronWorks Fitness\n📞 (843) 555-0199\n🔗 Schedule tour: [link]",
+      "scenario": "lead_reply",
+      "tone": "friendly"
+    },
+    "review_reply": {
+      "review_text": "Best gym in Charleston! The trainers are knowledgeable, equipment is always clean, and the community is incredibly supportive. Worth every penny!",
+      "response": "Thank you so much for the amazing review! We're thrilled to have you as part of the IronWorks community. Our trainers and members make this place special, and we're glad you're experiencing that. Keep crushing those goals! 💪",
+      "channel": "google",
+      "sentiment": "positive"
+    }
+  },
+  
+  "prompt_integration_hooks": {
+    "industry_pack_id": "gym",
+    "constraints_for_model": [
+      "DO: Focus on education, motivation, and community",
+      "DO: Use energetic, empowering language",
+      "DO: Highlight trainer expertise and safety",
+      "DO: Include 'results may vary' for transformations",
+      "DO: Mention proper form and injury prevention",
+      "DON'T: Guarantee specific weight loss or body changes",
+      "DON'T: Make medical claims about health outcomes",
+      "DON'T: Share member progress without explicit consent",
+      "DON'T: Promote unsafe or extreme fitness practices",
+      "DON'T: Body-shame or use fear-based motivation"
+    ],
+    "default_do_dont_list": {
+      "do": [
+        "educate on proper exercise form",
+        "celebrate member progress and effort",
+        "showcase community and trainer support",
+        "motivate with positive, inclusive language",
+        "highlight safety and expertise"
+      ],
+      "dont": [
+        "guarantee specific results or timeframes",
+        "make medical or health claims",
+        "promote unhealthy body standards",
+        "share member data without permission",
+        "suggest extreme or risky exercises"
+      ]
+    }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Local fitness enthusiasts and people starting their wellness journey",
+      "pain_points": [
+        "Feeling intimidated by gyms",
+        "Lack of motivation or accountability",
+        "Not knowing where to start",
+        "Previous failed fitness attempts",
+        "Busy schedules with limited time"
+      ],
+      "desired_outcomes": [
+        "Improved fitness and strength",
+        "Supportive community",
+        "Sustainable healthy habits",
+        "Confidence in the gym",
+        "Visible progress and results"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Gym membership",
+        "Personal training",
+        "Group fitness classes",
+        "Strength training",
+        "Cardio equipment access",
+        "Nutrition guidance",
+        "Member challenges",
+        "Free trial/consultation"
+      ],
+      "ctas": [
+        "Start your free trial",
+        "Book your consultation",
+        "Join our community",
+        "Sign up for a class",
+        "Limited membership spots",
+        "Schedule your first session"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Certified personal trainers",
+        "Member transformation stories (with permission)",
+        "Years of community service",
+        "Welcoming, judgment-free environment",
+        "Thousands of member workouts completed",
+        "Award-winning facility"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "workout_tips",
+        "label": "Workout Tips & Form",
+        "when_to_use": "Educate and show expertise"
+      },
+      {
+        "key": "transformation",
+        "label": "Member Transformation",
+        "when_to_use": "Inspire with success stories (with consent)"
+      },
+      {
+        "key": "motivation",
+        "label": "Motivational Message",
+        "when_to_use": "Encourage and inspire action"
+      },
+      {
+        "key": "class_preview",
+        "label": "Class Preview",
+        "when_to_use": "Showcase specific offerings"
+      },
+      {
+        "key": "trainer_spotlight",
+        "label": "Trainer Spotlight",
+        "when_to_use": "Build connection with staff"
+      },
+      {
+        "key": "community",
+        "label": "Community Highlight",
+        "when_to_use": "Show supportive culture"
+      },
+      {
+        "key": "challenge",
+        "label": "Member Challenge",
+        "when_to_use": "Drive engagement and participation"
+      },
+      {
+        "key": "facility",
+        "label": "Facility/Equipment",
+        "when_to_use": "Highlight gym features"
+      }
+    ],
+    "do_say": [
+      "All fitness levels welcome",
+      "Start where you are",
+      "Our trainers will guide you",
+      "Results take time and consistency",
+      "Join our supportive community",
+      "Free trial available"
+    ],
+    "dont_say": [
+      "Guaranteed results in X weeks",
+      "Get shredded fast",
+      "No pain, no gain (can be harmful)",
+      "Medical weight loss claims",
+      "Body-shaming language",
+      "Before/afters without consent"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Fitness goals",
+        "Personal training",
+        "Group classes",
+        "Member community",
+        "Workout tips",
+        "Beginner friendly",
+        "Strength training",
+        "Cardio",
+        "Transformations",
+        "Challenges",
+        "Nutrition tips",
+        "Motivation"
+      ],
+      "audience_chips": [
+        "Beginners",
+        "Experienced lifters",
+        "Weight loss seekers",
+        "Busy professionals",
+        "Seniors",
+        "Athletes",
+        "Parents",
+        "Post-rehab clients",
+        "Women's fitness",
+        "Men's fitness"
+      ],
+      "offer_chips": [
+        "Free trial",
+        "Personal training",
+        "Group classes",
+        "24/7 access",
+        "No contract options",
+        "Flexible membership",
+        "Student discounts",
+        "Couples membership",
+        "Nutrition coaching",
+        "Challenge programs"
+      ],
+      "proof_chips": [
+        "Certified trainers",
+        "Member success stories",
+        "Clean facility",
+        "Judgment-free zone",
+        "Community focused",
+        "10+ years local",
+        "Modern equipment",
+        "Supportive culture",
+        "5-star reviews",
+        "Award-winning gym"
+      ]
+    }
+  }
+}

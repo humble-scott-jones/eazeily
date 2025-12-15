@@ -1,5 +1,6 @@
 import json
 import os
+import json
 
 import app as appmod
 import generator as gen_mod
@@ -114,3 +115,19 @@ def test_generate_rejects_oversized_image_payload(client):
     huge_payload = 'data:image/png;base64,' + ('a' * (appmod.IMAGE_DATA_URL_MAX_BYTES + 10))
     rv = client.post('/api/generate', json={'days': 1, 'image_data_url': huge_payload})
     assert rv.status_code == 400
+
+
+def test_image_generation_requires_openai(monkeypatch, client):
+    """If OpenAI is not configured, image-to-post should return a clear error."""
+
+    # Ensure OpenAI path is disabled
+    monkeypatch.setattr(appmod, 'USE_OPENAI', False)
+    monkeypatch.setattr(appmod, 'openai_client', None)
+
+    with client.session_transaction() as sess:
+        sess['profile_id'] = 'profile-no-openai'
+
+    rv = client.post('/api/generate', json={'days': 1, 'image_data_url': 'data:image/png;base64,AAAA'})
+    assert rv.status_code == 503
+    body = rv.get_json()
+    assert body['error']['message'].startswith('Image-to-post generation requires OpenAI')

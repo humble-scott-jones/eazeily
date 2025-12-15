@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Voice Inspiration - Eazeily</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/eazeily-theme.css" />
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen">
+  <!-- Background decoration -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    <div class="absolute top-40 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
+    <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
+  </div>
+
+  <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <img src="/static/logo.svg" alt="Eazeily icon" class="w-9 h-9" />
+        <img src="/static/eazeily-logo.svg" alt="Eazeily wordmark" class="h-6 hidden sm:block" />
+        <span class="sr-only">Eazeily</span>
+      </a>
+      <div class="flex items-center gap-4">
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/app">Setup</a>
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/generate">Generate</a>
+        <a class="auth-link text-sm text-brand hover:underline cursor-pointer">Account</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative max-w-4xl mx-auto p-6">
+    <div class="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-slate-200">
+      <div class="max-w-2xl mx-auto space-y-8">
+        <div class="text-center space-y-4">
+          <div class="inline-flex items-center gap-2 bg-indigo-100 text-indigo-700 rounded-full px-4 py-2 text-xs font-semibold tracking-wide uppercase">
+            <span class="w-2 h-2 bg-indigo-500 rounded-full"></span>
+            Voice Inspiration (Optional)
+          </div>
+          <h1 class="text-3xl md:text-4xl font-bold text-slate-900">What brands inspire your voice?</h1>
+          <p class="text-lg text-slate-600">
+            Pick 3–4 brands whose content you admire. We'll use them as inspiration for tone and structure—never to copy their wording.
+          </p>
+        </div>
+
+        <div class="space-y-6">
+          <!-- Helper copy for safety/clarity -->
+          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+            <p><strong>How we use this:</strong> We analyze these brands for tone, structure, and style cues. We never copy or imitate specific slogans or brand phrases.</p>
+          </div>
+
+          <!-- Brand inspirations -->
+          <div class="space-y-4">
+            <label class="block text-sm font-medium text-slate-700">Brands You Like</label>
+            <div id="brand-inspirations" class="space-y-3">
+              <!-- Dynamic brand inputs will go here -->
+            </div>
+            <button id="add-brand-btn" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
+              <span>+ Add brand</span>
+            </button>
+          </div>
+
+          <!-- Anti-inspirations -->
+          <div class="space-y-4">
+            <label class="block text-sm font-medium text-slate-700">Brands to Avoid (Optional)</label>
+            <p class="text-xs text-slate-500">Any brands you do NOT want to sound like?</p>
+            <div id="brand-anti-inspirations" class="space-y-3">
+              <!-- Dynamic anti-inspiration inputs will go here -->
+            </div>
+            <button id="add-anti-brand-btn" class="text-sm text-slate-600 hover:text-slate-700 font-medium flex items-center gap-1">
+              <span>+ Add brand to avoid</span>
+            </button>
+          </div>
+
+          <!-- Vibe presets fallback -->
+          <div class="space-y-4 pt-6 border-t border-slate-200">
+            <p class="text-sm font-medium text-slate-700">Or pick a vibe instead:</p>
+            <div class="grid grid-cols-2 gap-3">
+              <button class="vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="friendly_modern">
+                Friendly & Modern
+              </button>
+              <button class="vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="premium_minimal">
+                Premium & Minimal
+              </button>
+              <button class="vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="clinical_trustworthy">
+                Clinical & Trustworthy
+              </button>
+              <button class="vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="playful_bold">
+                Playful & Bold
+              </button>
+              <button class="vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="no_emojis_direct">
+                No Emojis / Direct
+              </button>
+            </div>
+          </div>
+
+          <!-- Voice snapshot preview -->
+          <div id="voice-snapshot" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-6 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-lg font-semibold text-indigo-900">Voice Snapshot</h3>
+              <button id="edit-snapshot-btn" class="text-sm text-indigo-600 hover:text-indigo-700">Edit</button>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p class="text-xs uppercase tracking-wide text-indigo-500 font-semibold mb-1">Tone</p>
+                <p id="snapshot-tone" class="text-indigo-800">—</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-indigo-500 font-semibold mb-1">Emoji Use</p>
+                <p id="snapshot-emoji" class="text-indigo-800">—</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-indigo-500 font-semibold mb-1">Sentence Length</p>
+                <p id="snapshot-length" class="text-indigo-800">—</p>
+              </div>
+              <div>
+                <p class="text-xs uppercase tracking-wide text-indigo-500 font-semibold mb-1">CTA Style</p>
+                <p id="snapshot-cta" class="text-indigo-800">—</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex gap-4 pt-4">
+            <button id="skip-btn" class="flex-1 btn-secondary py-3 rounded-xl">Skip for Now</button>
+            <button id="save-btn" class="flex-1 btn-primary py-3 rounded-xl shadow-lg">Save & Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // State
+    let selectedVibePreset = null;
+    let brandInspirations = [];
+    let brandAntiInspirations = [];
+
+    // Initialize with one empty brand input
+    addBrandInput();
+
+    // Add brand inspiration input
+    document.getElementById('add-brand-btn').addEventListener('click', () => {
+      addBrandInput();
+    });
+
+    function addBrandInput() {
+      const container = document.getElementById('brand-inspirations');
+      const index = brandInspirations.length;
+      
+      const div = document.createElement('div');
+      div.className = 'space-y-2';
+      div.innerHTML = `
+        <div class="flex gap-2">
+          <input 
+            type="text" 
+            placeholder="Brand name (e.g., Apple)" 
+            class="brand-name flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700"
+            data-index="${index}"
+          />
+          <button class="remove-brand-btn px-3 py-2 text-slate-400 hover:text-red-500 transition" data-index="${index}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <input 
+          type="text" 
+          placeholder="Why? (e.g., clean and minimal)" 
+          class="brand-why w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700 text-sm"
+          data-index="${index}"
+        />
+      `;
+      
+      container.appendChild(div);
+      brandInspirations.push({name: '', why: ''});
+      
+      // Add remove handler
+      div.querySelector('.remove-brand-btn').addEventListener('click', () => {
+        removeBrandInput(index, div);
+      });
+      
+      updateSnapshot();
+    }
+
+    function removeBrandInput(index, element) {
+      element.remove();
+      brandInspirations.splice(index, 1);
+      updateSnapshot();
+    }
+
+    // Add anti-inspiration input
+    document.getElementById('add-anti-brand-btn').addEventListener('click', () => {
+      const container = document.getElementById('brand-anti-inspirations');
+      const index = brandAntiInspirations.length;
+      
+      const div = document.createElement('div');
+      div.className = 'space-y-2';
+      div.innerHTML = `
+        <div class="flex gap-2">
+          <input 
+            type="text" 
+            placeholder="Brand name" 
+            class="anti-brand-name flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700"
+            data-index="${index}"
+          />
+          <button class="remove-anti-brand-btn px-3 py-2 text-slate-400 hover:text-red-500 transition" data-index="${index}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <input 
+          type="text" 
+          placeholder="Why avoid?" 
+          class="anti-brand-why w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700 text-sm"
+          data-index="${index}"
+        />
+      `;
+      
+      container.appendChild(div);
+      brandAntiInspirations.push({name: '', why: ''});
+      
+      // Add remove handler
+      div.querySelector('.remove-anti-brand-btn').addEventListener('click', () => {
+        element.remove();
+        brandAntiInspirations.splice(index, 1);
+      });
+    });
+
+    // Vibe preset selection
+    document.querySelectorAll('.vibe-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Toggle selection
+        const vibe = btn.dataset.vibe;
+        if (selectedVibePreset === vibe) {
+          selectedVibePreset = null;
+          btn.classList.remove('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+          btn.classList.add('border-slate-200', 'text-slate-700');
+        } else {
+          // Clear other selections
+          document.querySelectorAll('.vibe-preset-btn').forEach(b => {
+            b.classList.remove('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+            b.classList.add('border-slate-200', 'text-slate-700');
+          });
+          selectedVibePreset = vibe;
+          btn.classList.add('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+          btn.classList.remove('border-slate-200', 'text-slate-700');
+        }
+        updateSnapshot();
+      });
+    });
+
+    // Update voice snapshot preview
+    function updateSnapshot() {
+      // Collect current data
+      const brandInputs = document.querySelectorAll('.brand-name');
+      const whyInputs = document.querySelectorAll('.brand-why');
+      
+      brandInspirations = Array.from(brandInputs).map((input, i) => ({
+        name: input.value.trim(),
+        why: whyInputs[i]?.value.trim() || ''
+      })).filter(b => b.name);
+
+      // Simple preview logic
+      const hasData = brandInspirations.length > 0 || selectedVibePreset;
+      
+      if (hasData) {
+        document.getElementById('voice-snapshot').classList.remove('hidden');
+        
+        // Set preview values (simplified)
+        const descriptors = [];
+        if (selectedVibePreset) {
+          const vibeMap = {
+            'friendly_modern': 'Friendly, Approachable',
+            'premium_minimal': 'Premium, Sophisticated',
+            'clinical_trustworthy': 'Professional, Trustworthy',
+            'playful_bold': 'Playful, Energetic',
+            'no_emojis_direct': 'Direct, Straightforward'
+          };
+          descriptors.push(vibeMap[selectedVibePreset] || '');
+        }
+        
+        // Extract from "why" notes (simplified)
+        brandInspirations.forEach(b => {
+          const why = b.why.toLowerCase();
+          if (why.includes('minimal') || why.includes('clean')) descriptors.push('Minimal');
+          if (why.includes('bold') || why.includes('confident')) descriptors.push('Bold');
+        });
+        
+        document.getElementById('snapshot-tone').textContent = descriptors.join(', ') || 'Authentic';
+        document.getElementById('snapshot-emoji').textContent = selectedVibePreset === 'no_emojis_direct' ? 'None' : 'Medium';
+        document.getElementById('snapshot-length').textContent = 'Medium';
+        document.getElementById('snapshot-cta').textContent = 'Direct';
+      } else {
+        document.getElementById('voice-snapshot').classList.add('hidden');
+      }
+    }
+
+    // Save button
+    document.getElementById('save-btn').addEventListener('click', async () => {
+      // Collect final data
+      updateSnapshot();
+      
+      const data = {
+        brand_inspirations: brandInspirations.filter(b => b.name),
+        brand_anti_inspirations: brandAntiInspirations.filter(b => b.name),
+        vibe_preset: selectedVibePreset
+      };
+      
+      try {
+        const response = await fetch('/api/profile', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.ok) {
+          // Redirect to next step (e.g., voice coach or generate)
+          window.location.href = '/voice-setup';
+        } else {
+          alert('Failed to save inspiration settings. Please try again.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to save. Please try again.');
+      }
+    });
+
+    // Skip button
+    document.getElementById('skip-btn').addEventListener('click', () => {
+      window.location.href = '/voice-setup';
+    });
+
+    // Edit snapshot button
+    document.getElementById('edit-snapshot-btn').addEventListener('click', () => {
+      // Just scroll to top for editing
+      window.scrollTo({top: 0, behavior: 'smooth'});
+    });
+  </script>
+</body>
+</html>

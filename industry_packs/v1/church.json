@@ -1,0 +1,465 @@
+{
+  "id": "church",
+  "display_name": "Church",
+  "icon": "⛪",
+  "primary_customer_goal": "leads",
+  "version": "1.0.0",
+  "business_profile_fields": {
+    "required": [
+      "services_offered",
+      "service_area"
+    ],
+    "optional": [
+      "hours",
+      "booking_method",
+      "pricing_style"
+    ],
+    "example_values": {
+      "services_offered": "consulting, services, products",
+      "service_area": "Local or online",
+      "hours": "By appointment"
+    }
+  },
+  "default_channel_strategy": {
+    "default_platforms": [
+      "facebook",
+      "instagram",
+      "youtube"
+    ],
+    "content_cadence": "2-3 posts/week",
+    "best_performing_types": [
+      "educational content",
+      "behind-the-scenes",
+      "customer testimonials",
+      "value proposition",
+      "problem-solution posts"
+    ]
+  },
+  "keyword_banks": {
+    "seed_keywords": [
+      "business",
+      "service",
+      "quality",
+      "professional",
+      "customer focused",
+      "expert",
+      "trusted",
+      "reliable",
+      "solutions",
+      "results",
+      "experience",
+      "dedicated",
+      "local business",
+      "small business",
+      "community"
+    ],
+    "topic_clusters": [
+      {
+        "name": "value_proposition",
+        "intent": "awareness",
+        "examples": [
+          "what we do",
+          "how we help",
+          "our approach",
+          "why choose us"
+        ]
+      },
+      {
+        "name": "social_proof",
+        "intent": "conversion",
+        "examples": [
+          "customer testimonials",
+          "case studies",
+          "reviews",
+          "results"
+        ]
+      },
+      {
+        "name": "education",
+        "intent": "awareness",
+        "examples": [
+          "tips",
+          "how-to",
+          "industry insights",
+          "best practices"
+        ]
+      },
+      {
+        "name": "engagement",
+        "intent": "retention",
+        "examples": [
+          "behind-the-scenes",
+          "team highlights",
+          "community involvement"
+        ]
+      }
+    ],
+    "seasonal_hooks": [
+      "New Year goals (January)",
+      "spring refresh (March-April)",
+      "summer planning (June-July)",
+      "back-to-business (September)",
+      "year-end planning (November-December)"
+    ]
+  },
+  "cta_library": {
+    "booking_ctas": [
+      "Contact us today",
+      "Get in touch",
+      "Schedule a consultation",
+      "Learn more",
+      "Reach out to discuss your needs"
+    ],
+    "inquiry_ctas": [
+      "Send us a message",
+      "Ask us anything",
+      "Have questions? We're here to help",
+      "Let's talk about your needs",
+      "Contact us for details"
+    ],
+    "review_referral_ctas": [
+      "Share your experience",
+      "Leave us a review",
+      "Recommend us to others",
+      "Tell us how we did",
+      "Refer a friend"
+    ],
+    "offer_ctas": [
+      "Limited time offer",
+      "Special promotion",
+      "Inquire about pricing",
+      "Ask about our services",
+      "Book your free consultation"
+    ]
+  },
+  "compliance_safety_rules": {
+    "forbidden_claims": [
+      "guaranteed results without context",
+      "superlative claims without proof",
+      "unrealistic promises"
+    ],
+    "privacy_constraints": [
+      "never share customer information without permission",
+      "respect privacy in testimonials and case studies"
+    ],
+    "regulated_language_notes": [
+      "use 'results may vary' for outcome-based claims",
+      "include appropriate disclaimers for specialized services"
+    ],
+    "do_not_generate": [
+      "medical or legal advice",
+      "definitive guarantees",
+      "comparison with competitors by name"
+    ]
+  },
+  "content_templates": {
+    "social_templates": {
+      "post_structures": [
+        "hook (question or insight) → value (solution or tip) → proof (credibility) → CTA",
+        "story hook → lesson learned → how it applies → CTA",
+        "problem statement → our approach → benefits → CTA"
+      ],
+      "reel_structures": [
+        "hook (attention grabber) → beats (key points) → value delivery → CTA",
+        "before/after → process explanation → results → CTA",
+        "tips format → demonstration → application → CTA"
+      ],
+      "content_angles": [
+        "educational tips",
+        "behind-the-scenes",
+        "customer success stories",
+        "value proposition",
+        "process explanation",
+        "team spotlight",
+        "industry insights",
+        "FAQ responses"
+      ]
+    },
+    "email_templates": {
+      "scenarios": [
+        {
+          "name": "lead_reply",
+          "required_fields": [
+            "contact_name",
+            "inquiry_type"
+          ],
+          "recommended_tone": "professional",
+          "constraints": [
+            "address specific inquiry",
+            "clear next steps",
+            "contact information"
+          ],
+          "suggested_cta": "Schedule a call"
+        },
+        {
+          "name": "follow_up",
+          "required_fields": [
+            "contact_name",
+            "previous_interaction"
+          ],
+          "recommended_tone": "friendly",
+          "constraints": [
+            "reference previous conversation",
+            "value add",
+            "clear CTA"
+          ],
+          "suggested_cta": "Let's continue the conversation"
+        }
+      ]
+    },
+    "quote_scaffolds": {
+      "applicable": true,
+      "quote_line_item_categories": [
+        "services",
+        "products",
+        "consultation",
+        "additional options"
+      ],
+      "assumptions_defaults": [
+        "pricing subject to scope confirmation",
+        "quotes valid for 30 days",
+        "terms and conditions apply"
+      ],
+      "warranty_policy_boilerplate": "Service quality guarantee details provided upon request. Specific terms vary by service type."
+    },
+    "review_reply_guidelines": {
+      "channel_specific": {
+        "google": "respond within 24-48 hours, keep professional, thank reviewer",
+        "facebook": "respond publicly, move detailed discussions private",
+        "yelp": "acknowledge feedback, offer resolution path"
+      },
+      "empathy_patterns": [
+        "Thank you for your feedback",
+        "We appreciate your business",
+        "We're glad we could help",
+        "We value your input"
+      ],
+      "compliance_notes": [
+        "remain professional and courteous",
+        "don't share customer details publicly",
+        "offer to resolve issues privately"
+      ]
+    }
+  },
+  "example_outputs": {
+    "social_post": {
+      "caption": "Looking for a solution that actually works? 💡\n\nWe understand the challenges you face. That's why we've developed our approach based on real-world results and customer feedback.\n\nOur clients tell us what makes the difference: personalized attention, proven methods, and genuine care for their success.\n\nReady to see how we can help? Let's talk.\n\n👉 Contact us today\n\n#SmallBusiness #QualityService #CustomerFirst #LocalBusiness #Professional",
+      "platform": "facebook",
+      "pillar": "value_proposition"
+    },
+    "reel_script": {
+      "hook": "3 things our customers wish they knew before starting...",
+      "beats": [
+        "0-3s: Hook with text overlay",
+        "3-8s: Point 1 with visual",
+        "8-13s: Point 2 with visual",
+        "13-18s: Point 3 with visual",
+        "18-25s: How we help with these",
+        "25-30s: CTA overlay"
+      ],
+      "cta": "Have questions? Send us a message",
+      "shot_list": "Text overlays, b-roll of service/product, team member explaining, contact info",
+      "platform": "instagram",
+      "length_seconds": 30
+    },
+    "email": {
+      "subject": "Re: Your Inquiry",
+      "body": "Hi [Name],\n\nThank you for reaching out to us about [topic].\n\nBased on what you've shared, I think we can help you achieve [goal]. We've worked with many clients facing similar challenges, and here's how we typically approach this...\n\n[Brief explanation of approach]\n\nI'd love to schedule a brief call to discuss your specific needs and see how we can best support you.\n\nAre you available [day/time options]?\n\nLooking forward to connecting,\n[Name]\n[Contact Info]",
+      "scenario": "lead_reply",
+      "tone": "professional"
+    },
+    "review_reply": {
+      "review_text": "Great service and very professional. Highly recommend!",
+      "response": "Thank you so much for the kind words and recommendation! We're thrilled that you had a positive experience with our team. Customer satisfaction is our top priority, and we look forward to serving you again in the future!",
+      "channel": "google",
+      "sentiment": "positive"
+    }
+  },
+  "prompt_integration_hooks": {
+    "industry_pack_id": "church",
+    "constraints_for_model": [
+      "DO: Focus on value proposition and customer benefits",
+      "DO: Use professional, accessible language",
+      "DO: Include clear calls-to-action",
+      "DO: Emphasize credibility and trustworthiness",
+      "DON'T: Make unrealistic promises or guarantees",
+      "DON'T: Use overly salesy or pushy language",
+      "DON'T: Include industry-specific jargon without context"
+    ],
+    "default_do_dont_list": {
+      "do": [
+        "focus on customer value and benefits",
+        "use clear, accessible language",
+        "include social proof when available",
+        "provide actionable insights",
+        "maintain professional tone"
+      ],
+      "dont": [
+        "make guarantees without context",
+        "use excessive hype or superlatives",
+        "include unverified claims",
+        "assume industry knowledge",
+        "be overly promotional"
+      ]
+    }
+  },
+  "good_defaults": {
+    "audience": {
+      "who": "Local customers and businesses seeking reliable professional services",
+      "pain_points": [
+        "Finding trustworthy service providers",
+        "Getting clear pricing and expectations",
+        "Receiving consistent quality",
+        "Getting responsive communication",
+        "Understanding what to expect"
+      ],
+      "desired_outcomes": [
+        "Reliable, quality service",
+        "Clear communication",
+        "Fair pricing",
+        "Professional experience",
+        "Long-term trusted partnership"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Sunday service",
+        "Bible study",
+        "youth programs",
+        "community outreach",
+        "counseling",
+        "events",
+        "volunteer opportunities",
+        "prayer"
+      ],
+      "ctas": [
+        "Join us Sunday",
+        "Visit our church",
+        "Get connected",
+        "Volunteer",
+        "Watch online",
+        "Learn more"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Years of experience in the industry",
+        "Hundreds of satisfied customers",
+        "Locally owned and operated",
+        "Professional certifications",
+        "5-star reviews and testimonials",
+        "Community involvement and trust"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "educational",
+        "label": "Educational Tips",
+        "when_to_use": "Share expertise and build trust through helpful information"
+      },
+      {
+        "key": "testimonial",
+        "label": "Customer Success",
+        "when_to_use": "Showcase social proof and real results"
+      },
+      {
+        "key": "behind_scenes",
+        "label": "Behind the Scenes",
+        "when_to_use": "Humanize your brand and show your process"
+      },
+      {
+        "key": "value_prop",
+        "label": "Why Choose Us",
+        "when_to_use": "Highlight what makes you different and valuable"
+      },
+      {
+        "key": "how_to",
+        "label": "How-To Guide",
+        "when_to_use": "Provide actionable advice related to your industry"
+      },
+      {
+        "key": "faq",
+        "label": "FAQ Response",
+        "when_to_use": "Answer common questions and remove barriers"
+      },
+      {
+        "key": "team_spotlight",
+        "label": "Team Spotlight",
+        "when_to_use": "Build personal connection and trust"
+      },
+      {
+        "key": "local_focus",
+        "label": "Community Connection",
+        "when_to_use": "Emphasize local roots and community involvement"
+      }
+    ],
+    "do_say": [
+      "We're here to help",
+      "Based on our experience",
+      "Our customers tell us",
+      "Here's what to expect",
+      "Let's discuss your needs",
+      "Trusted by local customers"
+    ],
+    "dont_say": [
+      "Best in the industry (without proof)",
+      "Guaranteed results (without context)",
+      "You need this now (pressure tactics)",
+      "Everyone is doing it",
+      "Limited time only (unless true)",
+      "Revolutionary/game-changing (overused)"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Quality service",
+        "Customer satisfaction",
+        "Expert guidance",
+        "Local business",
+        "Professional results",
+        "Trusted provider",
+        "Custom solutions",
+        "Responsive support",
+        "Industry experience",
+        "Fair pricing",
+        "Community focused",
+        "Proven approach"
+      ],
+      "audience_chips": [
+        "Local customers",
+        "Small business owners",
+        "Families",
+        "Professionals",
+        "First-time clients",
+        "Returning customers",
+        "Budget-conscious buyers",
+        "Quality-focused clients",
+        "Busy professionals",
+        "Community members"
+      ],
+      "offer_chips": [
+        "Free consultation",
+        "Custom quote",
+        "Flexible scheduling",
+        "Professional service",
+        "Expert advice",
+        "Quality guarantee",
+        "Ongoing support",
+        "Same-day response",
+        "Transparent pricing",
+        "Satisfaction promise"
+      ],
+      "proof_chips": [
+        "Years of experience",
+        "5-star reviews",
+        "Local reputation",
+        "Professional certification",
+        "Satisfied customers",
+        "Community trust",
+        "Proven results",
+        "Expert team",
+        "Reliable service",
+        "Licensed & insured"
+      ]
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "id": "quote_service",
+  "name": "Service Quote",
+  "channel": "quote",
+  "description": "Professional service quote/proposal",
+  "baseline": {
+    "title": "Service Quote",
+    "introduction": "Thank you for your interest in our services. Below is a detailed quote for the work requested.",
+    "line_items": [
+      {
+        "description": "Service",
+        "quantity": 1,
+        "unit": "project",
+        "rate": 0,
+        "total": 0
+      }
+    ],
+    "terms": "Payment due upon completion. Prices valid for 30 days.",
+    "deposit_note": "A deposit may be required to begin work."
+  },
+  "personalized": {
+    "title": "{service} Quote for {audience}",
+    "introduction": "Thank you for considering {service}. We understand {audience} need {outcome}, and we're here to help you overcome {pain}.\n\nWhat sets us apart: {differentiator}.\n\n{proof}",
+    "line_items": [
+      {
+        "description": "{service}",
+        "quantity": 1,
+        "unit": "project",
+        "rate": 0,
+        "total": 0
+      }
+    ],
+    "terms": "Payment due upon completion. Prices valid for {validity_days} days. {deposit_policy}",
+    "deposit_note": "{deposit_policy}"
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Website Design & Development"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "small businesses"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "lack of online presence"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "a professional website that converts visitors"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "Mobile-first design and SEO optimization included"
+    },
+    "proof": {
+      "description": "Social proof or credibility",
+      "example": "We've built 100+ websites with 99% client satisfaction"
+    },
+    "validity_days": {
+      "description": "Number of days quote is valid",
+      "example": "30"
+    },
+    "deposit_policy": {
+      "description": "Deposit requirements",
+      "example": "50% deposit required to begin, balance due upon completion"
+    }
+  }
+}

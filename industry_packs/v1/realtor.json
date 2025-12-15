@@ -1,0 +1,440 @@
+{
+  "id": "realtor",
+  "display_name": "Realtor / Real Estate Agent",
+  "icon": "🏡",
+  "primary_customer_goal": "leads",
+  "version": "1.0.0",
+  
+  "business_profile_fields": {
+    "required": ["service_area", "specialization", "brokerage"],
+    "optional": ["years_experience", "average_price_range", "certifications"],
+    "example_values": {
+      "service_area": "Charleston metro area, Johns Island",
+      "specialization": "residential, first-time buyers, luxury homes",
+      "brokerage": "RE/MAX, Keller Williams, independent"
+    }
+  },
+  
+  "default_channel_strategy": {
+    "default_platforms": ["facebook", "instagram", "linkedin"],
+    "content_cadence": "4-5 posts/week",
+    "best_performing_types": [
+      "new listing reveals",
+      "local market updates",
+      "neighborhood highlights",
+      "homebuying tips",
+      "client testimonials",
+      "just sold/closed"
+    ]
+  },
+  
+  "keyword_banks": {
+    "seed_keywords": [
+      "real estate",
+      "home for sale",
+      "new listing",
+      "open house",
+      "market update",
+      "neighborhood",
+      "buyer agent",
+      "seller agent",
+      "home value",
+      "local market",
+      "property search",
+      "dream home",
+      "first time buyer",
+      "investment property",
+      "luxury homes"
+    ],
+    "topic_clusters": [
+      {
+        "name": "listings",
+        "intent": "conversion",
+        "examples": ["new listing", "open house", "price drop", "just listed"]
+      },
+      {
+        "name": "market_insight",
+        "intent": "awareness",
+        "examples": ["market trends", "neighborhood guide", "home values", "market stats"]
+      },
+      {
+        "name": "buyer_education",
+        "intent": "awareness",
+        "examples": ["homebuying tips", "mortgage basics", "inspection guide", "first-time buyer"]
+      },
+      {
+        "name": "seller_education",
+        "intent": "awareness",
+        "examples": ["selling tips", "home staging", "pricing strategy", "prep for sale"]
+      },
+      {
+        "name": "social_proof",
+        "intent": "conversion",
+        "examples": ["client testimonial", "just closed", "success story", "happy homeowner"]
+      }
+    ],
+    "seasonal_hooks": [
+      "spring selling season (March-May)",
+      "summer market peak (June-August)",
+      "fall market shift (September-October)",
+      "year-end deals (November-December)",
+      "New Year home goals (January)",
+      "back-to-school relocation (August)"
+    ]
+  },
+  
+  "cta_library": {
+    "booking_ctas": [
+      "Schedule your free consultation",
+      "Let's discuss your home goals",
+      "Book a property tour",
+      "Get your free home valuation",
+      "Contact me to learn more",
+      "Set up a buyer meeting"
+    ],
+    "inquiry_ctas": [
+      "DM me for details",
+      "Send me a message",
+      "Ask about this property",
+      "Want to know more?",
+      "Curious about your home value?",
+      "Questions? I'm here to help"
+    ],
+    "review_referral_ctas": [
+      "Know someone looking to buy or sell?",
+      "Refer a friend",
+      "Share with someone house hunting",
+      "Tag someone who needs to see this",
+      "Leave a review if I helped you",
+      "Tell others about your experience"
+    ],
+    "offer_ctas": [
+      "Get your free market analysis",
+      "Download my buyer's guide",
+      "Access exclusive listings",
+      "Join my VIP buyer list",
+      "Get alerts for new listings",
+      "Request showing"
+    ]
+  },
+  
+  "compliance_safety_rules": {
+    "forbidden_claims": [
+      "guaranteed appreciation",
+      "guaranteed sale timeframe",
+      "discriminatory language (Fair Housing violations)",
+      "unauthorized property photos"
+    ],
+    "privacy_constraints": [
+      "never share client names without permission",
+      "don't disclose sale prices without authorization",
+      "respect listing agreements and MLS rules",
+      "no photos of occupied homes without consent"
+    ],
+    "regulated_language_notes": [
+      "comply with Fair Housing Act (no discriminatory terms)",
+      "follow MLS and NAR guidelines",
+      "include required disclosures per state law",
+      "accurate property information only"
+    ],
+    "do_not_generate": [
+      "discriminatory housing language",
+      "false property claims",
+      "unauthorized listing details",
+      "specific financial or legal advice"
+    ]
+  },
+  
+  "content_templates": {
+    "social_templates": {
+      "post_structures": [
+        "hook (property highlight) → value (key features) → proof (neighborhood/market) → CTA (schedule showing)",
+        "market stat hook → insight → how it affects buyers/sellers → CTA (let's talk)",
+        "neighborhood spotlight → lifestyle benefits → available properties → CTA (explore options)"
+      ],
+      "reel_structures": [
+        "hook (home exterior) → beats (room-by-room tour) → key features → CTA (+ shot list: curb appeal, living spaces, unique features, neighborhood)",
+        "hook (market question) → beats (data points with graphics) → takeaway → CTA (+ shot list: stats overlays, local shots)",
+        "hook (homebuying myth) → beats (fact breakdown) → professional tip → CTA (+ shot list: relatable scenarios, agent explaining)"
+      ],
+      "content_angles": [
+        "new listing",
+        "open house",
+        "just sold/closed",
+        "market update",
+        "neighborhood guide",
+        "buyer tips",
+        "seller tips",
+        "testimonial"
+      ]
+    },
+    "email_templates": {
+      "scenarios": [
+        {
+          "name": "lead_reply",
+          "required_fields": ["client_name", "property_interest", "timeline"],
+          "recommended_tone": "professional",
+          "constraints": ["address specific property", "offer market insights", "suggest next steps"],
+          "suggested_cta": "Schedule a call"
+        },
+        {
+          "name": "market_update",
+          "required_fields": ["area", "recent_data"],
+          "recommended_tone": "informative",
+          "constraints": ["use current data", "provide value", "position as expert"],
+          "suggested_cta": "Let's discuss your goals"
+        }
+      ]
+    },
+    "quote_scaffolds": {
+      "applicable": false,
+      "quote_line_item_categories": [],
+      "assumptions_defaults": [],
+      "warranty_policy_boilerplate": ""
+    },
+    "review_reply_guidelines": {
+      "channel_specific": {
+        "google": "respond promptly, thank reviewer, maintain professionalism",
+        "zillow": "acknowledge feedback, highlight service quality",
+        "facebook": "engage personally, show appreciation"
+      },
+      "empathy_patterns": [
+        "Thank you for trusting me with your home journey",
+        "It was my pleasure helping you",
+        "I appreciate your kind words",
+        "Grateful to have worked with you"
+      ],
+      "compliance_notes": [
+        "never share client details without permission",
+        "maintain Fair Housing compliance",
+        "be professional and courteous always"
+      ]
+    }
+  },
+  
+  "example_outputs": {
+    "social_post": {
+      "caption": "🏡 NEW LISTING ALERT 🏡\n\nYour dream home just hit the market! This stunning 3BR/2BA in the heart of Johns Island features:\n\n✨ Updated kitchen with quartz counters\n✨ Large backyard perfect for entertaining\n✨ Walking distance to parks and schools\n✨ Move-in ready!\n\nPriced at $425K. Open house this Saturday 1-3pm.\n\n👉 DM me for details or to schedule a private showing\n\n#JohnsIslandHomes #NewListing #CharlestonRealEstate #HomesForSale #DreamHome",
+      "platform": "instagram",
+      "pillar": "listings"
+    },
+    "reel_script": {
+      "hook": "This home just came on the market and won't last long 👀",
+      "beats": [
+        "0-3s: Curb appeal shot with text 'NEW LISTING'",
+        "3-8s: Front door entry, 'Check out that natural light'",
+        "8-13s: Kitchen reveal, 'Updated everything'",
+        "13-18s: Primary bedroom, 'Your peaceful retreat'",
+        "18-23s: Backyard, 'Perfect for summer BBQs'",
+        "23-28s: Quick montage of highlights",
+        "28-30s: CTA with contact info"
+      ],
+      "cta": "DM me to schedule your showing → Link in bio",
+      "shot_list": "Exterior curb appeal, front door entry, kitchen with natural light, primary suite, backyard/patio, neighborhood shots, agent contact info",
+      "platform": "instagram",
+      "length_seconds": 30
+    },
+    "email": {
+      "subject": "New Listings in Your Area + Market Update",
+      "body": "Hi [Name],\n\nI hope this email finds you well! I wanted to share a quick market update for [area] and some new listings that match your criteria.\n\nCurrent Market:\n- Average home price: $XXX,XXX (up X% from last month)\n- Average days on market: XX days\n- Inventory: Low, creating competitive conditions\n\nNew Listings for You:\n[Property 1 details]\n[Property 2 details]\n\nBased on current trends, this is a [buyer's/seller's] market because [brief explanation].\n\nWould you like to schedule a time to tour any of these properties or discuss your home goals?\n\nBest regards,\n[Agent Name]\n[Contact Info]",
+      "scenario": "market_update",
+      "tone": "professional"
+    },
+    "review_reply": {
+      "review_text": "Made our first home buying experience smooth and stress-free. Highly recommend!",
+      "response": "Thank you so much for the kind words! It was truly my pleasure helping you find your first home. Watching you get the keys was one of the best parts of my job! Wishing you many happy years in your new place. Congratulations again! 🏡",
+      "channel": "google",
+      "sentiment": "positive"
+    }
+  },
+  
+  "prompt_integration_hooks": {
+    "industry_pack_id": "realtor",
+    "constraints_for_model": [
+      "DO: Focus on property features, location benefits, and market expertise",
+      "DO: Include accurate, honest property descriptions",
+      "DO: Comply with Fair Housing Act (no discriminatory language)",
+      "DO: Position agent as local expert and trusted advisor",
+      "DON'T: Guarantee investment returns or appreciation",
+      "DON'T: Use discriminatory language (age, race, religion, family status, etc.)",
+      "DON'T: Share unauthorized listing details or client information",
+      "DON'T: Provide specific legal or financial advice"
+    ],
+    "default_do_dont_list": {
+      "do": [
+        "highlight property features and location",
+        "share market insights and trends",
+        "educate buyers and sellers",
+        "build local expertise credibility",
+        "create urgency with market conditions"
+      ],
+      "dont": [
+        "guarantee property appreciation",
+        "use discriminatory language",
+        "share unauthorized info",
+        "make promises about sale timing",
+        "give legal or financial advice"
+      ]
+    }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Local homebuyers, sellers, and real estate investors",
+      "pain_points": [
+        "Overwhelming home search process",
+        "Uncertainty about market timing",
+        "Concerns about pricing",
+        "Navigating complex transactions",
+        "Finding the right neighborhood"
+      ],
+      "desired_outcomes": [
+        "Find the perfect home",
+        "Get top dollar for their property",
+        "Smooth, stress-free transaction",
+        "Trusted local expert guidance",
+        "Make smart real estate decisions"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Buyer representation",
+        "Seller representation",
+        "Free home valuation",
+        "Market analysis",
+        "Property search",
+        "Negotiation expertise",
+        "Transaction coordination",
+        "Investment property guidance"
+      ],
+      "ctas": [
+        "Get your free home valuation",
+        "Schedule a consultation",
+        "Let's find your dream home",
+        "Request a showing",
+        "Download my buyer's guide",
+        "Join my VIP list"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Years of local market experience",
+        "Homes sold in your neighborhood",
+        "Client testimonials",
+        "Market expertise and certifications",
+        "Strong negotiation track record",
+        "5-star reviews"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "new_listing",
+        "label": "New Listing",
+        "when_to_use": "Announce new properties to market"
+      },
+      {
+        "key": "market_update",
+        "label": "Market Update",
+        "when_to_use": "Position as local expert with insights"
+      },
+      {
+        "key": "neighborhood",
+        "label": "Neighborhood Guide",
+        "when_to_use": "Showcase local knowledge and lifestyle"
+      },
+      {
+        "key": "buyer_tips",
+        "label": "Buyer Tips",
+        "when_to_use": "Educate and attract potential buyers"
+      },
+      {
+        "key": "seller_tips",
+        "label": "Seller Tips",
+        "when_to_use": "Attract listing opportunities"
+      },
+      {
+        "key": "just_sold",
+        "label": "Just Sold/Closed",
+        "when_to_use": "Show success and create momentum"
+      },
+      {
+        "key": "open_house",
+        "label": "Open House",
+        "when_to_use": "Drive traffic to showings"
+      },
+      {
+        "key": "testimonial",
+        "label": "Client Testimonial",
+        "when_to_use": "Build trust through social proof"
+      }
+    ],
+    "do_say": [
+      "Let's discuss your home goals",
+      "Based on current market data",
+      "I specialize in this neighborhood",
+      "Free consultation with no obligation",
+      "Here's what homes are selling for",
+      "Your trusted local expert"
+    ],
+    "dont_say": [
+      "Guaranteed investment return",
+      "Perfect neighborhood (Fair Housing)",
+      "Great for families (discriminatory)",
+      "You must buy now",
+      "This will definitely appreciate",
+      "Specific legal/tax advice"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "New listings",
+        "Open houses",
+        "Just sold",
+        "Market updates",
+        "Neighborhood guides",
+        "First-time buyers",
+        "Luxury homes",
+        "Investment properties",
+        "Home values",
+        "Local expert",
+        "Buyer tips",
+        "Seller tips"
+      ],
+      "audience_chips": [
+        "First-time buyers",
+        "Move-up buyers",
+        "Sellers",
+        "Investors",
+        "Relocating families",
+        "Downsizers",
+        "Luxury buyers",
+        "Commercial clients",
+        "Out-of-state buyers",
+        "Local residents"
+      ],
+      "offer_chips": [
+        "Free home valuation",
+        "Free consultation",
+        "Market analysis",
+        "Buyer representation",
+        "Seller representation",
+        "Virtual tours",
+        "Property search",
+        "Investment guidance",
+        "Neighborhood insights",
+        "Negotiation expertise"
+      ],
+      "proof_chips": [
+        "Local market expert",
+        "20+ years experience",
+        "Top producer",
+        "5-star rated",
+        "100+ homes sold",
+        "Client testimonials",
+        "Certified negotiator",
+        "Award-winning agent",
+        "Community trusted",
+        "Local resident"
+      ]
+    }
+  }
+}

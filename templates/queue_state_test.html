@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queue State Test</title>
+    <style>
+        body { font-family: system-ui; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Publishing Queue State Test</h1>
+    <div id="results"></div>
+
+    <script src="/static/js/publishing_queue_state_init.js"></script>
+    <script>
+        const results = document.getElementById('results');
+        
+        function addTest(name, passed, details) {
+            const div = document.createElement('div');
+            div.className = `test ${passed ? 'pass' : 'fail'}`;
+            div.innerHTML = `
+                <strong>${passed ? '✓' : '✗'} ${name}</strong>
+                ${details ? `<pre>${details}</pre>` : ''}
+            `;
+            results.appendChild(div);
+        }
+
+        // Test 1: Namespace exists
+        const namespaceExists = typeof window.__EAZEILY__ !== 'undefined';
+        addTest('window.__EAZEILY__ namespace exists', namespaceExists);
+
+        // Test 2: Queue state exists
+        const queueStateExists = window.__EAZEILY__ && typeof window.__EAZEILY__.publishingQueueState !== 'undefined';
+        addTest('publishingQueueState exists', queueStateExists);
+
+        // Test 3: Queue state has required properties
+        if (queueStateExists) {
+            const state = window.__EAZEILY__.publishingQueueState;
+            const hasItems = Array.isArray(state.items);
+            const hasEntries = Array.isArray(state.entries);
+            const hasStatus = typeof state.status === 'string';
+            
+            addTest('Queue state has items array', hasItems);
+            addTest('Queue state has entries array', hasEntries);
+            addTest('Queue state has status string', hasStatus);
+            
+            // Test 4: Initial state is correct
+            const initialStateCorrect = state.status === 'idle' && state.items.length === 0;
+            addTest('Initial state is idle with empty items', initialStateCorrect);
+
+            // Test 5: Can add items
+            state.items.push({ test: 'item1' });
+            const canAddItems = state.items.length === 1 && state.items[0].test === 'item1';
+            addTest('Can add items to queue', canAddItems);
+
+            // Test 6: State is shared
+            const sameState = window.__EAZEILY__.publishingQueueState;
+            const isShared = sameState === state && sameState.items.length === 1;
+            addTest('State is shared across references', isShared);
+
+            // Show final state
+            addTest('Final queue state', true, JSON.stringify(state, null, 2));
+        }
+
+        // Test 7: No console errors
+        let errorCount = 0;
+        window.addEventListener('error', (e) => {
+            errorCount++;
+        });
+        
+        setTimeout(() => {
+            addTest('No JavaScript errors', errorCount === 0, 
+                errorCount > 0 ? `${errorCount} errors occurred` : 'All clean!');
+        }, 1000);
+    </script>
+</body>
+</html>

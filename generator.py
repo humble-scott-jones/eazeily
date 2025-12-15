@@ -2,6 +2,7 @@ import json
 import os
 import re
 import time
+import logging
 from datetime import timedelta, date
 from pathlib import Path
 from typing import Optional, Any, Mapping, Sequence
@@ -11,6 +12,7 @@ try:
 except ImportError:
     OpenAI = None
 
+logger = logging.getLogger(__name__)
 from platform_rules import DEFAULT_VARIANT_PLATFORMS, apply_platform_rules
 
 PILLARS_BY_DEFAULT = [
@@ -794,6 +796,67 @@ def rolling_pillars():
         for name, hint in PILLARS_BY_DEFAULT:
             yield (name, hint)
 
+def _inject_channel_context(response: str, channel: str) -> str:
+    """Add light channel-specific framing without changing the core answer."""
+    channel = (channel or "").strip().lower()
+    channel_map = {
+        "google": "Thanks for sharing this on Google.",
+        "yelp": "We appreciate you leaving a review on Yelp.",
+        "facebook": "Thank you for the Facebook feedback.",
+        "tripadvisor": "Thanks for letting us know on Tripadvisor.",
+    }
+    prefix = channel_map.get(channel)
+    if prefix:
+        return f"{prefix} {response}".strip()
+    return response
+
+
+def _apply_variant_tone(response: str, variant_action: str) -> str:
+    variant_action = (variant_action or "").strip().lower()
+    if variant_action in {"more formal", "more_formal"}:
+        return response.replace("Thanks", "Thank you").replace(" we're", " we are")
+    if variant_action in {"more friendly", "more_friendly"}:
+        if "😊" not in response:
+            return response + " 😊"
+    return response
+
+
+def _apply_variant_effect(response: str, variant_action: str) -> str:
+    variant_action = (variant_action or "").strip().lower()
+    if variant_action in {"shorter", "short"}:
+        return shorten_response(response, limit=240)
+    if variant_action in {"add cta", "add_cta", "cta"}:
+        if "Let us know" not in response and "reach out" not in response.lower():
+            return response.rstrip() + " Please reply here or reach out so we can follow up together."
+    return response
+
+
+def shorten_response(text: str, limit: int = 320) -> str:
+    """Trim a response to a soft character limit while keeping sentences whole."""
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    # Try to keep full sentences when possible
+    parts = text.split('.')
+    shortened = "".join(p.strip() + "." for p in parts if p.strip())
+    if len(shortened) <= limit:
+        return shortened
+    return text[: limit - 1].rstrip() + "…"
+
+
+def _expand_response(text: str, rating: int = 0, brand_voice: bool = False) -> str:
+    details = []
+    if rating and rating <= 3:
+        details.append("We are reviewing what happened and would love a second chance.")
+    elif rating and rating >= 4:
+        details.append("We shared your kudos with the team already.")
+    if brand_voice:
+        details.append("This keeps your brand voice and cadence intact.")
+    if not details:
+        return text
+    return f"{text} {' '.join(details)}"
+
+
 def generate_review_response(review_text: str, tone: str = "professional", company_name: str = "", industry: str = "") -> dict:
     """
     Generate a professional response to a customer review.
@@ -892,6 +955,65 @@ def generate_review_response(review_text: str, tone: str = "professional", compa
     }
 
 
+def generate_review_response_bundle(
+    review_text: str,
+    *,
+    tone: str = "professional",
+    company_name: str = "",
+    industry: str = "",
+    rating: int | None = None,
+    channel: str = "",
+    brand_voice: bool = False,
+    length: str = "medium",
+    variant_action: str = "base",
+) -> dict:
+    """Return short/medium/long responses with light variant handling.
+
+    This is intentionally deterministic for tests and to keep UX consistent
+    even when upstream AI providers are disabled.
+    """
+
+    base_payload = generate_review_response(review_text, tone=tone, company_name=company_name, industry=industry)
+    base_response = base_payload.get("response", "")
+
+    rating_val: int | None = None
+    try:
+        if rating is not None:
+            rating_val = int(rating)
+    except (TypeError, ValueError):  # pragma: no cover - safe fallback
+        rating_val = None
+
+    response = _inject_channel_context(base_response, channel)
+    response = _apply_variant_tone(response, variant_action)
+    response = _apply_variant_effect(response, variant_action)
+    response = _expand_response(response, rating_val or 0, brand_voice)
+
+    medium = shorten_response(response, limit=520)
+    short = shorten_response(response, limit=260)
+
+    long_response = response
+    if len(long_response) < 360:
+        long_response = f"{long_response} Thank you again for the thoughtful review."
+    long_response = _expand_response(long_response, rating_val or 0, brand_voice)
+
+    responses = {
+        "short": short,
+        "medium": medium,
+        "long": long_response,
+    }
+
+    selected_length = length if length in responses else "medium"
+
+    return {
+        **base_payload,
+        "responses": responses,
+        "selected_length": selected_length,
+        "variant_action": variant_action or "base",
+        "channel": channel or "general",
+        "rating": rating_val,
+    }
+
+
 def _coerce_start_day(value: Any) -> date:
     if value is None:
         return date.today()
@@ -921,11 +1043,17 @@ def generate_posts(
     company: str = "",
     details: Optional[Mapping[str, Any]] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
+    variant_types: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
     """Generate a list of posts for the requested period.
 
     Supports both keyword arguments and a single profile mapping. The mapping
     may contain keys like days, start_day, industry, tone, platforms, etc.
+    
+    Args:
+        variant_types: List of variant types to generate. Empty list means no variants.
+                      None means default behavior (no variants). 
+                      Possible values: ['shorter', 'more_professional', 'more_playful', 'more_direct_cta']
     """
 
     if isinstance(profile, Mapping):
@@ -941,6 +1069,7 @@ def generate_posts(
         goals = default.get("goals", goals)
         company = default.get("company", company)
         details = default.get("details", details)
+        variant_types = default.get("variant_types", variant_types)
 
     days = int(days or 7)
     start_day = _coerce_start_day(start_day)
@@ -956,6 +1085,8 @@ def generate_posts(
     voice_profile = voice_profile or details.get('voice_profile') or {}
     voice_profile = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
     company = company or ""
+    # Default: no variants unless explicitly requested
+    variant_types = list(variant_types or [])
 
     posts: list[dict[str, Any]] = []
     pillar_stream = rolling_pillars()
@@ -965,8 +1096,10 @@ def generate_posts(
         day = start_day + timedelta(days=i)
         pillar_name, pillar_hint = next(pillar_stream)
 
-        # Generate platform-specific variants for this day (always include default variant set)
-        variant_targets = list(dict.fromkeys(list(platforms) + list(DEFAULT_VARIANT_PLATFORMS)))
+        # Generate platform-specific content only for selected platforms
+        # Previous behavior: always included DEFAULT_VARIANT_PLATFORMS (all platforms)
+        # New behavior: only generate for explicitly selected platforms
+        # Note: variant_types parameter is reserved for future style variants feature
         base_platform = platforms[0] if platforms else 'instagram'
         variants = build_platform_variants(
             to_sentence_case(industry),
@@ -979,7 +1112,7 @@ def generate_posts(
             goals,
             company,
             details.get("note"),
-            variant_targets,
+            platforms,  # Only generate for selected platforms, not all DEFAULT_VARIANT_PLATFORMS
             voice_profile,
         )
 
@@ -1072,6 +1205,46 @@ def _build_openai_prompt(
 def _parse_openai_posts(content: str) -> Optional[list[dict]]:
     return _parse_trend_payload(content)
 
+
+def _fallback_generate_posts(
+    *,
+    profile: Optional[Mapping[str, Any]],
+    days: int,
+    start_day: date,
+    industry: str,
+    tone: str,
+    platforms: list[str],
+    brand_keywords: list[str],
+    include_images: bool,
+    niche_keywords: list[str],
+    goals: list[str],
+    company: str,
+    details: Mapping[str, Any],
+    voice_profile: Mapping[str, Any],
+    request_id: str = "",
+) -> list[dict[str, Any]]:
+    """Call `generate_posts` and ensure failures are logged with context."""
+
+    try:
+        return generate_posts(
+            profile=profile,
+            days=days,
+            start_day=start_day,
+            industry=industry,
+            tone=tone,
+            platforms=platforms,
+            brand_keywords=brand_keywords,
+            include_images=include_images,
+            niche_keywords=niche_keywords,
+            goals=goals,
+            company=company,
+            details=details,
+            voice_profile=voice_profile,
+        )
+    except Exception:
+        logger.exception("Fallback generation failed", extra={"request_id": request_id})
+        raise
+
 def generate_posts_with_openai(
     profile: Optional[Mapping[str, Any]] = None,
     *,
@@ -1088,6 +1261,7 @@ def generate_posts_with_openai(
     details: Optional[Mapping[str, Any]] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
     include_trends: bool = False,
+    request_id: str = "",
 ) -> list[dict[str, Any]]:
     """Generate posts using OpenAI if available, otherwise fallback to templates."""
     
@@ -1123,7 +1297,7 @@ def generate_posts_with_openai(
 
     # Check if OpenAI is available
     if not USE_OPENAI_FOR_POSTS or not _openai_client:
-        return generate_posts(
+        return _fallback_generate_posts(
             profile=profile,
             days=days,
             start_day=start_day,
@@ -1136,7 +1310,8 @@ def generate_posts_with_openai(
             goals=goals,
             company=company,
             details=details,
-            voice_profile=voice_profile
+            voice_profile=voice_profile,
+            request_id=request_id,
         )
 
     # Fetch trends if requested
@@ -1169,7 +1344,7 @@ def generate_posts_with_openai(
         )
         content = _extract_openai_content(response)
         posts_data = _parse_openai_posts(content or '')
-        
+
         if not posts_data:
             raise ValueError("Failed to parse OpenAI response")
 
@@ -1177,26 +1352,29 @@ def generate_posts_with_openai(
         final_posts = []
         for i, post in enumerate(posts_data[:days]):
             post_date = start_day + timedelta(days=i)
-            
+
             # Ensure required fields
             if 'caption' not in post:
                 post['caption'] = "Check this out!"
-            
+
             # Add image prompt if needed
             if include_images and 'image_prompt' not in post:
                 post['image_prompt'] = image_prompt(industry, post.get('pillar', 'General'), brand_keywords, company)
-            
+
             post['date'] = post_date.isoformat()
             post['day'] = post_date.strftime('%A')
             post['platform'] = platforms[0] # Simplified: assume primary platform for now or handle multi-platform
-            
+
             final_posts.append(post)
-            
+
+        if not final_posts:
+            raise ValueError("OpenAI produced no posts")
+
         return final_posts
 
-    except Exception as e:
-        # Fallback
-        return generate_posts(
+    except Exception:
+        logger.exception("OpenAI generation failed", extra={"request_id": request_id})
+        fallback_posts = _fallback_generate_posts(
             profile=profile,
             days=days,
             start_day=start_day,
@@ -1209,5 +1387,11 @@ def generate_posts_with_openai(
             goals=goals,
             company=company,
             details=details,
-            voice_profile=voice_profile
+            voice_profile=voice_profile,
+            request_id=request_id,
         )
+
+        if not fallback_posts:
+            raise RuntimeError("Fallback generation produced no posts")
+
+        return fallback_posts

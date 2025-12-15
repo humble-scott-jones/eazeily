@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reels & Shorts Script Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/eazeily-theme.css" />
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body class="bg-slate-50" data-initial-user="{{ initial_user | tojson | forceescape }}">
+  <header class="bg-white border-b border-slate-200 shadow-sm" role="banner">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3" aria-label="Return home">
+        <img src="/static/logo.svg" alt="Eazeily icon" class="w-9 h-9" />
+        <img src="/static/eazeily-logo.svg" alt="Eazeily wordmark" class="h-6 hidden sm:block" />
+      </a>
+      <nav aria-label="Primary" class="flex gap-4">
+        <a class="text-sm text-slate-600 hover:text-brand" href="/generate/social">Social</a>
+        <a class="text-sm text-brand font-semibold" aria-current="page" href="/generate/reels">Reels</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="reels-main" role="main" class="max-w-6xl mx-auto px-6 py-8 grid gap-6 lg:grid-cols-3">
+    <section class="lg:col-span-2 space-y-4" aria-labelledby="reels-heading">
+      <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 space-y-4" role="region" aria-labelledby="reels-heading">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="planner-eyebrow">CODEX · Task C</p>
+            <h1 id="reels-heading" class="text-2xl font-bold text-slate-900">Reels & Shorts Script Generator</h1>
+            <p class="text-sm text-slate-600">Hook → Beats → CTA → Caption → Hashtags. Built for scannable, video-first briefs.</p>
+          </div>
+          <button id="export-all" class="btn-secondary btn-sm" type="button">Export all</button>
+        </div>
+
+        <div class="bg-gradient-to-r from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100">
+          <div class="mb-3">
+            <p class="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Quick Generate</p>
+            <h3 class="text-lg font-semibold text-slate-900">Generate a reel in one click</h3>
+            <p class="text-sm text-slate-600">Uses your saved profile settings and auto-fills the form below.</p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button id="quick-generate-reel" class="btn-primary btn-sm shadow-sm" type="button">✨ Generate reel</button>
+          </div>
+        </div>
+
+        <form id="reels-form" class="space-y-4" aria-describedby="reels-form-help">
+          <p id="reels-form-help" class="text-sm text-slate-600">Set the core guardrails for the script before generating.</p>
+          <div class="grid md:grid-cols-2 gap-4">
+            <label class="block text-sm font-medium text-slate-700" for="hook-style">
+              Hook style
+              <select id="hook-style" name="hook_style" class="planner-select mt-1">
+                <option value="Face-camera tips">Face-camera tips</option>
+                <option value="Property b-roll + captions">Property b-roll + captions</option>
+                <option value="Product b-roll + captions">Product b-roll + captions</option>
+                <option value="Local hotspot montage">Local hotspot montage</option>
+                <option value="Story + before/after">Story + before/after</option>
+                <option value="Workout montage">Workout montage</option>
+              </select>
+            </label>
+            <label class="block text-sm font-medium text-slate-700" for="format">
+              Format
+              <select id="format" name="format" class="planner-select mt-1">
+                <option value="talking_head">Talking head</option>
+                <option value="broll">B-roll montage</option>
+                <option value="hybrid">Hybrid (talking head + b-roll)</option>
+              </select>
+            </label>
+          </div>
+          <div class="grid md:grid-cols-3 gap-4">
+            <label class="block text-sm font-medium text-slate-700" for="duration">
+              Duration
+              <select id="duration" name="duration_seconds" class="planner-select mt-1">
+                <option value="15">15 seconds</option>
+                <option value="30" selected>30 seconds</option>
+                <option value="45">45 seconds</option>
+                <option value="60">60 seconds</option>
+              </select>
+            </label>
+            <label class="flex items-center gap-2 text-sm font-medium text-slate-700" for="include-shot-list">
+              <input id="include-shot-list" name="include_shot_list" type="checkbox" class="accent-brand" checked />
+              Shot list
+            </label>
+            <label class="flex items-center gap-2 text-sm font-medium text-slate-700" for="include-on-screen-text">
+              <input id="include-on-screen-text" name="include_on_screen_text" type="checkbox" class="accent-brand" checked />
+              On-screen text
+            </label>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button class="btn-primary" type="submit" id="generate-btn">Generate script</button>
+            <button class="btn-ghost" type="button" id="regen-hook" aria-label="Regenerate hook only">Regenerate hook only</button>
+            <button class="btn-ghost" type="button" id="regen-cta" aria-label="Regenerate CTA only">Regenerate CTA only</button>
+            <div id="reels-status" class="text-sm text-slate-600" role="status" aria-live="polite"></div>
+          </div>
+        </form>
+      </div>
+
+      <div id="reels-output" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4" aria-live="polite" aria-busy="false">
+        <h2 class="text-xl font-semibold text-slate-900">Script structure</h2>
+        <div class="grid gap-4" id="reels-sections">
+          <div class="section-card" data-section="hook">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-900">Hook</h3>
+              <button class="btn-ghost text-xs" data-copy-section="hook">Copy hook</button>
+            </div>
+            <p class="text-sm text-slate-700" data-section-text="hook">Add a scroll-stopping opener.</p>
+          </div>
+          <div class="section-card" data-section="beats">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-900">Beats</h3>
+              <button class="btn-ghost text-xs" data-copy-section="beats">Copy beats</button>
+            </div>
+            <ul class="text-sm text-slate-700 list-disc list-inside" data-section-text="beats">
+              <li>Sequence your lines with timecodes.</li>
+            </ul>
+          </div>
+          <div class="section-card" data-section="cta">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-900">CTA</h3>
+              <button class="btn-ghost text-xs" data-copy-section="cta">Copy CTA</button>
+            </div>
+            <p class="text-sm text-slate-700" data-section-text="cta">Close with a clear next step.</p>
+          </div>
+          <div class="section-card" data-section="caption">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-900">Caption</h3>
+              <button class="btn-ghost text-xs" data-copy-section="caption">Copy caption</button>
+            </div>
+            <p class="text-sm text-slate-700" data-section-text="caption">Social-ready caption appears here.</p>
+          </div>
+          <div class="section-card" data-section="hashtags">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-900">Hashtags</h3>
+              <button class="btn-ghost text-xs" data-copy-section="hashtags">Copy hashtags</button>
+            </div>
+            <p class="text-sm text-slate-700" data-section-text="hashtags">#reels #shorts</p>
+          </div>
+          <div class="section-card" data-section="shot_list">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-900">Shot list</h3>
+              <button class="btn-ghost text-xs" data-copy-section="shot_list">Copy shot list</button>
+            </div>
+            <ul class="text-sm text-slate-700 list-disc list-inside" data-section-text="shot_list">
+              <li>Enable shot list to see timed cues.</li>
+            </ul>
+          </div>
+          <div class="section-card" data-section="on_screen_text">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-900">On-screen text</h3>
+              <button class="btn-ghost text-xs" data-copy-section="on_screen_text">Copy on-screen text</button>
+            </div>
+            <ul class="text-sm text-slate-700 list-disc list-inside" data-section-text="on_screen_text">
+              <li>Enable overlays to preview captions.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="space-y-4" aria-label="Guidance">
+      <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-5 space-y-2">
+        <h2 class="text-lg font-semibold text-slate-900">Best-in-class UX</h2>
+        <ul class="list-disc list-inside text-sm text-slate-700 space-y-1">
+          <li>Structured sections with copy buttons</li>
+          <li>Shot list &amp; on-screen text toggles</li>
+          <li>Export all in one click</li>
+          <li>Accessible headings &amp; live status</li>
+        </ul>
+      </div>
+      <div class="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 rounded-2xl p-5" role="note">
+        <h3 class="font-semibold text-slate-900">Tips</h3>
+        <p class="text-sm text-slate-700">Use “Regenerate hook only” or “Regenerate CTA only” to iterate fast without losing the beats.</p>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/js/publishing_queue_state.js"></script>
+  <script src="/static/app.js"></script>
+  <script src="/static/reels.js"></script>
+  {% include 'auth_modal.html' %}
+</body>
+</html>

@@ -2,6 +2,8 @@
 const DASHBOARD_SEED_STORAGE_KEY = (typeof window !== 'undefined' && window.SEED_STORAGE_KEY) ? window.SEED_STORAGE_KEY : '__swelly_seed_posts';
 const DASHBOARD_PLAN_CACHE_KEY = 'swelly_dashboard_plan_cache';
 const DASHBOARD_PLAN_TTL_MS = 1000 * 60 * 60 * 72; // 72 hours
+const PROFILE_CACHE_KEY = 'swelly_profile_cache';
+const PROFILE_CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
 const imageAttachmentState = { dataUrl: null, fileName: '' };
 let generatorUI = {};
 let dashboardConfigCache = null;
@@ -13,6 +15,18 @@ const generatedViewPrefs = {
   collapsedDays: new Set(),
   hiddenPlatforms: new Set(),
   loaded: false
+};
+const PROFILE_FETCH_TIMEOUT_MS = 9000;
+// Profile load state tracks the status of fetching user profile
+// status: 'idle' | 'loaded' | 'loaded_from_cache' | 'error'
+// profileStatus: 'missing' | 'partial' | 'ready' | 'acknowledged' (from backend or user dismissal)
+const profileLoadState = { 
+  status: 'idle', 
+  error: null, 
+  requestId: null, 
+  profileStatus: null,
+  reason: null,
+  recommendedAction: null
 };
 const ACTIVITY_TYPE_META = {
   generated: { label: 'Generated', icon: '✨', color: 'emerald' },
@@ -98,6 +112,7 @@ const templateLibraryState = {
   lastUsed: null,
   profileKey: 'anon'
 };
+let lastTemplateUndoState = null;
 const platformPresetState = {
   wizard: [],
   lastPlan: null
@@ -109,9 +124,57 @@ const DEFAULT_PRESETS = [
   { id: 'product-launch', label: 'Product launch', goals: ['Product launch'], tone: 'inspirational', keywords: ['launch', 'new feature'] },
   { id: 'weekly-update', label: 'Weekly update', goals: ['Weekly update'], tone: 'friendly', keywords: ['community', 'newsletter'] }
 ];
-let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], goals: [], id: 'anon' };
+let profileDefaults = { tone: 'friendly', industry: 'Business', keywords: [], goals: [], platforms: [], company: '', timezone: '', id: 'anon', hasProfile: false };
 let lastGeneratorState = null;
 let generatorHydratedFromProfile = false;
+
+// Publishing queue state initialization
+const PUBLISHING_QUEUE_STORAGE_KEY = 'eazeily_publishing_queue';
+
+// Use the global namespaced queue state (initialized by publishing_queue_state_init.js)
+// This provides a reference to the namespaced state for backward compatibility
+function getPublishingQueueState() {
+  if (window.__EAZEILY__ && window.__EAZEILY__.publishingQueueState) {
+    return window.__EAZEILY__.publishingQueueState;
+  }
+  // Fallback: return a safe empty state if not initialized
+  console.warn('[Eazeily] Publishing queue state not initialized. Returning empty state.');
+  return { entries: [], items: [], status: 'idle', lastError: null };
+}
+
+// Note: publishing_queue_state_init.js MUST be loaded before dashboard.js (enforced in templates)
+// This ensures the namespaced state is initialized before we create any references to it.
+
+function logGeneratorEvent(event, meta = {}) {
+  try {
+    console.info(`[generator] ${event}`, meta);
+    if (Array.isArray(window.dataLayer)) {
+      window.dataLayer.push({ event: `generator.${event}`, meta });
+    }
+  } catch (err) {
+    // ignore client logging failures
+  }
+}
+
+function setGeneratorStatus(message, tone = 'muted') {
+  const statusEl = generatorUI.statusEl || document.getElementById('generator-status');
+  if (!statusEl) return;
+  if (!message) {
+    statusEl.classList.add('hidden');
+    statusEl.textContent = '';
+    return;
+  }
+
+  const toneClasses = {
+    muted: 'text-slate-600',
+    success: 'text-green-700',
+    error: 'text-red-700'
+  };
+  const base = 'text-sm mt-2';
+  statusEl.className = `${base} ${toneClasses[tone] || toneClasses.muted}`;
+  statusEl.textContent = message;
+  statusEl.classList.remove('hidden');
+}
 
 function getCurrentUserName() {
   const user = window.CURRENT_USER || {};
@@ -205,71 +268,369 @@ function populateAccountPlatformOptions(list) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Load user profile and settings
-  loadUserProfile();
+  // Dev mode runtime check for queue state
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    const queueState = getPublishingQueueState();
+    if (!queueState) {
+      console.warn('[Eazeily Dev Warning] publishingQueueState is not properly initialized. Queue features may not work.');
+    } else if (!queueState.entries || !Array.isArray(queueState.entries)) {
+      console.warn('[Eazeily Dev Warning] publishingQueueState.entries is not an array. Queue features may not work correctly.');
+    }
+  }
 
-  // Review Response Generation
-  setupReviewResponse();
+  const hasGenerator = Boolean(document.getElementById('content-generator'));
+  const hasReviewPanel = Boolean(document.getElementById('review-response'));
+  const hasSettings = Boolean(document.getElementById('account-company'));
+  const hasVoiceCoach = Boolean(document.getElementById('voice-coach'));
+  const hasFeedbackForm = Boolean(document.getElementById('feedback-form'));
+  const hasActivityPanel = Boolean(document.getElementById('activity-panel'));
 
-  // Content Generation
-  setupContentGeneration();
+  setupProfileLoadBannerActions();
+  setupBrandKitBanner();
 
-  // Account Settings
-  setupAccountSettings();
+  loadUserProfile({ hydrateGenerator: hasGenerator, hydrateVoice: hasVoiceCoach || document.getElementById('voice-coach-summary') });
 
-  // Quick Actions
-  setupQuickActions();
+  if (hasReviewPanel) {
+    setupReviewResponse();
+  }
 
-  // Template library and presets
-  setupTemplateLibrary();
+  if (hasGenerator) {
+    setupContentGeneration();
+    setupQuickActions();
+    setupTemplateLibrary();
+    setupOneClickGeneration();
+    setupImageUpload();
+    hydrateSeedPosts();
+    seedPresetStateFromWizardDefaults();
+    loadPublishingQueueFromStorage();
+    renderPublishingQueue();
+    updateQueueTimezoneLabel();
+  }
 
-  // One-click generation defaults
-  setupOneClickGeneration();
+  if (hasSettings) {
+    setupAccountSettings();
+  }
 
-  // Inspiration image uploads
-  setupImageUpload();
+  const lazyHydrate = () => {
+    if (hasFeedbackForm) setupFeedbackForm();
+    if (hasVoiceCoach) setupVoiceCoach();
+    if (hasActivityPanel) hydrateActivityFeed();
+  };
 
-  // Feedback form in sidebar
-  setupFeedbackForm();
-
-  // Voice coach panel
-  setupVoiceCoach();
-  // Activity and ownership feed
-  hydrateActivityFeed();
-
-  hydrateVoiceSummary({});
-  hydrateSeedPosts();
-  seedPresetStateFromWizardDefaults();
-  loadPublishingQueueFromStorage();
-  renderPublishingQueue();
-  updateQueueTimezoneLabel();
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(lazyHydrate);
+  } else {
+    setTimeout(lazyHydrate, 250);
+  }
 });
 
-async function loadUserProfile() {
+async function loadUserProfile(options = {}) {
+  const { hydrateGenerator = true, hydrateVoice = true, force = false } = options;
+  if (profileLoadState.status === 'loading' && !force) return;
+
+  profileLoadState.status = 'loading';
+  profileLoadState.error = null;
+  renderProfileLoadBanner();
+  
+  // Show loading state in voice pill
+  const pill = document.getElementById('voice-pill');
+  if (pill) {
+    pill.textContent = 'Loading profile...';
+  }
+  const profileSummary = document.getElementById('profile-defaults-summary');
+  if (profileSummary) {
+    profileSummary.textContent = 'Loading profile...';
+  }
+
   try {
     await ensureAccountFormFields();
-    const response = await fetch('/api/profile', { credentials: 'include' });
-    let profile = {};
-    if (response.ok) {
-      profile = await response.json();
-      applyProfileToAccountForm(profile);
+  } catch (err) {
+    /* ignore form prep errors */
+  }
+
+  // Use the Profile Hydrator V2 module with 10s timeout
+  let result = null;
+  let profile = null;
+  
+  try {
+    // Check if hydrateProfileV2 is available (from profile_hydrator_v2.js)
+    if (typeof window.hydrateProfileV2 === 'function') {
+      console.log('[Dashboard] Using Profile Hydrator V2');
+      result = await window.hydrateProfileV2({
+        timeoutMs: 10000, // 10 second timeout as per spec
+        bypassCache: force
+      });
+      
+      // Map hydrator state to profileLoadState
+      if (result.state === 'loaded') {
+        profile = result.profile;
+        profileLoadState.status = 'loaded';
+        profileLoadState.requestId = result.request_id;
+        profileLoadState.profileStatus = result.profile_status;
+        profileLoadState.reason = result.warnings.length > 0 ? result.warnings.join('; ') : null;
+        profileLoadState.recommendedAction = null;
+      } else if (result.state === 'error') {
+        profileLoadState.status = 'error';
+        profileLoadState.error = result.error?.message || 'Failed to load profile';
+        profileLoadState.requestId = result.request_id;
+        profileLoadState.profileStatus = result.profile_status || null;
+        profileLoadState.reason = null;
+        profileLoadState.recommendedAction = null;
+      }
+    } else {
+      // Fallback to legacy fetch if hydrator not available
+      console.warn('[Dashboard] Profile Hydrator V2 not available, using legacy fetch');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(new Error('profile-timeout')), PROFILE_FETCH_TIMEOUT_MS);
+      
+      try {
+        const response = await fetch('/api/profile', { credentials: 'include', signal: controller.signal });
+        const body = await response.json().catch(() => null);
+        
+        if (response && response.ok && body && body.ok !== false) {
+          profile = normalizeProfileResponse(body);
+          profileLoadState.status = 'loaded';
+          profileLoadState.requestId = body.request_id || null;
+          profileLoadState.profileStatus = body.profile_status || null;
+          profileLoadState.reason = body.reason || null;
+          profileLoadState.recommendedAction = body.recommended_action || null;
+        } else {
+          const errorMessage = (body && body.error && body.error.message) || 'Profile request failed';
+          profileLoadState.status = 'error';
+          profileLoadState.error = errorMessage;
+          profileLoadState.requestId = (body && body.request_id) || null;
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
     }
-    profileDefaults = {
-      tone: profile.tone || 'friendly',
-      industry: profile.industry || profile.industry_key || 'Business',
-      keywords: Array.isArray(profile.brand_keywords) ? profile.brand_keywords : [],
-      goals: Array.isArray(profile.goals) ? profile.goals : [],
-      id: profile.id || (window.CURRENT_USER && window.CURRENT_USER.id) || 'anon'
-    };
-    setTemplateProfileKey(profileDefaults.id);
-    renderProfileDefaultsSummary(profileDefaults);
-    hydrateTemplateLibrary();
-    renderCollaborationSummary();
+  } catch (error) {
+    profileLoadState.status = 'error';
+    profileLoadState.error = error.message || 'Unexpected error loading profile';
+    console.error('Failed to load user profile:', error);
+  }
+
+  if (profile && typeof profile === 'object') {
+    try { applyProfileToAccountForm(profile); } catch (err) { /* ignore */ }
+  }
+
+  profileDefaults = buildProfileDefaults(profile);
+  setTemplateProfileKey(profileDefaults.id);
+  renderProfileDefaultsSummary(profileDefaults);
+  renderProfileLoadBanner();
+  hydrateTemplateLibrary();
+  renderCollaborationSummary();
+
+  if (hydrateGenerator) {
     applyProfileDefaultsToGenerator(profileDefaults);
     hydrateStoredGeneratorState({ apply: true, preferProfile: true });
-    hydrateVoiceSummary(profile || {});
-  } catch (error) {
-    console.error('Failed to load user profile:', error);
+  }
+
+  if (hydrateVoice) {
+    hydrateVoiceSummary(profileDefaults, { profileMissing: !profileDefaults.hasProfile });
+  }
+
+  // Initialize chip selector if available
+  if (typeof window.initChipSelector === 'function' && profileDefaults.industry) {
+    const industryKey = profileDefaults.industry_key || profileDefaults.industry || '';
+    if (industryKey) {
+      console.log('[Dashboard] Initializing chip selector for industry:', industryKey);
+      window.initChipSelector(industryKey).catch(err => {
+        console.warn('[Dashboard] Failed to initialize chip selector:', err);
+      });
+    }
+  }
+
+  const statusEl = document.getElementById('generator-status');
+  if (statusEl && profileLoadState.status !== 'error') {
+    statusEl.classList.add('hidden');
+    statusEl.textContent = '';
+  }
+
+  if (profileLoadState.status === 'error') {
+    if (statusEl) {
+      statusEl.textContent = `${profileLoadState.error} Using defaults for now.`;
+      statusEl.classList.remove('hidden');
+    }
+    console.error('Failed to load user profile:', profileLoadState.error);
+  }
+}
+
+function normalizeProfileResponse(payload = {}) {
+  if (!payload) return null;
+  if (typeof payload === 'object' && Object.prototype.hasOwnProperty.call(payload, 'profile')) {
+    return payload.profile;
+  }
+  return payload;
+}
+
+function cacheProfile(profile, profileStatus) {
+  if (!profile || typeof profile !== 'object') return;
+  try {
+    const cacheData = {
+      profile,
+      profileStatus,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(cacheData));
+  } catch (err) {
+    // Ignore cache failures (e.g., localStorage full or disabled)
+    console.warn('Failed to cache profile:', err);
+  }
+}
+
+function getCachedProfile() {
+  try {
+    const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const cacheData = JSON.parse(raw);
+    const age = Date.now() - (cacheData.timestamp || 0);
+    if (age > PROFILE_CACHE_TTL_MS) {
+      // Cache expired
+      localStorage.removeItem(PROFILE_CACHE_KEY);
+      return null;
+    }
+    return cacheData;
+  } catch (err) {
+    // Ignore cache read failures
+    return null;
+  }
+}
+
+function buildProfileDefaults(profile = null) {
+  const source = profile && typeof profile === 'object' ? profile : {};
+  const platforms = Array.isArray(source.platforms) ? source.platforms : [];
+  const keywords = Array.isArray(source.brand_keywords) ? source.brand_keywords : [];
+  const goals = Array.isArray(source.goals) ? source.goals : [];
+  const hasProfile = Boolean(source.id || source.company || source.industry || source.industry_key || source.tone || platforms.length || keywords.length || goals.length);
+  return {
+    tone: source.tone || 'friendly',
+    industry: source.industry || source.industry_key || 'Business',
+    industry_key: source.industry_key || source.industry || '',
+    keywords,
+    goals,
+    platforms,
+    company: source.company || '',
+    timezone: source.timezone || '',
+    id: source.id || (window.CURRENT_USER && window.CURRENT_USER.id) || 'anon',
+    hasProfile,
+    voice_profile: source.voice_profile || {}
+  };
+}
+
+function renderProfileLoadBanner() {
+  const banner = document.getElementById('profile-load-banner');
+  if (!banner) return;
+  const title = document.getElementById('profile-banner-title');
+  const message = document.getElementById('profile-banner-message');
+  const retryBtn = document.getElementById('profile-banner-retry');
+  const continueBtn = document.getElementById('profile-banner-continue');
+  
+  // Show banner for errors OR when profile is missing/partial
+  const shouldShow = profileLoadState.status === 'error' 
+    || profileLoadState.profileStatus === 'missing' 
+    || profileLoadState.profileStatus === 'partial';
+  
+  banner.classList.toggle('hidden', !shouldShow);
+  if (!shouldShow) return;
+  
+  // Customize message based on profile status
+  if (profileLoadState.status === 'error') {
+    // Network/server error
+    if (title) title.textContent = 'Unable to load your profile';
+    if (message) {
+      const detail = profileLoadState.error || 'Something went wrong while loading your profile.';
+      const rid = profileLoadState.requestId ? ` (request ${profileLoadState.requestId})` : '';
+      message.textContent = `${detail}${rid}`;
+    }
+    // Show retry button for errors
+    if (retryBtn) retryBtn.classList.remove('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
+  } else if (profileLoadState.profileStatus === 'missing') {
+    // No profile saved yet
+    if (title) title.textContent = 'Profile not set up yet';
+    if (message) {
+      message.textContent = profileLoadState.reason || 'Complete the Setup Wizard to personalize your content and make it sound like you.';
+    }
+    // Hide retry button for missing profile (nothing to retry)
+    if (retryBtn) retryBtn.classList.add('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
+  } else if (profileLoadState.profileStatus === 'partial') {
+    // Profile exists but incomplete
+    if (title) title.textContent = 'Profile incomplete';
+    if (message) {
+      const reason = profileLoadState.reason || 'Some settings are missing.';
+      const action = profileLoadState.recommendedAction || 'Complete your profile in Settings to get better results.';
+      message.textContent = `${reason} ${action}`;
+    }
+    // Hide retry button for partial profile (already loaded successfully)
+    if (retryBtn) retryBtn.classList.add('hidden');
+    if (continueBtn) continueBtn.classList.remove('hidden');
+  }
+}
+
+function setupProfileLoadBannerActions() {
+  const retry = document.getElementById('profile-banner-retry');
+  if (retry) {
+    retry.addEventListener('click', () => loadUserProfile({ hydrateGenerator: true, hydrateVoice: true, force: true }));
+  }
+  const cont = document.getElementById('profile-banner-continue');
+  if (cont) {
+    cont.addEventListener('click', () => {
+      // Clear error state and dismiss banner
+      if (profileLoadState.status === 'error') {
+        profileLoadState.status = 'loaded';
+        profileLoadState.error = null;
+      }
+      // For missing/partial, user acknowledges and wants to continue
+      profileLoadState.profileStatus = 'acknowledged';
+      renderProfileLoadBanner();
+    });
+  }
+}
+
+function setupBrandKitBanner() {
+  const banner = document.getElementById('brand-kit-banner');
+  if (!banner) return;
+  
+  // Check if user has Brand Kit configured
+  fetch('/api/brand_kit')
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok && data.brand_kit) {
+        const kit = data.brand_kit;
+        const hasMinimalBrandKit = kit.services?.primary_services?.length >= 2 &&
+                                    kit.audience?.target_roles?.length >= 1 &&
+                                    kit.audience?.top_pains?.length >= 1 &&
+                                    kit.audience?.desired_outcomes?.length >= 1;
+        
+        // Show banner only if Brand Kit is not configured or incomplete
+        if (!hasMinimalBrandKit) {
+          // Check if banner was dismissed in this session
+          const dismissed = sessionStorage.getItem('brand_kit_banner_dismissed');
+          if (!dismissed) {
+            banner.classList.remove('hidden');
+          }
+        }
+      } else {
+        // No Brand Kit at all, show banner
+        const dismissed = sessionStorage.getItem('brand_kit_banner_dismissed');
+        if (!dismissed) {
+          banner.classList.remove('hidden');
+        }
+      }
+    })
+    .catch(err => {
+      console.error('Failed to check Brand Kit status:', err);
+    });
+  
+  // Setup dismiss button
+  const dismissBtn = document.getElementById('brand-kit-banner-dismiss');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      banner.classList.add('hidden');
+      sessionStorage.setItem('brand_kit_banner_dismissed', 'true');
+    });
   }
 }
 
@@ -381,6 +742,8 @@ function setupReviewResponse() {
   const responseText = document.getElementById('response-text');
   const responseMethod = document.getElementById('response-method');
   const copyBtn = document.getElementById('copy-response');
+
+  if (!generateBtn || !loadingDiv || !resultDiv || !responseText || !responseMethod) return;
 
   generateBtn?.addEventListener('click', async () => {
     const review = document.getElementById('review-text').value.trim();
@@ -515,25 +878,20 @@ function initGeneratorPlatformPicker() {
 }
 
 function refreshReelOptionsVisibility() {
-  const { reelOptions } = generatorUI;
-  if (!reelOptions) return;
-  const selected = getGeneratorPlatformSelections();
-  const hasVideo = selected.some(key => VIDEO_PLATFORM_KEYS.has(key));
-  if (hasVideo) {
-    reelOptions.classList.remove('hidden');
-  } else {
-    reelOptions.classList.add('hidden');
-  }
+  // No-op: reels CTA notice has been removed from social page
+  // Kept for backward compatibility to avoid breaking existing code
 }
 
 function setupContentGeneration() {
-  const generateBtn = document.getElementById('generate-content');
-  const loadingDiv = document.getElementById('content-loading');
+  const generateBtn = document.getElementById('generate-content') || document.getElementById('generate-plan');
+  const loadingDiv = document.getElementById('content-loading') || document.getElementById('generator-loading');
   const resultsDiv = document.getElementById('generated-content');
   const contentResults = document.getElementById('content-results');
-  const reelOptions = document.getElementById('reel-options');
+  const statusEl = document.getElementById('generator-status');
   const planLengthWrap = document.getElementById('plan-length-buttons');
   const daySelect = document.getElementById('gen-days');
+
+  if (!generateBtn || !daySelect) return;
 
   // Hide 30-day option for free users
   const user = JSON.parse(document.body.dataset.initialUser || '{}');
@@ -542,10 +900,16 @@ function setupContentGeneration() {
     if (btn30) btn30.classList.add('hidden');
   }
 
-  generatorUI = { generateBtn, loadingDiv, resultsDiv, contentResults, reelOptions };
+  generatorUI = { generateBtn, loadingDiv, resultsDiv, contentResults, statusEl };
   initGeneratorPlatformPicker();
   refreshReelOptionsVisibility();
   syncPreferredPlatformButtons();
+
+  const generatorMode = (document.body.dataset.generatorMode || '').toLowerCase();
+  if (generatorMode === 'reels') {
+    setGeneratorPlatformSelections(['short_video', 'tiktok']);
+    refreshReelOptionsVisibility();
+  }
 
   if (daySelect) {
     const initialDays = parseInt(daySelect.value, 10);
@@ -570,23 +934,24 @@ function setupContentGeneration() {
   });
 }
 
-async function executeContentGeneration(options = {}){
-  const { daysOverride } = options;
-  const {
-    generateBtn,
-    loadingDiv,
-    resultsDiv,
-    contentResults,
-    reelOptions
-  } = generatorUI;
-  if (!document.getElementById('gen-days')){
-    showToast('Generator unavailable. Refresh and try again.');
-    return;
-  }
-  if (!ensureDashboardAuth('Create a free account to generate content.')) return;
-  const days = typeof daysOverride === 'number'
-    ? daysOverride
-    : parseInt(document.getElementById('gen-days').value);
+  async function executeContentGeneration(options = {}) {
+    const { daysOverride } = options;
+    const {
+      generateBtn,
+      loadingDiv,
+      resultsDiv,
+      contentResults,
+      statusEl
+    } = generatorUI;
+    if (!document.getElementById('gen-days')){
+      showToast('Generator unavailable. Refresh and try again.');
+      return;
+    }
+    if (!ensureDashboardAuth('Create a free account to generate content.')) return;
+    if (generateBtn?.dataset.busy === '1') return;
+    const days = typeof daysOverride === 'number'
+      ? daysOverride
+      : parseInt(document.getElementById('gen-days').value);
   if (!Number.isNaN(days)) {
     lastPlanLength = days;
   }
@@ -599,51 +964,59 @@ async function executeContentGeneration(options = {}){
     return;
   }
 
-  const includeReelDetails = reelOptions && !reelOptions.classList.contains('hidden') && platforms.some(key => VIDEO_PLATFORM_KEYS.has(key));
+  // Only include reel details on the dedicated reels page (not on social page)
+  const includeReelDetails = false;
   let details = {};
-  if (includeReelDetails) {
-    details = {
-      reel_style: document.getElementById('reel-style').value,
-      reel_length: parseInt(document.getElementById('reel-length').value, 10),
-      production_tier: document.getElementById('production-tier').value
-    };
-  }
 
-  generateBtn?.classList.add('hidden');
-  loadingDiv?.classList.remove('hidden');
+    generateBtn?.classList.add('hidden');
+    loadingDiv?.classList.remove('hidden');
+    setGeneratorStatus('Sending request to the generator…', 'muted');
+    if (generateBtn) generateBtn.dataset.busy = '1';
+    logGeneratorEvent('click', { planLength: days, platforms, tone, goalsCount: goals.length, keywordsCount: keywords.length });
 
-  try {
-    const overrides = {
-      platforms,
-      tone,
-      details,
-      goals,
-      brand_keywords: keywords
-    };
+    try {
+      const overrides = {
+        platforms,
+        tone,
+        details,
+        goals,
+        brand_keywords: keywords
+      };
     if (imageAttachmentState.dataUrl) {
       overrides.image_data_url = imageAttachmentState.dataUrl;
       const imageContext = document.getElementById('image-context')?.value.trim();
       if (imageContext) overrides.image_context = imageContext;
     }
 
-  const data = await generate(days, overrides);
-  if (contentResults) contentResults.innerHTML = '';
-  renderPosts(data);
-  const meta = buildPlanMetadataFromPayload(data);
-  cacheGeneratedPlan(data, meta);
-  lastGeneratorState = { platforms, tone, goals, keywords, planLength: days };
-  persistTemplateLibraryState();
-  applyPlanMetadata(meta);
-    resultsDiv?.classList.remove('hidden');
-    resultsDiv?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch (error) {
-    console.error('Content generation failed:', error);
-    showToast('Failed to generate content. Please try again.');
-  } finally {
-    generateBtn?.classList.remove('hidden');
-    loadingDiv?.classList.add('hidden');
+      const data = await generate(days, overrides);
+      if (!data || data.ok === false || !Array.isArray(data.posts)) {
+        const msg = (data && data.error) ? data.error : 'Generator returned no posts.';
+        throw new Error(msg);
+      }
+      if (contentResults) contentResults.innerHTML = '';
+      renderPosts(data);
+      const meta = buildPlanMetadataFromPayload(data);
+      cacheGeneratedPlan(data, meta);
+      lastGeneratorState = { platforms, tone, goals, keywords, planLength: days };
+      persistTemplateLibraryState();
+      applyPlanMetadata(meta);
+      const totalPosts = data.count || (Array.isArray(data.posts) ? data.posts.length : 0);
+      setGeneratorStatus(`Plan ready: ${totalPosts || 'draft'} posts generated.`, 'success');
+      logGeneratorEvent('success', { planLength: days, platforms, totalPosts });
+      resultsDiv?.classList.remove('hidden');
+      resultsDiv?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+      console.error('Content generation failed:', error);
+      const message = (error && error.message) ? error.message : 'Failed to generate content. Please try again.';
+      setGeneratorStatus(message, 'error');
+      logGeneratorEvent('error', { message, planLength: days, platforms });
+      showToast(message);
+    } finally {
+      generateBtn?.classList.remove('hidden');
+      loadingDiv?.classList.add('hidden');
+      if (generateBtn) delete generateBtn.dataset.busy;
+    }
   }
-}
 
 function setupImageUpload() {
   const input = document.getElementById('image-upload');
@@ -927,22 +1300,56 @@ function setupQuickActions() {
   quick30Day?.addEventListener('click', () => handleShortcut(30, 'Create a free account to unlock plans.'));
 }
 
-function hydrateTemplateLibrary() {
+async function hydrateTemplateLibrary() {
   loadTemplateLibraryState();
   renderTemplatePicker();
   renderPresetButtons();
   renderCollaborationSummary();
+  await refreshTemplatesFromServer();
 }
 
 function setupTemplateLibrary() {
   const saveBtn = document.getElementById('save-template');
   const applyBtn = document.getElementById('apply-template');
   const picker = document.getElementById('template-picker');
+  const openModalBtn = document.getElementById('open-template-modal');
+  const modalClose = document.getElementById('template-modal-close');
+  const modalCancel = document.getElementById('template-modal-cancel');
+  const modalSave = document.getElementById('template-modal-save');
+  const undoBtn = document.getElementById('undo-template');
+
   hydrateTemplateLibrary();
 
-  saveBtn?.addEventListener('click', () => saveCurrentTemplate());
+  saveBtn?.addEventListener('click', () => openTemplateModal());
+  openModalBtn?.addEventListener('click', () => openTemplateModal());
+  modalClose?.addEventListener('click', () => closeTemplateModal());
+  modalCancel?.addEventListener('click', () => closeTemplateModal());
+  modalSave?.addEventListener('click', () => saveCurrentTemplateFromModal());
   applyBtn?.addEventListener('click', () => applySelectedTemplate());
-  picker?.addEventListener('change', () => updateTemplateEmptyState());
+  picker?.addEventListener('change', () => handleTemplateSelectionChange());
+  undoBtn?.addEventListener('click', () => undoTemplateApplication());
+}
+
+async function refreshTemplatesFromServer() {
+  try {
+    const res = await fetch('/api/templates', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('Failed to load templates');
+    const data = await res.json();
+    if (Array.isArray(data.templates)) {
+      templateLibraryState.templates = data.templates.map(tpl => Object.assign({
+        updatedAt: tpl.updated_at || tpl.updatedAt || Date.now(),
+        author: tpl.author || getCurrentUserName() || 'Shared profile'
+      }, tpl));
+      renderTemplatePicker();
+      renderCollaborationSummary();
+      renderTemplatePreview(getSelectedTemplate());
+      persistTemplateLibraryState();
+    }
+  } catch (err) {
+    // fallback to local storage when offline
+    renderTemplatePicker();
+    renderTemplatePreview(getSelectedTemplate());
+  }
 }
 
 function renderTemplatePicker() {
@@ -958,11 +1365,14 @@ function renderTemplatePicker() {
     const template = Object.assign({ updatedAt: Date.now() }, tpl);
     const opt = document.createElement('option');
     opt.value = template.id;
-    opt.textContent = template.author ? `${template.name} • ${template.author}` : template.name;
+    const scopeLabel = template.scope === 'workspace' ? 'Workspace' : 'Personal';
+    opt.textContent = template.author ? `${template.name} • ${scopeLabel}` : `${template.name} (${scopeLabel})`;
     opt.dataset.platforms = (template.platforms || []).join(',');
+    opt.dataset.scope = template.scope || 'personal';
     picker.appendChild(opt);
   });
   updateTemplateEmptyState(emptyState);
+  handleTemplateSelectionChange();
 }
 
 function renderCollaborationSummary() {
@@ -1012,88 +1422,247 @@ function updateTemplateEmptyState(target) {
   emptyState.classList.toggle('hidden', !!hasItems);
 }
 
-function saveCurrentTemplate() {
-  const nameField = document.getElementById('template-name');
-  const name = (nameField?.value || '').trim();
-  if (!name) {
-    showToast('Name your template first.');
-    nameField?.focus();
-    return;
+function getSelectedTemplate() {
+  const picker = document.getElementById('template-picker');
+  if (!picker) return null;
+  const selectedId = picker.value;
+  if (!selectedId) return null;
+  return (templateLibraryState.templates || []).find(t => t.id === selectedId) || null;
+}
+
+function handleTemplateSelectionChange() {
+  renderTemplatePreview(getSelectedTemplate());
+  updateTemplateEmptyState();
+}
+
+function buildTemplatePreviewText(state = {}) {
+  const parts = [];
+  if (state.tone) parts.push(`Tone: ${state.tone}`);
+  if (Array.isArray(state.platforms) && state.platforms.length) {
+    parts.push(`Platforms: ${state.platforms.join(', ')}`);
   }
-  const baseTemplate = {
-    id: `tpl-${Date.now()}`,
-    name,
+  if (Array.isArray(state.goals) && state.goals.length) {
+    parts.push(`Goals: ${state.goals.join(', ')}`);
+  }
+  if (Array.isArray(state.keywords) && state.keywords.length) {
+    parts.push(`Keywords: ${state.keywords.join(', ')}`);
+  }
+  return parts.join(' • ') || 'Tone, platforms, and goals from your current draft will be saved.';
+}
+
+function captureCurrentGeneratorState() {
+  return {
     tone: document.getElementById('gen-tone')?.value || 'friendly',
     platforms: getGeneratorPlatformSelections(),
     goals: getCurrentGoals(),
     keywords: getCurrentKeywords(),
-    author: getCurrentUserName() || 'Shared profile',
-    updatedAt: Date.now()
+    planLength: getCurrentPlanLength()
   };
-  const existingIdx = (templateLibraryState.templates || []).findIndex(t => t.name.toLowerCase() === name.toLowerCase());
+}
+
+function openTemplateModal() {
+  const modal = document.getElementById('template-modal');
+  const nameField = document.getElementById('template-modal-name');
+  const preview = document.getElementById('template-modal-preview');
+  if (!modal) return;
+  preview.textContent = buildTemplatePreviewText(captureCurrentGeneratorState());
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  nameField.value = '';
+  nameField.focus();
+}
+
+function closeTemplateModal() {
+  const modal = document.getElementById('template-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+async function saveCurrentTemplateFromModal() {
+  const nameField = document.getElementById('template-modal-name');
+  const scopeField = document.getElementById('template-modal-scope');
+  const name = (nameField?.value || '').trim();
+  const scope = (scopeField?.value || 'personal').trim();
+  await saveCurrentTemplate({ name, scope });
+}
+
+function addTemplateToState(template) {
+  const nameKey = (template.name || '').toLowerCase();
+  const existingIdx = (templateLibraryState.templates || []).findIndex(t => (t.name || '').toLowerCase() === nameKey);
   if (existingIdx >= 0) {
-    const existing = templateLibraryState.templates[existingIdx] || {};
-    templateLibraryState.templates[existingIdx] = Object.assign({}, existing, baseTemplate, {
-      id: existing.id || baseTemplate.id
-    });
+    templateLibraryState.templates[existingIdx] = Object.assign({}, templateLibraryState.templates[existingIdx], template);
   } else {
-    templateLibraryState.templates = [...(templateLibraryState.templates || []), baseTemplate];
+    templateLibraryState.templates = [...(templateLibraryState.templates || []), template];
   }
-  lastGeneratorState = Object.assign({}, baseTemplate, { planLength: getCurrentPlanLength() });
-  persistTemplateLibraryState();
   renderTemplatePicker();
   renderCollaborationSummary();
+  renderTemplatePreview(getSelectedTemplate());
+  persistTemplateLibraryState();
+}
+
+async function saveCurrentTemplate(opts = {}) {
+  const name = (opts.name || '').trim();
+  if (!name) {
+    showToast('Name your template first.');
+    return;
+  }
+  const generatorState = captureCurrentGeneratorState();
+  const payload = {
+    generator: generatorState,
+    profile_defaults: profileDefaults || {},
+    draft: planCacheState.meta || {}
+  };
+  const baseTemplate = {
+    id: opts.id || `tpl-${Date.now()}`,
+    name,
+    scope: opts.scope || 'personal',
+    author: getCurrentUserName() || 'Shared profile',
+    payload,
+    preview: buildTemplatePreviewText(generatorState),
+    updatedAt: Date.now()
+  };
+  let savedTemplate = baseTemplate;
+  try {
+    const res = await fetch('/api/templates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        name,
+        scope: baseTemplate.scope,
+        payload,
+        preview: baseTemplate.preview
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.template) {
+        savedTemplate = Object.assign({}, baseTemplate, data.template, {
+          payload: data.template.payload || baseTemplate.payload
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Template save failed, keeping local copy', error);
+  }
+
+  lastGeneratorState = Object.assign({}, generatorState, {
+    planLength: generatorState.planLength,
+    updatedAt: savedTemplate.updatedAt,
+    author: savedTemplate.author,
+    name: savedTemplate.name
+  });
+  addTemplateToState(savedTemplate);
+  closeTemplateModal();
   showToast('Template saved for this profile.');
 }
 
+function renderTemplatePreview(tpl) {
+  const preview = document.getElementById('template-preview');
+  if (!preview) return;
+  if (!tpl) {
+    preview.innerHTML = '<p class="text-sm font-semibold text-slate-900">No templates yet</p><p class="text-xs text-slate-600">Save your first template to preview tone, platforms, and goals before applying.</p>';
+    document.getElementById('undo-template')?.classList.add('hidden');
+    return;
+  }
+  const generatorPayload = extractGeneratorPayload(tpl);
+  const previewText = buildTemplatePreviewText(generatorPayload || {});
+  const scopeLabel = tpl.scope === 'workspace' ? 'Workspace' : 'Personal';
+  preview.innerHTML = `
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <p class="text-xs uppercase tracking-wide text-slate-500">${scopeLabel} template</p>
+        <p class="text-sm font-semibold text-slate-900">${escapeHtml(tpl.name || 'Untitled')}</p>
+        <p class="text-xs text-slate-600">${escapeHtml(previewText)}</p>
+      </div>
+      <span class="text-[11px] px-2 py-1 rounded-full bg-slate-100 text-slate-600">${tpl.author || 'Shared profile'}</span>
+    </div>`;
+}
+
 function applySelectedTemplate() {
-  const picker = document.getElementById('template-picker');
-  if (!picker) return;
-  const selectedId = picker.value;
-  const tpl = (templateLibraryState.templates || []).find(t => t.id === selectedId);
+  const tpl = getSelectedTemplate();
   if (!tpl) {
     showToast('Pick a template to apply.');
     return;
   }
-  applyTemplateToGenerator(tpl);
+  applyTemplateWithUndo(tpl);
   renderCollaborationSummary();
+}
+
+function extractGeneratorPayload(tpl = {}) {
+  if (tpl.payload && typeof tpl.payload === 'object') {
+    if (tpl.payload.generator) return tpl.payload.generator;
+    if (tpl.payload.config) return tpl.payload.config;
+  }
+  if (tpl.generator) return tpl.generator;
+  return tpl;
+}
+
+function applyTemplateWithUndo(tpl) {
+  const generatorPayload = extractGeneratorPayload(tpl);
+  const previousState = captureCurrentGeneratorState();
+  applyTemplateToGenerator(generatorPayload);
+  lastTemplateUndoState = previousState;
+  const undoBtn = document.getElementById('undo-template');
+  undoBtn?.classList.remove('hidden');
+  showToast('Template applied. Undo to restore previous draft.');
+}
+
+function undoTemplateApplication() {
+  if (!lastTemplateUndoState) {
+    showToast('No template change to undo.');
+    return;
+  }
+  applyGeneratorState(lastTemplateUndoState, { sync: true });
+  lastTemplateUndoState = null;
+  document.getElementById('undo-template')?.classList.add('hidden');
+  showToast('Template reverted.');
 }
 
 function applyPresetTemplate(preset) {
   const tpl = {
     id: preset.id,
     name: preset.label,
-    tone: preset.tone,
-    platforms: getGeneratorPlatformSelections(),
-    goals: preset.goals,
-    keywords: preset.keywords,
+    payload: {
+      generator: {
+        tone: preset.tone,
+        platforms: getGeneratorPlatformSelections(),
+        goals: preset.goals,
+        keywords: preset.keywords
+      }
+    },
     author: 'Team preset',
     updatedAt: Date.now()
   };
-  applyTemplateToGenerator(tpl, { skipPlatform: false });
+  applyTemplateWithUndo(tpl);
   renderCollaborationSummary();
 }
 
 function applyTemplateToGenerator(tpl, opts = {}) {
   if (!tpl) return;
-  if (tpl.tone) {
+  const generatorConfig = tpl.generator || tpl.payload?.generator || tpl;
+  if (generatorConfig.tone) {
     const toneField = document.getElementById('gen-tone');
-    if (toneField) toneField.value = tpl.tone;
+    if (toneField) toneField.value = generatorConfig.tone;
   }
-  if (!opts.skipPlatform && Array.isArray(tpl.platforms) && tpl.platforms.length) {
-    setGeneratorPlatformSelections(tpl.platforms);
+  if (!opts.skipPlatform && Array.isArray(generatorConfig.platforms) && generatorConfig.platforms.length) {
+    setGeneratorPlatformSelections(generatorConfig.platforms);
   }
-  if (Array.isArray(tpl.goals)) setCurrentGoals(tpl.goals);
-  if (Array.isArray(tpl.keywords)) setCurrentKeywords(tpl.keywords);
+  if (Array.isArray(generatorConfig.goals)) setCurrentGoals(generatorConfig.goals);
+  if (Array.isArray(generatorConfig.keywords)) setCurrentKeywords(generatorConfig.keywords);
+  if (generatorConfig.planLength) {
+    updateGeneratorShortcut(generatorConfig.planLength, { skipFocus: true, skipScroll: true });
+  }
   syncPreferredPlatformButtons();
   refreshReelOptionsVisibility();
-  lastGeneratorState = Object.assign({}, tpl, {
-    planLength: getCurrentPlanLength(),
-    updatedAt: tpl.updatedAt || Date.now(),
-    author: tpl.author || getCurrentUserName() || 'Shared profile'
+  lastGeneratorState = Object.assign({}, generatorConfig, {
+    planLength: generatorConfig.planLength || getCurrentPlanLength(),
+    updatedAt: generatorConfig.updatedAt || Date.now(),
+    author: generatorConfig.author || tpl.author || getCurrentUserName() || 'Shared profile',
+    name: tpl.name || generatorConfig.name
   });
   persistTemplateLibraryState();
-  showToast('Template applied.');
 }
 
 function setupOneClickGeneration() {
@@ -1326,7 +1895,7 @@ function renderProfileDefaultsSummary(defaults = {}) {
   details.push(`Industry: ${industry}`);
   if (keywords.length) details.push(`Keywords: ${keywords.join(', ')}`);
   if (goalSnippet.length) details.push(`Goals: ${goalSnippet.join(', ')}`);
-  target.textContent = details.join(' • ');
+  target.textContent = (defaults.hasProfile ? '' : 'Using defaults — ') + details.join(' • ');
 }
 
 function applyProfileDefaultsToGenerator(defaults = {}) {
@@ -1334,6 +1903,9 @@ function applyProfileDefaultsToGenerator(defaults = {}) {
   const toneField = document.getElementById('gen-tone');
   if (toneField && defaults.tone) {
     toneField.value = defaults.tone;
+  }
+  if (Array.isArray(defaults.platforms) && defaults.platforms.length) {
+    setGeneratorPlatformSelections(defaults.platforms);
   }
   if (defaults.industry) {
     try { answers.industry = defaults.industry; } catch (err) { /* ignore */ }
@@ -1661,12 +2233,14 @@ function refreshDayEmptyStates() {
 
 function loadPublishingQueueFromStorage() {
   if (typeof localStorage === 'undefined') return;
+  const queueState = getPublishingQueueState();
+  if (!queueState) return;
   try {
     const raw = localStorage.getItem(PUBLISHING_QUEUE_STORAGE_KEY);
     if (!raw) return;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
-      publishingQueueState.entries = parsed.map(normalizeQueueEntry).filter(Boolean);
+      queueState.entries = parsed.map(normalizeQueueEntry).filter(Boolean);
     }
   } catch (error) {
     /* ignore */
@@ -1675,8 +2249,10 @@ function loadPublishingQueueFromStorage() {
 
 function persistPublishingQueue() {
   if (typeof localStorage === 'undefined') return;
+  const queueState = getPublishingQueueState();
+  if (!queueState || !queueState.entries) return;
   try {
-    localStorage.setItem(PUBLISHING_QUEUE_STORAGE_KEY, JSON.stringify(publishingQueueState.entries));
+    localStorage.setItem(PUBLISHING_QUEUE_STORAGE_KEY, JSON.stringify(queueState.entries));
   } catch (error) {
     /* ignore */
   }
@@ -1701,11 +2277,13 @@ function normalizeQueueEntry(entry = {}) {
 }
 
 function ensureQueueEntryForPost(post = {}) {
+  const queueState = getPublishingQueueState();
+  if (!queueState || !queueState.entries) return null;
   const key = buildQueueKey(post);
   let existing = findQueueEntry(key);
   if (existing) return existing;
   const created = buildQueueEntryFromPost(post, key);
-  publishingQueueState.entries.push(created);
+  queueState.entries.push(created);
   persistPublishingQueue();
   return created;
 }
@@ -1754,7 +2332,9 @@ function updatePublishingQueueEntry(key, updates = {}) {
 }
 
 function findQueueEntry(key) {
-  return publishingQueueState.entries.find(entry => entry.key === key);
+  const queueState = getPublishingQueueState();
+  if (!queueState || !queueState.entries) return null;
+  return queueState.entries.find(entry => entry.key === key);
 }
 
 function renderPublishingQueue() {
@@ -1762,19 +2342,32 @@ function renderPublishingQueue() {
   const list = document.getElementById('publishing-queue-list');
   const empty = document.getElementById('publishing-queue-empty');
   if (!wrap || !list || !empty) return;
+  
+  const queueState = getPublishingQueueState();
+  
+  // Safety: If queue state is completely unavailable, show empty state with message
+  if (!queueState || !queueState.entries) {
+    list.innerHTML = '';
+    empty.textContent = queueState ? 'No scheduled items yet' : 'Queue unavailable';
+    empty.classList.remove('hidden');
+    wrap.classList.add('hidden'); // Hide wrapper for consistency
+    return;
+  }
 
   list.innerHTML = '';
-  if (!publishingQueueState.entries.length) {
+  if (!queueState.entries.length) {
     wrap.classList.add('hidden');
     empty.classList.remove('hidden');
+    // Restore default message
+    empty.textContent = 'Use "Publish now" or "Schedule" on any card to add it to the queue.';
     return;
   }
 
   wrap.classList.remove('hidden');
   empty.classList.add('hidden');
 
-  const sorted = [...publishingQueueState.entries].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
-  sorted.forEach entry => list.appendChild(renderQueueItem(entry)));
+  const sorted = [...queueState.entries].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+  sorted.forEach(entry => list.appendChild(renderQueueItem(entry)));
 }
 
 function renderQueueItem(entry) {
@@ -2186,6 +2779,29 @@ function renderPosts(data) {
     return;
   }
 
+  // Check if response is in post-ready format (SocialPostCard)
+  // If so, use the copy-first renderer
+  if (window.SocialCopyFirstRenderer && window.SocialCopyFirstRenderer.isPostReadyFormat(data)) {
+    // Extract metadata for improve panel
+    const metadata = {
+      output_not_rich_enough: data.output_not_rich_enough || false,
+      missing_signals: data.missing_signals || []
+    };
+    
+    window.SocialCopyFirstRenderer.renderSocialPostCards(posts, resultsDiv, metadata);
+    
+    // Still render the publishing queue for compatibility
+    syncQueueWithPosts(posts);
+    renderPublishingQueue();
+    setupQueueToggle();
+    
+    // Display generation timestamp
+    updateGenerationTimestamp();
+    
+    return;
+  }
+
+  // Otherwise use legacy renderer (existing code below)
   syncQueueWithPosts(posts);
   renderPublishingQueue();
 
@@ -2278,6 +2894,85 @@ function renderPosts(data) {
   });
 
   applyPlatformFilters();
+  
+  // Set up queue toggle functionality
+  setupQueueToggle();
+  
+  // Set up toolbar filter toggle (collapsed by default for 1-day plans)
+  setupToolbarFilterToggle(data);
+  
+  // Display generation timestamp
+  updateGenerationTimestamp();
+}
+
+function setupQueueToggle() {
+  const toggleBtn = document.getElementById('toggle-queue');
+  const queueContent = document.getElementById('queue-content');
+  const toggleIcon = document.getElementById('queue-toggle-icon');
+  const toggleText = document.getElementById('queue-toggle-text');
+  
+  if (!toggleBtn || !queueContent) return;
+  
+  // Start collapsed by default
+  const isExpanded = localStorage.getItem('queue-expanded') === 'true';
+  if (isExpanded) {
+    queueContent.classList.remove('hidden');
+    toggleIcon.textContent = '▾';
+    toggleText.textContent = 'Hide queue';
+    toggleBtn.setAttribute('aria-expanded', 'true');
+  }
+  
+  toggleBtn.addEventListener('click', () => {
+    const nowExpanded = queueContent.classList.toggle('hidden');
+    const expanded = !nowExpanded;
+    toggleIcon.textContent = expanded ? '▾' : '▸';
+    toggleText.textContent = expanded ? 'Hide queue' : 'Show queue';
+    toggleBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    localStorage.setItem('queue-expanded', expanded ? 'true' : 'false');
+  });
+}
+
+function setupToolbarFilterToggle(data) {
+  const toolbar = document.getElementById('generated-toolbar');
+  const toggleBtn = document.getElementById('toggle-toolbar-filters');
+  const filtersContent = document.getElementById('toolbar-filters-content');
+  const toggleIcon = document.getElementById('toolbar-toggle-icon');
+  
+  if (!toggleBtn || !filtersContent || !toolbar) return;
+  
+  // For 1-day plans, start collapsed by default
+  const planLength = (data && data.days) || lastPlanLength || 1;
+  const shouldStartCollapsed = planLength === 1;
+  
+  const savedState = localStorage.getItem('toolbar-filters-expanded');
+  const isExpanded = savedState !== null ? savedState === 'true' : !shouldStartCollapsed;
+  
+  if (!isExpanded) {
+    filtersContent.classList.add('hidden');
+    toggleIcon.textContent = '▸';
+  } else {
+    filtersContent.classList.remove('hidden');
+    toggleIcon.textContent = '▾';
+  }
+  
+  toggleBtn.addEventListener('click', () => {
+    const nowHidden = filtersContent.classList.toggle('hidden');
+    const expanded = !nowHidden;
+    toggleIcon.textContent = expanded ? '▾' : '▸';
+    localStorage.setItem('toolbar-filters-expanded', expanded ? 'true' : 'false');
+  });
+}
+
+function updateGenerationTimestamp() {
+  const timestampEl = document.getElementById('generation-timestamp');
+  if (!timestampEl) return;
+  
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  timestampEl.textContent = `Generated just now (${timeStr})`;
+  
+  // Store timestamp in localStorage for persistence
+  localStorage.setItem('last-generation-time', now.toISOString());
 }
 
 function buildPostSnapshot(post = {}) {
@@ -2395,9 +3090,12 @@ function renderPostCard(post) {
         <span class="font-medium text-slate-900">${formatPlatformLabel(platformKey)}</span>
         ${hasVariants ? '<span class="text-xs text-purple-600 font-medium">• Multi-platform</span>' : ''}
       </div>
-      <div class="flex gap-2">
-        <button class="btn-ghost text-xs" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
-        <span id="${stampId}" class="copy-timestamp"></span>
+      <button class="btn-primary text-sm py-2 px-4" data-copy-target="${editorId}" data-stamp-target="${stampId}">📋 Copy</button>
+    </div>
+
+    <div class="flex gap-2 mb-3">
+      <span id="${stampId}" class="copy-timestamp text-xs text-slate-500"></span>
+      <div class="ml-auto flex gap-2">
         <button class="btn-ghost text-xs" data-like="1" data-day="${post.day_index}" data-platform="${post.platform}">👍</button>
         <button class="btn-ghost text-xs" data-like="-1" data-day="${post.day_index}" data-platform="${post.platform}">👎</button>
       </div>
@@ -2481,6 +3179,7 @@ function renderPostCard(post) {
 
   card.querySelectorAll('[data-download-ref]').forEach(btn => {
     bindDownloadButton(btn, card);
+  });
   card.querySelectorAll('[data-export-variants]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const chunks = [];
@@ -2793,12 +3492,18 @@ function renderReelSection(reel) {
 }
 
 // Render platform variants when multiple platforms are selected
+// Only show if variants were explicitly requested and present
 function renderPlatformVariants(variants, currentPlatform) {
   if (!variants) return '';
 
-  const entries = Object.entries(variants).map(([platform, value]) => {
-    return { platform, data: normalizeVariantPayload(value) };
-  });
+  // Filter out current platform from variants - only show OTHER platforms
+  const entries = Object.entries(variants)
+    .filter(([platform]) => platform !== currentPlatform)
+    .map(([platform, value]) => {
+      return { platform, data: normalizeVariantPayload(value) };
+    });
+  
+  // Don't show variants section if no other platforms to show
   if (!entries.length) return '';
 
   return `
@@ -2806,7 +3511,7 @@ function renderPlatformVariants(variants, currentPlatform) {
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div class="flex items-center gap-2 text-sm font-medium text-blue-900">
           <span>Platform variants</span>
-          <span class="text-xs text-blue-700">Tuned for each channel</span>
+          <span class="text-xs text-blue-700">Adapted for other channels</span>
         </div>
         <button type="button" class="btn-ghost text-xs" data-export-variants>Export all</button>
       </div>
@@ -2815,14 +3520,12 @@ function renderPlatformVariants(variants, currentPlatform) {
           const editorId = `variant-${platform}-${Math.random().toString(36).slice(2,8)}`;
           const stampId = `${editorId}-stamp`;
           const warnings = renderWarningList(data.warnings);
-          const badge = platform === currentPlatform ? '<span class="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Selected</span>' : '';
           const thumb = data.thumbnail_note ? `<p class="text-[11px] text-blue-800 bg-blue-100 rounded px-2 py-1">Thumbnail: ${escapeHtml(data.thumbnail_note)}</p>` : '';
           return `
             <div class="bg-white rounded-xl border border-blue-100 p-3 shadow-sm" data-variant-card>
               <div class="flex items-center justify-between gap-2 mb-2">
                 <div class="flex items-center gap-2">
                   <span class="text-xs font-semibold text-blue-900">${formatPlatformLabel(platform)}</span>
-                  ${badge}
                 </div>
                 <div class="flex items-center gap-2">
                   <button class="btn-ghost text-[11px]" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
@@ -3414,7 +4117,7 @@ function getPreferredGeneratorPlatforms() {
   return [DEFAULT_GENERATOR_PLATFORM];
 }
 
-function hydrateVoiceSummary(data = {}){
+function hydrateVoiceSummary(data = {}, options = {}){
   const fallbackAnswers = (typeof answers !== 'undefined') ? answers : {};
   const source = { ...data };
   const formSnapshot = collectAccountFormProfile();
@@ -3435,20 +4138,47 @@ function hydrateVoiceSummary(data = {}){
     else if (Array.isArray(fallbackAnswers.platforms) && fallbackAnswers.platforms.length) source.platforms = fallbackAnswers.platforms;
     else source.platforms = ['instagram'];
   }
-  setVoiceSummaryField('company', source.company || 'Not set');
-  setVoiceSummaryField('industry', resolveIndustryLabel(source.industry || source.industry_key));
-  setVoiceSummaryField('tone', formatToneLabel(source.tone));
-  setVoiceSummaryField('platforms', source.platforms.map(formatPlatformLabel).join(', '));
+  const missingLabel = options.profileMissing ? 'Not set — ' : 'Not set — ';
+  const ctaLabel = options.profileMissing ? 'Set voice' : 'Update voice';
+  setVoiceSummaryField('company', source.company || '', { missingLabel, ctaLabel });
+  setVoiceSummaryField('industry', resolveIndustryLabel(source.industry || source.industry_key), { missingLabel, ctaLabel });
+  setVoiceSummaryField('tone', formatToneLabel(source.tone), { missingLabel, ctaLabel });
+  setVoiceSummaryField('platforms', source.platforms.map(formatPlatformLabel).join(', '), { missingLabel, ctaLabel });
   const pill = document.getElementById('voice-pill');
   if (pill){
-    pill.textContent = source.company ? `Voice locked: ${source.company}` : 'Voice ready to sync';
+    // Show clear status based on profile state
+    if (options.loading) {
+      pill.textContent = 'Loading profile...';
+    } else if (options.profileMissing) {
+      pill.textContent = 'Voice not set up — Complete setup wizard';
+    } else if (source.company) {
+      pill.textContent = `Voice locked: ${source.company}`;
+    } else {
+      pill.textContent = 'Voice ready to sync';
+    }
   }
   updateToneNote(source.tone);
 }
 
-function setVoiceSummaryField(key, value){
+function setVoiceSummaryField(key, value, opts = {}){
   const el = document.querySelector(`[data-voice-${key}]`);
-  if (el) el.textContent = value && value.trim() ? value : '—';
+  if (!el) return;
+  const hasValue = value && String(value).trim();
+  if (hasValue) {
+    el.textContent = value;
+    el.classList.remove('text-amber-700');
+    return;
+  }
+  el.textContent = '';
+  el.classList.add('text-amber-700');
+  const prefix = document.createElement('span');
+  prefix.textContent = opts.missingLabel || 'Not set — ';
+  const link = document.createElement('a');
+  link.href = '/settings';
+  link.className = 'text-indigo-600 underline';
+  link.textContent = opts.ctaLabel || 'Set now';
+  el.appendChild(prefix);
+  el.appendChild(link);
 }
 
 function formatToneLabel(value){

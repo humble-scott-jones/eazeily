@@ -11,8 +11,15 @@ import math
 from flask_cors import CORS
 import generator as gen_mod
 from werkzeug.security import generate_password_hash, check_password_hash
-from typing import TYPE_CHECKING, Any, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Tuple, List
 import requests
+from services.generation import GenerationService as NewGenerationService
+import industry_pack_loader
+# Keep old generation_service for backward compatibility during migration
+try:
+    from generation_service import GenerationService as OldGenerationService
+except ImportError:
+    OldGenerationService = None
 try:
     import yaml
 except ImportError:  # pragma: no cover - dependency managed via requirements.txt
@@ -52,10 +59,25 @@ MAX_FEEDBACK_NOTE_LEN = 1500
 VOICE_SAMPLE_MIN_LEN = 8  # Minimum character length for voice profile samples
 VOICE_SAMPLE_MIN_COUNT = 5  # Minimum number of samples required
 VOICE_SAMPLE_MAX_COUNT = 10  # Maximum number of samples allowed
+DEFAULT_PROFILE_TONE = 'friendly'  # Default tone when profile doesn't specify one
+
+# Brand Kit v1 completeness scoring constants
+BRAND_KIT_MIN_SERVICES = 2  # Minimum primary services for "minimum" tier
+BRAND_KIT_MIN_AUDIENCE_ROLES = 1  # Minimum target roles for "minimum" tier
+BRAND_KIT_MIN_AUDIENCE_PAINS = 1  # Minimum top pains for "minimum" tier
+BRAND_KIT_MIN_AUDIENCE_OUTCOMES = 1  # Minimum desired outcomes for "minimum" tier
+BRAND_KIT_MIN_DIFFERENTIATORS = 2  # Minimum differentiators for "minimum" tier
+BRAND_KIT_TIER_BEST_THRESHOLD = 75  # Score threshold for "best" tier
+BRAND_KIT_TIER_STRONGER_THRESHOLD = 50  # Score threshold for "stronger" tier
+
 try:
     TEAM_MEMBER_LIMIT = int(os.getenv('TEAM_MEMBER_LIMIT', '10'))
 except (TypeError, ValueError):
     TEAM_MEMBER_LIMIT = 10
+try:
+    GENERATION_TIMEOUT_SECONDS = float(os.getenv('GENERATION_TIMEOUT_SECONDS', '15'))
+except (TypeError, ValueError):
+    GENERATION_TIMEOUT_SECONDS = 15.0
 
 def _resolve_password_hash_method():
     """Derive the hashing method string used by werkzeug based on env vars."""
@@ -210,6 +232,19 @@ if OUTBOUND_KILL_SWITCH:
     USE_OPENAI = False
     openai_client = None
 
+# Initialize old generation service for backward compatibility
+if OldGenerationService:
+    generation_service = OldGenerationService(logger=None, timeout_seconds=GENERATION_TIMEOUT_SECONDS)
+    generation_service.logger = app.logger
+else:
+    generation_service = None
+
+# Initialize new generation service
+new_generation_service = NewGenerationService(
+    openai_api_key=os.getenv('OPENAI_API_KEY'),
+    enable_openai=USE_OPENAI and not OUTBOUND_KILL_SWITCH
+)
+
 class OutboundBlocked(RuntimeError):
     """Raised when outbound calls are disabled via kill switch."""
 
@@ -225,6 +260,39 @@ def _get_request_id() -> str:
         rid = uuid.uuid4().hex[:8]
         g.request_id = rid
     return rid
+
+
+def _ensure_request_id_in_response(response):
+    """Attach request_id to JSON responses when missing.
+
+    This keeps the API contract consistent without altering legacy
+    endpoints that intentionally omit additional keys (e.g. profile).
+    """
+
+    # Avoid mutating profile contract (handled separately in BUG-001)
+    if request.path.startswith('/api/profile'):
+        return response
+
+    if not response.is_json:
+        return response
+
+    try:
+        data = response.get_json(silent=True)
+    except Exception:
+        return response
+
+    if not isinstance(data, dict):
+        return response
+
+    if 'request_id' in data:
+        return response
+
+    data['request_id'] = _get_request_id()
+
+    # Preserve status code/headers while updating JSON body
+    response.set_data(json.dumps(data))
+    response.headers['Content-Type'] = 'application/json'
+    return response
 
 
 class RequestIdFilter(logging.Filter):
@@ -566,6 +634,7 @@ def _attach_request_id():
 @app.after_request
 def _set_request_id_header(response):
     try:
+        response = _ensure_request_id_in_response(response)
         response.headers['X-Request-Id'] = _get_request_id()
     except Exception:
         pass
@@ -590,6 +659,9 @@ def init_db():
             include_images INTEGER DEFAULT 1,
             details TEXT,
             voice_profile TEXT,
+            brand_inspirations TEXT,
+            brand_anti_inspirations TEXT,
+            vibe_preset TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS feedback (
@@ -609,6 +681,10 @@ def init_db():
             free_sample_used INTEGER DEFAULT 0,
             stripe_customer_id TEXT,
             voice_profile TEXT,
+            brand_inspirations TEXT,
+            brand_anti_inspirations TEXT,
+            vibe_preset TEXT,
+            brand_kit_v1 TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS subscriptions (
@@ -734,6 +810,29 @@ def init_db():
             message TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+        CREATE TABLE IF NOT EXISTS templates (
+            id TEXT PRIMARY KEY,
+            owner_user_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            scope TEXT DEFAULT 'personal',
+            payload TEXT,
+            preview TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_templates_owner_scope ON templates(owner_user_id, scope);
+        CREATE TABLE IF NOT EXISTS user_chip_selections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            profile_id TEXT,
+            industry TEXT NOT NULL,
+            chip_category TEXT NOT NULL,
+            selected_chips TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, profile_id, industry, chip_category)
+        );
+        CREATE INDEX IF NOT EXISTS idx_chip_selections_lookup ON user_chip_selections(user_id, profile_id, industry);
         """
     )
     # Backfill for upgrades
@@ -757,6 +856,52 @@ def init_db():
             db.execute("ALTER TABLE profiles ADD COLUMN voice_profile TEXT;")
         except Exception:
             pass
+    if "brand_inspirations" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN brand_inspirations TEXT;")
+        except Exception:
+            pass
+    if "brand_anti_inspirations" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN brand_anti_inspirations TEXT;")
+        except Exception:
+            pass
+    if "vibe_preset" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN vibe_preset TEXT;")
+        except Exception:
+            pass
+    # Add chip selection columns for industry pack GOOD defaults
+    if "selected_focus_topic_ids" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_focus_topic_ids TEXT;")
+        except Exception:
+            pass
+    if "selected_audience_ids" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_audience_ids TEXT;")
+        except Exception:
+            pass
+    if "selected_offer_ids" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_offer_ids TEXT;")
+        except Exception:
+            pass
+    if "selected_proof_ids" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_proof_ids TEXT;")
+        except Exception:
+            pass
+    if "selected_cta_intent_id" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN selected_cta_intent_id TEXT;")
+        except Exception:
+            pass
+    if "custom_chips" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN custom_chips TEXT;")
+        except Exception:
+            pass
     # ensure users table has is_admin column (backfill for older DBs)
     try:
         ucols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
@@ -773,6 +918,21 @@ def init_db():
         if "subscription_tier" not in ucols:
             try:
                 db.execute("ALTER TABLE users ADD COLUMN subscription_tier TEXT;")
+            except Exception:
+                pass
+        if "brand_inspirations" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN brand_inspirations TEXT;")
+            except Exception:
+                pass
+        if "brand_anti_inspirations" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN brand_anti_inspirations TEXT;")
+            except Exception:
+                pass
+        if "vibe_preset" not in ucols:
+            try:
+                db.execute("ALTER TABLE users ADD COLUMN vibe_preset TEXT;")
             except Exception:
                 pass
     except Exception:
@@ -843,6 +1003,127 @@ def _deserialize_json(raw: Any, default: Any = None) -> Any:
         return json.loads(raw)
     except Exception:
         return default
+
+
+def _serialize_template_row(row):
+    if not row:
+        return None
+    data = row_to_mapping(row) or {}
+    data['payload'] = _deserialize_json(data.get('payload'), {})
+    if data.get('updated_at') and not data.get('updatedAt'):
+        data['updatedAt'] = data['updated_at']
+    return data
+
+
+def _determine_profile_status(profile: dict) -> Tuple[str, Optional[str], Optional[str]]:
+    """Determine profile completeness status.
+    
+    Returns:
+        Tuple of (status, reason, recommended_action)
+        status: "missing" | "partial" | "ready"
+    """
+    # Check if profile has any meaningful data (not just empty defaults)
+    has_data = bool(
+        profile.get('company') or 
+        profile.get('industry') or 
+        profile.get('tone') or
+        (profile.get('platforms') and len(profile.get('platforms', []))) or
+        (profile.get('brand_keywords') and len(profile.get('brand_keywords', []))) or
+        (profile.get('goals') and len(profile.get('goals', [])))
+    )
+    
+    if not has_data:
+        return (
+            'missing',
+            'No profile settings saved yet',
+            'Complete the Setup Wizard to personalize your content'
+        )
+    
+    # Check for key fields that make a profile "ready"
+    has_company = bool(profile.get('company'))
+    has_industry = bool(profile.get('industry'))
+    has_tone = bool(profile.get('tone'))
+    has_platforms = bool(profile.get('platforms') and len(profile.get('platforms', [])))
+    
+    # Profile is "ready" if it has the essential fields for content generation:
+    # - At least one identifier (company OR industry) so we know what to write about
+    # - Tone (how to write it - professional, friendly, etc.)
+    # - Platforms (where to publish - Instagram, LinkedIn, etc.)
+    # This ensures we have enough context to generate personalized content.
+    if (has_company or has_industry) and has_tone and has_platforms:
+        return ('ready', None, None)
+    
+    # Otherwise it's partial - has some data but missing key fields
+    missing_fields = []
+    if not has_company and not has_industry:
+        missing_fields.append('company/industry')
+    if not has_tone:
+        missing_fields.append('tone')
+    if not has_platforms:
+        missing_fields.append('platforms')
+    
+    return (
+        'partial',
+        f"Profile is incomplete (missing: {', '.join(missing_fields)})",
+        'Complete your profile in Settings to get better results'
+    )
+
+
+def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> dict:
+    base = {
+        'id': pid,
+        'industry': '',
+        'industry_key': '',
+        'tone': '',
+        'platforms': [],
+        'brand_keywords': [],
+        'niche_keywords': [],
+        'goals': [],
+        'company': '',
+        'include_images': False,
+        'details': {},
+        'voice_profile': {},
+        'timezone': '',
+        'brand_inspirations': [],
+        'brand_anti_inspirations': [],
+        'vibe_preset': None,
+        'selected_focus_topic_ids': [],
+        'selected_audience_ids': [],
+        'selected_offer_ids': [],
+        'selected_proof_ids': [],
+        'selected_cta_intent_id': None,
+        'custom_chips': {}
+    }
+
+    if not row:
+        return base
+
+    data = row_to_mapping(row) or {}
+    payload = dict(base)
+    payload['id'] = data.get('id') or pid or base['id']
+    payload['industry'] = data.get('industry') or ''
+    payload['industry_key'] = data.get('industry_key') or payload['industry']
+    payload['tone'] = data.get('tone') or ''
+    payload['platforms'] = _deserialize_json(data.get('platforms'), []) or []
+    payload['brand_keywords'] = _deserialize_json(data.get('brand_keywords'), []) or []
+    payload['niche_keywords'] = _deserialize_json(data.get('niche_keywords'), []) or []
+    payload['goals'] = _deserialize_json(data.get('goals'), []) or []
+    payload['company'] = data.get('company') or ''
+    payload['include_images'] = bool(data.get('include_images'))
+    payload['details'] = _deserialize_json(data.get('details'), {}) or {}
+    payload['voice_profile'] = _deserialize_json(data.get('voice_profile'), {}) or {}
+    payload['brand_inspirations'] = _deserialize_json(data.get('brand_inspirations'), []) or []
+    payload['brand_anti_inspirations'] = _deserialize_json(data.get('brand_anti_inspirations'), []) or []
+    payload['vibe_preset'] = data.get('vibe_preset')
+    payload['selected_focus_topic_ids'] = _deserialize_json(data.get('selected_focus_topic_ids'), []) or []
+    payload['selected_audience_ids'] = _deserialize_json(data.get('selected_audience_ids'), []) or []
+    payload['selected_offer_ids'] = _deserialize_json(data.get('selected_offer_ids'), []) or []
+    payload['selected_proof_ids'] = _deserialize_json(data.get('selected_proof_ids'), []) or []
+    payload['selected_cta_intent_id'] = data.get('selected_cta_intent_id')
+    payload['custom_chips'] = _deserialize_json(data.get('custom_chips'), {}) or {}
+    if isinstance(payload['details'], dict):
+        payload['timezone'] = payload['details'].get('timezone') or payload['details'].get('tz') or ''
+    return payload
 
 
 def _get_current_user_row():
@@ -935,6 +1216,94 @@ def legacy_health():
     """Back-compat endpoint; proxies to /readyz."""
     return readyz()
 
+
+@app.get('/api/version')
+def api_version():
+    """Return version information for deployment verification."""
+    import subprocess
+    
+    # Try to get git commit SHA
+    commit_sha = os.getenv('GIT_SHA', os.getenv('RAILWAY_GIT_COMMIT_SHA', ''))
+    if not commit_sha:
+        try:
+            result = subprocess.run(['git', 'rev-parse', 'HEAD'], 
+                                    capture_output=True, text=True, timeout=1)
+            if result.returncode == 0:
+                commit_sha = result.stdout.strip()
+        except Exception:
+            commit_sha = 'unknown'
+    
+    # Get build timestamp
+    build_time = os.getenv('BUILD_TIME', datetime.now(timezone.utc).isoformat())
+    
+    return jsonify({
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'commit': commit_sha[:8] if commit_sha else 'unknown',
+        'commit_full': commit_sha,
+        'build_time': build_time,
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+    })
+
+
+@app.get('/api/debug/health')
+def api_debug_health():
+    request_id = _get_request_id()
+    healthy, db_error = _db_healthcheck()
+    db_info = {
+        'type': 'postgres' if USE_POSTGRES else 'sqlite',
+        'status': 'connected' if healthy else 'unhealthy',
+        'error': db_error if not healthy else None,
+    }
+
+    checks = {
+        'database': 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}",
+        'stripe': 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured',
+        'openai': 'configured' if USE_OPENAI else 'not_configured',
+        'github_feedback': 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured',
+    }
+
+    status = 'healthy' if healthy else 'unhealthy'
+    status_code = 200 if healthy else 503
+    payload = {
+        'ok': healthy,
+        'request_id': request_id,
+        'status': status,
+        'version': os.getenv('APP_VERSION', 'dev'),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'checks': checks,
+        'db': db_info,
+    }
+    return jsonify(payload), status_code
+
+
+@app.get('/api/debug/openai-status')
+def api_debug_openai_status():
+    request_id = _get_request_id()
+    configured = bool(os.getenv('OPENAI_API_KEY'))
+    client_ready = bool(USE_OPENAI and openai_client is not None)
+
+    reason = None
+    if OUTBOUND_KILL_SWITCH:
+        reason = 'outbound_kill_switch'
+    elif not configured:
+        reason = 'missing_api_key'
+    elif not client_ready:
+        reason = 'client_not_initialized'
+
+    payload = {
+        'ok': True,
+        'request_id': request_id,
+        'status': 'enabled' if client_ready and not OUTBOUND_KILL_SWITCH else 'disabled',
+        'configured': configured,
+        'kill_switch_active': bool(OUTBOUND_KILL_SWITCH),
+        'client_ready': client_ready,
+    }
+
+    if reason:
+        payload['reason'] = reason
+
+    return jsonify(payload)
+
 def _initial_user_payload():
     uid = session.get('user_id')
     if not uid:
@@ -973,14 +1342,75 @@ def index():
     return render_template("index.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
 
 
+@app.get("/quality-builder")
+def quality_builder():
+    """Quality Builder - Single-page tiered setup flow."""
+    return render_template("quality_builder.html", is_dev=_is_dev_mode(), initial_user=_initial_user_payload())
+
+
 @app.get("/generate")
 def generate_page():
-    """Dashboard for generating content after onboarding completes."""
+    """Redirect to the primary generation tab."""
+    return redirect(url_for('generate_social_page'))
+
+
+@app.get("/generate/social")
+def generate_social_page():
+    """Dashboard for social content generation."""
     initial_user = _initial_user_payload()
     is_team_tier = False
     if initial_user and initial_user.get('subscription_tier') == 'team':
         is_team_tier = True
-    return render_template("dashboard.html", is_dev=_is_dev_mode(), initial_user=initial_user, is_team_tier=is_team_tier)
+    return render_template(
+        "generate_social.html",
+        is_dev=_is_dev_mode(),
+        initial_user=initial_user,
+        is_team_tier=is_team_tier,
+        generator_mode='social'
+    )
+
+
+@app.get("/generate/reels")
+def generate_reels_page():
+    """Dedicated view for video-first generation."""
+    initial_user = _initial_user_payload()
+    is_team_tier = False
+    if initial_user and initial_user.get('subscription_tier') == 'team':
+        is_team_tier = True
+    return render_template(
+        "generate_reels.html",
+        is_dev=_is_dev_mode(),
+        initial_user=initial_user,
+        is_team_tier=is_team_tier,
+        generator_mode='reels'
+    )
+
+
+@app.get("/generate/reviews")
+def generate_reviews_page():
+    """Dedicated route for review responses."""
+    return render_template("generate_reviews.html")
+
+
+@app.get("/preview-demo")
+def preview_demo_page():
+    """Demo page for preview templates with live updates."""
+    return render_template("preview_demo.html")
+
+
+@app.get("/settings")
+def settings_page():
+    """Workspace settings for account defaults and voice training."""
+    initial_user = _initial_user_payload()
+    is_team_tier = False
+    if initial_user and initial_user.get('subscription_tier') == 'team':
+        is_team_tier = True
+    return render_template(
+        "settings.html",
+        is_dev=_is_dev_mode(),
+        initial_user=initial_user,
+        is_team_tier=is_team_tier
+    )
 
 
 @app.get('/inbox')
@@ -1019,8 +1449,8 @@ def admin_page():
 
 @app.get('/review-response')
 def review_response_page():
-    """Page for generating responses to customer reviews."""
-    return render_template("review_response.html")
+    """Legacy route kept for backward compatibility."""
+    return redirect(url_for('generate_reviews_page'), code=302)
 
 
 @app.post('/api/signup')
@@ -1310,8 +1740,9 @@ def api_account():
 
 @app.route('/api/profile', methods=['GET', 'POST'])
 def api_profile():
-    db = get_db()
+    request_id = _get_request_id()
     if request.method == 'POST':
+        db = get_db()
         data = request.get_json(force=True) or {}
         pid = session.get('profile_id')
         if not pid:
@@ -1334,12 +1765,23 @@ def api_profile():
             
         if errors:
             msg = list(errors.values())[0]
-            return jsonify({'ok': False, 'errors': errors, 'error': msg}), 400
+            return jsonify({'ok': False, 'errors': errors, 'error': msg, 'request_id': request_id}), 400
             
         include_images = 1 if data.get('include_images') else 0
         details = json.dumps(data.get('details') or {})
         voice_profile_data = json.dumps(data.get('voice_profile') or {})
+        brand_inspirations = json.dumps(data.get('brand_inspirations') or [])
+        brand_anti_inspirations = json.dumps(data.get('brand_anti_inspirations') or [])
+        vibe_preset = data.get('vibe_preset') or None
         
+        # Extract chip selection fields
+        selected_focus_topic_ids = json.dumps(data.get('selected_focus_topic_ids') or [])
+        selected_audience_ids = json.dumps(data.get('selected_audience_ids') or [])
+        selected_offer_ids = json.dumps(data.get('selected_offer_ids') or [])
+        selected_proof_ids = json.dumps(data.get('selected_proof_ids') or [])
+        selected_cta_intent_id = data.get('selected_cta_intent_id') or None
+        custom_chips = json.dumps(data.get('custom_chips') or {})
+
         # Upsert
         existing = db.execute('SELECT id FROM profiles WHERE id = ?', (pid,)).fetchone()
         try:
@@ -1347,14 +1789,17 @@ def api_profile():
                 db.execute('''
                     UPDATE profiles SET 
                     industry=?, tone=?, platforms=?, brand_keywords=?, niche_keywords=?, 
-                    goals=?, company=?, include_images=?, details=?, voice_profile=?
+                    goals=?, company=?, include_images=?, details=?, voice_profile=?,
+                    brand_inspirations=?, brand_anti_inspirations=?, vibe_preset=?,
+                    selected_focus_topic_ids=?, selected_audience_ids=?, selected_offer_ids=?,
+                    selected_proof_ids=?, selected_cta_intent_id=?, custom_chips=?
                     WHERE id=?
-                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, pid))
+                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id, custom_chips, pid))
             else:
                 db.execute('''
-                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data))
+                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id, custom_chips)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id, custom_chips))
         except Exception as e:
             # Fallback for missing voice_profile column (if migration failed)
             # We catch all exceptions here to be safe, assuming that if the full save fails,
@@ -1379,73 +1824,1112 @@ def api_profile():
                     INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details))
+
+        db.commit()
+        return jsonify({'ok': True, 'id': pid, 'request_id': request_id})
+
+    else: # GET
+        start_time = time.time()
+        try:
+            db = get_db()
+            pid = session.get('profile_id')
+            uid = session.get('user_id')
+            
+            # Log profile fetch attempt
+            app.logger.info("profile.fetch", extra={
+                'event': 'profile.fetch',
+                'request_id': request_id,
+                'profile_id': pid,
+                'user_id': uid or 'anon',
+                'route': '/api/profile'
+            })
+            
+            row = None
+            if pid:
+                row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
+
+            # Deserialize
+            p = _normalize_profile_payload(row, pid)
+            
+            # Determine profile status
+            status, reason, recommended_action = _determine_profile_status(p)
+            
+            # Calculate latency
+            latency_ms = (time.time() - start_time) * 1000
+            
+            # Log profile status
+            app.logger.info("profile.loaded", extra={
+                'event': 'profile.loaded',
+                'request_id': request_id,
+                'profile_id': pid,
+                'user_id': uid or 'anon',
+                'profile_status': status,
+                'has_company': bool(p.get('company')),
+                'has_industry': bool(p.get('industry')),
+                'has_tone': bool(p.get('tone')),
+                'platforms_count': len(p.get('platforms', [])),
+                'latency_ms': round(latency_ms, 2),
+                'route': '/api/profile'
+            })
+            
+            return jsonify({
+                'ok': True, 
+                'profile': p, 
+                'profile_status': status,
+                'reason': reason,
+                'recommended_action': recommended_action,
+                'request_id': request_id
+            })
+        except Exception as exc:
+            latency_ms = (time.time() - start_time) * 1000
+            app.logger.exception("Failed to load profile", exc_info=exc, extra={
+                'event': 'profile.error',
+                'request_id': request_id,
+                'latency_ms': round(latency_ms, 2),
+                'route': '/api/profile'
+            })
+            return jsonify({
+                'ok': False,
+                'error': {'message': 'Unable to load profile right now.'},
+                'request_id': request_id
+            }), 500
+
+
+@app.route('/api/profile_v2', methods=['GET'])
+def api_profile_v2():
+    """
+    Stable profile endpoint (v2) with deterministic contract.
+    
+    Always returns JSON with stable keys:
+    - ok: bool
+    - request_id: str
+    - profile_status: "ready" | "partial" | "missing"
+    - profile: dict with company, industry, signature_tone, default_tone, platforms, timezone, voice_fingerprint, updated_at
+    - warnings: list of warning messages
+    
+    Error response:
+    - ok: false
+    - request_id: str
+    - error: { code, message, details? }
+    """
+    request_id = _get_request_id()
+    start_time = time.time()
+    
+    try:
+        db = get_db()
+        pid = session.get('profile_id')
+        uid = session.get('user_id')
+        
+        # Log profile fetch attempt
+        app.logger.info("profile_v2.fetch", extra={
+            'event': 'profile_v2.fetch',
+            'request_id': request_id,
+            'profile_id': pid,
+            'user_id': uid or 'anon',
+            'route': '/api/profile_v2'
+        })
+        
+        row = None
+        if pid:
+            row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
+        
+        # Normalize profile data
+        profile_data = _normalize_profile_payload(row, pid)
+        
+        # Determine profile status
+        status, reason, recommended_action = _determine_profile_status(profile_data)
+        
+        # Build warnings list
+        warnings = []
+        if status == 'partial' and reason:
+            warnings.append(reason)
+        if status == 'missing':
+            warnings.append('No profile settings saved yet. Complete the Setup Wizard to personalize your content.')
+        
+        # Get updated_at timestamp if available
+        updated_at = None
+        if row:
+            row_dict = row_to_mapping(row)
+            updated_at = row_dict.get('updated_at') or row_dict.get('created_at')
+        
+        # Build voice fingerprint from voice_profile
+        voice_profile_data = profile_data.get('voice_profile', {})
+        voice_fingerprint = None
+        if voice_profile_data and isinstance(voice_profile_data, dict):
+            voice_fingerprint = {
+                'include_more': voice_profile_data.get('include_more', []),
+                'avoid_overusing': voice_profile_data.get('avoid_overusing', []),
+                'on_brand_example': voice_profile_data.get('on_brand_example', '')
+            }
+        
+        # Build standardized profile response
+        profile_response = {
+            'company': profile_data.get('company', ''),
+            'industry': profile_data.get('industry', ''),
+            'signature_tone': profile_data.get('tone', ''),
+            'default_tone': profile_data.get('tone', DEFAULT_PROFILE_TONE),
+            'platforms': profile_data.get('platforms', []),
+            'timezone': profile_data.get('timezone', ''),
+            'voice_fingerprint': voice_fingerprint,
+            'updated_at': updated_at,
+            # Additional fields for backward compatibility
+            'brand_keywords': profile_data.get('brand_keywords', []),
+            'niche_keywords': profile_data.get('niche_keywords', []),
+            'goals': profile_data.get('goals', []),
+            'id': profile_data.get('id'),
+            'industry_key': profile_data.get('industry_key', ''),
+            'include_images': profile_data.get('include_images', False),
+            'details': profile_data.get('details', {})
+        }
+        
+        # Calculate latency
+        latency_ms = (time.time() - start_time) * 1000
+        
+        # Log success
+        app.logger.info("profile_v2.loaded", extra={
+            'event': 'profile_v2.loaded',
+            'request_id': request_id,
+            'profile_id': pid,
+            'user_id': uid or 'anon',
+            'profile_status': status,
+            'has_company': bool(profile_response['company']),
+            'has_industry': bool(profile_response['industry']),
+            'has_tone': bool(profile_response['signature_tone']),
+            'platforms_count': len(profile_response['platforms']),
+            'latency_ms': round(latency_ms, 2),
+            'route': '/api/profile_v2',
+            'status_reason': reason if status != 'ready' else None
+        })
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'profile_status': status,
+            'profile': profile_response,
+            'warnings': warnings
+        })
+        
+    except Exception as exc:
+        latency_ms = (time.time() - start_time) * 1000
+        app.logger.exception("Failed to load profile_v2", exc_info=exc, extra={
+            'event': 'profile_v2.error',
+            'request_id': request_id,
+            'latency_ms': round(latency_ms, 2),
+            'route': '/api/profile_v2'
+        })
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {
+                'code': 'internal_error',
+                'message': 'Unable to load profile right now.',
+                'details': str(exc) if app.debug else None
+            }
+        }), 500
+
+
+@app.get("/api/industry_packs/<industry_id>/chips")
+def api_industry_pack_chips(industry_id: str):
+    """
+    Get chip presets for a specific industry pack.
+    
+    Returns:
+        JSON with chip_presets organized by category (focus_topics, audience_chips, offer_chips, proof_chips)
+    """
+    request_id = _get_request_id()
+    
+    try:
+        from industry_pack_loader import get_good_defaults
+        
+        # Get good defaults for this industry (falls back to general if not found)
+        good_defaults = get_good_defaults(industry_id)
+        chip_presets = good_defaults.get('chip_presets', {})
+        
+        # Ensure we have at least empty arrays for each category
+        response_chips = {
+            'focus_topics': chip_presets.get('focus_topics', []),
+            'audience_chips': chip_presets.get('audience_chips', []),
+            'offer_chips': chip_presets.get('offer_chips', []),
+            'proof_chips': chip_presets.get('proof_chips', []),
+            'cta_chips': chip_presets.get('cta_chips', [])
+        }
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'industry_id': industry_id,
+            'chip_presets': response_chips
+        })
+        
+    except Exception as exc:
+        app.logger.exception(f"Failed to load industry pack chips for {industry_id}", exc_info=exc)
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {
+                'code': 'load_failed',
+                'message': f'Failed to load chip presets for industry: {industry_id}'
+            }
+        }), 500
+
+
+@app.get("/api/user_chip_selections")
+def api_get_user_chip_selections():
+    """
+    Get saved chip selections for the current user/profile and industry.
+    
+    Query params:
+        industry: Industry ID to fetch selections for
+    
+    Returns:
+        JSON with saved selections organized by chip category
+    """
+    request_id = _get_request_id()
+    industry = request.args.get('industry')
+    
+    if not industry:
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {'code': 'missing_industry', 'message': 'Industry parameter required'}
+        }), 400
+    
+    try:
+        db = get_db()
+        uid = session.get('user_id')
+        pid = session.get('profile_id')
+        
+        # Build query based on what identifiers we have
+        if uid and pid:
+            query = '''
+                SELECT chip_category, selected_chips, updated_at
+                FROM user_chip_selections
+                WHERE user_id = ? AND profile_id = ? AND industry = ?
+                ORDER BY updated_at DESC
+            '''
+            rows = db.execute(query, (uid, pid, industry)).fetchall()
+        elif pid:
+            query = '''
+                SELECT chip_category, selected_chips, updated_at
+                FROM user_chip_selections
+                WHERE profile_id = ? AND industry = ? AND user_id IS NULL
+                ORDER BY updated_at DESC
+            '''
+            rows = db.execute(query, (pid, industry)).fetchall()
+        else:
+            # No user or profile, return empty
+            return jsonify({
+                'ok': True,
+                'request_id': request_id,
+                'industry': industry,
+                'selections': {},
+                'has_saved_selections': False
+            })
+        
+        # Build selections dict
+        selections = {}
+        for row in rows:
+            category = row['chip_category']
+            chips_json = row['selected_chips']
+            try:
+                selections[category] = json.loads(chips_json)
+            except (json.JSONDecodeError, TypeError):
+                selections[category] = []
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'industry': industry,
+            'selections': selections,
+            'has_saved_selections': len(selections) > 0
+        })
+        
+    except Exception as exc:
+        app.logger.exception("Failed to get user chip selections", exc_info=exc)
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {
+                'code': 'fetch_failed',
+                'message': 'Failed to retrieve chip selections'
+            }
+        }), 500
+
+
+@app.post("/api/user_chip_selections")
+def api_save_user_chip_selections():
+    """
+    Save chip selections for the current user/profile and industry.
+    
+    Request body:
+        {
+            "industry": "salon",
+            "selections": {
+                "focus_topics": ["chip_id_1", "chip_id_2"],
+                "audience_chips": ["chip_id_3"],
+                ...
+            }
+        }
+    
+    Returns:
+        JSON confirmation
+    """
+    request_id = _get_request_id()
+    
+    try:
+        data = request.get_json(force=True) or {}
+        industry = data.get('industry')
+        selections = data.get('selections', {})
+        
+        if not industry:
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': {'code': 'missing_industry', 'message': 'Industry is required'}
+            }), 400
+        
+        db = get_db()
+        uid = session.get('user_id')
+        pid = session.get('profile_id')
+        
+        # Need at least a profile ID to save selections
+        if not pid:
+            pid = str(uuid.uuid4())
+            session['profile_id'] = pid
+        
+        # Save each category
+        saved_count = 0
+        for category, chip_ids in selections.items():
+            if not isinstance(chip_ids, list):
+                continue
+            
+            chips_json = json.dumps(chip_ids)
+            
+            # Upsert the selection
+            db.execute('''
+                INSERT INTO user_chip_selections (user_id, profile_id, industry, chip_category, selected_chips, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id, profile_id, industry, chip_category)
+                DO UPDATE SET selected_chips = ?, updated_at = CURRENT_TIMESTAMP
+            ''', (uid, pid, industry, category, chips_json, chips_json))
+            saved_count += 1
         
         db.commit()
-        return jsonify({'ok': True, 'id': pid})
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'industry': industry,
+            'saved_categories': saved_count
+        })
+        
+    except Exception as exc:
+        app.logger.exception("Failed to save user chip selections", exc_info=exc)
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': {
+                'code': 'save_failed',
+                'message': 'Failed to save chip selections'
+            }
+        }), 500
+
+
+def _calculate_brand_kit_completeness(brand_kit: dict) -> Tuple[str, float]:
+    """Calculate completeness score and tier for a brand kit.
     
-    else: # GET
-        pid = session.get('profile_id')
-        if not pid:
-            return jsonify({'ok': True, 'profile': None})
+    Returns: (tier, score) where tier is "minimum"|"stronger"|"best" and score is 0-100
+    """
+    score = 0.0
+    max_score = 100.0
+    
+    # Core business section (25 points)
+    business = brand_kit.get('business', {})
+    if business.get('company_name'):
+        score += 5
+    if business.get('industry_id'):
+        score += 5
+    if business.get('service_area'):
+        score += 3
+    if business.get('timezone'):
+        score += 2
+    if business.get('booking_url'):
+        score += 3
+    if business.get('contact_email'):
+        score += 4
+    if business.get('contact_phone'):
+        score += 3
+    
+    # Services section (20 points)
+    services = brand_kit.get('services', {})
+    primary_services = services.get('primary_services', [])
+    if len(primary_services) >= BRAND_KIT_MIN_SERVICES:
+        score += 10
+    elif len(primary_services) == 1:
+        score += 5
+    if services.get('addons'):
+        score += 3
+    if services.get('pricing_style'):
+        score += 4
+    if services.get('service_constraints'):
+        score += 3
+    
+    # Audience section (25 points)
+    audience = brand_kit.get('audience', {})
+    target_roles = audience.get('target_roles', [])
+    if len(target_roles) >= BRAND_KIT_MIN_AUDIENCE_ROLES:
+        score += 8
+    top_pains = audience.get('top_pains', [])
+    if len(top_pains) >= BRAND_KIT_MIN_AUDIENCE_PAINS:
+        score += 8
+    desired_outcomes = audience.get('desired_outcomes', [])
+    if len(desired_outcomes) >= BRAND_KIT_MIN_AUDIENCE_OUTCOMES:
+        score += 8
+    if audience.get('sophistication'):
+        score += 1
+    
+    # Positioning section (15 points)
+    positioning = brand_kit.get('positioning', {})
+    differentiators = positioning.get('differentiators', [])
+    if len(differentiators) >= BRAND_KIT_MIN_DIFFERENTIATORS:
+        score += 10
+    elif len(differentiators) == 1:
+        score += 5
+    if positioning.get('values'):
+        score += 3
+    if positioning.get('boundaries'):
+        score += 2
+    
+    # Proof section (10 points)
+    proof = brand_kit.get('proof', {})
+    if proof.get('credentials'):
+        score += 3
+    if proof.get('years_in_business'):
+        score += 2
+    if proof.get('volume_markers'):
+        score += 2
+    if proof.get('testimonials'):
+        score += 3
+    
+    # Email section (3 points)
+    email = brand_kit.get('email', {})
+    if email.get('sender_name') or email.get('signoff_style') or email.get('signature_lines'):
+        score += 1
+    if email.get('preferred_cta'):
+        score += 1
+    if email.get('links'):
+        score += 1
+    
+    # Quotes section (2 points)
+    quotes = brand_kit.get('quotes', {})
+    if quotes.get('default_validity_days') or quotes.get('deposit_policy'):
+        score += 1
+    if quotes.get('payment_methods') or quotes.get('turnaround_time'):
+        score += 1
+    
+    # Determine tier based on minimum requirements
+    has_minimum_services = len(primary_services) >= BRAND_KIT_MIN_SERVICES
+    has_minimum_audience = (len(target_roles) >= BRAND_KIT_MIN_AUDIENCE_ROLES and 
+                           len(top_pains) >= BRAND_KIT_MIN_AUDIENCE_PAINS and 
+                           len(desired_outcomes) >= BRAND_KIT_MIN_AUDIENCE_OUTCOMES)
+    has_minimum_positioning = len(differentiators) >= BRAND_KIT_MIN_DIFFERENTIATORS
+    
+    if has_minimum_services and has_minimum_audience and has_minimum_positioning:
+        if score >= BRAND_KIT_TIER_BEST_THRESHOLD:
+            tier = "best"
+        elif score >= BRAND_KIT_TIER_STRONGER_THRESHOLD:
+            tier = "stronger"
+        else:
+            tier = "minimum"
+    else:
+        tier = "minimum"
+    
+    return tier, min(score, max_score)
+
+
+def _get_default_brand_kit() -> dict:
+    """Return an empty brand kit structure with all sections."""
+    return {
+        'version': 1,
+        'business': {
+            'company_name': None,
+            'industry_id': '',
+            'service_area': None,
+            'timezone': None,
+            'booking_url': None,
+            'contact_email': None,
+            'contact_phone': None
+        },
+        'services': {
+            'primary_services': [],
+            'addons': [],
+            'pricing_style': None,
+            'service_constraints': []
+        },
+        'audience': {
+            'target_roles': [],
+            'top_pains': [],
+            'desired_outcomes': [],
+            'sophistication': None,
+            'objections': []
+        },
+        'positioning': {
+            'differentiators': [],
+            'values': [],
+            'boundaries': []
+        },
+        'proof': {
+            'credentials': [],
+            'years_in_business': None,
+            'volume_markers': [],
+            'testimonials': []
+        },
+        'email': {
+            'sender_name': None,
+            'signoff_style': None,
+            'signature_lines': None,
+            'preferred_cta': None,
+            'links': None
+        },
+        'quotes': {
+            'default_validity_days': None,
+            'deposit_policy': None,
+            'payment_methods': None,
+            'turnaround_time': None,
+            'terms_bullets': None,
+            'disclaimer': None
+        },
+        'assets': {
+            'logo_asset_id': None,
+            'logo_url': None
+        },
+        'meta': {
+            'tier': 'minimum',
+            'completeness_score': 0,
+            'updated_at': datetime.now(timezone.utc).isoformat()
+        }
+    }
+
+
+@app.route('/api/brand_kit', methods=['GET', 'POST'])
+def api_brand_kit():
+    """
+    Brand Kit v1 endpoint for managing multi-channel brand information.
+    
+    GET returns the current brand kit or default structure.
+    POST creates/updates the brand kit with the provided data.
+    
+    Response always includes:
+    - ok: bool
+    - request_id: str
+    - brand_kit: dict (the brand kit structure)
+    
+    Brand Kit is separate from Brand Inspiration (which focuses on style/vibe).
+    Brand Kit provides specificity and credibility for Social, Email, and Quote generation.
+    """
+    request_id = _get_request_id()
+    
+    if request.method == 'POST':
+        # Save brand kit
+        uid = session.get('user_id')
+        if not uid:
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Authentication required'
+            }), 401
         
-        row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
-        if not row:
-            return jsonify({'ok': True, 'profile': None})
+        try:
+            data = request.get_json(force=True) or {}
+            brand_kit = data.get('brand_kit', {})
             
-        # Deserialize
-        p = dict(row)
-        p['platforms'] = _deserialize_json(p['platforms'], [])
-        p['brand_keywords'] = _deserialize_json(p['brand_keywords'], [])
-        p['niche_keywords'] = _deserialize_json(p['niche_keywords'], [])
-        p['goals'] = _deserialize_json(p['goals'], [])
-        p['details'] = _deserialize_json(p['details'], {})
-        # Use .get() to handle case where voice_profile column is missing from DB
-        p['voice_profile'] = _deserialize_json(p.get('voice_profile'), {})
-        p['include_images'] = bool(p['include_images'])
+            # Ensure version is set
+            if 'version' not in brand_kit:
+                brand_kit['version'] = 1
+            
+            # Calculate completeness
+            tier, completeness_score = _calculate_brand_kit_completeness(brand_kit)
+            
+            # Update meta section
+            if 'meta' not in brand_kit:
+                brand_kit['meta'] = {}
+            brand_kit['meta']['tier'] = tier
+            brand_kit['meta']['completeness_score'] = completeness_score
+            brand_kit['meta']['updated_at'] = datetime.now(timezone.utc).isoformat()
+            
+            # Save to database
+            db = get_db()
+            brand_kit_json = json.dumps(brand_kit)
+            db.execute(
+                'UPDATE users SET brand_kit_v1 = ? WHERE id = ?',
+                (brand_kit_json, uid)
+            )
+            db.commit()
+            
+            app.logger.info("brand_kit.saved", extra={
+                'event': 'brand_kit.saved',
+                'request_id': request_id,
+                'user_id': uid,
+                'tier': tier,
+                'completeness_score': completeness_score
+            })
+            
+            return jsonify({
+                'ok': True,
+                'request_id': request_id,
+                'brand_kit': brand_kit
+            })
+            
+        except Exception as exc:
+            app.logger.exception("Failed to save brand_kit", exc_info=exc, extra={
+                'event': 'brand_kit.error',
+                'request_id': request_id
+            })
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Unable to save brand kit right now.'
+            }), 500
+    
+    else:  # GET
+        uid = session.get('user_id')
         
-        return jsonify(p)
+        try:
+            brand_kit = _get_default_brand_kit()
+            
+            if uid:
+                db = get_db()
+                user_row = db.execute(
+                    'SELECT brand_kit_v1 FROM users WHERE id = ?',
+                    (uid,)
+                ).fetchone()
+                
+                if user_row:
+                    user_dict = row_to_mapping(user_row)
+                    brand_kit_json = user_dict.get('brand_kit_v1')
+                    if brand_kit_json:
+                        try:
+                            saved_kit = json.loads(brand_kit_json)
+                            # Deep merge saved data with defaults to ensure all sections exist
+                            for section_key, section_value in saved_kit.items():
+                                if section_key in brand_kit and isinstance(brand_kit[section_key], dict) and isinstance(section_value, dict):
+                                    # Merge nested dictionaries
+                                    brand_kit[section_key].update(section_value)
+                                else:
+                                    # Replace non-dict values directly
+                                    brand_kit[section_key] = section_value
+                        except json.JSONDecodeError:
+                            app.logger.warning("Invalid brand_kit JSON", extra={
+                                'request_id': request_id,
+                                'user_id': uid
+                            })
+            
+            app.logger.info("brand_kit.loaded", extra={
+                'event': 'brand_kit.loaded',
+                'request_id': request_id,
+                'user_id': uid or 'anon',
+                'tier': brand_kit.get('meta', {}).get('tier', 'minimum')
+            })
+            
+            return jsonify({
+                'ok': True,
+                'request_id': request_id,
+                'brand_kit': brand_kit
+            })
+            
+        except Exception as exc:
+            app.logger.exception("Failed to load brand_kit", exc_info=exc, extra={
+                'event': 'brand_kit.error',
+                'request_id': request_id
+            })
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Unable to load brand kit right now.'
+            }), 500
+
+
+@app.route('/api/industry_packs/<industry_id>/good_defaults', methods=['GET'])
+def api_industry_good_defaults(industry_id: str):
+    """
+    Get GOOD defaults for an industry pack.
+    
+    Returns chip presets (focus_topics, audience_chips, offer_chips, proof_chips),
+    recommended audience, offers, proof points, and content angles.
+    
+    Response:
+    - ok: bool
+    - request_id: str
+    - industry_id: str
+    - good_defaults: dict (chip_presets, audience, offers, proof, content_angles, etc.)
+    """
+    request_id = _get_request_id()
+    
+    try:
+        # Validate industry_id
+        if not industry_id or not isinstance(industry_id, str):
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Invalid industry_id'
+            }), 400
+        
+        # Load good defaults using industry_pack_loader
+        good_defaults = industry_pack_loader.get_good_defaults(industry_id)
+        
+        if not good_defaults:
+            # Fallback to 'general' industry pack
+            app.logger.info(f"Industry pack '{industry_id}' not found, falling back to 'general'")
+            good_defaults = industry_pack_loader.get_good_defaults('general')
+        
+        app.logger.info("industry.good_defaults.loaded", extra={
+            'event': 'industry.good_defaults.loaded',
+            'request_id': request_id,
+            'industry_id': industry_id,
+            'has_chip_presets': 'chip_presets' in good_defaults
+        })
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'industry_id': industry_id,
+            'good_defaults': good_defaults
+        })
+        
+    except Exception as exc:
+        app.logger.exception("Failed to load good_defaults", exc_info=exc, extra={
+            'event': 'industry.good_defaults.error',
+            'request_id': request_id,
+            'industry_id': industry_id
+        })
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': 'Unable to load industry defaults right now.'
+        }), 500
+
+
+def _validate_generate_payload(payload: Mapping[str, Any]) -> dict:
+    errors: dict[str, str] = {}
+    try:
+        days = int(payload.get('days') or 7)
+        if days <= 0 or days > 31:
+            errors['days'] = 'Invalid days requested'
+    except Exception:
+        errors['days'] = 'Invalid days requested'
+
+    platforms = payload.get('platforms')
+    if platforms is not None:
+        try:
+            list(platforms or [])
+        except Exception:
+            errors['platforms'] = 'Invalid platforms'
+
+    image_data_url = payload.get('image_data_url')
+    if image_data_url and len(str(image_data_url)) > IMAGE_DATA_URL_MAX_BYTES:
+        errors['image_data_url'] = 'Image too large'
+
+    return errors
+
+
+def _normalize_generate_payload(payload: Mapping[str, Any]) -> dict:
+    normalized: dict[str, Any] = {}
+    try:
+        normalized['days'] = max(1, int(payload.get('days') or 7))
+    except Exception:
+        normalized['days'] = 7
+
+    start_day = payload.get('start_day')
+    if isinstance(start_day, str):
+        try:
+            start_day = date.fromisoformat(start_day)
+        except Exception:
+            start_day = None
+    if not isinstance(start_day, date):
+        start_day = date.today()
+    normalized['start_day'] = start_day
+
+    normalized['industry'] = (payload.get('industry') or 'Business').strip() or 'Business'
+    normalized['tone'] = payload.get('tone') or 'friendly'
+    normalized['platforms'] = list(payload.get('platforms') or ['instagram'])
+    normalized['brand_keywords'] = list(payload.get('brand_keywords') or [])
+    normalized['include_images'] = bool(payload.get('include_images'))
+    normalized['niche_keywords'] = list(payload.get('niche_keywords') or [])
+    normalized['goals'] = list(payload.get('goals') or [])
+    normalized['company'] = payload.get('company') or ''
+    normalized['details'] = payload.get('details') or {}
+    normalized['voice_profile'] = payload.get('voice_profile') or {}
+    normalized['profile'] = payload.get('profile') or None
+    normalized['include_trends'] = bool(payload.get('include_trends'))
+    normalized['variant_types'] = list(payload.get('variant_types') or [])
+    return normalized
+
+
+def _validate_posts_output(posts: Any) -> dict:
+    if not isinstance(posts, list) or not posts:
+        raise ValueError('No posts returned')
+
+    sanitized: list[dict[str, Any]] = []
+    for post in posts:
+        if not isinstance(post, Mapping):
+            raise ValueError('Invalid post object')
+        caption = str(post.get('caption') or '').strip()
+        if not caption:
+            raise ValueError('Post missing caption')
+        platform = (post.get('platform') or 'instagram').strip() or 'instagram'
+        sanitized_post = dict(post)
+        sanitized_post['caption'] = caption
+        sanitized_post['platform'] = platform
+        sanitized.append(sanitized_post)
+
+    return {'posts': sanitized, 'count': len(sanitized)}
+
+
+def _validate_review_payload(payload: Mapping[str, Any]) -> dict:
+    errors: dict[str, str] = {}
+    if not payload.get('review_text'):
+        errors['review_text'] = 'Review text is required'
+    return errors
+
+
+def _normalize_review_payload(payload: Mapping[str, Any]) -> dict:
+    return {
+        'review_text': (payload.get('review_text') or '').strip(),
+        'tone': payload.get('tone') or 'professional',
+        'company_name': payload.get('company') or payload.get('company_name') or '',
+        'industry': payload.get('industry') or '',
+    }
+
+
+def _validate_review_output(result: Any) -> dict:
+    if not isinstance(result, Mapping):
+        raise ValueError('Invalid response payload')
+    response = str(result.get('response') or '').strip()
+    if not response:
+        raise ValueError('Missing response text')
+    return {
+        'response': response,
+        'method': result.get('method', 'fallback'),
+        'detected_sentiment': result.get('detected_sentiment'),
+    }
+
+
+def _validate_variants_payload(payload: Mapping[str, Any]) -> dict:
+    errors: dict[str, str] = {}
+    try:
+        count = int(payload.get('count') or 1)
+        if count <= 0 or count > 10:
+            errors['count'] = 'Invalid count'
+    except Exception:
+        errors['count'] = 'Invalid count'
+    return errors
+
+
+def _normalize_variants_payload(payload: Mapping[str, Any]) -> dict:
+    try:
+        count = int(payload.get('count') or 1)
+    except Exception:
+        count = 1
+    count = min(max(count, 1), 10)
+    return {
+        'count': count,
+        'industry': payload.get('industry') or 'business',
+        'platform': payload.get('platform') or payload.get('primary_platform') or 'instagram',
+        'tone': payload.get('tone') or 'friendly',
+        'base_caption': payload.get('base_caption') or payload.get('caption') or '',
+    }
+
+
+def _validate_variants_output(variants: Any) -> dict:
+    if not isinstance(variants, list) or not variants:
+        raise ValueError('Missing variants')
+    for group in variants:
+        if not isinstance(group, Mapping):
+            raise ValueError('Invalid variants group')
+        payload = group.get('variants')
+        if not isinstance(payload, Mapping) or not payload:
+            raise ValueError('Invalid variants payload')
+        for v in payload.values():
+            if not isinstance(v, Mapping):
+                raise ValueError('Invalid variant entry')
+            if not any(isinstance(val, str) and val for val in v.values()):
+                raise ValueError('Empty variant entry')
+    return {'variants': variants, 'count': len(variants)}
+
+
+def _generate_variants_fallback(normalized: Mapping[str, Any]) -> list[dict[str, Any]]:
+    templates = {
+        'twitter': 'Tweet: {base}',
+        'youtube': 'Video description: {base}',
+        'instagram': 'Insta caption: {base}',
+        'facebook': 'FB caption: {base}',
+        'linkedin': 'LinkedIn post: {base}',
+    }
+    base_caption = normalized.get('base_caption') or f"{str(normalized.get('industry') or 'Business').title()} insight"
+    tone = normalized.get('tone') or 'friendly'
+    count = int(normalized.get('count') or 1)
+    groups: list[dict[str, Any]] = []
+    for idx in range(count):
+        variants: dict[str, dict[str, str]] = {}
+        for platform, template in templates.items():
+            key = 'description' if platform == 'youtube' else ('caption' if platform == 'instagram' else 'text')
+            variants[platform] = {key: template.format(base=f"{base_caption} ({tone}) #{idx+1}")}
+        groups.append({'variants': variants})
+    return groups
+
+
+# Helper functions for new generation service
+def _load_workspace_context(user_id: Optional[str], profile_id: Optional[str]) -> Optional[dict]:
+    """Load workspace context from database."""
+    if not profile_id:
+        return None
+    
+    db = get_db()
+    row = db.execute('SELECT * FROM profiles WHERE id = ?', (profile_id,)).fetchone()
+    if not row:
+        return None
+    
+    # Handle both dict-like Row objects and actual dicts
+    platforms_str = row['platforms'] if 'platforms' in row.keys() else '[]'
+    
+    return {
+        'company_name': row['company'] if 'company' in row.keys() and row['company'] else '',
+        'industry': row['industry'] if 'industry' in row.keys() and row['industry'] else 'business',
+        'default_tone': row['tone'] if 'tone' in row.keys() and row['tone'] else 'professional',
+        'platforms': json.loads(platforms_str) if platforms_str else [],
+        'offerings': row['details'] if 'details' in row.keys() else None,
+        'audience': None,  # Not stored separately yet
+        'compliance_notes': None  # Not stored separately yet
+    }
+
+
+def _load_voice_samples(user_id: Optional[str], profile_id: Optional[str]) -> Optional[List[str]]:
+    """Load voice samples from database."""
+    if not profile_id:
+        return None
+    
+    db = get_db()
+    row = db.execute('SELECT voice_profile FROM profiles WHERE id = ?', (profile_id,)).fetchone()
+    if not row:
+        return None
+    
+    try:
+        if 'voice_profile' not in row.keys():
+            return None
+        
+        voice_profile_str = row['voice_profile']
+        if not voice_profile_str:
+            return None
+        
+        voice_data = json.loads(voice_profile_str)
+        if not voice_data:
+            return None
+        
+        # Extract samples from voice data
+        samples = voice_data.get('samples', [])
+        if samples and isinstance(samples, list):
+            return samples
+        
+        # Fallback: if analyzed data exists, might have sample_texts
+        if voice_data.get('analyzed'):
+            return voice_data.get('sample_texts', [])
+        
+        return None
+    except (json.JSONDecodeError, TypeError):
+        return None
+
+
+def _load_include_avoid_phrases(user_id: Optional[str], profile_id: Optional[str]) -> Tuple[Optional[List[str]], Optional[List[str]]]:
+    """Load include/avoid phrases from database."""
+    if not profile_id:
+        return None, None
+    
+    db = get_db()
+    row = db.execute('SELECT voice_profile FROM profiles WHERE id = ?', (profile_id,)).fetchone()
+    if not row:
+        return None, None
+    
+    try:
+        if 'voice_profile' not in row.keys():
+            return None, None
+        
+        voice_profile_str = row['voice_profile']
+        if not voice_profile_str:
+            return None, None
+        
+        voice_data = json.loads(voice_profile_str)
+        if not voice_data:
+            return None, None
+        
+        include_phrases = voice_data.get('include_phrases', [])
+        avoid_phrases = voice_data.get('avoid_phrases', [])
+        
+        return (include_phrases if include_phrases else None, 
+                avoid_phrases if avoid_phrases else None)
+    except (json.JSONDecodeError, TypeError):
+        return None, None
 
 
 @app.post('/api/generate')
 def api_generate():
     data = request.get_json(force=True) or {}
-    
-    # Check gating
+
+    request_id = _get_request_id()
+
     flags = load_flags()
-    platforms = data.get('platforms', [])
-    days = int(data.get('days') or 7)
-    
+    platforms = data.get('platforms') or []
+    try:
+        platforms = list(platforms)
+    except Exception:
+        platforms = []
+    try:
+        days = int(data.get('days') or 7)
+    except Exception:
+        days = 7
+
     uid = session.get('user_id')
     is_paid = False
     should_mark_sample = False
-    
+
+    request_meta = {
+        "event": "generator.request",
+        "user_id": uid or 'anon',
+        "days": days,
+        "platforms": platforms,
+        "has_image": bool(data.get('image_data_url')),
+        "tone": data.get('tone') or '',
+        "request_id": request_id,
+    }
+    start_ts = time.time()
+    app.logger.info("generator.request", extra=request_meta)
+
+    def _log_and_abort(status_code: int, message: str, event: str = "generator.blocked", code: str = "generation_failed"):
+        payload = {'ok': False, 'error': {'code': code, 'message': message}, 'request_id': request_id, 'data': None}
+        app.logger.info(event, extra={**request_meta, "event": event, "status": status_code, "error": message})
+        return jsonify(payload), status_code
+
     if uid:
         db = get_db()
         u = db.execute('SELECT is_paid, free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
         if u and u['is_paid']:
             is_paid = True
 
-    # Gate 7 days
-    if flags.get('gate7DayToPaid'):
-        if days >= 7:
-            if not uid:
-                return jsonify({'ok': False, 'error': 'Login required'}), 401
-            if not is_paid:
-                return jsonify({'ok': False, 'error': 'Paid plan required for 7-day generation'}), 403
+    if flags.get('gate7DayToPaid') and days >= 7:
+        if not uid:
+            return _log_and_abort(401, 'Login required')
+        if not is_paid:
+            return _log_and_abort(403, 'Paid plan required for 7-day generation')
 
-    # Free sample check
     if not is_paid and uid:
         db = get_db()
         u = db.execute('SELECT free_sample_used FROM users WHERE id = ?', (uid,)).fetchone()
         if u and u['free_sample_used']:
-             return jsonify({'ok': False, 'error': 'Free sample already used'}), 403
+            return _log_and_abort(403, 'Free sample already used')
         should_mark_sample = True
 
-    # Gate Reels (short_video)
     if 'short_video' in platforms and not is_paid:
-         return jsonify({'ok': False, 'error': 'Paid plan required for Reels generation'}), 403
+        return _log_and_abort(403, 'Paid plan required for Reels generation')
 
-    # Check Quota for Reels
     if 'short_video' in platforms and is_paid:
         quota = int(os.getenv('REELS_QUOTA_MONTHLY', '30'))
         period = datetime.now().strftime('%Y-%m')
@@ -1453,72 +2937,298 @@ def api_generate():
         usage = db.execute('SELECT reels_generated FROM generation_usage WHERE user_id = ? AND period = ?', (uid, period)).fetchone()
         used = usage['reels_generated'] if usage else 0
         if used >= quota:
-             return jsonify({'ok': False, 'error': 'Monthly Reels quota exceeded'}), 403
+            return _log_and_abort(403, 'Monthly Reels quota exceeded')
 
-    # Check for image payload
     image_data_url = data.get('image_data_url')
     if image_data_url:
         if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES:
-             return jsonify({'ok': False, 'error': 'Image too large'}), 400
-        
-        try:
-            # Use the helper for image-based generation
-            posts = _generate_posts_from_image(data)
-            if posts is None:
-                 return jsonify({'ok': False, 'error': 'Image generation not available'}), 500
-            return jsonify({'ok': True, 'posts': posts, 'count': len(posts)})
-        except Exception as e:
-            app.logger.error(f"Image generation failed: {e}")
-            return jsonify({'ok': False, 'error': str(e)}), 500
+            return _log_and_abort(400, 'Image too large', code='image_too_large')
 
-    # Populate defaults for strict mocks
-    for k in ['start_day', 'industry', 'tone', 'platforms', 'brand_keywords', 'include_images', 'niche_keywords', 'goals', 'details', 'company']:
-       if k not in data:
-           data[k] = None
-           
-    # Convert start_day
-    if not data.get('start_day'):
-        data['start_day'] = date.today()
-    elif isinstance(data['start_day'], str):
-        try:
-            data['start_day'] = date.fromisoformat(data['start_day'])
-        except:
-            pass
+        if not USE_OPENAI or openai_client is None:
+            return _log_and_abort(
+                503,
+                'Image-to-post generation requires OpenAI. Add OPENAI_API_KEY or disable image uploads.',
+                event="generator.failed",
+            )
 
-    try:
-        # Use **data to satisfy test mocks that expect kwargs
-        if gen_mod.USE_OPENAI_FOR_POSTS:
-            posts = gen_mod.generate_posts_with_openai(**data)
-        else:
-            posts = generate_posts(**data)
-        
+        try:
+            posts = _generate_posts_from_image(data) or []
+            if not isinstance(posts, list) or not posts:
+                return _log_and_abort(500, 'Image generation not available', event="generator.failed", code="image_generation_failed")
+            duration_ms = int((time.time() - start_ts) * 1000)
+            app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
+            body = {
+                'ok': True,
+                'source': 'openai',
+                'mode': 'generated',
+                'data': {'posts': posts, 'count': len(posts)},
+                'request_id': request_id,
+                'posts': posts,
+                'count': len(posts)
+            }
+            return jsonify(body)
+        except Exception:
+            app.logger.exception("Image generation failed", extra={**request_meta, "event": "generator.failed"})
+            return _log_and_abort(500, 'Image generation failed. Please try again.', event="generator.failed", code="image_generation_failed")
+
+    service_response = generation_service.generate(
+        endpoint='generate',
+        request_id=request_id,
+        payload=data,
+        validator=_validate_generate_payload,
+        normalizer=_normalize_generate_payload,
+        output_validator=_validate_posts_output,
+        openai_callable=lambda normalized: gen_mod.generate_posts_with_openai(request_id=request_id, **normalized),
+        fallback_callable=lambda normalized: generate_posts(**{k: v for k, v in normalized.items() if k != 'include_trends'}),
+        use_openai=gen_mod.USE_OPENAI_FOR_POSTS,
+        disable_fallback=flags.get('disableFallbackSuggestions', False),
+    )
+
+    body = dict(service_response.body)
+    data_payload = body.pop('data', {}) if isinstance(body.get('data'), dict) else (body.pop('data') if 'data' in body else {})
+    if service_response.ok and isinstance(data_payload, dict):
+        posts = data_payload.get('posts') or []
+        body['data'] = data_payload
+        body['posts'] = posts
+        body['count'] = data_payload.get('count', len(posts))
         if should_mark_sample and uid:
             db = get_db()
             db.execute('UPDATE users SET free_sample_used = 1 WHERE id = ?', (uid,))
             db.commit()
-            
-        return jsonify({'ok': True, 'posts': posts, 'count': len(posts)})
-    except Exception as e:
-        app.logger.error(f"Generation failed: {e}")
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    else:
+        body.setdefault('data', None)
+
+    return jsonify(body), service_response.status
+
+
+@app.post('/api/generate/social')
+def api_generate_social():
+    """Generate social media posts using new generation service with full context."""
+    uid = session.get('user_id')
+    pid = session.get('profile_id')
+    
+    data = request.get_json(silent=True) or {}
+    
+    # Load context from database
+    workspace = _load_workspace_context(uid, pid)
+    voice_samples = _load_voice_samples(uid, pid)
+    include_phrases, avoid_phrases = _load_include_avoid_phrases(uid, pid)
+    
+    # Build request params
+    request_params = {
+        'session_length': data.get('session_length') or data.get('days', 7),
+        'platforms': data.get('platforms') or [],
+        'tone': data.get('tone'),
+        'goals': data.get('goals') or [],
+        'keywords': data.get('keywords') or [],
+        'reel_options': data.get('reel_options') or {},
+        'image_tailor': data.get('image_tailor'),
+    }
+    
+    # Generate using new service
+    result = new_generation_service.generate_social_posts(
+        workspace=workspace,
+        request=request_params,
+        voice_samples=voice_samples,
+        include_phrases=include_phrases,
+        avoid_phrases=avoid_phrases
+    )
+    
+    # Return result with appropriate status code
+    status_code = 200 if result.get('ok') else 400
+    return jsonify(result), status_code
+
+
+@app.post('/api/generate/reels')
+def api_generate_reels():
+    """Generate structured reels/shorts scripts with sectional regeneration support."""
+    request_id = _get_request_id()
+    data = request.get_json(silent=True) or {}
+
+    style = data.get('hook_style') or data.get('style') or 'Face-camera tips'
+    format_hint = data.get('format') or 'talking_head'
+    duration = data.get('duration_seconds') or data.get('reel_length') or 30
+    include_shot_list = bool(data.get('include_shot_list', True))
+    include_on_screen_text = bool(data.get('include_on_screen_text', True))
+    section = (data.get('section') or '').lower()
+
+    try:
+        plan = gen_mod.make_reel_plan(
+            industry=data.get('industry') or 'Business',
+            pillar_name=data.get('pillar_name') or 'Story',
+            brand_keywords=data.get('brand_keywords') or [],
+            tone=data.get('tone') or 'friendly',
+            company=data.get('company') or '',
+            reel_style=style,
+            goals=data.get('goals') or [],
+            niche_keywords=data.get('niche_keywords') or [],
+            length_seconds=duration,
+            production_tier=data.get('production_tier') or 'solo'
+        )
+    except Exception:
+        app.logger.exception("reels.generate.failed", extra={'request_id': request_id})
+        return jsonify({
+            'ok': False,
+            'error': {'message': 'Unable to generate a reel right now.'},
+            'request_id': request_id
+        }), 500
+
+    if section == 'hook':
+        return jsonify({'ok': True, 'hook': plan.get('hook'), 'request_id': request_id})
+    if section == 'cta':
+        return jsonify({'ok': True, 'cta': plan.get('cta'), 'request_id': request_id})
+
+    primary_tags = []
+    hashtags = plan.get('hashtags') or {}
+    if isinstance(hashtags, dict):
+        primary_tags = list(hashtags.get('primary') or [])
+    elif isinstance(hashtags, list):
+        primary_tags = hashtags
+
+    beats = []
+    for beat in plan.get('beats', []):
+        beats.append({
+            'label': beat.get('osd'),
+            'line': beat.get('line'),
+            'start': beat.get('start_s'),
+            'end': beat.get('end_s')
+        })
+
+    shot_list = []
+    if include_shot_list:
+        for shot in plan.get('shot_list', []):
+            shot_list.append({
+                'beat': shot.get('beat') or shot.get('osd'),
+                'shot': shot.get('shot') or shot.get('shot_type'),
+                'start': shot.get('start_s'),
+                'end': shot.get('end_s'),
+                'overlay': shot.get('overlay')
+            })
+
+    overlays = []
+    if include_on_screen_text:
+        overlays = [
+            item.get('text') for item in (plan.get('caption_overlays') or []) if item.get('text')
+        ] or list(plan.get('on_screen_text') or [])
+
+    reel_payload = {
+        'style': plan.get('style'),
+        'format': format_hint,
+        'duration_seconds': int(duration),
+        'hook': plan.get('hook'),
+        'beats': beats,
+        'cta': plan.get('cta'),
+        'caption': plan.get('thumbnail_prompt') or f"{plan.get('hook', '')} — {plan.get('cta', '')}",
+        'hashtags': primary_tags,
+        'shot_list': shot_list,
+        'on_screen_text': overlays
+    }
+
+    return jsonify({'ok': True, 'reel': reel_payload, 'request_id': request_id})
 
 
 @app.post('/api/generate-review-response')
 def api_generate_review_response():
     data = request.get_json(force=True) or {}
-    review_text = data.get('review_text')
+    request_id = _get_request_id()
+
+    service_response = generation_service.generate(
+        endpoint='generate-review-response',
+        request_id=request_id,
+        payload=data,
+        validator=_validate_review_payload,
+        normalizer=_normalize_review_payload,
+        output_validator=_validate_review_output,
+        fallback_callable=lambda normalized: gen_mod.generate_review_response(**normalized),
+        use_openai=False,
+    )
+
+    body = dict(service_response.body)
+    data_payload = body.pop('data', {}) if isinstance(body.get('data'), dict) else (body.pop('data') if 'data' in body else {})
+    if service_response.ok and isinstance(data_payload, dict):
+        body['data'] = data_payload
+        body.update(data_payload)
+    else:
+        body.setdefault('data', None)
+
+    return jsonify(body), service_response.status
+
+
+@app.post('/api/generate/reviews')
+def api_generate_reviews():
+    """Generate structured review responses using new generation service."""
+    uid = session.get('user_id')
+    pid = session.get('profile_id')
+    
+    data = request.get_json(force=True) or {}
+    review_text = (data.get('review_text') or '').strip()
+
     if not review_text:
-        return jsonify({'ok': False, 'error': 'Review text is required'}), 400
+        request_id = _get_request_id()
+        return jsonify({
+            'ok': False, 
+            'error': {'code': 'missing_review', 'message': 'Review text is required.'}, 
+            'request_id': request_id
+        }), 400
+
+    # Check for sensitive content in input
+    sensitive_patterns = [
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}",
+        r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b",
+        r"ssn\b",
+    ]
+    for pattern in sensitive_patterns:
+        if re.search(pattern, review_text, re.IGNORECASE):
+            request_id = _get_request_id()
+            return jsonify({
+                'ok': False,
+                'error': {
+                    'code': 'sensitive_content',
+                    'message': 'Please remove personal contact info before generating.',
+                },
+                'request_id': request_id
+            }), 400
+
+    # Load context from database
+    workspace = _load_workspace_context(uid, pid)
+    voice_samples = None
+    include_phrases = None
+    avoid_phrases = None
     
-    tone = data.get('tone') or 'professional'
-    company = data.get('company') or data.get('company_name') or ''
-    industry = data.get('industry') or ''
+    # Only load voice if brand_voice is requested
+    if data.get('use_brand_voice') or data.get('brand_voice'):
+        voice_samples = _load_voice_samples(uid, pid)
+        include_phrases, avoid_phrases = _load_include_avoid_phrases(uid, pid)
     
-    try:
-        result = gen_mod.generate_review_response(review_text, tone=tone, company_name=company, industry=industry)
-        return jsonify({'ok': True, **result})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
+    # Build request params
+    request_params = {
+        'review_text': review_text,
+        'rating': data.get('rating'),
+        'channel': data.get('channel') or '',
+        'tone': data.get('tone') or 'professional',
+        'response_length': data.get('length') or 'medium',
+        'use_brand_voice': bool(data.get('use_brand_voice') or data.get('brand_voice')),
+    }
+    
+    # Generate using new service
+    result = new_generation_service.generate_review_response(
+        workspace=workspace,
+        request=request_params,
+        voice_samples=voice_samples,
+        include_phrases=include_phrases,
+        avoid_phrases=avoid_phrases
+    )
+    
+    # Return result with appropriate status code
+    status_code = 200 if result.get('ok') else (400 if result.get('error', {}).get('code') == 'validation_error' else 500)
+    return jsonify(result), status_code
+
+
+@app.get('/brand-inspiration-setup')
+def brand_inspiration_setup_page():
+    """Brand inspiration setup page (optional step before voice coach)."""
+    initial_user = _initial_user_payload()
+    return render_template('brand_inspiration_setup.html', initial_user=initial_user)
 
 
 @app.get('/voice-setup')
@@ -2514,6 +4224,12 @@ def dev_ping():
     return jsonify({'pong': True})
 
 
+@app.get('/__dev__/queue-test')
+def dev_queue_test():
+    """Test page for publishing queue state initialization"""
+    return render_template('queue_test.html')
+
+
 @app.post('/api/feedback')
 def api_feedback():
     if not session.get('user_id') and not session.get('profile_id'):
@@ -2536,8 +4252,218 @@ def api_feedback():
     except Exception:
         logging.exception("Feedback save failed")
         pass
-        
+
     return jsonify({'ok': True})
+
+
+def _current_user_id() -> Optional[str]:
+    return session.get('user_id')
+
+
+def _template_owner_where_clause():
+    return 'owner_user_id = ?'
+
+
+@app.route('/api/templates', methods=['GET', 'POST'])
+def api_templates():
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    db = get_db()
+
+    if request.method == 'GET':
+        scope = (request.args.get('scope') or 'all').lower()
+        params = [user_id]
+        where = _template_owner_where_clause()
+        if scope in {'personal', 'workspace'}:
+            where = where + ' AND LOWER(scope) = ?'
+            params.append(scope)
+        rows = db.execute(
+            f'SELECT * FROM templates WHERE {where} ORDER BY updated_at DESC',
+            tuple(params)
+        ).fetchall()
+        templates = [_serialize_template_row(r) for r in rows]
+        return jsonify({'ok': True, 'templates': templates})
+
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'ok': False, 'error': 'Name is required'}), 400
+    scope = (data.get('scope') or 'personal').strip().lower()
+    if scope not in {'personal', 'workspace'}:
+        scope = 'personal'
+    payload = data.get('payload') or data.get('template') or {}
+    preview = data.get('preview') or ''
+    now_iso = datetime.now(timezone.utc).isoformat()
+    template_id = data.get('id') or str(uuid.uuid4())
+
+    try:
+        db.execute(
+            '''INSERT INTO templates (id, owner_user_id, name, scope, payload, preview, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+            (
+                template_id,
+                user_id,
+                name,
+                scope,
+                json.dumps(payload),
+                preview,
+                now_iso,
+                now_iso,
+            )
+        )
+        db.commit()
+    except DB_INTEGRITY_ERRORS:
+        return jsonify({'ok': False, 'error': 'Duplicate template id'}), 409
+    except Exception as exc:
+        logging.exception("Template save failed")
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+    template = _serialize_template_row(
+        db.execute('SELECT * FROM templates WHERE id = ?', (template_id,)).fetchone()
+    )
+    status_code = 201
+    return jsonify({'ok': True, 'template': template}), status_code
+
+
+@app.route('/api/templates/<template_id>', methods=['GET', 'DELETE'])
+def api_template_detail(template_id):
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    db = get_db()
+    row = db.execute(
+        f'SELECT * FROM templates WHERE id = ? AND {_template_owner_where_clause()}',
+        (template_id, user_id),
+    ).fetchone()
+    if not row:
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
+
+    if request.method == 'GET':
+        return jsonify({'ok': True, 'template': _serialize_template_row(row)})
+
+    # DELETE
+    db.execute('DELETE FROM templates WHERE id = ?', (template_id,))
+    db.commit()
+    return jsonify({'ok': True})
+
+
+@app.post('/api/templates/<template_id>/apply')
+def api_template_apply(template_id):
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data = request.get_json(silent=True) or {}
+    draft_id = data.get('draft_id')
+    if not draft_id:
+        return jsonify({'ok': False, 'error': 'draft_id is required'}), 400
+
+    db = get_db()
+    template_row = db.execute(
+        f'SELECT * FROM templates WHERE id = ? AND {_template_owner_where_clause()}',
+        (template_id, user_id)
+    ).fetchone()
+    if not template_row:
+        return jsonify({'ok': False, 'error': 'Not found'}), 404
+
+    draft_row = db.execute(
+        'SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?',
+        (draft_id, user_id)
+    ).fetchone()
+    if not draft_row:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+
+    template_payload = _serialize_template_row(template_row).get('payload') or {}
+    draft_payload = template_payload.get('draft') or template_payload.get('content') or template_payload
+    if draft_payload is None:
+        draft_payload = {}
+
+    previous_snapshot = draft_row['content']
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    db.execute(
+        'UPDATE team_drafts SET content = ?, updated_at = ? WHERE id = ?',
+        (json.dumps(draft_payload), now_iso, draft_id)
+    )
+    db.execute(
+        '''INSERT INTO team_draft_revisions
+           (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        (
+            str(uuid.uuid4()),
+            draft_id,
+            user_id,
+            f"Applied template '{template_row['name']}'",
+            'template_apply',
+            json.dumps({'template_id': template_id, 'scope': template_row['scope']}),
+            previous_snapshot,
+            now_iso
+        )
+    )
+    db.commit()
+
+    updated_draft = row_to_mapping(
+        db.execute('SELECT * FROM team_drafts WHERE id = ?', (draft_id,)).fetchone()
+    ) or {}
+    updated_draft['content'] = _deserialize_json(updated_draft.get('content'), [])
+    return jsonify({'ok': True, 'draft': updated_draft})
+
+
+@app.post('/api/drafts/<draft_id>/undo-template')
+def api_undo_template_apply(draft_id):
+    user_id = _current_user_id()
+    if not user_id:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    db = get_db()
+    draft_row = db.execute(
+        'SELECT * FROM team_drafts WHERE id = ? AND owner_user_id = ?',
+        (draft_id, user_id)
+    ).fetchone()
+    if not draft_row:
+        return jsonify({'ok': False, 'error': 'Draft not found'}), 404
+
+    revision = db.execute(
+        '''SELECT * FROM team_draft_revisions
+           WHERE draft_id = ? AND author_user_id = ? AND kind = 'template_apply'
+           ORDER BY created_at DESC LIMIT 1''',
+        (draft_id, user_id)
+    ).fetchone()
+    if not revision:
+        return jsonify({'ok': False, 'error': 'No template application to undo'}), 400
+
+    previous_snapshot = revision['content_snapshot'] or '[]'
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    db.execute(
+        'UPDATE team_drafts SET content = ?, updated_at = ? WHERE id = ?',
+        (previous_snapshot, now_iso, draft_id)
+    )
+    db.execute(
+        '''INSERT INTO team_draft_revisions
+           (id, draft_id, author_user_id, summary, kind, details, content_snapshot, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+        (
+            str(uuid.uuid4()),
+            draft_id,
+            user_id,
+            'Reverted template application',
+            'template_undo',
+            json.dumps({'reverted_revision': revision['id']}),
+            previous_snapshot,
+            now_iso
+        )
+    )
+    db.commit()
+
+    updated_draft = row_to_mapping(
+        db.execute('SELECT * FROM team_drafts WHERE id = ?', (draft_id,)).fetchone()
+    ) or {}
+    updated_draft['content'] = _deserialize_json(updated_draft.get('content'), [])
+    return jsonify({'ok': True, 'draft': updated_draft})
 
 
 @app.post('/api/feedback/report')
@@ -2749,24 +4675,36 @@ def get_user_by_email(email):
 
 @app.post('/api/generate-variants')
 def api_generate_variants():
+    request_id = _get_request_id()
+
     if os.environ.get('FLASK_ENV') == 'production':
         if not session.get('user_id'):
-             return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+            return jsonify({'ok': False, 'error': {'code': 'unauthorized', 'message': 'Not logged in'}, 'request_id': request_id, 'data': None}), 401
 
     data = request.get_json(force=True) or {}
-    count = int(data.get('count', 1))
-    
-    variants = []
-    for i in range(count):
-        variants.append({
-            'variants': {
-                'twitter': {'text': 'Tweet content'},
-                'youtube': {'description': 'Video description'},
-                'instagram': {'caption': 'Insta caption'}
-            }
-        })
-        
-    return jsonify({'ok': True, 'variants': variants})
+
+    service_response = generation_service.generate(
+        endpoint='generate-variants',
+        request_id=request_id,
+        payload=data,
+        validator=_validate_variants_payload,
+        normalizer=_normalize_variants_payload,
+        output_validator=_validate_variants_output,
+        fallback_callable=_generate_variants_fallback,
+        use_openai=False,
+    )
+
+    body = dict(service_response.body)
+    data_payload = body.pop('data', {}) if isinstance(body.get('data'), dict) else (body.pop('data') if 'data' in body else {})
+    if service_response.ok and isinstance(data_payload, dict):
+        variants = data_payload.get('variants') or []
+        body['data'] = data_payload
+        body['variants'] = variants
+        body['count'] = data_payload.get('count', len(variants))
+    else:
+        body.setdefault('data', None)
+
+    return jsonify(body), service_response.status
     
 
 @app.get('/__dev__/trends')
@@ -2784,6 +4722,54 @@ def dev_trends():
         return jsonify({'trends': trends})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.get('/api/preview-templates')
+def api_get_preview_templates():
+    """Get available preview templates for all channels."""
+    try:
+        from preview_builder import PreviewTemplateBuilder
+        builder = PreviewTemplateBuilder()
+        templates = builder.get_all_templates()
+        return jsonify({'ok': True, 'templates': templates})
+    except Exception as e:
+        logging.error(f"Error loading preview templates: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.get('/api/preview-templates/<channel>')
+def api_get_channel_templates(channel):
+    """Get available preview templates for a specific channel."""
+    try:
+        from preview_builder import PreviewTemplateBuilder
+        builder = PreviewTemplateBuilder()
+        templates = builder.get_templates_for_channel(channel)
+        return jsonify({'ok': True, 'channel': channel, 'templates': templates})
+    except Exception as e:
+        logging.error(f"Error loading channel templates: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+@app.post('/api/preview-templates/<channel>/<template_id>')
+def api_build_preview(channel, template_id):
+    """Build a preview from a template with slot substitution."""
+    try:
+        from preview_builder import PreviewTemplateBuilder
+        
+        data = request.get_json(force=True) or {}
+        slots = data.get('slots', {})
+        use_baseline = data.get('use_baseline', False)
+        
+        builder = PreviewTemplateBuilder()
+        preview = builder.build_preview(channel, template_id, slots, use_baseline)
+        
+        if preview is None:
+            return jsonify({'ok': False, 'error': 'Template not found'}), 404
+        
+        return jsonify({'ok': True, 'preview': preview})
+    except Exception as e:
+        logging.error(f"Error building preview: {e}")
+        return jsonify({'ok': False, 'error': str(e)}), 500
 
 
 @app.post('/api/account/upgrade')
@@ -2872,8 +4858,18 @@ def api_voice_profile():
             # Handle missing column in row result if using sqlite3.Row with missing column
             if 'voice_profile' not in row.keys():
                  return jsonify({'ok': True, 'samples': []})
-                 
+
             vp = _deserialize_json(row['voice_profile'], {})
             return jsonify({'ok': True, 'samples': vp.get('samples', [])})
         except Exception:
             return jsonify({'ok': True, 'samples': []})
+
+
+if __name__ == '__main__':
+    port = int(os.getenv('PORT', '5001'))
+    try:
+        with app.app_context():
+            init_db()
+    except Exception:
+        logging.exception("Database initialization failed during startup")
+    app.run(host='0.0.0.0', port=port, debug=_is_dev_mode())

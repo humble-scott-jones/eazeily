@@ -307,12 +307,73 @@ async function loadConfig(){
   try{ await loadSavedProfile(); }catch(e){/* ignore */}
 }
 
+// Step registry - single source of truth for wizard steps
+function getWizardSteps() {
+  const steps = [
+    { id: 'industry', stepNumber: 1, dataStep: '1', title: 'Choose your industry', isEnabled: true },
+    { id: 'brand-kit', stepNumber: 2, dataStep: '2', title: 'Brand Kit (Recommended)', isEnabled: true },
+    { id: 'context', stepNumber: 3, dataStep: '3', title: 'Add quick context', isEnabled: !skipStep2 },
+    { id: 'tone-platforms', stepNumber: 4, dataStep: '4', title: 'Dial in your tone and channels', isEnabled: true },
+    { id: 'brand-inspiration', stepNumber: 5, dataStep: '5', title: 'Brand Inspiration', isEnabled: true },
+    { id: 'keywords', stepNumber: 6, dataStep: '6', title: 'Lock in keywords & notes', isEnabled: true }
+  ];
+  
+  // Filter to enabled steps only
+  const enabledSteps = steps.filter(s => s.isEnabled);
+  
+  // Renumber to consecutive indices for display
+  enabledSteps.forEach((s, idx) => {
+    s.displayIndex = idx + 1;
+  });
+  
+  return enabledSteps;
+}
+
+function getTotalSteps() {
+  return getWizardSteps().length;
+}
+
+function getCurrentStepIndex() {
+  // Find current step in the enabled steps list
+  const steps = getWizardSteps();
+  const currentStepData = step; // This is the data-step value
+  const foundIndex = steps.findIndex(s => parseInt(s.dataStep) === currentStepData);
+  return foundIndex >= 0 ? foundIndex : 0;
+}
+
 let step = 1;
 const answers = {
   industry: "", tone: "", platforms: ["instagram"],
   brand_keywords: [], niche_keywords: [], include_images: true,
   company: "",
-  goals: [], details: {}
+  goals: [], details: {},
+  brand_inspirations: [],
+  brand_anti_inspirations: [],
+  vibe_preset: null,
+  brand_kit: {
+    business_name: "",
+    services: [],
+    audience: "",
+    pain: "",
+    outcome: "",
+    differentiators: [],
+    proof: "",
+    email: { name: "", title: "", contact: "" },
+    quotes: { deposit: "", turnaround: "", validity: "", payment_methods: "" },
+    logo: null
+  },
+  selected_focus_topic_ids: [],
+  selected_audience_ids: [],
+  selected_offer_ids: [],
+  selected_proof_ids: [],
+  selected_cta_intent_id: null,
+  custom_chips: {
+    focus_topics: [],
+    audience: [],
+    offers: [],
+    proof: [],
+    ctas: []
+  }
 };
 
 const prevBtn = document.getElementById("prev");
@@ -342,7 +403,9 @@ async function loadSavedProfile(){
   try{
   const res = await fetch('/api/profile', { credentials: 'include' });
     if (!res.ok) return;
-    const p = await res.json();
+    const body = await res.json().catch(()=>null);
+    if (!body || body.ok === false) return;
+    const p = body.profile || body;
     if (!p || !p.id) return;
     // prefill inputs
     if (p.company) {
@@ -372,6 +435,36 @@ async function loadSavedProfile(){
         if (el) el.value = answers.details.intensity;
         if (label) label.textContent = VOICE_INTENSITY_LABELS[answers.details.intensity] || 'Moderate';
       }
+    }
+    // Load brand inspiration data
+    if (p.brand_inspirations && Array.isArray(p.brand_inspirations)) {
+      answers.brand_inspirations = p.brand_inspirations;
+    }
+    if (p.brand_anti_inspirations && Array.isArray(p.brand_anti_inspirations)) {
+      answers.brand_anti_inspirations = p.brand_anti_inspirations;
+    }
+    if (p.vibe_preset) {
+      answers.vibe_preset = p.vibe_preset;
+    }
+    // Load chip selections
+    if (p.selected_focus_topic_ids && Array.isArray(p.selected_focus_topic_ids)) {
+      answers.selected_focus_topic_ids = p.selected_focus_topic_ids;
+    }
+    if (p.selected_audience_ids && Array.isArray(p.selected_audience_ids)) {
+      answers.selected_audience_ids = p.selected_audience_ids;
+    }
+    if (p.selected_offer_ids && Array.isArray(p.selected_offer_ids)) {
+      answers.selected_offer_ids = p.selected_offer_ids;
+    }
+    if (p.selected_proof_ids && Array.isArray(p.selected_proof_ids)) {
+      answers.selected_proof_ids = p.selected_proof_ids;
+    }
+    if (p.selected_cta_intent_id) {
+      answers.selected_cta_intent_id = p.selected_cta_intent_id;
+    }
+    // Load custom chips
+    if (p.custom_chips && typeof p.custom_chips === 'object') {
+      answers.custom_chips = p.custom_chips;
     }
     updateSummary();
   }catch(e){/* ignore */}
@@ -832,6 +925,17 @@ function showGlobalAlert(msg, type='error'){
   else el.classList.add('bg-red-50','text-red-700');
   // auto-dismiss
   setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 5000);
+function showSavingFeedback() {
+  const stepTitle = document.getElementById('step-title');
+  if (stepTitle) {
+    const originalText = stepTitle.textContent;
+    stepTitle.textContent = 'Saving...';
+    stepTitle.classList.add('text-purple-500');
+    setTimeout(() => {
+      stepTitle.classList.remove('text-purple-500');
+      // Text will be updated by showStep
+    }, 600);
+  }
 }
 
 function setButtonLoading(btn, loading){
@@ -892,6 +996,12 @@ function renderIndustryChoices(list){
       answers.brand_keywords = [...manualKeywords];
       answers.details = {};
       renderIndustryQuestions(opt.key);
+      
+      // Fetch and apply GOOD defaults for this industry
+      fetchAndApplyGoodDefaults(opt.key).catch(err => {
+        console.error('Failed to apply good defaults:', err);
+      });
+      
       // set suggested keywords and note placeholder for this industry
       try{
         const noteInput = document.getElementById('note');
@@ -961,6 +1071,161 @@ function clearKeywords(){
   const keywordChips = document.querySelectorAll('#suggested-keywords .choice');
   keywordChips.forEach(chip => chip.classList.remove('selected'));
   updateSummary();
+}
+
+// Fetch and apply GOOD defaults for an industry
+async function fetchAndApplyGoodDefaults(industryKey){
+  if (!industryKey) return;
+  
+  try {
+    const response = await fetch(`/api/industry_packs/${industryKey}/good_defaults`, {
+      credentials: 'include'
+    });
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch good_defaults for ${industryKey}`);
+      return;
+    }
+    
+    const data = await response.json();
+    if (!data.ok || !data.good_defaults) {
+      console.warn(`Invalid good_defaults response for ${industryKey}`);
+      return;
+    }
+    
+    const chipPresets = data.good_defaults.chip_presets || {};
+    
+    // Helper function to auto-select chips
+    const autoSelectChips = (answersKey, presetKey, count) => {
+      if (!answers[answersKey] || answers[answersKey].length === 0) {
+        const chips = chipPresets[presetKey] || [];
+        answers[answersKey] = chips.slice(0, count).map(chip => chip.id);
+      }
+    };
+    
+    // Auto-apply recommended chip selections (but keep them editable)
+    // Only apply if user hasn't already made selections
+    autoSelectChips('selected_focus_topic_ids', 'focus_topics', 3);
+    autoSelectChips('selected_audience_ids', 'audience_chips', 2);
+    autoSelectChips('selected_offer_ids', 'offer_chips', 2);
+    autoSelectChips('selected_proof_ids', 'proof_chips', 2);
+    
+    // Store the full chip presets for rendering later if needed
+    window.__industryChipPresets = chipPresets;
+    
+    console.log('Applied GOOD defaults for', industryKey, answers.selected_focus_topic_ids);
+    
+    // Render chip groups with the fetched presets
+    renderChipGroups(chipPresets);
+  } catch (error) {
+    console.error('Error fetching good_defaults:', error);
+  }
+}
+
+// Store chip group instances globally for easy access
+window.__chipGroups = {};
+
+// Helper function to merge custom chips with presets
+function mergeCustomChips(presetChips, customChips) {
+  const chips = [...presetChips];
+  if (customChips && customChips.length > 0) {
+    customChips.forEach(custom => {
+      if (!chips.find(c => c.id === custom.id)) {
+        chips.push(custom);
+      }
+    });
+  }
+  return chips;
+}
+
+// Render chip groups with industry presets
+function renderChipGroups(chipPresets) {
+  if (!chipPresets || !window.ChipGroup) {
+    console.warn('ChipGroup not available or no chip presets');
+    return;
+  }
+  
+  // Focus Topics
+  const focusChips = mergeCustomChips(
+    chipPresets.focus_topics || [],
+    answers.custom_chips?.focus_topics || []
+  );
+  window.__chipGroups.focus = new window.ChipGroup({
+    containerId: 'chip-group-focus-topics',
+    title: 'Focus Topics',
+    subtitle: 'What topics do you post about most?',
+    chips: focusChips,
+    selectedIds: answers.selected_focus_topic_ids || [],
+    maxSelect: 3,
+    allowWriteIn: true,
+    groupKey: 'focus_topics',
+    onChangeSelectedIds: (ids) => {
+      answers.selected_focus_topic_ids = ids;
+    }
+  });
+  
+  // Audience
+  const audienceChips = mergeCustomChips(
+    chipPresets.audience_chips || [],
+    answers.custom_chips?.audience || []
+  );
+  window.__chipGroups.audience = new window.ChipGroup({
+    containerId: 'chip-group-audience',
+    title: 'Audience',
+    subtitle: 'Who are you trying to reach?',
+    chips: audienceChips,
+    selectedIds: answers.selected_audience_ids || [],
+    maxSelect: 2,
+    allowWriteIn: true,
+    groupKey: 'audience',
+    onChangeSelectedIds: (ids) => {
+      answers.selected_audience_ids = ids;
+    }
+  });
+  
+  // Offers
+  const offerChips = mergeCustomChips(
+    chipPresets.offer_chips || [],
+    answers.custom_chips?.offers || []
+  );
+  window.__chipGroups.offers = new window.ChipGroup({
+    containerId: 'chip-group-offers',
+    title: 'Offers & Services',
+    subtitle: 'What do you want to promote?',
+    chips: offerChips,
+    selectedIds: answers.selected_offer_ids || [],
+    maxSelect: 2,
+    allowWriteIn: true,
+    groupKey: 'offers',
+    onChangeSelectedIds: (ids) => {
+      answers.selected_offer_ids = ids;
+    }
+  });
+  
+  // Proof
+  const proofChips = mergeCustomChips(
+    chipPresets.proof_chips || [],
+    answers.custom_chips?.proof || []
+  );
+  window.__chipGroups.proof = new window.ChipGroup({
+    containerId: 'chip-group-proof',
+    title: 'Proof & Credibility',
+    subtitle: 'What makes you trustworthy?',
+    chips: proofChips,
+    selectedIds: answers.selected_proof_ids || [],
+    maxSelect: 2,
+    allowWriteIn: true,
+    groupKey: 'proof',
+    onChangeSelectedIds: (ids) => {
+      answers.selected_proof_ids = ids;
+    }
+  });
+  
+  // Show the chip selection section
+  const chipSection = document.getElementById('chip-selection-section');
+  if (chipSection) {
+    chipSection.classList.remove('hidden');
+  }
 }
 
 // handle extra keywords input (comma-separated or Enter)
@@ -1142,8 +1407,9 @@ function renderIndustryQuestions(key){
 }
 
 function showStep(n){
-  if (skipStep2 && n === 2){
-    n = 3;
+  // If context step (3) should be skipped and we're navigating to it, skip to step 4
+  if (skipStep2 && n === 3){
+    n = 4;
   }
   step = n;
   if (nextBtn) setButtonLoading(nextBtn, false);
@@ -1153,24 +1419,108 @@ function showStep(n){
     const active = document.querySelector(`.step-panel[data-step="${n}"]`);
     if (active) active.classList.remove('hidden');
   }
+  
+  // Use dynamic step calculations
+  const totalSteps = getTotalSteps();
+  const currentIndex = getCurrentStepIndex();
+  const currentDisplay = currentIndex + 1;
+  
   if (prevBtn) prevBtn.disabled = step === 1;
-  if (nextBtn) nextBtn.textContent = step >= 4 ? 'Finish' : 'Next';
-  if (stepsBar){
-    const dots = stepsBar.querySelectorAll('.step') || [];
-    dots.forEach((d,i)=> d.classList.toggle('active', (i+1) <= step));
-  }
+  if (nextBtn) nextBtn.textContent = currentDisplay >= totalSteps ? 'Finish' : 'Next';
+  
+  // Update step indicators
+  updateStepIndicators();
 
   const progressBar = document.getElementById('progress-bar');
   const progressText = document.getElementById('progress-text');
+  const stepTitle = document.getElementById('step-title');
   if (progressBar && progressText) {
-    const progressPercent = (step / 4) * 100;
+    const progressPercent = (currentDisplay / totalSteps) * 100;
     progressBar.style.width = progressPercent + '%';
-    progressText.textContent = `Step ${step} of 4`;
+    progressText.textContent = `Step ${currentDisplay} of ${totalSteps}`;
+    
+    // Update step title
+    if (stepTitle) {
+      const steps = getWizardSteps();
+      const currentStepData = steps.find(s => parseInt(s.dataStep) === n);
+      if (currentStepData) {
+        stepTitle.textContent = currentStepData.title;
+      }
+    }
   }
 
-  if (step !== 4){
+  // Persist current step to localStorage
+  try {
+    localStorage.setItem('wizard_current_step', step.toString());
+    localStorage.setItem('wizard_step_timestamp', Date.now().toString());
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+
+  // Hydrate Brand Kit UI when showing step 2
+  if (n === 2) {
+    hydrateBrandKitUI();
+  }
+
+  // Hydrate brand inspiration UI when showing step 5
+  if (n === 5) {
+    hydrateBrandInspirationUI();
+  }
+
+  if (currentDisplay !== totalSteps){
     clearFinishStatus();
   }
+}
+
+// Restore wizard progress from localStorage (with TTL)
+function restoreWizardProgress() {
+  try {
+    const savedStep = localStorage.getItem('wizard_current_step');
+    const timestamp = localStorage.getItem('wizard_step_timestamp');
+    
+    if (savedStep && timestamp) {
+      const age = Date.now() - parseInt(timestamp);
+      const TTL = 24 * 60 * 60 * 1000; // 24 hours
+      
+      // Only restore if within TTL and not explicitly navigating via hash
+      if (age < TTL && !window.location.hash) {
+        const restoredStep = parseInt(savedStep);
+        if (restoredStep > 1 && restoredStep <= 5) {
+          step = restoredStep;
+          // Don't call showStep yet - will be called after boot
+          console.log('Restored wizard progress to step', step);
+        }
+      } else if (age >= TTL) {
+        // Clear stale data
+        localStorage.removeItem('wizard_current_step');
+        localStorage.removeItem('wizard_step_timestamp');
+      }
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+}
+
+// Restore progress on load (before hash navigation)
+restoreWizardProgress();
+
+// Add exit confirmation for mid-wizard navigation
+let wizardCompleted = false;
+window.addEventListener('beforeunload', (e) => {
+  // Only show confirmation if user is in the wizard (step 1-4) and hasn't completed
+  if (step >= 1 && step < 5 && !wizardCompleted) {
+    // Check if user has made any progress (selected industry or beyond)
+    if (answers.industry) {
+      e.preventDefault();
+      e.returnValue = 'You can finish later—progress saved.';
+      return e.returnValue;
+    }
+  }
+});
+
+// Mark wizard as completed when user finishes
+function markWizardCompleted() {
+  wizardCompleted = true;
 }
 
 // Check for hash navigation
@@ -1183,37 +1533,69 @@ if (window.location.hash === '#step4') {
 }
 
 if (prevBtn) prevBtn.addEventListener("click", ()=>{
-  if (step === 3 && skipStep2){
-    step = 1;
+  if (step === 4 && skipStep2){
+    step = 2; // Skip back over context step (3) to Brand Kit
   } else {
     step = Math.max(1, step-1);
   }
   showStep(step);
 });
 if (nextBtn) nextBtn.addEventListener("click", async ()=>{
+  // Check if we're on the last step
+  const totalSteps = getTotalSteps();
+  const currentIndex = getCurrentStepIndex();
+  const currentDisplay = currentIndex + 1;
+  const isLastStep = currentDisplay >= totalSteps;
+  
   if (step === 1){
     if (!answers.industry){ showToast('Pick an industry to keep going'); return; }
-    step = skipStep2 ? 3 : 2;
+    // Show saving feedback briefly
+    showSavingFeedback();
+    step = 2; // Always go to Brand Kit step
     showStep(step);
     return;
   }
   if (step === 2){
-    if (!skipStep2 && !hasStepTwoAnswer()){
-      showToast('Choose at least one focus so we can tailor ideas');
-      return;
-    }
-    step = 3;
+    // Brand Kit step - collect data and save
+    collectBrandKitData();
+    await saveBrandKit();
+    // Show saving feedback briefly
+    showSavingFeedback();
+    step = skipStep2 ? 4 : 3; // Skip context if empty
     showStep(step);
     return;
   }
   if (step === 3){
-    if (!answers.tone){ showToast('Pick a tone to keep going'); return; }
-    if (!answers.platforms || !answers.platforms.length){ showToast('Choose at least one platform'); return; }
+    if (!skipStep2 && !hasStepTwoAnswer()){
+      showToast('Choose at least one focus so we can tailor ideas');
+      return;
+    }
+    // Show saving feedback briefly
+    showSavingFeedback();
     step = 4;
     showStep(step);
     return;
   }
   if (step === 4){
+    if (!answers.tone){ showToast('Pick a tone to keep going'); return; }
+    if (!answers.platforms || !answers.platforms.length){ showToast('Choose at least one platform'); return; }
+    // Show saving feedback briefly
+    showSavingFeedback();
+    step = 5;
+    showStep(step);
+    return;
+  }
+  if (step === 5){
+    // Brand inspiration step - collect data and move to step 6
+    collectBrandInspirationData();
+    // Show saving feedback briefly
+    showSavingFeedback();
+    step = 6;
+    showStep(step);
+    return;
+  }
+  if (isLastStep){
+    // This is the final step - save profile and finish
     // collect keywords from selected chips and extra input
     const extra = document.getElementById('extra-keywords');
     if (extra && extra.value.trim()){
@@ -1234,8 +1616,9 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     updateFinishStatus('info', 'Saving your brand voice…', 'Hang tight while we prepare your dashboard.');
     try{
       await saveProfile();
-      updateFinishStatus('info', 'Generating your first post…', 'We’re creating a sample so your dashboard feels ready.');
+      updateFinishStatus('info', 'Generating your first post…', "We're creating a sample so your dashboard feels ready.");
       await seedInitialPosts();
+      markWizardCompleted(); // Mark wizard as completed to prevent exit confirmation
       updateFinishStatus('success', 'Brand voice saved', 'Redirecting in 3 seconds…');
       startFinishCountdown(3, () => { window.location.href = '/generate'; });
     }catch(err){
@@ -1248,6 +1631,28 @@ if (nextBtn) nextBtn.addEventListener("click", async ()=>{
     return;
   }
 });
+
+function collectBrandInspirationData() {
+  // Collect brand inspirations
+  const brandInputs = document.querySelectorAll('#wizard-brand-inspirations .brand-name');
+  const brandWhyInputs = document.querySelectorAll('#wizard-brand-inspirations .brand-why');
+  answers.brand_inspirations = Array.from(brandInputs).map((input, i) => ({
+    name: input.value.trim(),
+    why: brandWhyInputs[i]?.value.trim() || ''
+  })).filter(b => b.name);
+  
+  // Collect anti-inspirations
+  const antiInputs = document.querySelectorAll('#wizard-brand-anti-inspirations .anti-brand-name');
+  const antiWhyInputs = document.querySelectorAll('#wizard-brand-anti-inspirations .anti-brand-why');
+  answers.brand_anti_inspirations = Array.from(antiInputs).map((input, i) => ({
+    name: input.value.trim(),
+    why: antiWhyInputs[i]?.value.trim() || ''
+  })).filter(b => b.name);
+  
+  // Get selected vibe preset
+  const selectedVibe = document.querySelector('.wizard-vibe-preset-btn.border-indigo-500');
+  answers.vibe_preset = selectedVibe ? selectedVibe.dataset.vibe : null;
+}
 
 async function saveProfile(){
   const version = (CFG && CFG.version) ? CFG.version : "local";
@@ -1421,6 +1826,30 @@ function updateStepTwoState(){
   } else {
     empty.classList.add('hidden');
   }
+  // Update stepper indicators after step count may have changed
+  updateStepIndicators();
+}
+
+function updateStepIndicators() {
+  // Update both desktop and mobile step indicators
+  const desktopSteps = document.getElementById('steps');
+  const mobileSteps = document.getElementById('steps-mobile');
+  const totalSteps = getTotalSteps();
+  const currentIndex = getCurrentStepIndex();
+  const currentDisplay = currentIndex + 1;
+  
+  [desktopSteps, mobileSteps].forEach(container => {
+    if (!container) return;
+    const dots = container.querySelectorAll('.step');
+    dots.forEach((dot, i) => {
+      if (i < totalSteps) {
+        dot.style.display = '';
+        dot.classList.toggle('active', (i + 1) <= currentDisplay);
+      } else {
+        dot.style.display = 'none';
+      }
+    });
+  });
 }
 
 function hasStepTwoAnswer(){
@@ -1592,13 +2021,122 @@ async function generate(days){
     }
   }
 
+  let body;
   try{
-    return await res.json();
+    body = await res.json();
   }catch(e){
     const msg = 'Received invalid response from server.';
     showFormError(msg);
     console.error('generate() invalid json', e);
     throw new Error(msg);
+  }
+
+  if (body && body.ok === false){
+    const msg = (body.error && body.error.message) || body.error || 'Unable to generate content.';
+    showFormError(msg);
+    throw new Error(msg);
+  }
+
+  // Store source information for banner display
+  if (body) {
+    body.__source = body.source || 'unknown';
+    body.__mode = body.mode || 'unknown';
+    body.__warnings = body.warnings || [];
+  }
+
+  return body;
+}
+
+function showFallbackBanner(warnings = []) {
+  let banner = document.getElementById('fallback-banner');
+  
+  // Create banner if it doesn't exist
+  if (!banner) {
+    const resultsContainer = document.getElementById('content-results');
+    if (!resultsContainer) return;
+    
+    banner = document.createElement('div');
+    banner.id = 'fallback-banner';
+    banner.className = 'bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4';
+    banner.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="flex-shrink-0">
+          <svg class="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-sm font-medium text-amber-800 mb-1">AI generation temporarily unavailable</h3>
+          <p class="text-sm text-amber-700 mb-3">
+            Showing template-based suggestions instead. These are general-purpose posts that may not match your specific brand voice.
+          </p>
+          <div class="flex gap-2 flex-wrap">
+            <button id="retry-with-ai" class="btn-primary text-sm px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md">
+              Retry with AI
+            </button>
+            <button id="continue-with-suggestions" class="btn-ghost text-sm px-4 py-2 text-amber-800 hover:bg-amber-100 rounded-md">
+              Continue with suggestions
+            </button>
+          </div>
+        </div>
+        <button id="dismiss-fallback-banner" class="flex-shrink-0 text-amber-600 hover:text-amber-800">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+          </svg>
+        </button>
+      </div>
+    `;
+    
+    // Insert before results
+    resultsContainer.parentNode.insertBefore(banner, resultsContainer);
+    
+    // Add event listeners
+    const retryBtn = banner.querySelector('#retry-with-ai');
+    const continueBtn = banner.querySelector('#continue-with-suggestions');
+    const dismissBtn = banner.querySelector('#dismiss-fallback-banner');
+    
+    if (retryBtn) {
+      retryBtn.addEventListener('click', async () => {
+        hideFallbackBanner();
+        // Trigger regeneration
+        const generateBtn = document.querySelector('[data-generate-1]') || document.querySelector('button[onclick*="generate"]');
+        if (generateBtn) {
+          generateBtn.click();
+        } else {
+          // Fallback: try to regenerate with last known parameters
+          try {
+            setButtonLoading(retryBtn, true);
+            const data = await generate(7);
+            renderPosts(data);
+          } catch (err) {
+            console.error('Retry failed:', err);
+          } finally {
+            setButtonLoading(retryBtn, false);
+          }
+        }
+      });
+    }
+    
+    if (continueBtn) {
+      continueBtn.addEventListener('click', () => {
+        hideFallbackBanner();
+      });
+    }
+    
+    if (dismissBtn) {
+      dismissBtn.addEventListener('click', () => {
+        hideFallbackBanner();
+      });
+    }
+  }
+  
+  banner.classList.remove('hidden');
+}
+
+function hideFallbackBanner() {
+  const banner = document.getElementById('fallback-banner');
+  if (banner) {
+    banner.classList.add('hidden');
   }
 }
 
@@ -1695,6 +2233,18 @@ function renderPosts(data){
   if (!target) return;
   const isWizardPreview = target === results;
   target.innerHTML = "";
+  
+  // Check if this is fallback content and show banner
+  const source = data.__source || data.source || 'unknown';
+  const mode = data.__mode || data.mode || 'unknown';
+  const warnings = data.__warnings || data.warnings || [];
+  
+  if (source === 'fallback' && mode === 'fallback_suggestions') {
+    showFallbackBanner(warnings);
+  } else {
+    hideFallbackBanner();
+  }
+  
   if (!posts.length){
     target.innerHTML = `<div class="text-sm text-slate-600">No posts yet.</div>`;
     if (isWizardPreview) setPreviewCTAState(false);
@@ -2412,69 +2962,797 @@ function initDashboardModes() {
     reels: { btn: 'mode-reels', section: 'content-generator', hide: ['review-response'] }
   };
 
+  const preferredMode = (document.body?.dataset?.generatorMode || 'social').toLowerCase();
   const buttons = Object.values(modes).map(m => document.getElementById(m.btn)).filter(Boolean);
-  
+
+  function applyMode(modeKey) {
+    if (!modes[modeKey]) return;
+    const mode = modes[modeKey];
+
+    // Update buttons (if present on this page)
+    buttons.forEach(b => {
+      const isSelected = b.id === mode.btn;
+      b.setAttribute('aria-selected', isSelected);
+      if (isSelected) {
+        b.classList.remove('text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60');
+        b.classList.add('text-slate-900', 'bg-white', 'shadow-sm', 'ring-1', 'ring-slate-200', 'font-semibold');
+        b.classList.remove('font-medium');
+      } else {
+        b.classList.add('text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60', 'font-medium');
+        b.classList.remove('text-slate-900', 'bg-white', 'shadow-sm', 'ring-1', 'ring-slate-200', 'font-semibold');
+      }
+    });
+
+    // Update sections
+    const activeSection = document.getElementById(mode.section);
+    if (activeSection) activeSection.classList.remove('hidden');
+
+    mode.hide.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+
+    // Mode specific logic
+    if (modeKey === 'reels') {
+      // Force select short_video/tiktok/instagram
+      const platformGroup = document.getElementById('generator-platforms');
+      if (platformGroup) {
+        const videoPlatforms = ['short_video', 'tiktok', 'instagram'];
+        platformGroup.querySelectorAll('button').forEach(b => {
+          const p = b.dataset.generatorPlatform;
+          if (videoPlatforms.includes(p)) {
+            if (b.getAttribute('aria-pressed') !== 'true') b.click();
+          } else if (b.getAttribute('aria-pressed') === 'true') {
+            b.click();
+          }
+        });
+      }
+
+      // Update generate button text
+      const genBtn = document.getElementById('generate-content');
+      if (genBtn) genBtn.textContent = 'Generate Reels Plan';
+    } else if (modeKey === 'social') {
+      // Update generate button text
+      const genBtn = document.getElementById('generate-content');
+      if (genBtn) genBtn.textContent = 'Generate Content';
+    }
+  }
+
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {
       const modeKey = Object.keys(modes).find(k => modes[k].btn === btn.id);
       if (!modeKey) return;
+      applyMode(modeKey);
+    });
+  });
+
+  if (modes[preferredMode]) {
+    applyMode(preferredMode);
+  }
+}
+
+// Brand inspiration constants
+const MAX_BRANDS = 4;
+const MAX_ANTI_BRANDS = 3;
+
+// Initialize brand inspiration step
+function initBrandInspiration() {
+  const addBrandBtn = document.getElementById('wizard-add-brand-btn');
+  const addAntiBrandBtn = document.getElementById('wizard-add-anti-brand-btn');
+  
+  if (!addBrandBtn || !addAntiBrandBtn) return; // Not on wizard page
+  
+  // Add initial brand input
+  addWizardBrandInput();
+  
+  // Initialize anti-brand counter (even though there are 0 items)
+  updateAntiBrandCounter();
+  
+  // Add brand button handler
+  addBrandBtn.addEventListener('click', () => addWizardBrandInput());
+  
+  // Add anti-brand button handler
+  addAntiBrandBtn.addEventListener('click', () => addWizardAntiBrandInput());
+  
+  // Vibe preset button handlers
+  document.querySelectorAll('.wizard-vibe-preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const vibe = btn.dataset.vibe;
+      // Toggle selection
+      const isSelected = btn.classList.contains('border-indigo-500');
       
-      // Update buttons
-      buttons.forEach(b => {
-        const isSelected = b.id === btn.id;
-        b.setAttribute('aria-selected', isSelected);
-        if (isSelected) {
-          b.classList.remove('text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60');
-          b.classList.add('text-slate-900', 'bg-white', 'shadow-sm', 'ring-1', 'ring-slate-200', 'font-semibold');
-          b.classList.remove('font-medium');
-        } else {
-          b.classList.add('text-slate-600', 'hover:text-slate-900', 'hover:bg-white/60', 'font-medium');
-          b.classList.remove('text-slate-900', 'bg-white', 'shadow-sm', 'ring-1', 'ring-slate-200', 'font-semibold');
-        }
+      // Clear all selections
+      document.querySelectorAll('.wizard-vibe-preset-btn').forEach(b => {
+        b.classList.remove('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+        b.classList.add('border-slate-200', 'text-slate-700');
       });
-
-      // Update sections
-      const mode = modes[modeKey];
-      const activeSection = document.getElementById(mode.section);
-      if (activeSection) activeSection.classList.remove('hidden');
       
-      mode.hide.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.add('hidden');
-      });
-
-      // Mode specific logic
-      if (modeKey === 'reels') {
-        // Force select short_video/tiktok/instagram
-        const platformGroup = document.getElementById('generator-platforms');
-        if (platformGroup) {
-           const videoPlatforms = ['short_video', 'tiktok', 'instagram'];
-           platformGroup.querySelectorAll('button').forEach(b => {
-             const p = b.dataset.generatorPlatform;
-             if (videoPlatforms.includes(p)) {
-               if (b.getAttribute('aria-pressed') !== 'true') b.click();
-             } else {
-               if (b.getAttribute('aria-pressed') === 'true') b.click();
-             }
-           });
-        }
-        // Show reel options
-        const reelOptions = document.getElementById('reel-options');
-        if (reelOptions) reelOptions.classList.remove('hidden');
-        
-        // Update generate button text
-        const genBtn = document.getElementById('generate-content');
-        if (genBtn) genBtn.textContent = 'Generate Reels Plan';
-
-      } else if (modeKey === 'social') {
-        // Hide reel options
-        const reelOptions = document.getElementById('reel-options');
-        if (reelOptions) reelOptions.classList.add('hidden');
-        
-        // Update generate button text
-        const genBtn = document.getElementById('generate-content');
-        if (genBtn) genBtn.textContent = 'Generate Content';
+      // Toggle this one
+      if (!isSelected) {
+        btn.classList.add('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+        btn.classList.remove('border-slate-200', 'text-slate-700');
       }
     });
   });
+}
+
+function updateBrandCounter() {
+  const container = document.getElementById('wizard-brand-inspirations');
+  const addBtn = document.getElementById('wizard-add-brand-btn');
+  if (!container || !addBtn) return;
+  
+  const count = container.children.length;
+  
+  // Update button text with counter
+  const btnText = addBtn.querySelector('span');
+  if (btnText) {
+    btnText.textContent = `+ Add brand (${count}/${MAX_BRANDS})`;
+  }
+  
+  // Disable button if at max
+  if (count >= MAX_BRANDS) {
+    addBtn.disabled = true;
+    addBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    addBtn.disabled = false;
+    addBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+function updateAntiBrandCounter() {
+  const container = document.getElementById('wizard-brand-anti-inspirations');
+  const addBtn = document.getElementById('wizard-add-anti-brand-btn');
+  if (!container || !addBtn) return;
+  
+  const count = container.children.length;
+  
+  // Update button text with counter
+  const btnText = addBtn.querySelector('span');
+  if (btnText) {
+    btnText.textContent = `+ Add brand to avoid (${count}/${MAX_ANTI_BRANDS})`;
+  }
+  
+  // Disable button if at max
+  if (count >= MAX_ANTI_BRANDS) {
+    addBtn.disabled = true;
+    addBtn.classList.add('opacity-50', 'cursor-not-allowed');
+  } else {
+    addBtn.disabled = false;
+    addBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+  }
+}
+
+function addWizardBrandInput(name = '', why = '') {
+  const container = document.getElementById('wizard-brand-inspirations');
+  if (!container) return;
+  
+  if (container.children.length >= MAX_BRANDS) return;
+  
+  const div = document.createElement('div');
+  div.className = 'space-y-2';
+  div.innerHTML = `
+    <div class="flex gap-2">
+      <input 
+        type="text" 
+        placeholder="Brand name (e.g., Apple)" 
+        class="brand-name flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700"
+        value="${escapeHtml(name)}"
+      />
+      <button type="button" class="remove-brand-btn px-3 py-2 text-slate-400 hover:text-red-500 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <input 
+      type="text" 
+      placeholder="Why? (e.g., clean and minimal)" 
+      class="brand-why w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700 text-sm"
+      value="${escapeHtml(why)}"
+    />
+  `;
+  
+  container.appendChild(div);
+  
+  // Add remove handler
+  div.querySelector('.remove-brand-btn').addEventListener('click', () => {
+    div.remove();
+    updateBrandCounter();
+  });
+  
+  updateBrandCounter();
+}
+
+function addWizardAntiBrandInput(name = '', why = '') {
+  const container = document.getElementById('wizard-brand-anti-inspirations');
+  if (!container) return;
+  
+  if (container.children.length >= MAX_ANTI_BRANDS) return;
+  
+  const div = document.createElement('div');
+  div.className = 'space-y-2';
+  div.innerHTML = `
+    <div class="flex gap-2">
+      <input 
+        type="text" 
+        placeholder="Brand name" 
+        class="anti-brand-name flex-1 rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700"
+        value="${escapeHtml(name)}"
+      />
+      <button type="button" class="remove-anti-brand-btn px-3 py-2 text-slate-400 hover:text-red-500 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <input 
+      type="text" 
+      placeholder="Why avoid?" 
+      class="anti-brand-why w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 text-slate-700 text-sm"
+      value="${escapeHtml(why)}"
+    />
+  `;
+  
+  container.appendChild(div);
+  
+  // Add remove handler
+  div.querySelector('.remove-anti-brand-btn').addEventListener('click', () => {
+    div.remove();
+    updateAntiBrandCounter();
+  });
+  
+  updateAntiBrandCounter();
+}
+
+// Hydrate brand inspiration UI with saved data
+function hydrateBrandInspirationUI() {
+  const brandContainer = document.getElementById('wizard-brand-inspirations');
+  const antiBrandContainer = document.getElementById('wizard-brand-anti-inspirations');
+  
+  if (!brandContainer || !antiBrandContainer) return;
+  
+  // Clear existing inputs
+  brandContainer.innerHTML = '';
+  antiBrandContainer.innerHTML = '';
+  
+  // Hydrate brand inspirations
+  if (answers.brand_inspirations && answers.brand_inspirations.length > 0) {
+    answers.brand_inspirations.forEach(brand => {
+      addWizardBrandInput(brand.name || '', brand.why || '');
+    });
+  } else {
+    // Add at least one empty input
+    addWizardBrandInput();
+  }
+  
+  // Hydrate anti-inspirations
+  if (answers.brand_anti_inspirations && answers.brand_anti_inspirations.length > 0) {
+    answers.brand_anti_inspirations.forEach(brand => {
+      addWizardAntiBrandInput(brand.name || '', brand.why || '');
+    });
+  }
+  
+  // Hydrate vibe preset
+  if (answers.vibe_preset) {
+    // Use safer attribute selector to avoid CSS injection
+    const vibeButtons = document.querySelectorAll('.wizard-vibe-preset-btn');
+    vibeButtons.forEach(btn => {
+      if (btn.dataset.vibe === answers.vibe_preset) {
+        btn.classList.add('border-indigo-500', 'text-indigo-700', 'bg-indigo-50');
+        btn.classList.remove('border-slate-200', 'text-slate-700');
+      }
+    });
+  }
+  
+  // Update counters
+  updateBrandCounter();
+  updateAntiBrandCounter();
+}
+
+// ============================================================================
+// Brand Kit Wizard Functions
+// ============================================================================
+
+function hydrateBrandKitUI() {
+  // Load existing brand kit data from backend
+  loadBrandKit();
+  
+  // Setup event listeners for Brand Kit UI
+  setupBrandKitListeners();
+}
+
+async function loadBrandKit() {
+  try {
+    const response = await fetch('/api/brand_kit');
+    const data = await response.json();
+    
+    if (data.ok && data.brand_kit) {
+      const kit = data.brand_kit;
+      
+      // Hydrate business name
+      const businessNameInput = document.getElementById('bk-business-name');
+      if (businessNameInput && kit.business && kit.business.company_name) {
+        businessNameInput.value = kit.business.company_name;
+      }
+      
+      // Hydrate services
+      if (kit.services && kit.services.primary_services) {
+        answers.brand_kit.services = kit.services.primary_services;
+        renderBrandKitChips('bk-services-chips', answers.brand_kit.services, 'services');
+      }
+      
+      // Hydrate audience
+      const audienceInput = document.getElementById('bk-audience');
+      if (audienceInput && kit.audience && kit.audience.target_roles && kit.audience.target_roles.length > 0) {
+        audienceInput.value = kit.audience.target_roles[0];
+      }
+      
+      // Hydrate pain
+      const painInput = document.getElementById('bk-pain');
+      if (painInput && kit.audience && kit.audience.top_pains && kit.audience.top_pains.length > 0) {
+        painInput.value = kit.audience.top_pains[0];
+      }
+      
+      // Hydrate outcome
+      const outcomeInput = document.getElementById('bk-outcome');
+      if (outcomeInput && kit.audience && kit.audience.desired_outcomes && kit.audience.desired_outcomes.length > 0) {
+        outcomeInput.value = kit.audience.desired_outcomes[0];
+      }
+      
+      // Hydrate differentiators
+      if (kit.positioning && kit.positioning.differentiators) {
+        answers.brand_kit.differentiators = kit.positioning.differentiators;
+        renderBrandKitChips('bk-differentiators-chips', answers.brand_kit.differentiators, 'differentiators');
+      }
+      
+      // Hydrate proof
+      const proofInput = document.getElementById('bk-proof');
+      if (proofInput && kit.proof) {
+        const proofParts = [];
+        if (kit.proof.years_in_business) proofParts.push(`${kit.proof.years_in_business} years experience`);
+        if (kit.proof.credentials && kit.proof.credentials.length > 0) proofParts.push(kit.proof.credentials.join(', '));
+        if (proofParts.length > 0) {
+          proofInput.value = proofParts.join(', ');
+        }
+      }
+      
+      // Hydrate email fields
+      if (kit.email) {
+        const emailNameInput = document.getElementById('bk-email-name');
+        const emailTitleInput = document.getElementById('bk-email-title');
+        const emailContactInput = document.getElementById('bk-email-contact');
+        if (emailNameInput && kit.email.sender_name) emailNameInput.value = kit.email.sender_name;
+        if (emailTitleInput && kit.email.signoff_style) emailTitleInput.value = kit.email.signoff_style;
+        if (emailContactInput && kit.email.signature_lines) emailContactInput.value = kit.email.signature_lines;
+      }
+      
+      // Hydrate quote fields
+      if (kit.quotes) {
+        const depositInput = document.getElementById('bk-deposit');
+        const turnaroundInput = document.getElementById('bk-turnaround');
+        const validityInput = document.getElementById('bk-validity');
+        const paymentInput = document.getElementById('bk-payment-methods');
+        if (depositInput && kit.quotes.deposit_policy) depositInput.value = kit.quotes.deposit_policy;
+        if (turnaroundInput && kit.quotes.turnaround_time) turnaroundInput.value = kit.quotes.turnaround_time;
+        if (validityInput && kit.quotes.default_validity_days) validityInput.value = `${kit.quotes.default_validity_days} days`;
+        if (paymentInput && kit.quotes.payment_methods) paymentInput.value = kit.quotes.payment_methods;
+      }
+      
+      // Update meter based on loaded data
+      updateBrandKitMeter(kit.meta?.tier || 'minimum', kit.meta?.completeness_score || 0);
+    }
+  } catch (error) {
+    console.error('Failed to load brand kit:', error);
+  }
+}
+
+function setupBrandKitListeners() {
+  // Services input - Enter key to add
+  const servicesInput = document.getElementById('bk-services-input');
+  if (servicesInput) {
+    servicesInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = servicesInput.value.trim();
+        if (value && answers.brand_kit.services.length < 5) {
+          answers.brand_kit.services.push(value);
+          renderBrandKitChips('bk-services-chips', answers.brand_kit.services, 'services');
+          servicesInput.value = '';
+          calculateBrandKitTier();
+        }
+      }
+    });
+  }
+  
+  // Differentiators input - Enter key to add
+  const diffInput = document.getElementById('bk-differentiators-input');
+  if (diffInput) {
+    diffInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const value = diffInput.value.trim();
+        if (value && answers.brand_kit.differentiators.length < 3) {
+          answers.brand_kit.differentiators.push(value);
+          renderBrandKitChips('bk-differentiators-chips', answers.brand_kit.differentiators, 'differentiators');
+          diffInput.value = '';
+          calculateBrandKitTier();
+        }
+      }
+    });
+  }
+  
+  // Chip suggestion buttons
+  const chipSuggestions = document.querySelectorAll('.chip-suggestion');
+  chipSuggestions.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      const value = btn.dataset.value;
+      const input = document.getElementById(targetId);
+      if (input) {
+        input.value = value;
+        input.dispatchEvent(new Event('input'));
+      }
+    });
+  });
+  
+  // Suggestion buttons that insert predefined values
+  const suggestionButtons = document.querySelectorAll('[data-suggestion-target]');
+  suggestionButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.suggestionTarget;
+      const suggestions = JSON.parse(btn.dataset.suggestions || '[]');
+      const input = document.getElementById(targetId);
+      if (input && suggestions.length > 0) {
+        // Insert first suggestion
+        input.value = suggestions[0];
+        input.dispatchEvent(new Event('input'));
+      }
+    });
+  });
+  
+  // Example toggle
+  const exampleToggle = document.getElementById('show-example-toggle');
+  const exampleComparison = document.getElementById('example-comparison');
+  if (exampleToggle && exampleComparison) {
+    exampleToggle.addEventListener('click', () => {
+      exampleComparison.classList.toggle('hidden');
+      const icon = exampleToggle.querySelector('span');
+      if (icon) {
+        icon.textContent = exampleComparison.classList.contains('hidden') ? '▶' : '▼';
+      }
+    });
+  }
+  
+  // Skip button
+  const skipBtn = document.getElementById('skip-brand-kit');
+  if (skipBtn) {
+    skipBtn.addEventListener('click', () => {
+      // Just proceed to next step without saving
+      step = skipStep2 ? 4 : 3;
+      showStep(step);
+    });
+  }
+  
+  // Logo upload validation
+  const logoUpload = document.getElementById('bk-logo-upload');
+  if (logoUpload) {
+    logoUpload.addEventListener('change', handleLogoUpload);
+  }
+  
+  // Input change listeners for meter updates
+  const inputIds = ['bk-business-name', 'bk-audience', 'bk-pain', 'bk-outcome', 'bk-proof', 
+                    'bk-email-name', 'bk-email-title', 'bk-email-contact',
+                    'bk-deposit', 'bk-turnaround', 'bk-validity', 'bk-payment-methods'];
+  inputIds.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('input', calculateBrandKitTier);
+    }
+  });
+  
+  // Event delegation for chip removal buttons
+  document.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('[data-remove-chip]');
+    if (removeBtn) {
+      const type = removeBtn.dataset.removeChip;
+      const index = parseInt(removeBtn.dataset.chipIndex, 10);
+      if (!isNaN(index)) {
+        removeBrandKitChip(type, index);
+      }
+    }
+  });
+}
+
+function renderBrandKitChips(containerId, items, type) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  container.innerHTML = '';
+  items.forEach((item, index) => {
+    const chip = document.createElement('span');
+    chip.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-700';
+    
+    // Create text node for the item to prevent XSS
+    const itemText = document.createTextNode(item);
+    chip.appendChild(itemText);
+    
+    // Create button element
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'ml-1 text-purple-500 hover:text-purple-700';
+    removeBtn.dataset.removeChip = type;
+    removeBtn.dataset.chipIndex = index.toString();
+    removeBtn.textContent = '×';
+    
+    chip.appendChild(document.createTextNode(' '));
+    chip.appendChild(removeBtn);
+    container.appendChild(chip);
+  });
+}
+
+function removeBrandKitChip(type, index) {
+  if (type === 'services') {
+    answers.brand_kit.services.splice(index, 1);
+    renderBrandKitChips('bk-services-chips', answers.brand_kit.services, 'services');
+  } else if (type === 'differentiators') {
+    answers.brand_kit.differentiators.splice(index, 1);
+    renderBrandKitChips('bk-differentiators-chips', answers.brand_kit.differentiators, 'differentiators');
+  }
+  calculateBrandKitTier();
+}
+
+function calculateBrandKitTier() {
+  // Count filled fields
+  let score = 0;
+  const maxScore = 100;
+  
+  // GOOD tier (25 points)
+  const businessName = document.getElementById('bk-business-name')?.value.trim() || '';
+  if (businessName) score += 5;
+  if (answers.brand_kit.services.length >= 2) score += 10;
+  else if (answers.brand_kit.services.length === 1) score += 5;
+  if (document.getElementById('bk-audience')?.value.trim()) score += 5;
+  if (document.getElementById('bk-pain')?.value.trim()) score += 3;
+  if (document.getElementById('bk-outcome')?.value.trim()) score += 2;
+  
+  // BETTER tier (25 points)
+  if (answers.brand_kit.differentiators.length >= 2) score += 15;
+  else if (answers.brand_kit.differentiators.length === 1) score += 7;
+  if (document.getElementById('bk-proof')?.value.trim()) score += 10;
+  
+  // BEST tier (50 points)
+  if (document.getElementById('bk-email-name')?.value.trim()) score += 5;
+  if (document.getElementById('bk-email-title')?.value.trim()) score += 5;
+  if (document.getElementById('bk-email-contact')?.value.trim()) score += 5;
+  if (document.getElementById('bk-deposit')?.value.trim()) score += 5;
+  if (document.getElementById('bk-turnaround')?.value.trim()) score += 5;
+  if (document.getElementById('bk-validity')?.value.trim()) score += 5;
+  if (document.getElementById('bk-payment-methods')?.value.trim()) score += 5;
+  if (answers.brand_kit.logo) score += 10;
+  
+  // Determine tier based on score thresholds
+  let tier = 'minimum';
+  if (score >= 75) {
+    tier = 'best';
+  } else if (score >= 50) {
+    tier = 'stronger';
+  }
+  // else tier remains 'minimum' (for scores 0-49)
+  
+  updateBrandKitMeter(tier, score);
+}
+
+function updateBrandKitMeter(tier, score) {
+  const meterEl = document.getElementById('brand-kit-meter');
+  const tierEl = document.getElementById('brand-kit-tier');
+  const helperEl = document.getElementById('brand-kit-helper');
+  
+  if (meterEl) {
+    meterEl.style.width = `${score}%`;
+    
+    // Update color based on tier
+    meterEl.className = 'h-full rounded-full transition-all duration-500';
+    if (tier === 'best') {
+      meterEl.classList.add('bg-gradient-to-r', 'from-purple-500', 'to-purple-600');
+    } else if (tier === 'stronger') {
+      meterEl.classList.add('bg-gradient-to-r', 'from-blue-500', 'to-blue-600');
+    } else {
+      meterEl.classList.add('bg-gradient-to-r', 'from-yellow-400', 'to-yellow-500');
+    }
+  }
+  
+  if (tierEl) {
+    tierEl.textContent = tier === 'minimum' ? 'Good' : tier === 'stronger' ? 'Better' : 'Best';
+    tierEl.className = 'px-3 py-1 rounded-full text-sm font-medium';
+    if (tier === 'best') {
+      tierEl.classList.add('bg-purple-100', 'text-purple-700');
+    } else if (tier === 'stronger') {
+      tierEl.classList.add('bg-blue-100', 'text-blue-700');
+    } else {
+      tierEl.classList.add('bg-yellow-100', 'text-yellow-700');
+    }
+  }
+  
+  if (helperEl) {
+    if (tier === 'best') {
+      helperEl.textContent = 'Amazing! Your Brand Kit is complete. We'll generate ready-to-send emails and quotes for you.';
+    } else if (tier === 'stronger') {
+      helperEl.textContent = 'Add 2 more and your posts will feel more credible (we'll include proof and why someone should choose you).';
+    } else {
+      helperEl.textContent = 'Fill these 5 fields and you'll get posts you can copy/paste with your services and results included.';
+    }
+  }
+}
+
+function collectBrandKitData() {
+  // Collect all Brand Kit form data into answers.brand_kit
+  answers.brand_kit.business_name = document.getElementById('bk-business-name')?.value.trim() || '';
+  answers.brand_kit.audience = document.getElementById('bk-audience')?.value.trim() || '';
+  answers.brand_kit.pain = document.getElementById('bk-pain')?.value.trim() || '';
+  answers.brand_kit.outcome = document.getElementById('bk-outcome')?.value.trim() || '';
+  answers.brand_kit.proof = document.getElementById('bk-proof')?.value.trim() || '';
+  
+  answers.brand_kit.email = {
+    name: document.getElementById('bk-email-name')?.value.trim() || '',
+    title: document.getElementById('bk-email-title')?.value.trim() || '',
+    contact: document.getElementById('bk-email-contact')?.value.trim() || ''
+  };
+  
+  answers.brand_kit.quotes = {
+    deposit: document.getElementById('bk-deposit')?.value.trim() || '',
+    turnaround: document.getElementById('bk-turnaround')?.value.trim() || '',
+    validity: document.getElementById('bk-validity')?.value.trim() || '',
+    payment_methods: document.getElementById('bk-payment-methods')?.value.trim() || ''
+  };
+}
+
+async function saveBrandKit() {
+  try {
+    // Build brand kit payload matching backend schema
+    const brandKitPayload = {
+      version: 1,
+      business: {
+        company_name: answers.brand_kit.business_name || null,
+        industry_id: answers.industry || '',
+        service_area: null,
+        timezone: null,
+        booking_url: null,
+        contact_email: answers.brand_kit.email.contact || null,
+        contact_phone: null
+      },
+      services: {
+        primary_services: answers.brand_kit.services || [],
+        addons: [],
+        pricing_style: null,
+        service_constraints: []
+      },
+      audience: {
+        target_roles: answers.brand_kit.audience ? [answers.brand_kit.audience] : [],
+        top_pains: answers.brand_kit.pain ? [answers.brand_kit.pain] : [],
+        desired_outcomes: answers.brand_kit.outcome ? [answers.brand_kit.outcome] : [],
+        sophistication: null,
+        objections: []
+      },
+      positioning: {
+        differentiators: answers.brand_kit.differentiators || [],
+        values: [],
+        boundaries: []
+      },
+      proof: {
+        credentials: [],
+        years_in_business: null,
+        volume_markers: [],
+        testimonials: answers.brand_kit.proof ? [answers.brand_kit.proof] : []
+      },
+      email: {
+        sender_name: answers.brand_kit.email.name || null,
+        signoff_style: answers.brand_kit.email.title || null,
+        signature_lines: answers.brand_kit.email.contact || null,
+        preferred_cta: null,
+        links: null
+      },
+      quotes: {
+        default_validity_days: null,
+        deposit_policy: answers.brand_kit.quotes.deposit || null,
+        payment_methods: answers.brand_kit.quotes.payment_methods || null,
+        turnaround_time: answers.brand_kit.quotes.turnaround || null,
+        terms_bullets: null,
+        disclaimer: null
+      },
+      assets: {
+        logo_asset_id: answers.brand_kit.logo || null,
+        logo_url: null
+      }
+    };
+    
+    const response = await fetch('/api/brand_kit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brand_kit: brandKitPayload })
+    });
+    
+    const data = await response.json();
+    if (!data.ok) {
+      console.error('Failed to save brand kit:', data.error);
+    }
+  } catch (error) {
+    console.error('Error saving brand kit:', error);
+  }
+}
+
+async function handleLogoUpload(event) {
+  const file = event.target.files[0];
+  const errorEl = document.getElementById('bk-logo-error');
+  const successEl = document.getElementById('bk-logo-success');
+  
+  // Reset messages
+  if (errorEl) errorEl.classList.add('hidden');
+  if (successEl) successEl.classList.add('hidden');
+  
+  if (!file) return;
+  
+  // Validate file type
+  const validTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!validTypes.includes(file.type)) {
+    if (errorEl) {
+      errorEl.textContent = 'Please upload a PNG, JPG, or WebP image.';
+      errorEl.classList.remove('hidden');
+    }
+    event.target.value = '';
+    return;
+  }
+  
+  // Validate file size (2MB max)
+  const maxSize = 2 * 1024 * 1024; // 2MB
+  if (file.size > maxSize) {
+    if (errorEl) {
+      errorEl.textContent = 'File size must be under 2MB.';
+      errorEl.classList.remove('hidden');
+    }
+    event.target.value = '';
+    return;
+  }
+  
+  // Validate dimensions
+  const img = new Image();
+  const reader = new FileReader();
+  
+  reader.onload = (e) => {
+    img.onload = () => {
+      const maxDim = 2000;
+      if (img.width > maxDim || img.height > maxDim) {
+        if (errorEl) {
+          errorEl.textContent = `Image dimensions must be ${maxDim}x${maxDim} or smaller. Your image is ${img.width}x${img.height}.`;
+          errorEl.classList.remove('hidden');
+        }
+        event.target.value = '';
+        return;
+      }
+      
+      // All validations passed
+      if (successEl) {
+        successEl.textContent = 'Logo validated successfully! (Upload will complete when you save Brand Kit)';
+        successEl.classList.remove('hidden');
+      }
+      
+      // Don't store file reference yet - actual upload would happen on save
+      // For now, just mark that a logo was selected and validated
+      answers.brand_kit.logo = null; // Will be uploaded on save in future implementation
+      calculateBrandKitTier();
+    };
+    img.src = e.target.result;
+  };
+  
+  reader.readAsDataURL(file);
+}
+
+// ============================================================================
+// End Brand Kit Functions
+// ============================================================================
+
+// Call initialization
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initBrandInspiration);
+} else {
+  initBrandInspiration();
 }
