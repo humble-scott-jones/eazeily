@@ -192,24 +192,49 @@ function renderImproveResultsPanel(metadata, container) {
   
   const improvePanel = document.createElement('div');
   improvePanel.className = 'improve-results-panel';
-  improvePanel.innerHTML = `
-    <div class="improve-panel-header">
-      <div class="improve-panel-icon">💡</div>
-      <div class="improve-panel-content">
-        <h3 class="improve-panel-title">Improve Your Results</h3>
-        <p class="improve-panel-subtitle">Add more details to get richer, more personalized content</p>
-      </div>
-    </div>
-    <div class="improve-panel-body">
-      <p class="improve-panel-message">These fields will help create better posts:</p>
-      <div class="missing-chips-list" id="missing-chips-list"></div>
-    </div>
-  `;
+  
+  const panelHeader = document.createElement('div');
+  panelHeader.className = 'improve-panel-header';
+  
+  const panelIcon = document.createElement('div');
+  panelIcon.className = 'improve-panel-icon';
+  panelIcon.textContent = '💡';
+  
+  const panelContent = document.createElement('div');
+  panelContent.className = 'improve-panel-content';
+  
+  const panelTitle = document.createElement('h3');
+  panelTitle.className = 'improve-panel-title';
+  panelTitle.textContent = 'Improve Your Results';
+  
+  const panelSubtitle = document.createElement('p');
+  panelSubtitle.className = 'improve-panel-subtitle';
+  panelSubtitle.textContent = 'Add more details to get richer, more personalized content';
+  
+  panelContent.appendChild(panelTitle);
+  panelContent.appendChild(panelSubtitle);
+  panelHeader.appendChild(panelIcon);
+  panelHeader.appendChild(panelContent);
+  
+  const panelBody = document.createElement('div');
+  panelBody.className = 'improve-panel-body';
+  
+  const panelMessage = document.createElement('p');
+  panelMessage.className = 'improve-panel-message';
+  panelMessage.textContent = 'These fields will help create better posts:';
+  
+  const missingChipsList = document.createElement('div');
+  missingChipsList.className = 'missing-chips-list';
+  
+  panelBody.appendChild(panelMessage);
+  panelBody.appendChild(missingChipsList);
+  
+  improvePanel.appendChild(panelHeader);
+  improvePanel.appendChild(panelBody);
   
   container.insertBefore(improvePanel, container.firstChild);
   
   // Render missing chips with jump links
-  const missingChipsList = improvePanel.querySelector('#missing-chips-list');
   const missingSignals = metadata.missing_signals || [];
   
   if (missingSignals.length > 0) {
@@ -225,7 +250,10 @@ function renderImproveResultsPanel(metadata, container) {
       missingChipsList.appendChild(chipLink);
     });
   } else {
-    missingChipsList.innerHTML = '<p class="text-sm text-slate-500">Consider adding more focus topics, audience details, or proof points.</p>';
+    const fallbackMessage = document.createElement('p');
+    fallbackMessage.className = 'improve-panel-fallback';
+    fallbackMessage.textContent = 'Consider adding more focus topics, audience details, or proof points.';
+    missingChipsList.appendChild(fallbackMessage);
   }
 }
 

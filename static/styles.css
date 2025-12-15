@@ -720,6 +720,12 @@ html {
   margin: 0 0 12px 0;
 }
 
+.improve-panel-fallback {
+  font-size: 0.875rem;
+  color: #92400e;
+  margin: 0;
+}
+
 .missing-chips-list {
   display: flex;
   flex-wrap: wrap;
