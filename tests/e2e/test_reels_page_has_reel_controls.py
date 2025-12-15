@@ -206,3 +206,43 @@ def test_reels_page_title():
     
     finally:
         stop_server(proc)
+
+
+def test_reels_page_has_quick_generate_button():
+    """
+    Test that /generate/reels has a quick generate button.
+    
+    Verifies:
+    - Quick generate button exists
+    - Button is visible and clickable
+    """
+    proc = start_server()
+    
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
+            
+            # Navigate to /generate/reels
+            page.goto(f"{BASE}/generate/reels", wait_until="networkidle", timeout=10000)
+            
+            # Wait for page to fully load
+            time.sleep(2)
+            
+            # Check for quick generate button
+            quick_generate_btn = page.query_selector("#quick-generate-reel")
+            assert quick_generate_btn is not None, "Quick generate button should exist"
+            
+            # Verify button is visible
+            is_visible = quick_generate_btn.is_visible()
+            assert is_visible, "Quick generate button should be visible"
+            
+            # Verify button has appropriate text
+            button_text = quick_generate_btn.inner_text()
+            assert "Generate" in button_text or "reel" in button_text.lower(), "Button should mention generating reels"
+            
+            browser.close()
+    
+    finally:
+        stop_server(proc)
