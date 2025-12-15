@@ -594,6 +594,18 @@ html {
   margin-bottom: 12px;
   font-size: 0.875rem;
   color: #713f12;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cta-content {
+  flex: 1;
+}
+
+.cta-copy-btn {
+  align-self: flex-start;
+  margin-top: 4px;
 }
 
 .notes-details {
@@ -656,6 +668,107 @@ html {
   .social-post-cards-grid {
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
   }
+}
+
+/* Improve Results Panel */
+.improve-results-panel {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #fbbf24;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.15);
+}
+
+.improve-panel-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.improve-panel-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.improve-panel-content {
+  flex: 1;
+}
+
+.improve-panel-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #78350f;
+  margin: 0 0 4px 0;
+}
+
+.improve-panel-subtitle {
+  font-size: 0.875rem;
+  color: #92400e;
+  margin: 0;
+}
+
+.improve-panel-body {
+  margin-top: 12px;
+}
+
+.improve-panel-message {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #78350f;
+  margin: 0 0 12px 0;
+}
+
+.missing-chips-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.missing-chip-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  background: #fff;
+  border: 2px solid #f59e0b;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #92400e;
+  text-decoration: none;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.missing-chip-link:hover {
+  background: #fffbeb;
+  border-color: #d97706;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.missing-chip-link:active {
+  transform: translateY(0);
+}
+
+/* Highlight pulse animation for chip sections */
+@keyframes highlightPulse {
+  0%, 100% {
+    background-color: transparent;
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0);
+  }
+  50% {
+    background-color: rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 0 8px rgba(99, 102, 241, 0.2);
+  }
+}
+
+.highlight-pulse {
+  animation: highlightPulse 2s ease-in-out;
+  border-radius: 12px;
+  padding: 8px;
+  margin: -8px;
 }
 
 .no-posts {

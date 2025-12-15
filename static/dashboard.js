@@ -2798,7 +2798,13 @@ function renderPosts(data) {
   // Check if response is in post-ready format (SocialPostCard)
   // If so, use the copy-first renderer
   if (window.SocialCopyFirstRenderer && window.SocialCopyFirstRenderer.isPostReadyFormat(data)) {
-    window.SocialCopyFirstRenderer.renderSocialPostCards(posts, resultsDiv);
+    // Extract metadata for improve panel
+    const metadata = {
+      output_not_rich_enough: data.output_not_rich_enough || false,
+      missing_signals: data.missing_signals || []
+    };
+    
+    window.SocialCopyFirstRenderer.renderSocialPostCards(posts, resultsDiv, metadata);
     
     // Still render the publishing queue for compatibility
     syncQueueWithPosts(posts);
