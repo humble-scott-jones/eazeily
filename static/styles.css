@@ -4,6 +4,14 @@
   --brand-50:#eef2ff;
   --sand:#fbfbfd;
 }
+
+/* Accessibility and hit-area improvements for small icon/text buttons */
+.btn-ghost.text-xs{ min-width:44px; min-height:36px; display:inline-flex; align-items:center; justify-content:center; padding:8px 10px; }
+.btn-ghost.text-xs:focus-visible, .btn-primary:focus-visible, .btn-secondary:focus-visible{ outline:3px solid rgba(99,102,241,.18); outline-offset:3px; }
+
+/* Ensure small helper text has sufficient contrast when actionable */
+.text-slate-500{ color:#475569; }
+
 .bg-brand-sand{ background: var(--sand); }
 .text-brand{ color: var(--brand); }
 .logo-gradient{ width:32px;height:32px;border-radius:10px; overflow:hidden; display:inline-block;
