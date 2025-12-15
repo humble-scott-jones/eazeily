@@ -146,6 +146,8 @@ class UsedSignals(TypedDict, total=False):
     outcomes_used: List[str]
     proof_used: List[str]
     differentiators_used: List[str]
+    cta_used: Optional[str]
+    custom_chips_used: List[str]
 
 
 class SuccessResponse(TypedDict):

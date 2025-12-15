@@ -732,44 +732,49 @@ class PromptCompiler:
     def _build_social_prompt_set(self, context: ModelReadyContext) -> PromptSet:
         """Build complete prompt set for social generation with voice anchoring."""
         
-        # System message with safety constraint
+        # System message with safety constraint and NO COACHING rule
         system = (
             "You are Eazeily, an expert social media content generator. "
             "Generate engaging, on-brand content that sounds natural and human. "
             "CRITICAL: Return ONLY valid JSON matching the exact schema provided. "
             "Never include private contact information (phone, email, address) in public posts. "
             "IMPORTANT: Do not imitate or reproduce trademarked slogans or recognizable brand phrases. "
-            "Use only general style cues and tone inspiration."
+            "Use only general style cues and tone inspiration. "
+            "\n\nOUTPUT REQUIREMENTS (STRICTLY ENFORCED):\n"
+            "- Captions must be PASTE-READY final copy ONLY\n"
+            "- NO coaching language (e.g., 'you should', 'make sure to', 'consider posting')\n"
+            "- NO guidance text (e.g., 'Focus:', 'Platform tip:', 'Share a quick tip...')\n"
+            "- Strategy notes go in 'notes' field, NEVER in caption\n"
+            "- Each caption MUST have structure: numbered list, bullets, or concrete examples"
         )
         
         # Context section (compact)
         context_parts = []
-        if context.get('company_name'):
-            context_parts.append(f"Company: {context['company_name']}")
-        if context.get('industry'):
-            context_parts.append(f"Industry: {context['industry']}")
-        if context.get('offerings'):
-            context_parts.append(f"Offerings: {context['offerings']}")
-        if context.get('audience'):
-            context_parts.append(f"Audience: {context['audience']}")
         
-        # Brand Kit signals (if present) - MUST USE rules
+        # BUSINESS SNAPSHOT section
+        snapshot_parts = []
+        if context.get('company_name'):
+            snapshot_parts.append(f"Company: {context['company_name']}")
+        if context.get('industry'):
+            snapshot_parts.append(f"Industry: {context['industry']}")
+        if context.get('offerings'):
+            snapshot_parts.append(f"Offerings: {context['offerings']}")
+        
+        if snapshot_parts:
+            context_parts.append("BUSINESS SNAPSHOT:")
+            context_parts.append("  " + " | ".join(snapshot_parts))
+        
+        # Brand Kit signals (if present) - MUST USE rules with labeled sections
         if context.get('brand_kit_applied') and (brand_kit := context.get('brand_kit')):
             brand_kit_parts = []
-            brand_kit_parts.append("BRAND KIT (MUST USE in every post):")
+            brand_kit_parts.append("\nBRAND SIGNALS (MUST USE in every post):")
             
+            # OFFER/SERVICES section (chips)
             if services := brand_kit.get('services'):
                 services_to_show = services[:MAX_SERVICES_IN_PROMPT]
-                brand_kit_parts.append(f"  Services: {', '.join(services_to_show)}")
+                brand_kit_parts.append(f"  Offer/Services: {', '.join(services_to_show)}")
             
-            if differentiators := brand_kit.get('differentiators'):
-                diff_to_show = differentiators[:MAX_DIFFERENTIATORS_IN_PROMPT]
-                brand_kit_parts.append(f"  What makes you different: {', '.join(diff_to_show)}")
-            
-            if proof := brand_kit.get('proof'):
-                proof_to_show = proof[:MAX_PROOF_IN_PROMPT]
-                brand_kit_parts.append(f"  Proof/credentials: {', '.join(proof_to_show)}")
-            
+            # AUDIENCE section (chips)
             audience_parts = []
             if role := brand_kit.get('audience_role'):
                 audience_parts.append(f"Who: {role}")
@@ -783,10 +788,21 @@ class PromptCompiler:
             if audience_parts:
                 brand_kit_parts.append(f"  Audience: {' | '.join(audience_parts)}")
             
+            # PROOF section (chips)
+            if proof := brand_kit.get('proof'):
+                proof_to_show = proof[:MAX_PROOF_IN_PROMPT]
+                brand_kit_parts.append(f"  Proof/Credentials: {', '.join(proof_to_show)}")
+            
+            # Differentiators (what makes you different)
+            if differentiators := brand_kit.get('differentiators'):
+                diff_to_show = differentiators[:MAX_DIFFERENTIATORS_IN_PROMPT]
+                brand_kit_parts.append(f"  What makes you different: {', '.join(diff_to_show)}")
+            
             # MUST USE rules for social posts
             brand_kit_parts.append("\n  CONTENT REQUIREMENTS (each post MUST include):")
-            brand_kit_parts.append("    ✓ At least ONE: service mention OR differentiator OR proof point")
+            brand_kit_parts.append("    ✓ At least ONE: service/offer mention OR differentiator OR proof point")
             brand_kit_parts.append("    ✓ At least ONE: pain/outcome reference OR audience callout")
+            brand_kit_parts.append("    ✓ Structure: numbered list, bullets, or concrete example")
             
             context_parts.append("\n".join(brand_kit_parts))
         
@@ -802,10 +818,10 @@ class PromptCompiler:
             
             context_parts.append("\n".join(constraint_parts))
         
-        # Brand inspiration style (if applied) - lower priority than voice fingerprint
+        # STYLE SIGNALS: Brand inspiration (if applied) - lower priority than voice fingerprint
         if context.get('inspiration_applied') and (inspiration_style := context.get('inspiration_style')):
             inspiration_parts = []
-            inspiration_parts.append(f"BRAND INSPIRATION (style cues only):")
+            inspiration_parts.append("\nSTYLE SIGNALS (brand inspiration - tone cues only, don't imitate or mention brands):")
             
             if descriptors := inspiration_style.get('descriptors'):
                 inspiration_parts.append(f"  Tone: {', '.join(descriptors)}")
