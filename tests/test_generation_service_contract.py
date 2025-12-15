@@ -156,7 +156,7 @@ def test_social_posts_never_returns_empty():
     # because it contains scaffold text like "Platform tip:" and "Share a..."
     assert result['ok'] is False
     assert 'error' in result
-    assert result['error']['code'] == 'output_not_post_ready'
+    assert result['error']['code'] == 'output_not_rich_enough'
 
 
 def test_reel_script_never_returns_empty_hook():
@@ -208,7 +208,7 @@ def test_social_posts_with_voice_samples():
     # Fallback content is blocked by validation gate
     assert result['ok'] is False
     assert 'error' in result
-    assert result['error']['code'] == 'output_not_post_ready'
+    assert result['error']['code'] == 'output_not_rich_enough'
 
 
 def test_review_response_with_brand_voice():
@@ -271,4 +271,4 @@ def test_warnings_for_sensitive_content():
     
     # Fallback is blocked by validation
     assert result['ok'] is False
-    assert result['error']['code'] == 'output_not_post_ready'
+    assert result['error']['code'] == 'output_not_rich_enough'
