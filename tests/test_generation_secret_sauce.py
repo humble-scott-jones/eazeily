@@ -138,7 +138,7 @@ def test_social_posts_with_voice_include_phrases():
     
     # Fallback is blocked by validation
     assert result['ok'] is False
-    assert result['error']['code'] == 'output_not_post_ready'
+    assert result['error']['code'] == 'output_not_rich_enough'
 
 
 def test_social_posts_avoid_taboo_phrases():
@@ -156,7 +156,7 @@ def test_social_posts_avoid_taboo_phrases():
     
     # Fallback is blocked by validation
     assert result['ok'] is False
-    assert result['error']['code'] == 'output_not_post_ready'
+    assert result['error']['code'] == 'output_not_rich_enough'
 
 
 def test_voice_style_instruction_generation():
@@ -242,7 +242,7 @@ def test_empty_voice_samples_doesnt_break():
     
     # Fallback is blocked by validation
     assert result['ok'] is False
-    assert result['error']['code'] == 'output_not_post_ready'
+    assert result['error']['code'] == 'output_not_rich_enough'
 
 
 def test_minimal_voice_samples():

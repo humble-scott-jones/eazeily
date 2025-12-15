@@ -106,10 +106,57 @@ def merge_contexts(
             merged['image_tailor'] = request['image_tailor']
         if 'use_brand_voice' in request:
             merged['use_brand_voice'] = request['use_brand_voice']
+        
+        # Chip selections - request overrides profile
+        if 'selected_audience_ids' in request:
+            merged['selected_audience_ids'] = request['selected_audience_ids']
+        elif profile and 'selected_audience_ids' in profile:
+            merged['selected_audience_ids'] = profile['selected_audience_ids']
+        
+        if 'selected_offer_ids' in request:
+            merged['selected_offer_ids'] = request['selected_offer_ids']
+        elif profile and 'selected_offer_ids' in profile:
+            merged['selected_offer_ids'] = profile['selected_offer_ids']
+        
+        if 'selected_proof_ids' in request:
+            merged['selected_proof_ids'] = request['selected_proof_ids']
+        elif profile and 'selected_proof_ids' in profile:
+            merged['selected_proof_ids'] = profile['selected_proof_ids']
+        
+        if 'selected_focus_topic_ids' in request:
+            merged['selected_focus_topic_ids'] = request['selected_focus_topic_ids']
+        elif profile and 'selected_focus_topic_ids' in profile:
+            merged['selected_focus_topic_ids'] = profile['selected_focus_topic_ids']
+        
+        if 'selected_cta_intent_id' in request:
+            merged['selected_cta_intent_id'] = request['selected_cta_intent_id']
+        elif profile and 'selected_cta_intent_id' in profile:
+            merged['selected_cta_intent_id'] = profile['selected_cta_intent_id']
+        
+        if 'custom_chips' in request:
+            merged['custom_chips'] = request['custom_chips']
+        elif profile and 'custom_chips' in profile:
+            merged['custom_chips'] = profile['custom_chips']
+        
         # Copy any other request-specific params
         for key in request:
             if key not in merged:
                 merged[key] = request[key]
+    else:
+        # No request, use profile chips if available
+        if profile:
+            if 'selected_audience_ids' in profile:
+                merged['selected_audience_ids'] = profile['selected_audience_ids']
+            if 'selected_offer_ids' in profile:
+                merged['selected_offer_ids'] = profile['selected_offer_ids']
+            if 'selected_proof_ids' in profile:
+                merged['selected_proof_ids'] = profile['selected_proof_ids']
+            if 'selected_focus_topic_ids' in profile:
+                merged['selected_focus_topic_ids'] = profile['selected_focus_topic_ids']
+            if 'selected_cta_intent_id' in profile:
+                merged['selected_cta_intent_id'] = profile['selected_cta_intent_id']
+            if 'custom_chips' in profile:
+                merged['custom_chips'] = profile['custom_chips']
     
     # Build final context
     context = GenerationContext(
@@ -292,6 +339,95 @@ def extract_brand_kit_from_user_data(user_data: Dict[str, Any]) -> Optional[Bran
         brand_kit['quote_terms'] = user_data['quote_terms']
     
     return brand_kit if brand_kit else None
+
+
+def extract_chip_selections(
+    request: Optional[Dict[str, Any]] = None,
+    profile: Optional[Dict[str, Any]] = None,
+    brand_kit: Optional[BrandKitV1] = None,
+    industry_id: Optional[str] = None
+) -> Dict[str, List[str]]:
+    """Extract chip selections from various sources with precedence.
+    
+    Precedence (highest to lowest):
+    1. request - current request chip selections
+    2. profile - saved profile chip selections
+    3. brand_kit - chips derived from brand kit data
+    4. industry defaults - loaded from industry packs (handled separately)
+    
+    Args:
+        request: Current request data
+        profile: User profile data
+        brand_kit: Brand Kit data
+        industry_id: Industry ID for loading defaults
+        
+    Returns:
+        Dict with chip categories: {
+            'audience': [chip_id...],
+            'offers': [chip_id...],
+            'proof': [chip_id...],
+            'focus_topics': [chip_id...]
+        }
+    """
+    chips: Dict[str, List[str]] = {
+        'audience': [],
+        'offers': [],
+        'proof': [],
+        'focus_topics': []
+    }
+    
+    # Layer 1: Extract from brand kit (lowest priority among sources)
+    if brand_kit:
+        # Map brand kit services to offer chips
+        if services := brand_kit.get('services'):
+            chips['offers'].extend(services[:5])  # Limit to 5
+        
+        # Map proof to proof chips
+        if proof := brand_kit.get('proof'):
+            chips['proof'].extend(proof[:3])  # Limit to 3
+        
+        # Map audience data to audience chips
+        audience_parts = []
+        if role := brand_kit.get('audience_role'):
+            audience_parts.append(role)
+        if pain := brand_kit.get('audience_pain'):
+            audience_parts.append(pain)
+        if outcome := brand_kit.get('audience_outcome'):
+            audience_parts.append(outcome)
+        
+        if audience_parts:
+            # Use first 2 audience signals
+            chips['audience'].extend(audience_parts[:2])
+    
+    # Layer 2: Profile saved selections (override brand kit)
+    if profile:
+        if selected_audience := profile.get('selected_audience_ids'):
+            chips['audience'] = list(selected_audience)  # Replace brand kit
+        
+        if selected_offers := profile.get('selected_offer_ids'):
+            chips['offers'] = list(selected_offers)  # Replace brand kit
+        
+        if selected_proof := profile.get('selected_proof_ids'):
+            chips['proof'] = list(selected_proof)  # Replace brand kit
+        
+        if selected_topics := profile.get('selected_focus_topic_ids'):
+            chips['focus_topics'] = list(selected_topics)
+    
+    # Layer 3: Request selections (highest priority - override all)
+    if request:
+        if selected_audience := request.get('selected_audience_ids'):
+            chips['audience'] = list(selected_audience)
+        
+        if selected_offers := request.get('selected_offer_ids'):
+            chips['offers'] = list(selected_offers)
+        
+        if selected_proof := request.get('selected_proof_ids'):
+            chips['proof'] = list(selected_proof)
+        
+        if selected_topics := request.get('selected_focus_topic_ids'):
+            chips['focus_topics'] = list(selected_topics)
+    
+    return chips
 
 
 def format_brand_kit_bullets(brand_kit: BrandKitV1) -> Dict[str, str]:
