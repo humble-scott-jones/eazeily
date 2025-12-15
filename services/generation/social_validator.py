@@ -463,7 +463,7 @@ def validate_and_repair_posts(
         return {
             'ok': False,
             'error': {
-                'code': 'output_not_post_ready',
+                'code': 'output_not_rich_enough',
                 'message': 'Generated content does not meet quality standards',
                 'details': validation_result
             }
@@ -498,7 +498,7 @@ def validate_and_repair_posts(
                 return {
                     'ok': False,
                     'error': {
-                        'code': 'output_not_post_ready',
+                        'code': 'output_not_rich_enough',
                         'message': f"Post {result['post_index']} repair failed: {repair_result['error']}",
                         'details': validation_result
                     }
@@ -519,7 +519,7 @@ def validate_and_repair_posts(
         return {
             'ok': False,
             'error': {
-                'code': 'output_not_post_ready',
+                'code': 'output_not_rich_enough',
                 'message': 'Generated content does not meet quality standards after repair',
                 'details': final_validation
             }
