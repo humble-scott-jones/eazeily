@@ -897,6 +897,11 @@ def init_db():
             db.execute("ALTER TABLE profiles ADD COLUMN selected_cta_intent_id TEXT;")
         except Exception:
             pass
+    if "custom_chips" not in cols:
+        try:
+            db.execute("ALTER TABLE profiles ADD COLUMN custom_chips TEXT;")
+        except Exception:
+            pass
     # ensure users table has is_admin column (backfill for older DBs)
     try:
         ucols = [r[1] for r in db.execute("PRAGMA table_info(users)").fetchall()]
@@ -1086,7 +1091,8 @@ def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> di
         'selected_audience_ids': [],
         'selected_offer_ids': [],
         'selected_proof_ids': [],
-        'selected_cta_intent_id': None
+        'selected_cta_intent_id': None,
+        'custom_chips': {}
     }
 
     if not row:
@@ -1114,6 +1120,7 @@ def _normalize_profile_payload(row: Any = None, pid: Optional[str] = None) -> di
     payload['selected_offer_ids'] = _deserialize_json(data.get('selected_offer_ids'), []) or []
     payload['selected_proof_ids'] = _deserialize_json(data.get('selected_proof_ids'), []) or []
     payload['selected_cta_intent_id'] = data.get('selected_cta_intent_id')
+    payload['custom_chips'] = _deserialize_json(data.get('custom_chips'), {}) or {}
     if isinstance(payload['details'], dict):
         payload['timezone'] = payload['details'].get('timezone') or payload['details'].get('tz') or ''
     return payload
@@ -1773,6 +1780,7 @@ def api_profile():
         selected_offer_ids = json.dumps(data.get('selected_offer_ids') or [])
         selected_proof_ids = json.dumps(data.get('selected_proof_ids') or [])
         selected_cta_intent_id = data.get('selected_cta_intent_id') or None
+        custom_chips = json.dumps(data.get('custom_chips') or {})
 
         # Upsert
         existing = db.execute('SELECT id FROM profiles WHERE id = ?', (pid,)).fetchone()
@@ -1784,14 +1792,14 @@ def api_profile():
                     goals=?, company=?, include_images=?, details=?, voice_profile=?,
                     brand_inspirations=?, brand_anti_inspirations=?, vibe_preset=?,
                     selected_focus_topic_ids=?, selected_audience_ids=?, selected_offer_ids=?,
-                    selected_proof_ids=?, selected_cta_intent_id=?
+                    selected_proof_ids=?, selected_cta_intent_id=?, custom_chips=?
                     WHERE id=?
-                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id, pid))
+                ''', (industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id, custom_chips, pid))
             else:
                 db.execute('''
-                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id))
+                    INSERT INTO profiles (id, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id, custom_chips)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (pid, industry, tone, platforms, brand_keywords, niche_keywords, goals, company, include_images, details, voice_profile_data, brand_inspirations, brand_anti_inspirations, vibe_preset, selected_focus_topic_ids, selected_audience_ids, selected_offer_ids, selected_proof_ids, selected_cta_intent_id, custom_chips))
         except Exception as e:
             # Fallback for missing voice_profile column (if migration failed)
             # We catch all exceptions here to be safe, assuming that if the full save fails,

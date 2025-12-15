@@ -255,6 +255,30 @@
                 </div>
               </div>
 
+              <!-- Chip Selection Section (Good tier defaults) -->
+              <div id="chip-selection-section" class="hidden space-y-5 p-5 rounded-xl border-2 border-green-200 bg-green-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-green-500 text-white">GOOD</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Your Business Defaults</h4>
+                </div>
+                <p class="text-sm text-slate-600">Pick a few options—this is what makes your posts sound like your business.</p>
+
+                <!-- Focus Topics -->
+                <div id="chip-group-focus-topics"></div>
+
+                <!-- Audience -->
+                <div id="chip-group-audience"></div>
+
+                <!-- Offers -->
+                <div id="chip-group-offers"></div>
+
+                <!-- Proof -->
+                <div id="chip-group-proof"></div>
+
+                <!-- CTA Intent -->
+                <div id="chip-group-cta"></div>
+              </div>
+
               <!-- BETTER tier fields -->
               <div class="space-y-5 p-5 rounded-xl border-2 border-blue-200 bg-blue-50/30">
                 <div class="flex items-center gap-2 mb-2">
@@ -590,6 +614,7 @@
     </div>
   </footer>
 
+  <script src="/static/js/chip_group.js"></script>
   <script src="/static/app.js"></script>
 
 {% include 'auth_modal.html' %}
