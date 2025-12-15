@@ -6,6 +6,7 @@
   const exportBtn = document.getElementById('export-all');
   const regenHookBtn = document.getElementById('regen-hook');
   const regenCtaBtn = document.getElementById('regen-cta');
+  const quickGenerateBtn = document.getElementById('quick-generate-reel');
 
   if (!form || !sectionsContainer) return;
 
@@ -187,6 +188,12 @@
   regenHookBtn?.addEventListener('click', () => handleSectionRegen('hook'));
   regenCtaBtn?.addEventListener('click', () => handleSectionRegen('cta'));
   exportBtn?.addEventListener('click', exportAll);
+  
+  // Quick generate handler
+  quickGenerateBtn?.addEventListener('click', async () => {
+    // Trigger the form submission to generate a reel with current settings
+    await handleGenerate(new Event('submit'));
+  });
 
   sectionsContainer.querySelectorAll('[data-copy-section]').forEach(btn => {
     btn.addEventListener('click', () => {

@@ -95,14 +95,14 @@ def test_social_page_has_no_reel_options():
         stop_server(proc)
 
 
-def test_social_page_shows_reels_cta_on_platform_select():
+def test_social_page_does_not_show_reels_platform_chips():
     """
-    Test that selecting Reels/Shorts platform shows a CTA linking to /generate/reels.
+    Test that the Social page does NOT have Reels/Shorts or TikTok platform chips.
     
     Verifies:
-    - CTA notice appears when Reels/Shorts platform is selected
-    - CTA contains link to /generate/reels
-    - CTA text mentions "Reels tab"
+    - short_video platform chip does NOT exist
+    - tiktok platform chip does NOT exist
+    - Only non-video platform chips are present (Instagram, Facebook, LinkedIn, Twitter)
     """
     proc = start_server()
     
@@ -118,31 +118,26 @@ def test_social_page_shows_reels_cta_on_platform_select():
             # Wait for page to fully load
             time.sleep(2)
             
-            # Find and click the "Reels / Shorts" platform chip
+            # Verify that short_video chip does NOT exist
             reels_chip = page.query_selector('button[data-generator-platform="short_video"]')
-            assert reels_chip is not None, "Reels/Shorts platform chip should exist"
+            assert reels_chip is None, "Reels/Shorts platform chip should NOT exist on social page"
             
-            # Click the chip to select it
-            reels_chip.click()
+            # Verify that tiktok chip does NOT exist
+            tiktok_chip = page.query_selector('button[data-generator-platform="tiktok"]')
+            assert tiktok_chip is None, "TikTok platform chip should NOT exist on social page"
             
-            # Wait for UI to update
-            time.sleep(1)
+            # Verify that non-video platforms are present
+            instagram_chip = page.query_selector('button[data-generator-platform="instagram"]')
+            assert instagram_chip is not None, "Instagram platform chip should exist"
             
-            # Check that CTA notice appears
-            cta_notice = page.query_selector("#reels-cta-notice")
-            assert cta_notice is not None, "CTA notice should exist"
+            facebook_chip = page.query_selector('button[data-generator-platform="facebook"]')
+            assert facebook_chip is not None, "Facebook platform chip should exist"
             
-            # Check that CTA is visible (not hidden)
-            is_hidden = cta_notice.evaluate("el => el.classList.contains('hidden')")
-            assert not is_hidden, "CTA notice should be visible when Reels platform is selected"
+            linkedin_chip = page.query_selector('button[data-generator-platform="linkedin"]')
+            assert linkedin_chip is not None, "LinkedIn platform chip should exist"
             
-            # Check that CTA contains text about Reels tab
-            cta_text = cta_notice.inner_text()
-            assert "Reels tab" in cta_text or "Reels" in cta_text, "CTA should mention Reels"
-            
-            # Check that CTA contains link to /generate/reels
-            reels_link = cta_notice.query_selector('a[href="/generate/reels"]')
-            assert reels_link is not None, "CTA should contain link to /generate/reels"
+            twitter_chip = page.query_selector('button[data-generator-platform="twitter"]')
+            assert twitter_chip is not None, "Twitter platform chip should exist"
             
             browser.close()
     
@@ -150,12 +145,12 @@ def test_social_page_shows_reels_cta_on_platform_select():
         stop_server(proc)
 
 
-def test_tiktok_platform_also_shows_cta():
+def test_social_page_does_not_have_reels_cta():
     """
-    Test that selecting TikTok platform also shows the CTA.
+    Test that the Social page does NOT have the reels CTA notice element.
     
     Verifies:
-    - CTA notice appears when TikTok platform is selected
+    - reels-cta-notice element does NOT exist in the DOM
     """
     proc = start_server()
     
@@ -171,22 +166,9 @@ def test_tiktok_platform_also_shows_cta():
             # Wait for page to fully load
             time.sleep(2)
             
-            # Find and click the TikTok platform chip
-            tiktok_chip = page.query_selector('button[data-generator-platform="tiktok"]')
-            assert tiktok_chip is not None, "TikTok platform chip should exist"
-            
-            # Click the chip to select it
-            tiktok_chip.click()
-            
-            # Wait for UI to update
-            time.sleep(1)
-            
-            # Check that CTA notice is visible
+            # Check that CTA notice does NOT exist
             cta_notice = page.query_selector("#reels-cta-notice")
-            assert cta_notice is not None, "CTA notice should exist"
-            
-            is_hidden = cta_notice.evaluate("el => el.classList.contains('hidden')")
-            assert not is_hidden, "CTA notice should be visible when TikTok platform is selected"
+            assert cta_notice is None, "CTA notice element should NOT exist on social page"
             
             browser.close()
     
