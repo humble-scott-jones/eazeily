@@ -3506,20 +3506,22 @@ function renderReelSection(reel) {
 function renderPlatformVariants(variants, currentPlatform) {
   if (!variants) return '';
 
-  const entries = Object.entries(variants).map(([platform, value]) => {
-    return { platform, data: normalizeVariantPayload(value) };
-  });
+  // Filter out current platform from variants - only show OTHER platforms
+  const entries = Object.entries(variants)
+    .filter(([platform]) => platform !== currentPlatform)
+    .map(([platform, value]) => {
+      return { platform, data: normalizeVariantPayload(value) };
+    });
   
-  // Don't show variants section if empty or only contains current platform
+  // Don't show variants section if no other platforms to show
   if (!entries.length) return '';
-  if (entries.length === 1 && entries[0].platform === currentPlatform) return '';
 
   return `
     <div class="mt-3 p-3 bg-blue-50 rounded-2xl border border-blue-100">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div class="flex items-center gap-2 text-sm font-medium text-blue-900">
           <span>Platform variants</span>
-          <span class="text-xs text-blue-700">Tuned for each channel</span>
+          <span class="text-xs text-blue-700">Adapted for other channels</span>
         </div>
         <button type="button" class="btn-ghost text-xs" data-export-variants>Export all</button>
       </div>
@@ -3528,14 +3530,12 @@ function renderPlatformVariants(variants, currentPlatform) {
           const editorId = `variant-${platform}-${Math.random().toString(36).slice(2,8)}`;
           const stampId = `${editorId}-stamp`;
           const warnings = renderWarningList(data.warnings);
-          const badge = platform === currentPlatform ? '<span class="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Selected</span>' : '';
           const thumb = data.thumbnail_note ? `<p class="text-[11px] text-blue-800 bg-blue-100 rounded px-2 py-1">Thumbnail: ${escapeHtml(data.thumbnail_note)}</p>` : '';
           return `
             <div class="bg-white rounded-xl border border-blue-100 p-3 shadow-sm" data-variant-card>
               <div class="flex items-center justify-between gap-2 mb-2">
                 <div class="flex items-center gap-2">
                   <span class="text-xs font-semibold text-blue-900">${formatPlatformLabel(platform)}</span>
-                  ${badge}
                 </div>
                 <div class="flex items-center gap-2">
                   <button class="btn-ghost text-[11px]" data-copy-target="${editorId}" data-stamp-target="${stampId}">Copy</button>
