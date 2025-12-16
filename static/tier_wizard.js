@@ -242,15 +242,33 @@
   // Mount immediately if document is ready, otherwise wait for DOMContentLoaded
   function initTierWizard() {
     console.log('initTierWizard called');
-    const body = document.body;
-    const tierWizardEnabled = body && body.getAttribute('data-tier-wizard') === '1';
-    console.log('Tier wizard enabled:', tierWizardEnabled);
-    if (!tierWizardEnabled) {
-      console.log('Tier wizard not enabled, skipping mount');
-      return;
+    
+    // Wait for FLAGS to be loaded
+    function checkFlags() {
+      console.log('Checking FLAGS:', window.FLAGS);
+      if (window.FLAGS) {
+        const tierWizardEnabled = window.FLAGS.tierWizard;
+        console.log('Tier wizard flag enabled:', tierWizardEnabled);
+        if (!tierWizardEnabled) {
+          console.log('Tier wizard flag not enabled, skipping mount');
+          return;
+        }
+        const body = document.body;
+        if (!body) {
+          console.log('Body not found');
+          return;
+        }
+        body.setAttribute('data-tier-wizard', '1');
+        console.log('Set data-tier-wizard attribute');
+        console.log('Tier wizard enabled, calling mount');
+        mount();
+      } else {
+        // FLAGS not loaded yet, check again in 100ms
+        setTimeout(checkFlags, 100);
+      }
     }
-    console.log('Tier wizard enabled, calling mount');
-    mount();
+    
+    checkFlags();
   }
 
   if (document.readyState === 'loading') {
