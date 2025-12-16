@@ -251,8 +251,21 @@ async function loadUserProfile() {
     const response = await fetch('/api/profile', { credentials: 'include' });
     let profile = {};
     if (response.ok) {
-      profile = await response.json();
+      const body = await response.json();
+      // Support new stable contract: { ok, request_id, profile_status, profile, warnings }
+      if (body && typeof body === 'object' && body.ok === true && Object.prototype.hasOwnProperty.call(body, 'profile')) {
+        profile = body.profile || {};
+      } else if (body && typeof body === 'object' && body.profile) {
+        // fallback
+        profile = body.profile;
+      } else if (body && typeof body === 'object' && body.tone) {
+        // older legacy shape: full profile returned at top-level
+        profile = body;
+      }
       applyProfileToAccountForm(profile);
+    } else if (response.status === 401) {
+      // unauthenticated – ensure deterministic missing state (no infinite loaders)
+      profile = {};
     }
     profileDefaults = {
       tone: profile.tone || 'friendly',

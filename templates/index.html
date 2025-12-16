@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/static/eazeily-theme.css" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 </head>
-<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="{{ initial_user | tojson | forceescape }}">
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="{{ initial_user | tojson | forceescape }}" data-tier-wizard="1">
   <!-- Background decoration -->
   <div class="fixed inset-0 overflow-hidden pointer-events-none">
     <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
@@ -117,8 +117,11 @@
         </div>
       </div>
 
-      <!-- Form Steps -->
-      <div id="wiz" class="space-y-6">
+  <!-- Tier Wizard (new) -->
+  <div id="tier-wizard-root" class="space-y-6"></div>
+
+  <!-- Form Steps (legacy, hidden when tier wizard enabled) -->
+  <div id="wiz" class="space-y-6">
         <div class="step-panel bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="1">
           <div class="space-y-6">
             <div class="space-y-2">
@@ -329,6 +332,7 @@
   </footer>
 
   <script src="/static/app.js"></script>
+  <script src="/static/tier_wizard.js"></script>
 
 <!-- Auth modal (signup / login / password reset) -->
 <div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-auth-view="login">

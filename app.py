@@ -825,6 +825,11 @@ def init_db():
         pass
 
 
+# Initialize database schema on app startup
+with app.app_context():
+    init_db()
+
+
 def row_to_mapping(row: Any) -> Optional[dict]:
     if row is None:
         return None
@@ -1384,14 +1389,22 @@ def api_profile():
         return jsonify({'ok': True, 'id': pid})
     
     else: # GET
+        request_id = _get_request_id()
         pid = session.get('profile_id')
+        uid = session.get('user_id')
+
+        # If the client is unauthenticated and has no profile session, respond with 401 JSON
+        if not uid and not pid:
+            return jsonify({'ok': False, 'error': 'Authentication required'}), 401
+
+        # If there is no profile id, return a stable 'missing' contract
         if not pid:
-            return jsonify({'ok': True, 'profile': None})
-        
+            return jsonify({'ok': True, 'request_id': request_id, 'profile_status': 'missing', 'profile': None, 'warnings': []})
+
         row = db.execute('SELECT * FROM profiles WHERE id = ?', (pid,)).fetchone()
         if not row:
-            return jsonify({'ok': True, 'profile': None})
-            
+            return jsonify({'ok': True, 'request_id': request_id, 'profile_status': 'missing', 'profile': None, 'warnings': []})
+
         # Deserialize
         p = dict(row)
         p['platforms'] = _deserialize_json(p['platforms'], [])
@@ -1402,8 +1415,30 @@ def api_profile():
         # Use .get() to handle case where voice_profile column is missing from DB
         p['voice_profile'] = _deserialize_json(p.get('voice_profile'), {})
         p['include_images'] = bool(p['include_images'])
-        
-        return jsonify(p)
+
+        # Compute profile_status: ready if company + industry + tone present, partial otherwise
+        company = (p.get('company') or '').strip()
+        industry = (p.get('industry') or p.get('industry_key') or '').strip()
+        tone = (p.get('tone') or '').strip()
+        if company and industry and tone:
+            status = 'ready'
+        elif company or industry or tone:
+            status = 'partial'
+        else:
+            status = 'missing'
+
+        # For backwards compatibility include top-level profile fields (legacy clients/tests expect them)
+        resp = {'ok': True, 'request_id': request_id, 'profile_status': status, 'profile': p, 'warnings': []}
+        try:
+            # Merge top-level fields from profile into response without overwriting core keys
+            for k, v in p.items():
+                if k in ('ok', 'request_id', 'profile_status', 'profile', 'warnings'):
+                    continue
+                if k not in resp:
+                    resp[k] = v
+        except Exception:
+            pass
+        return jsonify(resp)
 
 
 @app.post('/api/generate')
@@ -2877,3 +2912,13 @@ def api_voice_profile():
             return jsonify({'ok': True, 'samples': vp.get('samples', [])})
         except Exception:
             return jsonify({'ok': True, 'samples': []})
+
+
+if __name__ == '__main__':
+    # Start a development server when executed directly. Tests and CI expect
+    # `python app.py` to launch a long-running HTTP server that responds to
+    # the health endpoint `/__dev__/ping`.
+    _port = int(os.getenv('PORT', '5001'))
+    _debug = _is_dev_mode()
+    # Use 0.0.0.0 to be accessible from containers in CI, match repo README.
+    app.run(host='0.0.0.0', port=_port, debug=_debug)
