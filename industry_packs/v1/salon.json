@@ -1,0 +1,462 @@
+{
+  "id": "salon",
+  "display_name": "Salon / Hair Studio",
+  "icon": "💇",
+  "primary_customer_goal": "bookings",
+  "version": "1.0.0",
+  
+  "business_profile_fields": {
+    "required": ["services_offered", "service_area", "hours", "booking_method"],
+    "optional": ["pricing_style", "cancellation_policy", "deposit_policy", "guarantees", "team_credentials"],
+    "example_values": {
+      "services_offered": "haircuts, color, styling, extensions, treatments",
+      "service_area": "Downtown Charleston, SC",
+      "hours": "Tue-Sat 9am-7pm, closed Sun-Mon",
+      "booking_method": "online booking, phone, walk-ins welcome"
+    }
+  },
+  
+  "default_channel_strategy": {
+    "default_platforms": ["instagram", "facebook", "tiktok"],
+    "content_cadence": "3-4 posts/week",
+    "best_performing_types": [
+      "before/after transformations",
+      "styling tips & tutorials",
+      "team spotlights",
+      "seasonal trends",
+      "client testimonials",
+      "product recommendations"
+    ]
+  },
+  
+  "keyword_banks": {
+    "seed_keywords": [
+      "hair transformation",
+      "balayage",
+      "haircut",
+      "color specialist",
+      "blowout",
+      "hair styling",
+      "hair extensions",
+      "hair treatment",
+      "salon life",
+      "hair care tips",
+      "healthy hair",
+      "hair trends",
+      "stylist",
+      "beauty salon",
+      "hair goals"
+    ],
+    "topic_clusters": [
+      {
+        "name": "transformation_showcase",
+        "intent": "awareness",
+        "examples": ["before/after reveals", "color transformation", "cut & style makeover", "extension results"]
+      },
+      {
+        "name": "education_tips",
+        "intent": "retention",
+        "examples": ["hair care routines", "product recommendations", "styling tutorials", "maintenance tips"]
+      },
+      {
+        "name": "booking_conversion",
+        "intent": "conversion",
+        "examples": ["appointment availability", "limited slots", "seasonal specials", "new service launch"]
+      },
+      {
+        "name": "social_proof",
+        "intent": "conversion",
+        "examples": ["client testimonials", "stylist expertise", "award highlights", "celebrity clients"]
+      },
+      {
+        "name": "behind_scenes",
+        "intent": "awareness",
+        "examples": ["team culture", "salon tour", "day in the life", "product prep"]
+      }
+    ],
+    "seasonal_hooks": [
+      "wedding season (spring/summer)",
+      "back-to-school refresh (fall)",
+      "holiday party looks (winter)",
+      "New Year new you (January)",
+      "prom season (spring)",
+      "summer hair care"
+    ]
+  },
+  
+  "cta_library": {
+    "booking_ctas": [
+      "Book your appointment today",
+      "Schedule your transformation",
+      "Reserve your spot now",
+      "Click to book online",
+      "Limited slots available - book now",
+      "Get on our calendar",
+      "Book your free consultation",
+      "Same-week appointments available"
+    ],
+    "inquiry_ctas": [
+      "DM us for details",
+      "Ask about our services",
+      "Questions? We're here to help",
+      "Reach out for personalized advice",
+      "Let's chat about your hair goals",
+      "Send us a message",
+      "Contact us for pricing",
+      "Inquire about availability"
+    ],
+    "review_referral_ctas": [
+      "Tag a friend who needs this",
+      "Share your transformation with us",
+      "Leave us a review",
+      "Tell us about your experience",
+      "Refer a friend and save",
+      "Show us your styled hair",
+      "Tag us in your photos",
+      "Recommend us to friends"
+    ],
+    "offer_ctas": [
+      "Claim your discount today",
+      "First-time client special",
+      "Limited time offer",
+      "Save on your next visit",
+      "Exclusive deal for followers",
+      "Bundle and save",
+      "Seasonal promotion",
+      "Book now and save"
+    ]
+  },
+  
+  "compliance_safety_rules": {
+    "forbidden_claims": [
+      "guaranteed results (hair texture/growth varies)",
+      "permanent solutions without disclaimers",
+      "medical claims about hair/scalp health",
+      "before/after images without consent"
+    ],
+    "privacy_constraints": [
+      "never share client names without explicit permission",
+      "blur faces in before/after unless client approved",
+      "no identifiable information in testimonials without consent"
+    ],
+    "regulated_language_notes": [
+      "use 'results may vary' for dramatic transformations",
+      "mention consultation required for custom services",
+      "include patch test notices for chemical services"
+    ],
+    "do_not_generate": [
+      "medical advice about hair loss or scalp conditions",
+      "diagnosis of hair/scalp issues",
+      "comparison with other specific salons by name"
+    ]
+  },
+  
+  "content_templates": {
+    "social_templates": {
+      "post_structures": [
+        "hook (transformation reveal) → value (process/technique) → proof (client feedback) → CTA (book now)",
+        "question hook → educational tip → product/service mention → CTA (schedule)",
+        "behind-the-scenes → team spotlight → service highlight → CTA (inquire)"
+      ],
+      "reel_structures": [
+        "hook (before shot) → beats (transformation process) → reveal → CTA (+ shot list: close-ups, technique shots, final style)",
+        "hook (trend question) → tutorial beats (step-by-step) → final result → CTA (+ shot list: POV angles, product close-ups)",
+        "hook (team intro) → day-in-life beats → client results → CTA (+ shot list: workspace, stylist at work, happy clients)"
+      ],
+      "content_angles": [
+        "transformation showcase",
+        "education (styling tips)",
+        "behind-the-scenes",
+        "social proof (testimonials)",
+        "trend alerts",
+        "seasonal looks",
+        "team culture",
+        "product recommendations"
+      ]
+    },
+    "email_templates": {
+      "scenarios": [
+        {
+          "name": "lead_reply",
+          "required_fields": ["client_name", "service_interest"],
+          "recommended_tone": "friendly",
+          "constraints": ["mention consultation", "include booking link", "address specific service"],
+          "suggested_cta": "Book your free consultation"
+        },
+        {
+          "name": "appointment_confirmation",
+          "required_fields": ["client_name", "date", "time", "stylist", "service"],
+          "recommended_tone": "professional",
+          "constraints": ["clear date/time", "cancellation policy", "prep instructions"],
+          "suggested_cta": "Add to calendar"
+        },
+        {
+          "name": "review_request",
+          "required_fields": ["client_name", "service_completed"],
+          "recommended_tone": "grateful",
+          "constraints": ["thank client first", "make it easy", "offer incentive if policy allows"],
+          "suggested_cta": "Leave a review"
+        }
+      ]
+    },
+    "quote_scaffolds": {
+      "applicable": true,
+      "quote_line_item_categories": [
+        "haircut/styling",
+        "color services",
+        "treatments",
+        "extensions",
+        "products"
+      ],
+      "assumptions_defaults": [
+        "pricing varies by hair length and density",
+        "consultation required for accurate quote",
+        "prices subject to change"
+      ],
+      "warranty_policy_boilerplate": "All services include a 7-day adjustment period. Client must follow recommended aftercare instructions."
+    },
+    "review_reply_guidelines": {
+      "channel_specific": {
+        "google": "respond within 24-48 hours, keep professional, address specific feedback",
+        "yelp": "acknowledge both positive and negative, offer resolution privately",
+        "facebook": "respond publicly but move detailed resolution to DM"
+      },
+      "empathy_patterns": [
+        "Thank you for sharing your experience",
+        "We appreciate your feedback",
+        "We're thrilled you loved your [service]",
+        "We're sorry to hear about [issue]"
+      ],
+      "compliance_notes": [
+        "never argue or be defensive",
+        "don't share other client information",
+        "offer to resolve offline for negative reviews"
+      ]
+    }
+  },
+  
+  "example_outputs": {
+    "social_post": {
+      "caption": "✨ From grown-out roots to fresh, dimensional balayage ✨\n\nOur colorist Sarah spent 3 hours creating this sun-kissed look with minimal damage. The secret? Low-lift color + Olaplex treatment.\n\nWant this glow? We have openings next week!\n\n👉 Book online or DM us\n\n#HairTransformation #BalayageSpecialist #SalonLife #HealthyHair #ColorCorrection #HairGoals",
+      "platform": "instagram",
+      "pillar": "transformation_showcase"
+    },
+    "reel_script": {
+      "hook": "POV: You finally fixed your box dye disaster 💇‍♀️",
+      "beats": [
+        "0-3s: Before shot with text overlay 'Box dye gone wrong'",
+        "3-8s: Color removal process (quick cuts)",
+        "8-15s: Toner application with smooth music transition",
+        "15-20s: Blow-dry styling",
+        "20-25s: Final reveal with client smile",
+        "25-30s: CTA text + booking info"
+      ],
+      "cta": "Book your color correction consultation → link in bio",
+      "shot_list": "Close-up of before hair, hands applying product, foils, bowl mixing, final styled look, client reaction",
+      "platform": "tiktok",
+      "length_seconds": 30
+    },
+    "email": {
+      "subject": "Your Color Consultation with Sarah",
+      "body": "Hi Jessica,\n\nThank you for reaching out about balayage! I'd love to help you achieve that sun-kissed look.\n\nBased on your current color (level 5 brown), we'll need about 3-4 hours for your first session. This includes a consultation, color application, toning, cut, and style. Investment starts at $285.\n\nI have availability this Thursday at 10am or Saturday at 2pm. Which works better for you?\n\nLooking forward to your transformation!\n\nBest,\nSarah\n\n📞 Book online: [link]\n📍 Downtown Salon, 123 Main St",
+      "scenario": "lead_reply",
+      "tone": "friendly"
+    },
+    "review_reply": {
+      "review_text": "Amazing experience! Sarah is a color genius. My hair has never looked better!",
+      "response": "Thank you so much for the kind words! Sarah will be thrilled to hear this - she loves creating beautiful, healthy color transformations. We're so glad you're happy with your results! Can't wait to see you for your next appointment. 💕",
+      "channel": "google",
+      "sentiment": "positive"
+    }
+  },
+  
+  "prompt_integration_hooks": {
+    "industry_pack_id": "salon",
+    "constraints_for_model": [
+      "DO: Focus on visual transformation, technique credibility, booking urgency",
+      "DO: Use sensory language (shiny, soft, dimensional)",
+      "DO: Mention stylist names and credentials when relevant",
+      "DO: Include before/after context for transformations",
+      "DON'T: Guarantee permanent results or hair growth",
+      "DON'T: Make medical claims about scalp health",
+      "DON'T: Use images/names without client consent",
+      "DON'T: Compare directly with competitor salons by name"
+    ],
+    "default_do_dont_list": {
+      "do": [
+        "showcase transformations with context",
+        "educate on hair care and maintenance",
+        "highlight stylist expertise and training",
+        "create urgency with limited availability",
+        "use trending hair terminology"
+      ],
+      "dont": [
+        "guarantee specific results",
+        "provide medical advice",
+        "share client info without permission",
+        "make unrealistic promises",
+        "use fear-based marketing"
+      ]
+    }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Local clients seeking professional hair services and transformations",
+      "pain_points": [
+        "Finding a stylist who understands their hair",
+        "Bad experiences with previous salons",
+        "Unclear pricing and service expectations",
+        "Difficulty booking appointments",
+        "Hair damage from improper techniques"
+      ],
+      "desired_outcomes": [
+        "Healthy, beautiful hair",
+        "A stylist they can trust",
+        "Consistent quality results",
+        "Professional recommendations for their hair type",
+        "Confidence in their appearance"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Haircuts and styling",
+        "Color services (highlights, balayage, full color)",
+        "Hair treatments and conditioning",
+        "Extensions and weaves",
+        "Blowouts and special occasion styling",
+        "Consultations",
+        "Product recommendations",
+        "Bridal and event hair"
+      ],
+      "ctas": [
+        "Book your appointment today",
+        "Schedule your transformation",
+        "Reserve your spot now",
+        "DM us to book",
+        "Limited availability - book now",
+        "Get on our calendar"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Certified stylists with ongoing training",
+        "5-star reviews from satisfied clients",
+        "Before/after transformations (with consent)",
+        "Years of experience in color and cutting",
+        "Premium product lines (Olaplex, etc.)",
+        "Award-winning salon"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "transformation",
+        "label": "Before/After Transformation",
+        "when_to_use": "Showcase dramatic results and technical skill"
+      },
+      {
+        "key": "education",
+        "label": "Hair Care Tips",
+        "when_to_use": "Build trust through expertise and helpful advice"
+      },
+      {
+        "key": "behind_scenes",
+        "label": "Behind the Scenes",
+        "when_to_use": "Show the process and salon culture"
+      },
+      {
+        "key": "testimonial",
+        "label": "Client Testimonial",
+        "when_to_use": "Leverage social proof and word-of-mouth"
+      },
+      {
+        "key": "trend_alert",
+        "label": "Trend Alert",
+        "when_to_use": "Position salon as current and fashion-forward"
+      },
+      {
+        "key": "team_spotlight",
+        "label": "Stylist Spotlight",
+        "when_to_use": "Build personal connection with stylists"
+      },
+      {
+        "key": "seasonal",
+        "label": "Seasonal Look",
+        "when_to_use": "Tie into seasonal trends and events"
+      },
+      {
+        "key": "product_rec",
+        "label": "Product Recommendation",
+        "when_to_use": "Educate on at-home care and retail"
+      }
+    ],
+    "do_say": [
+      "Book your transformation",
+      "Our stylists specialize in...",
+      "Healthy hair starts with...",
+      "Results may vary based on hair type",
+      "Consultation required for custom services",
+      "We use premium products like..."
+    ],
+    "dont_say": [
+      "Guaranteed results (hair varies)",
+      "Permanent solution (without context)",
+      "Fixes all hair problems",
+      "One-size-fits-all approach",
+      "Cheapest in town",
+      "Miracle treatment"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Hair transformations",
+        "Color services",
+        "Haircuts & styling",
+        "Hair care tips",
+        "Seasonal trends",
+        "Product recommendations",
+        "Stylist expertise",
+        "Healthy hair",
+        "Special occasion hair",
+        "Consultation services",
+        "Hair extensions",
+        "Bridal hair"
+      ],
+      "audience_chips": [
+        "Women seeking color",
+        "First-time clients",
+        "Natural hair clients",
+        "Brides and bridal parties",
+        "Men's grooming",
+        "Teens and young adults",
+        "Busy professionals",
+        "Special occasion clients",
+        "Regular maintenance clients",
+        "Hair transformation seekers"
+      ],
+      "offer_chips": [
+        "Free consultation",
+        "New client discount",
+        "Color correction",
+        "Hair treatments",
+        "Same-day appointments",
+        "Online booking",
+        "Flexible scheduling",
+        "Package deals",
+        "Loyalty program",
+        "Gift certificates"
+      ],
+      "proof_chips": [
+        "Certified colorists",
+        "5-star rated",
+        "10+ years experience",
+        "Before/after portfolio",
+        "Ongoing education",
+        "Premium products used",
+        "Award-winning salon",
+        "Client testimonials",
+        "Instagram portfolio",
+        "Licensed professionals"
+      ]
+    }
+  }
+}

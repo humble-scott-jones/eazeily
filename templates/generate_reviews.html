@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Review Response Generator - Eazeily</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen">
+  <header class="px-6 py-5 bg-white/90 backdrop-blur border-b">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="/static/eazeily-logo.svg" alt="Eazeily logo" class="w-8 h-8 header-logo" onerror="this.style.display='none'" />
+        <h1 class="text-xl font-semibold tracking-tight">Eazeily</h1>
+      </div>
+      <div class="flex items-center gap-4">
+        <a class="text-sm text-brand hover:underline" href="/">Home</a>
+        <a class="text-sm text-brand hover:underline" href="/generate">Generate</a>
+        <a class="text-sm text-brand hover:underline" href="/account">Account</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-6 space-y-6">
+    {% set active_tab = 'reviews' %}
+    {% include 'generate_tabs.html' %}
+
+    <section class="card" id="review-response">
+      <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="text-2xl font-bold">Review Response Generator</h2>
+          <p class="text-sm text-slate-600">Paste a review, choose a tone, and ship thoughtful replies in seconds.</p>
+        </div>
+        <div class="text-xs text-slate-500" id="request-id"></div>
+      </div>
+
+      <form id="review-form" class="mt-6 space-y-4">
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label for="review-text" class="block text-sm font-medium text-slate-700">Customer Review <span class="text-red-500">*</span></label>
+            <span id="review-char-count" class="text-xs text-slate-500">0 characters</span>
+          </div>
+          <textarea
+            id="review-text"
+            name="review_text"
+            rows="6"
+            required
+            placeholder="Example: “Service was attentive and the team resolved my issue quickly.”"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand resize-y"
+          ></textarea>
+          <div class="flex flex-wrap gap-2 text-xs text-slate-600">
+            <span class="px-2 py-1 bg-slate-100 rounded-full">Example: “Loved the food but the wait was long.”</span>
+            <span class="px-2 py-1 bg-slate-100 rounded-full">Example: “Room was clean, but check-in felt rushed.”</span>
+            <button type="button" id="sample-review" class="underline text-brand">Use a sample review</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label for="rating" class="block text-sm font-medium text-slate-700">Rating</label>
+            <select id="rating" name="rating" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand">
+              <option value="">Not provided</option>
+              <option value="5">5 - Glowing</option>
+              <option value="4">4 - Positive</option>
+              <option value="3">3 - Mixed</option>
+              <option value="2">2 - Unhappy</option>
+              <option value="1">1 - Upset</option>
+            </select>
+          </div>
+          <div>
+            <label for="channel" class="block text-sm font-medium text-slate-700">Channel</label>
+            <select id="channel" name="channel" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand">
+              <option value="google">Google</option>
+              <option value="yelp">Yelp</option>
+              <option value="facebook">Facebook</option>
+              <option value="tripadvisor">Tripadvisor</option>
+              <option value="general" selected>General</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label for="tone" class="block text-sm font-medium text-slate-700">Tone</label>
+            <select id="tone" name="tone" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand">
+              <option value="professional">Professional</option>
+              <option value="grateful">Grateful</option>
+              <option value="apologetic">Apologetic</option>
+              <option value="friendly">Friendly</option>
+            </select>
+            <label class="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" id="brand-voice" class="rounded border-slate-300 text-brand focus:ring-brand" />
+              Use saved brand voice
+            </label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm font-medium text-slate-700 mb-2">Response length</p>
+            <div class="flex gap-2 flex-wrap" id="length-options">
+              <label class="chip length-chip" data-length="short">
+                <input type="radio" name="length" value="short" class="hidden length-input" />
+                <span>Short</span>
+              </label>
+              <label class="chip length-chip" data-length="medium">
+                <input type="radio" name="length" value="medium" class="hidden length-input" checked />
+                <span>Medium</span>
+              </label>
+              <label class="chip length-chip" data-length="long">
+                <input type="radio" name="length" value="long" class="hidden length-input" />
+                <span>Long</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 text-sm text-slate-700">
+              <p class="font-medium">Variant generation</p>
+              <span class="text-xs text-slate-500">Fine-tune the response instantly</span>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-2" id="variant-buttons">
+              <button type="button" class="btn-secondary btn-ghost" data-variant-action="more_formal">More formal</button>
+              <button type="button" class="btn-secondary btn-ghost" data-variant-action="more_friendly">More friendly</button>
+              <button type="button" class="btn-secondary btn-ghost" data-variant-action="shorter">Shorter</button>
+              <button type="button" class="btn-secondary btn-ghost" data-variant-action="add_cta">Add CTA</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="guardrail" class="hidden text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          We spotted contact details in the review. Please remove emails or phone numbers before generating.
+        </div>
+
+        <div class="flex flex-wrap gap-3 items-center">
+          <button type="submit" id="generate-btn" class="btn-primary btn-small">Generate response</button>
+          <button type="button" id="regenerate-btn" class="btn-secondary btn-small">Regenerate</button>
+          <span id="status-text" class="hidden text-sm text-slate-600">Generating...</span>
+        </div>
+      </form>
+
+      <div id="response-output" class="hidden mt-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm" data-length="short">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold">Short</h3>
+              <button class="text-xs text-brand underline copy-btn" data-target="short">Copy</button>
+            </div>
+            <p id="response-short" class="text-sm text-slate-700 whitespace-pre-wrap min-h-[80px]"></p>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm" data-length="medium">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold">Medium</h3>
+              <button class="text-xs text-brand underline copy-btn" data-target="medium">Copy</button>
+            </div>
+            <p id="response-medium" class="text-sm text-slate-700 whitespace-pre-wrap min-h-[80px]"></p>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm" data-length="long">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="font-semibold">Long</h3>
+              <button class="text-xs text-brand underline copy-btn" data-target="long">Copy</button>
+            </div>
+            <p id="response-long" class="text-sm text-slate-700 whitespace-pre-wrap min-h-[80px]"></p>
+          </div>
+        </div>
+        <div class="mt-3 text-xs text-slate-500" id="response-meta"></div>
+      </div>
+
+      <div id="error-message" class="hidden mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+        <p class="text-sm text-red-800"></p>
+      </div>
+    </section>
+
+    <section class="card mt-6">
+      <h3 class="text-lg font-semibold mb-3">Tips for best-in-class replies</h3>
+      <ul class="space-y-2 text-sm text-slate-600">
+        <li class="flex gap-2"><span class="text-brand">•</span><span>Lead with gratitude, then address specifics from the review.</span></li>
+        <li class="flex gap-2"><span class="text-brand">•</span><span>Invite the reviewer to continue the conversation if anything felt off.</span></li>
+        <li class="flex gap-2"><span class="text-brand">•</span><span>Keep it channel-aware: mention Google, Yelp, or Facebook subtly.</span></li>
+        <li class="flex gap-2"><span class="text-brand">•</span><span>Keep personal info out of replies—no phone numbers or emails.</span></li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="/static/js/publishing_queue_state.js"></script>
+  <script src="/static/app.js"></script>
+  <script>
+    const form = document.getElementById('review-form');
+    const reviewInput = document.getElementById('review-text');
+    const charCount = document.getElementById('review-char-count');
+    const guardrail = document.getElementById('guardrail');
+    const responseOutput = document.getElementById('response-output');
+    const responseMeta = document.getElementById('response-meta');
+    const errorMessage = document.getElementById('error-message');
+    const statusText = document.getElementById('status-text');
+    const requestIdEl = document.getElementById('request-id');
+    const variantButtons = document.querySelectorAll('[data-variant-action]');
+    const copyButtons = document.querySelectorAll('.copy-btn');
+    const sampleButton = document.getElementById('sample-review');
+    const generateBtn = document.getElementById('generate-btn');
+    const regenerateBtn = document.getElementById('regenerate-btn');
+    const lengthInputs = document.querySelectorAll('.length-input');
+    const lengthChips = document.querySelectorAll('.length-chip');
+
+    let activeVariant = 'base';
+    let lastPayload = null;
+
+    function syncLengthChips() {
+      lengthChips.forEach((chip) => {
+        const input = chip.querySelector('.length-input');
+        chip.classList.toggle('chip--active', input && input.checked);
+      });
+    }
+
+    function updateCharCount() {
+      const count = reviewInput.value.length;
+      charCount.textContent = `${count} character${count === 1 ? '' : 's'}`;
+    }
+
+    function hasSensitiveContent(text) {
+      const patterns = [
+        /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
+        /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b/,
+        /ssn\b/i
+      ];
+      return patterns.some((p) => p.test(text));
+    }
+
+    function getSelectedLength() {
+      const checked = document.querySelector('input[name="length"]:checked');
+      return checked ? checked.value : 'medium';
+    }
+
+    function payloadFromForm() {
+      const payload = {
+        review_text: reviewInput.value.trim(),
+        rating: document.getElementById('rating').value,
+        channel: document.getElementById('channel').value,
+        tone: document.getElementById('tone').value,
+        brand_voice: document.getElementById('brand-voice').checked,
+        length: getSelectedLength(),
+        variant_action: activeVariant
+      };
+      lastPayload = payload;
+      return payload;
+    }
+
+    function setLoading(isLoading) {
+      if (isLoading) {
+        statusText.classList.remove('hidden');
+        generateBtn.disabled = true;
+        regenerateBtn.disabled = true;
+      } else {
+        statusText.classList.add('hidden');
+        generateBtn.disabled = false;
+        regenerateBtn.disabled = false;
+      }
+    }
+
+    function renderResponses(data) {
+      responseOutput.classList.remove('hidden');
+      const mapping = {
+        short: document.getElementById('response-short'),
+        medium: document.getElementById('response-medium'),
+        long: document.getElementById('response-long')
+      };
+      ['short', 'medium', 'long'].forEach((key) => {
+        if (data.responses && data.responses[key]) {
+          mapping[key].textContent = data.responses[key];
+        }
+      });
+      const method = data.method === 'ai' ? 'AI' : 'template';
+      const variant = data.variant_action ? data.variant_action.replace('_', ' ') : 'base';
+      requestIdEl.textContent = data.request_id ? `Request ID: ${data.request_id}` : '';
+      responseMeta.textContent = `Generated via ${method} • Length focus: ${data.selected_length || 'medium'} • Variant: ${variant}`;
+    }
+
+    async function generateReview(payload) {
+      guardrail.classList.add('hidden');
+      errorMessage.classList.add('hidden');
+      responseOutput.classList.add('hidden');
+      if (!payload.review_text) {
+        errorMessage.querySelector('p').textContent = 'Please paste a review first.';
+        errorMessage.classList.remove('hidden');
+        return;
+      }
+      if (hasSensitiveContent(payload.review_text)) {
+        guardrail.classList.remove('hidden');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const res = await fetch('/api/generate/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          const message = data.error?.message || data.error || 'Unable to generate a response.';
+          errorMessage.querySelector('p').textContent = data.request_id ? `${message} (Request ID: ${data.request_id})` : message;
+          errorMessage.classList.remove('hidden');
+          return;
+        }
+        renderResponses(data);
+      } catch (err) {
+        console.error(err);
+        errorMessage.querySelector('p').textContent = 'Network error while generating. Please try again.';
+        errorMessage.classList.remove('hidden');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      activeVariant = 'base';
+      generateReview(payloadFromForm());
+    });
+
+    regenerateBtn.addEventListener('click', () => {
+      if (lastPayload) {
+        generateReview({ ...lastPayload });
+      }
+    });
+
+    variantButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeVariant = btn.dataset.variantAction || 'base';
+        const payload = payloadFromForm();
+        generateReview(payload);
+      });
+    });
+
+    copyButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.target;
+        const text = document.getElementById(`response-${key}`).textContent;
+        navigator.clipboard.writeText(text || '').then(() => {
+          btn.textContent = 'Copied!';
+          setTimeout(() => (btn.textContent = 'Copy'), 1200);
+        });
+      });
+    });
+
+    lengthInputs.forEach((input) => {
+      input.addEventListener('change', syncLengthChips);
+    });
+
+    reviewInput.addEventListener('input', updateCharCount);
+    updateCharCount();
+    syncLengthChips();
+
+    sampleButton.addEventListener('click', () => {
+      reviewInput.value = 'I loved how friendly the staff was, but I waited 20 minutes past my reservation time.';
+      updateCharCount();
+    });
+  </script>
+  {% include 'auth_modal.html' %}
+</body>
+</html>

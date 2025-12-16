@@ -1,0 +1,476 @@
+{
+  "id": "dentist",
+  "display_name": "Dentist / Dental Practice",
+  "icon": "🦷",
+  "primary_customer_goal": "bookings",
+  "version": "1.0.0",
+  
+  "business_profile_fields": {
+    "required": ["services_offered", "service_area", "hours", "booking_method"],
+    "optional": ["insurance_accepted", "payment_plans", "emergency_hours", "team_credentials", "technology"],
+    "example_values": {
+      "services_offered": "cleanings, fillings, crowns, whitening, implants, orthodontics",
+      "service_area": "Charleston metro area",
+      "hours": "Mon-Thu 8am-5pm, Fri 8am-2pm",
+      "booking_method": "online scheduling, phone, emergency line"
+    }
+  },
+  
+  "default_channel_strategy": {
+    "default_platforms": ["google", "facebook", "instagram"],
+    "content_cadence": "2-3 posts/week",
+    "best_performing_types": [
+      "educational tips (oral health)",
+      "team introductions",
+      "technology/facility highlights",
+      "patient testimonials",
+      "FAQs",
+      "preventive care reminders"
+    ]
+  },
+  
+  "keyword_banks": {
+    "seed_keywords": [
+      "dental health",
+      "oral hygiene",
+      "teeth cleaning",
+      "dental care",
+      "smile makeover",
+      "preventive dentistry",
+      "cosmetic dentistry",
+      "family dentist",
+      "dental implants",
+      "teeth whitening",
+      "root canal",
+      "dental emergency",
+      "gentle dentist",
+      "pain-free dentistry",
+      "dental technology"
+    ],
+    "topic_clusters": [
+      {
+        "name": "preventive_education",
+        "intent": "awareness",
+        "examples": ["brushing techniques", "flossing tips", "cavity prevention", "gum health"]
+      },
+      {
+        "name": "procedure_demystification",
+        "intent": "conversion",
+        "examples": ["what to expect during cleaning", "crown process explained", "pain management", "recovery tips"]
+      },
+      {
+        "name": "cosmetic_services",
+        "intent": "conversion",
+        "examples": ["whitening options", "veneers", "smile design", "aesthetic results"]
+      },
+      {
+        "name": "trust_building",
+        "intent": "awareness",
+        "examples": ["meet the dentist", "technology showcase", "patient comfort", "credentials"]
+      },
+      {
+        "name": "appointment_drivers",
+        "intent": "conversion",
+        "examples": ["insurance reminders", "appointment availability", "new patient specials", "seasonal checkup reminders"]
+      }
+    ],
+    "seasonal_hooks": [
+      "back to school checkups (summer)",
+      "end of year insurance benefits (fall/winter)",
+      "New Year dental goals (January)",
+      "spring cleaning for teeth (March/April)",
+      "summer smile prep (May/June)",
+      "National Dental Hygiene Month (October)"
+    ]
+  },
+  
+  "cta_library": {
+    "booking_ctas": [
+      "Schedule your checkup today",
+      "Book your appointment online",
+      "Call to schedule",
+      "Reserve your new patient exam",
+      "Don't wait - book now",
+      "Schedule your consultation",
+      "Get on our calendar",
+      "Same-day appointments available"
+    ],
+    "inquiry_ctas": [
+      "Have questions? Call us",
+      "Ask about our services",
+      "Contact us for more info",
+      "Chat with our team",
+      "Reach out anytime",
+      "Let us answer your questions",
+      "Get a free consultation",
+      "Learn more about this procedure"
+    ],
+    "review_referral_ctas": [
+      "Tell us about your visit",
+      "Leave us a review",
+      "Refer a friend",
+      "Share your experience",
+      "Rate your visit",
+      "Help others find us",
+      "Family referrals welcome",
+      "Share with someone who needs care"
+    ],
+    "offer_ctas": [
+      "New patient special available",
+      "Ask about our membership plan",
+      "Limited time offer",
+      "Inquire about financing",
+      "Check insurance benefits",
+      "Ask about payment plans",
+      "Seasonal promotion",
+      "Save on treatment bundles"
+    ]
+  },
+  
+  "compliance_safety_rules": {
+    "forbidden_claims": [
+      "guaranteed treatment outcomes",
+      "pain-free claims without context",
+      "before/after without disclaimer",
+      "specific medical success rates without context"
+    ],
+    "privacy_constraints": [
+      "HIPAA compliance required - no patient names without written consent",
+      "blur faces in clinical photos unless explicitly approved",
+      "no identifiable health information in any content"
+    ],
+    "regulated_language_notes": [
+      "use 'results may vary' for cosmetic procedures",
+      "mention 'consult required' for treatment recommendations",
+      "include 'as recommended by your dentist' for health advice",
+      "avoid definitive medical statements"
+    ],
+    "do_not_generate": [
+      "specific medical diagnoses",
+      "treatment plans without consultation",
+      "medication recommendations",
+      "claims about curing diseases",
+      "emergency medical advice beyond 'call us'"
+    ]
+  },
+  
+  "content_templates": {
+    "social_templates": {
+      "post_structures": [
+        "hook (common dental concern) → value (preventive tip) → proof (professional recommendation) → CTA (schedule checkup)",
+        "myth vs fact → educational explanation → professional insight → CTA (ask us)",
+        "team spotlight → credentials/approach → patient care philosophy → CTA (meet us)"
+      ],
+      "reel_structures": [
+        "hook (dental myth) → beats (fact breakdown) → professional tip → CTA (+ shot list: close-up demonstrations, office environment)",
+        "hook (procedure question) → beats (step-by-step explanation) → comfort measures → CTA (+ shot list: equipment, friendly staff, comfortable setting)",
+        "hook (dental tip) → beats (demonstration) → results explanation → CTA (+ shot list: educational graphics, dentist explaining, patient smiling)"
+      ],
+      "content_angles": [
+        "educational (oral health tips)",
+        "myth-busting",
+        "procedure explanations",
+        "technology showcase",
+        "team introductions",
+        "patient testimonials",
+        "preventive reminders",
+        "FAQ responses"
+      ]
+    },
+    "email_templates": {
+      "scenarios": [
+        {
+          "name": "lead_reply",
+          "required_fields": ["patient_name", "inquiry_type"],
+          "recommended_tone": "professional",
+          "constraints": ["address specific concern", "mention insurance/payment", "include scheduling options"],
+          "suggested_cta": "Schedule your appointment"
+        },
+        {
+          "name": "appointment_confirmation",
+          "required_fields": ["patient_name", "date", "time", "provider", "appointment_type"],
+          "recommended_tone": "professional",
+          "constraints": ["clear date/time", "arrival instructions", "insurance reminder", "cancellation policy"],
+          "suggested_cta": "Add to calendar"
+        },
+        {
+          "name": "appointment_reminder",
+          "required_fields": ["patient_name", "date", "time"],
+          "recommended_tone": "friendly",
+          "constraints": ["24-48 hour advance notice", "prep instructions if needed", "confirmation request"],
+          "suggested_cta": "Confirm or reschedule"
+        },
+        {
+          "name": "review_request",
+          "required_fields": ["patient_name"],
+          "recommended_tone": "grateful",
+          "constraints": ["thank patient", "HIPAA compliant", "easy review link"],
+          "suggested_cta": "Share your experience"
+        }
+      ]
+    },
+    "quote_scaffolds": {
+      "applicable": true,
+      "quote_line_item_categories": [
+        "examination/diagnostics",
+        "preventive services",
+        "restorative procedures",
+        "cosmetic treatments",
+        "surgical procedures"
+      ],
+      "assumptions_defaults": [
+        "estimates based on current exam findings",
+        "insurance coverage estimates provided as courtesy",
+        "final costs subject to insurance processing",
+        "treatment plan may be adjusted based on clinical findings"
+      ],
+      "warranty_policy_boilerplate": "Our work is guaranteed when patients follow recommended care and maintenance schedules. Specific warranty terms vary by procedure and will be discussed during consultation."
+    },
+    "review_reply_guidelines": {
+      "channel_specific": {
+        "google": "respond promptly, professional tone, address concerns generally without clinical details",
+        "yelp": "acknowledge feedback, offer to discuss privately, maintain HIPAA compliance",
+        "facebook": "respond publicly to thank, move clinical discussions to private message"
+      },
+      "empathy_patterns": [
+        "Thank you for taking time to share feedback",
+        "We appreciate your trust in our care",
+        "We're glad we could help with your dental health",
+        "We value your input and take it seriously"
+      ],
+      "compliance_notes": [
+        "never discuss patient clinical details publicly",
+        "maintain HIPAA compliance at all times",
+        "offer to discuss concerns privately",
+        "don't argue or be defensive",
+        "acknowledge valid concerns professionally"
+      ]
+    }
+  },
+  
+  "example_outputs": {
+    "social_post": {
+      "caption": "🦷 Brushing twice a day? Great! But are you doing it right?\n\nHere's what we recommend:\n• 2 minutes, twice daily\n• Gentle circular motions\n• Don't forget your tongue\n• Replace brush every 3 months\n\nProper technique prevents cavities and gum disease better than brushing harder or longer.\n\nDue for a checkup? We have appointments available this month.\n\n📞 Schedule online or call us\n\n#DentalHealth #OralHygiene #HealthySmile #DentalCare #PreventiveDentistry",
+      "platform": "facebook",
+      "pillar": "preventive_education"
+    },
+    "reel_script": {
+      "hook": "Your dentist wants you to know: you're probably flossing wrong 😬",
+      "beats": [
+        "0-3s: Text overlay 'Common flossing mistakes'",
+        "3-10s: Demonstration of wrong technique",
+        "10-15s: Show correct c-curve technique",
+        "15-22s: Explain why it matters (gum health)",
+        "22-28s: Quick recap with graphics",
+        "28-30s: CTA"
+      ],
+      "cta": "Questions about your oral health? Schedule a checkup → link in bio",
+      "shot_list": "Close-up of hands demonstrating, dental model, friendly dentist explaining, educational graphics overlay",
+      "platform": "instagram",
+      "length_seconds": 30
+    },
+    "email": {
+      "subject": "Your Dental Consultation - Available Appointments",
+      "body": "Dear Michael,\n\nThank you for your interest in teeth whitening at our practice.\n\nBased on your inquiry, I'd recommend starting with a consultation to assess your current tooth shade and discuss the best whitening option for your goals. We offer both in-office professional whitening (1-2 visits) and custom take-home trays.\n\nConsultations are complimentary, and we can typically see new patients within the week.\n\nAvailable times this week:\n- Wednesday 2:00 PM\n- Thursday 10:00 AM\n- Friday 3:30 PM\n\nWe accept most major insurance plans, and cosmetic procedures can be financed through our payment plan options.\n\nPlease let us know which time works best, or call us at (843) 555-0123.\n\nLooking forward to meeting you!\n\nBest regards,\nDr. Sarah Chen, DDS\nCharleston Dental Care",
+      "scenario": "lead_reply",
+      "tone": "professional"
+    },
+    "review_reply": {
+      "review_text": "Dr. Chen and her team are wonderful! Very gentle and explained everything clearly. Highly recommend!",
+      "response": "Thank you so much for the kind review! We're thrilled that you had a positive experience with Dr. Chen and our team. Making sure our patients feel comfortable and informed is our top priority. We appreciate your trust in our care and look forward to seeing you at your next appointment!",
+      "channel": "google",
+      "sentiment": "positive"
+    }
+  },
+  
+  "prompt_integration_hooks": {
+    "industry_pack_id": "dentist",
+    "constraints_for_model": [
+      "DO: Focus on education, prevention, and patient comfort",
+      "DO: Use professional but accessible language",
+      "DO: Mention credentials and technology when relevant",
+      "DO: Include 'results may vary' for cosmetic procedures",
+      "DO: Emphasize consultation requirement for treatment advice",
+      "DON'T: Guarantee treatment outcomes",
+      "DON'T: Provide specific medical diagnoses or treatment plans",
+      "DON'T: Share patient information without explicit consent (HIPAA)",
+      "DON'T: Make definitive medical claims without disclaimers"
+    ],
+    "default_do_dont_list": {
+      "do": [
+        "educate on preventive care",
+        "demystify common procedures",
+        "highlight patient comfort measures",
+        "showcase technology and expertise",
+        "provide general oral health tips"
+      ],
+      "dont": [
+        "guarantee specific outcomes",
+        "diagnose conditions remotely",
+        "recommend specific treatments without consultation",
+        "violate HIPAA privacy rules",
+        "make fear-based appeals"
+      ]
+    }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Local families and individuals seeking quality dental care",
+      "pain_points": [
+        "Fear or anxiety about dental visits",
+        "Uncertainty about dental costs and insurance",
+        "Finding a dentist they can trust",
+        "Scheduling conflicts and availability",
+        "Past negative dental experiences"
+      ],
+      "desired_outcomes": [
+        "Healthy teeth and gums",
+        "Pain-free dental experience",
+        "Clear understanding of treatment options",
+        "Affordable, transparent pricing",
+        "A dentist they can trust long-term"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Routine cleanings and checkups",
+        "Preventive care",
+        "Fillings and restorations",
+        "Cosmetic dentistry (whitening, veneers)",
+        "Crowns and bridges",
+        "Root canals",
+        "Dental implants",
+        "Emergency dental care"
+      ],
+      "ctas": [
+        "Schedule your checkup today",
+        "Book your appointment online",
+        "Call to schedule",
+        "New patient special available",
+        "Get your free consultation",
+        "Same-day appointments available"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Board-certified dentists",
+        "Years of experience serving the community",
+        "Modern technology and techniques",
+        "5-star patient reviews",
+        "Most insurance plans accepted",
+        "Gentle, patient-focused care"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "education",
+        "label": "Oral Health Education",
+        "when_to_use": "Build trust through helpful tips and information"
+      },
+      {
+        "key": "myth_busting",
+        "label": "Myth vs. Fact",
+        "when_to_use": "Address common misconceptions and fears"
+      },
+      {
+        "key": "procedure_explain",
+        "label": "Procedure Explanation",
+        "when_to_use": "Demystify treatments and reduce anxiety"
+      },
+      {
+        "key": "tech_showcase",
+        "label": "Technology Showcase",
+        "when_to_use": "Highlight modern equipment and techniques"
+      },
+      {
+        "key": "team_intro",
+        "label": "Meet the Team",
+        "when_to_use": "Build personal connection and trust"
+      },
+      {
+        "key": "testimonial",
+        "label": "Patient Testimonial",
+        "when_to_use": "Leverage social proof (HIPAA-compliant)"
+      },
+      {
+        "key": "preventive",
+        "label": "Preventive Care Reminder",
+        "when_to_use": "Encourage regular visits and good habits"
+      },
+      {
+        "key": "faq",
+        "label": "FAQ Response",
+        "when_to_use": "Answer common questions proactively"
+      }
+    ],
+    "do_say": [
+      "Schedule your routine checkup",
+      "Most insurance plans accepted",
+      "Gentle, patient-focused care",
+      "We take time to explain your options",
+      "Results may vary by individual",
+      "Consultation required for treatment planning"
+    ],
+    "dont_say": [
+      "Guaranteed pain-free (be honest)",
+      "Cure all dental problems",
+      "Specific diagnoses without examination",
+      "Treatment recommendations without consultation",
+      "Share patient information",
+      "Fear-based messaging"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Preventive care",
+        "Routine cleanings",
+        "Cosmetic dentistry",
+        "Dental technology",
+        "Patient comfort",
+        "Family dentistry",
+        "Emergency care",
+        "Oral health tips",
+        "New patient welcome",
+        "Insurance accepted",
+        "Gentle care",
+        "Experienced team"
+      ],
+      "audience_chips": [
+        "Families",
+        "Children",
+        "Seniors",
+        "New patients",
+        "Anxious patients",
+        "Cosmetic seekers",
+        "Emergency patients",
+        "Insurance holders",
+        "Budget-conscious patients",
+        "Health-focused individuals"
+      ],
+      "offer_chips": [
+        "Free consultation",
+        "New patient exam",
+        "Flexible scheduling",
+        "Insurance accepted",
+        "Payment plans available",
+        "Same-day appointments",
+        "Emergency care",
+        "Online booking",
+        "Family packages",
+        "Senior discounts"
+      ],
+      "proof_chips": [
+        "Board-certified",
+        "20+ years experience",
+        "5-star reviews",
+        "Modern technology",
+        "Continuing education",
+        "Community trusted",
+        "Gentle approach",
+        "Patient testimonials",
+        "Insurance friendly",
+        "Family-owned practice"
+      ]
+    }
+  }
+}

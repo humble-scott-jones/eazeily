@@ -1,0 +1,433 @@
+{
+  "id": "restaurant",
+  "display_name": "Restaurant / Café",
+  "icon": "🍽️",
+  "primary_customer_goal": "recurring_clients",
+  "version": "1.0.0",
+  
+  "business_profile_fields": {
+    "required": ["cuisine_type", "location", "hours"],
+    "optional": ["price_range", "delivery_options", "reservations", "dietary_options"],
+    "example_values": {
+      "cuisine_type": "Southern coastal, Italian, farm-to-table",
+      "location": "Downtown Charleston",
+      "hours": "Lunch 11-3, Dinner 5-10, Closed Mondays"
+    }
+  },
+  
+  "default_channel_strategy": {
+    "default_platforms": ["instagram", "facebook", "tiktok"],
+    "content_cadence": "4-6 posts/week",
+    "best_performing_types": [
+      "food photography/videos",
+      "behind-the-scenes kitchen",
+      "seasonal menu items",
+      "chef specials",
+      "customer experiences",
+      "events and specials"
+    ]
+  },
+  
+  "keyword_banks": {
+    "seed_keywords": [
+      "restaurant",
+      "local food",
+      "chef special",
+      "seasonal menu",
+      "fresh ingredients",
+      "farm to table",
+      "dining experience",
+      "happy hour",
+      "brunch",
+      "locally sourced",
+      "food and drink",
+      "reservations",
+      "outdoor seating",
+      "date night",
+      "family friendly"
+    ],
+    "topic_clusters": [
+      {
+        "name": "menu_highlights",
+        "intent": "conversion",
+        "examples": ["signature dishes", "seasonal specials", "chef creations", "daily features"]
+      },
+      {
+        "name": "experience",
+        "intent": "awareness",
+        "examples": ["ambiance", "service", "dining atmosphere", "special occasions"]
+      },
+      {
+        "name": "behind_scenes",
+        "intent": "awareness",
+        "examples": ["kitchen prep", "chef at work", "ingredient sourcing", "recipe stories"]
+      },
+      {
+        "name": "events_promos",
+        "intent": "conversion",
+        "examples": ["happy hour", "wine dinners", "live music", "holiday menus"]
+      }
+    ],
+    "seasonal_hooks": [
+      "spring menu (March-May)",
+      "summer patio season (June-August)",
+      "fall harvest menu (September-November)",
+      "holiday dining (December)",
+      "New Year specials (January)",
+      "Valentine's Day (February)"
+    ]
+  },
+  
+  "cta_library": {
+    "booking_ctas": [
+      "Make a reservation",
+      "Book your table",
+      "Reserve now",
+      "Call to book",
+      "Order online",
+      "Visit us today"
+    ],
+    "inquiry_ctas": [
+      "DM for details",
+      "Ask about our menu",
+      "Questions? Message us",
+      "Check our menu online",
+      "Contact us",
+      "Learn more"
+    ],
+    "review_referral_ctas": [
+      "Tag someone to bring",
+      "Share with a foodie friend",
+      "Leave us a review",
+      "Tell us about your experience",
+      "Recommend us",
+      "Spread the word"
+    ],
+    "offer_ctas": [
+      "Try our special",
+      "Limited time offer",
+      "Join us for happy hour",
+      "Check out our new menu",
+      "Order for delivery",
+      "Grab a gift card"
+    ]
+  },
+  
+  "compliance_safety_rules": {
+    "forbidden_claims": [
+      "medical health claims about food",
+      "unverified organic/natural claims",
+      "allergen guarantees without proper controls"
+    ],
+    "privacy_constraints": [
+      "don't photograph customers without permission",
+      "respect customer privacy",
+      "no unauthorized reviews or testimonials"
+    ],
+    "regulated_language_notes": [
+      "accurate menu descriptions",
+      "proper allergen warnings",
+      "honest pricing and portions",
+      "follow local food service regulations"
+    ],
+    "do_not_generate": [
+      "medical claims about nutrition",
+      "false organic/local claims",
+      "unverified health benefits",
+      "unauthorized customer photos"
+    ]
+  },
+  
+  "content_templates": {
+    "social_templates": {
+      "post_structures": [
+        "hook (food visual) → value (dish description) → proof (fresh/local ingredients) → CTA (reserve/order)",
+        "behind-the-scenes → story (chef preparation) → result (finished dish) → CTA",
+        "seasonal hook → menu highlight → limited availability → CTA"
+      ],
+      "reel_structures": [
+        "hook (plating shot) → beats (cooking process) → final reveal → CTA (+ shot list: ingredients, cooking action, plating, finished dish)",
+        "hook (question) → beats (menu items) → taste reactions → CTA (+ shot list: food close-ups, dining atmosphere)",
+        "hook (chef intro) → beats (signature dish prep) → serving → CTA (+ shot list: kitchen, chef at work, customer reactions)"
+      ],
+      "content_angles": [
+        "signature dishes",
+        "seasonal menu",
+        "behind the kitchen",
+        "chef spotlight",
+        "customer experience",
+        "special events",
+        "happy hour",
+        "ingredient spotlight"
+      ]
+    },
+    "email_templates": {
+      "scenarios": [
+        {
+          "name": "reservation_confirmation",
+          "required_fields": ["customer_name", "date", "time", "party_size"],
+          "recommended_tone": "welcoming",
+          "constraints": ["clear details", "special requests", "contact info"],
+          "suggested_cta": "Add to calendar"
+        },
+        {
+          "name": "special_event",
+          "required_fields": ["event_name", "date", "menu_highlights"],
+          "recommended_tone": "exciting",
+          "constraints": ["create urgency", "booking details", "what to expect"],
+          "suggested_cta": "Reserve your spot"
+        }
+      ]
+    },
+    "quote_scaffolds": {
+      "applicable": true,
+      "quote_line_item_categories": ["catering", "private events", "special menus"],
+      "assumptions_defaults": ["pricing per person", "minimum party size", "advance notice required"],
+      "warranty_policy_boilerplate": "Event quotes valid for 30 days. Final headcount due 48 hours prior."
+    },
+    "review_reply_guidelines": {
+      "channel_specific": {
+        "google": "respond warmly, thank reviewer, address feedback",
+        "yelp": "acknowledge experience, invite return visit",
+        "facebook": "personal response, engage authentically"
+      },
+      "empathy_patterns": [
+        "Thank you for dining with us",
+        "We're so glad you enjoyed",
+        "Your feedback means a lot",
+        "Hope to see you again soon"
+      ],
+      "compliance_notes": [
+        "don't get defensive",
+        "address food safety concerns privately",
+        "maintain professionalism"
+      ]
+    }
+  },
+  
+  "example_outputs": {
+    "social_post": {
+      "caption": "Fresh catch of the day meets coastal Carolina flavors 🎣\n\nOur Pan-Seared Local Grouper is back on the special menu tonight! Served over creamy stone-ground grits with seasonal vegetables and lemon butter sauce.\n\nChef sources from local fishermen each morning for the freshest catch possible.\n\nAvailable while supplies last. Reserve your table!\n\n📞 Call or book online\n\n#LocalSeafood #ChefSpecial #FarmToTable #CharlestonEats #FreshCatch #SeasonalMenu",
+      "platform": "instagram",
+      "pillar": "menu_highlights"
+    },
+    "reel_script": {
+      "hook": "Watch our chef plate the most popular dish on our menu 👨‍🍳",
+      "beats": [
+        "0-3s: Close-up of empty plate with text 'Chef's Signature Dish'",
+        "3-8s: Grits being plated, smooth and creamy",
+        "8-13s: Perfectly seared fish placed on top",
+        "13-18s: Vegetables arranged artfully",
+        "18-23s: Sauce drizzled with finesse",
+        "23-28s: Garnish and final touch",
+        "28-30s: Full dish reveal with CTA"
+      ],
+      "cta": "Reserve your table → link in bio",
+      "shot_list": "Chef's hands plating, ingredients close-up, cooking action, steam/sizzle, finished dish beauty shot",
+      "platform": "tiktok",
+      "length_seconds": 30
+    },
+    "email": {
+      "subject": "This Weekend: Live Music + New Seasonal Menu",
+      "body": "Hi [Name],\n\nWe're excited to share what's happening this weekend at [Restaurant Name]!\n\n🎵 Live Music Friday & Saturday, 7-10pm\n🍂 NEW Fall Menu launches this week\n🍷 Extended happy hour all weekend\n\nFeatured New Dishes:\n- Butternut Squash Ravioli with sage brown butter\n- Pan-Roasted Duck Breast with fig gastrique\n- Pumpkin Cheesecake with candied pecans\n\nTables are filling up fast. Reserve yours today!\n\nSee you soon,\n[Restaurant Name] Team\n\n📞 [Phone] | �� [Website]",
+      "scenario": "special_event",
+      "tone": "exciting"
+    },
+    "review_reply": {
+      "review_text": "Amazing food and service! The grouper special was incredible. Can't wait to come back!",
+      "response": "Thank you so much for the wonderful review! We're thrilled you enjoyed the grouper - it's one of Chef's favorites to prepare! We can't wait to welcome you back and share more seasonal specials with you. See you soon! 🍽️",
+      "channel": "google",
+      "sentiment": "positive"
+    }
+  },
+  
+  "prompt_integration_hooks": {
+    "industry_pack_id": "restaurant",
+    "constraints_for_model": [
+      "DO: Focus on sensory descriptions (taste, smell, presentation)",
+      "DO: Highlight fresh, local, seasonal ingredients",
+      "DO: Create appetite appeal with vivid food imagery",
+      "DO: Emphasize dining experience and atmosphere",
+      "DON'T: Make unverified health or medical claims",
+      "DON'T: Guarantee allergen safety without proper controls",
+      "DON'T: Use unauthorized customer photos",
+      "DON'T: Make false claims about organic/local sourcing"
+    ],
+    "default_do_dont_list": {
+      "do": [
+        "use sensory, appetizing language",
+        "highlight fresh and local ingredients",
+        "showcase chef expertise and preparation",
+        "create urgency with limited availability",
+        "emphasize dining experience"
+      ],
+      "dont": [
+        "make medical/health claims",
+        "guarantee allergen safety",
+        "use customer photos without permission",
+        "false organic/local claims",
+        "overpromise on availability"
+      ]
+    }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Local food lovers, families, and dining enthusiasts",
+      "pain_points": [
+        "Finding quality restaurants",
+        "Dietary restrictions and options",
+        "Uncertainty about menu and pricing",
+        "Special occasion dining anxiety",
+        "Reservation availability"
+      ],
+      "desired_outcomes": [
+        "Memorable dining experience",
+        "Delicious, quality food",
+        "Great atmosphere and service",
+        "Value for money",
+        "Special moments celebrated"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Dine-in service",
+        "Takeout and delivery",
+        "Happy hour specials",
+        "Private dining",
+        "Catering",
+        "Gift certificates",
+        "Reservations",
+        "Special events"
+      ],
+      "ctas": [
+        "Make a reservation",
+        "Order online",
+        "Join us for happy hour",
+        "Try our new menu",
+        "Book your event",
+        "Visit us today"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Chef-driven cuisine",
+        "Locally sourced ingredients",
+        "Award-winning restaurant",
+        "Years serving the community",
+        "5-star reviews",
+        "Featured in local media"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "signature_dish",
+        "label": "Signature Dish",
+        "when_to_use": "Highlight bestsellers and crowd favorites"
+      },
+      {
+        "key": "seasonal_menu",
+        "label": "Seasonal Menu",
+        "when_to_use": "Promote limited-time offerings"
+      },
+      {
+        "key": "behind_kitchen",
+        "label": "Behind the Kitchen",
+        "when_to_use": "Show preparation and craftsmanship"
+      },
+      {
+        "key": "chef_spotlight",
+        "label": "Chef Spotlight",
+        "when_to_use": "Build connection with culinary team"
+      },
+      {
+        "key": "happy_hour",
+        "label": "Happy Hour",
+        "when_to_use": "Drive traffic during off-peak"
+      },
+      {
+        "key": "event_special",
+        "label": "Event/Special",
+        "when_to_use": "Promote limited-time events"
+      },
+      {
+        "key": "customer_fav",
+        "label": "Customer Favorite",
+        "when_to_use": "Leverage social proof"
+      },
+      {
+        "key": "ingredient_story",
+        "label": "Ingredient Story",
+        "when_to_use": "Emphasize quality and sourcing"
+      }
+    ],
+    "do_say": [
+      "Fresh, seasonal ingredients",
+      "Chef-prepared daily",
+      "Locally sourced when possible",
+      "Reservations recommended",
+      "Limited availability",
+      "Ask about dietary accommodations"
+    ],
+    "dont_say": [
+      "Guaranteed health benefits",
+      "100% allergen-free (unless verified)",
+      "Best restaurant in town (unless awarded)",
+      "Miracle superfood",
+      "Medical nutrition claims",
+      "Unauthorized customer endorsements"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Seasonal menu",
+        "Chef specials",
+        "Happy hour",
+        "Fresh ingredients",
+        "Local sourcing",
+        "Signature dishes",
+        "Weekend brunch",
+        "Private events",
+        "Takeout/delivery",
+        "Outdoor seating",
+        "Live music",
+        "Wine selection"
+      ],
+      "audience_chips": [
+        "Date night diners",
+        "Families",
+        "Foodies",
+        "Business lunches",
+        "Weekend brunch crowd",
+        "Happy hour guests",
+        "Special occasion",
+        "Regulars",
+        "First-time visitors",
+        "Dietary-conscious"
+      ],
+      "offer_chips": [
+        "Reservations available",
+        "Online ordering",
+        "Happy hour specials",
+        "Private dining room",
+        "Catering services",
+        "Gift cards",
+        "Daily specials",
+        "Wine pairings",
+        "Tasting menu",
+        "Event hosting"
+      ],
+      "proof_chips": [
+        "Award-winning chef",
+        "Locally sourced",
+        "5-star rated",
+        "Family-owned",
+        "Fresh daily",
+        "Years of experience",
+        "Community favorite",
+        "Featured in media",
+        "Craft cocktails",
+        "Farm-to-table"
+      ]
+    }
+  }
+}

@@ -1,0 +1,1092 @@
+"""Prompt Compiler - the "secret sauce" for voice-accurate, toggle-aware generation.
+
+This module compiles profile + wizard + voice coach + template + toggles into:
+1. Model-ready context (JSON) - compact, only what matters
+2. Strict JSON schema for model output
+3. Prompt set (system + context + request) with voice anchoring
+
+Deterministic precedence: RunToggles > TemplatePreset > VoiceFingerprint > ProfileDefaults
+"""
+
+import json
+import logging
+from typing import Any, Dict, List, Optional, TypedDict
+from datetime import datetime, timezone
+try:
+    from industry_pack_loader import load_industry_pack, get_industry_constraints, get_industry_ctas
+except ImportError:
+    # Fallback if industry_pack_loader is not available
+    def load_industry_pack(industry_id: str) -> Optional[Dict[str, Any]]:
+        return None
+    def get_industry_constraints(industry_id: str) -> Dict[str, list[str]]:
+        return {"do": [], "dont": []}
+    def get_industry_ctas(industry_id: str, cta_type: str = "booking_ctas") -> list[str]:
+        return []
+
+
+logger = logging.getLogger(__name__)
+
+
+# Brand Kit prompt configuration
+MAX_SERVICES_IN_PROMPT = 5
+MAX_PROOF_IN_PROMPT = 3
+MAX_DIFFERENTIATORS_IN_PROMPT = 3
+
+
+# ============================================================================
+# Canonical Input Types
+# ============================================================================
+
+class ProfileDefaults(TypedDict, total=False):
+    """Profile defaults from database (workspace/account settings)."""
+    company: str
+    industry: str
+    signature_tone: str
+    platforms: List[str]
+    timezone: Optional[str]
+    offerings: Optional[str]
+    audience: Optional[str]
+    taboo_topics: Optional[List[str]]
+    brand_inspirations: Optional[List[Dict[str, str]]]  # [{ name: str, why?: str }]
+    brand_anti_inspirations: Optional[List[Dict[str, str]]]
+    vibe_preset: Optional[str]
+    brand_kit: Optional[Dict[str, Any]]  # Brand Kit v1 data
+
+
+class BrandInspiration(TypedDict, total=False):
+    """Brand inspiration entry."""
+    name: str
+    why: Optional[str]
+
+
+class VoiceInspiration(TypedDict, total=False):
+    """Derived voice inspiration from brand inspirations."""
+    descriptors: List[str]  # ["warm", "confident", "premium", ...]
+    do: List[str]  # ["short hooks", "clear CTA", ...]
+    dont: List[str]  # ["salesy language", "overuse emojis", ...]
+    vibe_preset: Optional[str]
+
+
+class VoiceFingerprint(TypedDict, total=False):
+    """Voice fingerprint from voice coach training."""
+    sentence_length_band: str  # "short" | "medium" | "long"
+    emoji_rate: str  # "high" | "medium" | "low" | "none"
+    punctuation_style: Dict[str, int]  # exclamations, questions, ellipses counts
+    typical_cta_patterns: List[str]  # extracted CTA examples
+    top_phrases: List[str]  # phrases to naturally incorporate
+    avoid_phrases: List[str]  # phrases/words to avoid
+    signature_moves: List[str]  # e.g., "rhetorical questions", "storytelling"
+    micro_examples: Optional['VoiceMicroExamples']  # voice anchoring examples
+
+
+class VoiceMicroExamples(TypedDict, total=False):
+    """Micro-examples for voice anchoring (2-3 short examples)."""
+    example_caption: str  # One short caption in their voice
+    example_cta: str  # One CTA in their voice
+    avoid_rewrite: Dict[str, str]  # {"bad": "...", "good": "..."}
+
+
+class TemplatePreset(TypedDict, total=False):
+    """Template preset (optional, saved by user)."""
+    name: str
+    structure_preference: Optional[str]  # "short", "list", "story", etc.
+    cadence: Optional[str]  # "daily", "weekly", etc.
+    goal: Optional[str]
+    keywords_format: Optional[str]  # how to integrate keywords
+    preferred_tone: Optional[str]
+    preferred_platforms: Optional[List[str]]
+
+
+class RunToggles(TypedDict, total=False):
+    """Request toggles - highest priority."""
+    session_length: int  # 1, 7, 30
+    platform_focus: Optional[List[str]]  # platforms for this generation
+    tone_override: Optional[str]  # override tone for this request
+    keywords: Optional[List[str]]
+    goals: Optional[List[str]]
+    promo_note: Optional[str]
+    reel_toggles: Optional[Dict[str, Any]]  # reel-specific options
+    variants: Optional[int]  # number of variants to generate
+
+
+# ============================================================================
+# Output Types
+# ============================================================================
+
+class ModelReadyContext(TypedDict, total=False):
+    """Compiled context for model (compact, only essentials)."""
+    company_name: str
+    industry: str
+    industry_pack_id: Optional[str]
+    industry_constraints: Optional[Dict[str, List[str]]]
+    tone: str
+    platforms: List[str]
+    goals: Optional[List[str]]
+    keywords: Optional[List[str]]
+    session_length: int
+    offerings: Optional[str]
+    audience: Optional[str]
+    voice_applied: bool
+    voice_style: Optional[Dict[str, Any]]  # compact voice constraints
+    template_applied: bool
+    inspiration_applied: bool
+    inspiration_style: Optional[VoiceInspiration]  # brand inspiration descriptors
+    brand_kit_applied: bool
+    brand_kit: Optional[Dict[str, Any]]  # Brand Kit v1 data
+    brand_kit_tier: Optional[str]  # "minimum" | "stronger" | "best"
+
+
+class PromptSet(TypedDict):
+    """Complete prompt set for model."""
+    system: str  # role + format + safety constraints
+    context: str  # brand + voice (compact bullet/JSON)
+    request: str  # toggles + platform rules
+
+
+class CompilerOutput(TypedDict):
+    """Complete output from prompt compiler."""
+    model_context: ModelReadyContext
+    json_schema: Dict[str, Any]
+    prompt_set: PromptSet
+    trace_summary: Dict[str, Any]  # for debugging (redacted)
+
+
+# ============================================================================
+# Prompt Compiler
+# ============================================================================
+
+class PromptCompiler:
+    """Compiles contexts with deterministic precedence into compact, testable prompts."""
+    
+    def __init__(
+        self,
+        profile_defaults: Optional[ProfileDefaults] = None,
+        voice_fingerprint: Optional[VoiceFingerprint] = None,
+        template_preset: Optional[TemplatePreset] = None
+    ):
+        """Initialize compiler with static context layers.
+        
+        Args:
+            profile_defaults: Profile/workspace defaults
+            voice_fingerprint: Voice style constraints
+            template_preset: Optional template preset
+        """
+        self.profile_defaults = profile_defaults or {}
+        self.voice_fingerprint = voice_fingerprint or {}
+        self.template_preset = template_preset or {}
+    
+    def compile_for_social(
+        self,
+        run_toggles: RunToggles,
+        request_id: Optional[str] = None
+    ) -> CompilerOutput:
+        """Compile prompt for social media post generation.
+        
+        Args:
+            run_toggles: Request-specific toggles (highest priority)
+            request_id: Optional request ID for trace
+            
+        Returns:
+            CompilerOutput with context, schema, and prompts
+        """
+        request_id = request_id or self._generate_request_id()
+        
+        # Step 1: Merge with deterministic precedence
+        merged = self._merge_with_precedence(run_toggles)
+        
+        # Step 2: Build model-ready context (compact)
+        model_context = self._build_model_context(merged)
+        
+        # Step 3: Build JSON schema
+        json_schema = self._build_social_schema()
+        
+        # Step 4: Build prompt set with voice anchoring
+        prompt_set = self._build_social_prompt_set(model_context)
+        
+        # Step 5: Build trace summary (redacted)
+        trace_summary = self._build_trace_summary(
+            request_id=request_id,
+            content_type='social',
+            merged=merged,
+            model_context=model_context
+        )
+        
+        logger.info(f"[{request_id}] Compiled social prompt (voice={model_context.get('voice_applied')})")
+        
+        return CompilerOutput(
+            model_context=model_context,
+            json_schema=json_schema,
+            prompt_set=prompt_set,
+            trace_summary=trace_summary
+        )
+    
+    def compile_for_reels(
+        self,
+        run_toggles: RunToggles,
+        request_id: Optional[str] = None
+    ) -> CompilerOutput:
+        """Compile prompt for reel/video generation.
+        
+        Args:
+            run_toggles: Request-specific toggles
+            request_id: Optional request ID for trace
+            
+        Returns:
+            CompilerOutput with context, schema, and prompts
+        """
+        request_id = request_id or self._generate_request_id()
+        
+        merged = self._merge_with_precedence(run_toggles)
+        model_context = self._build_model_context(merged)
+        json_schema = self._build_reel_schema(run_toggles.get('reel_toggles', {}))
+        prompt_set = self._build_reel_prompt_set(model_context, run_toggles.get('reel_toggles', {}))
+        
+        trace_summary = self._build_trace_summary(
+            request_id=request_id,
+            content_type='reels',
+            merged=merged,
+            model_context=model_context
+        )
+        
+        logger.info(f"[{request_id}] Compiled reel prompt (voice={model_context.get('voice_applied')})")
+        
+        return CompilerOutput(
+            model_context=model_context,
+            json_schema=json_schema,
+            prompt_set=prompt_set,
+            trace_summary=trace_summary
+        )
+    
+    def compile_for_reviews(
+        self,
+        run_toggles: RunToggles,
+        review_text: str,
+        rating: Optional[int] = None,
+        request_id: Optional[str] = None
+    ) -> CompilerOutput:
+        """Compile prompt for review response generation.
+        
+        Args:
+            run_toggles: Request-specific toggles
+            review_text: The review to respond to
+            rating: Star rating (1-5)
+            request_id: Optional request ID for trace
+            
+        Returns:
+            CompilerOutput with context, schema, and prompts
+        """
+        request_id = request_id or self._generate_request_id()
+        
+        merged = self._merge_with_precedence(run_toggles)
+        model_context = self._build_model_context(merged)
+        json_schema = self._build_review_schema()
+        prompt_set = self._build_review_prompt_set(model_context, review_text, rating)
+        
+        trace_summary = self._build_trace_summary(
+            request_id=request_id,
+            content_type='reviews',
+            merged=merged,
+            model_context=model_context
+        )
+        
+        logger.info(f"[{request_id}] Compiled review prompt (voice={model_context.get('voice_applied')})")
+        
+        return CompilerOutput(
+            model_context=model_context,
+            json_schema=json_schema,
+            prompt_set=prompt_set,
+            trace_summary=trace_summary
+        )
+    
+    # ========================================================================
+    # Internal Methods - Merge Logic
+    # ========================================================================
+    
+    def _merge_with_precedence(self, run_toggles: RunToggles) -> Dict[str, Any]:
+        """Merge inputs with deterministic precedence.
+        
+        Precedence (highest to lowest):
+        1. RunToggles (request)
+        2. TemplatePreset
+        3. VoiceFingerprint (as constraints, not overridable)
+        4. ProfileDefaults
+        
+        Returns:
+            Merged dict with final values
+        """
+        merged: Dict[str, Any] = {}
+        
+        # Layer 1: Profile defaults (lowest priority)
+        if self.profile_defaults:
+            merged['company'] = self.profile_defaults.get('company', '')
+            merged['industry'] = self.profile_defaults.get('industry', 'business')
+            merged['tone'] = self.profile_defaults.get('signature_tone', 'professional')
+            merged['platforms'] = self.profile_defaults.get('platforms', [])
+            merged['offerings'] = self.profile_defaults.get('offerings')
+            merged['audience'] = self.profile_defaults.get('audience')
+            merged['taboo_topics'] = self.profile_defaults.get('taboo_topics', [])
+            merged['brand_inspirations'] = self.profile_defaults.get('brand_inspirations', [])
+            merged['brand_anti_inspirations'] = self.profile_defaults.get('brand_anti_inspirations', [])
+            merged['vibe_preset'] = self.profile_defaults.get('vibe_preset')
+            merged['brand_kit'] = self.profile_defaults.get('brand_kit')
+        
+        # Layer 2: Voice fingerprint (constraints, not overridden)
+        # Voice is stored separately and applied as constraints
+        merged['voice_fingerprint'] = self.voice_fingerprint if self.voice_fingerprint else None
+        
+        # Layer 3: Template preset
+        if self.template_preset:
+            if self.template_preset.get('preferred_tone'):
+                merged['tone'] = self.template_preset['preferred_tone']
+            if self.template_preset.get('preferred_platforms'):
+                merged['platforms'] = self.template_preset['preferred_platforms']
+            merged['template_name'] = self.template_preset.get('name')
+            merged['structure_preference'] = self.template_preset.get('structure_preference')
+        
+        # Layer 4: Run toggles (highest priority)
+        if run_toggles.get('tone_override'):
+            merged['tone'] = run_toggles['tone_override']
+        if run_toggles.get('platform_focus'):
+            merged['platforms'] = run_toggles['platform_focus']
+        
+        merged['session_length'] = run_toggles.get('session_length', 7)
+        merged['keywords'] = run_toggles.get('keywords', [])
+        merged['goals'] = run_toggles.get('goals', [])
+        merged['promo_note'] = run_toggles.get('promo_note')
+        merged['reel_toggles'] = run_toggles.get('reel_toggles', {})
+        merged['variants'] = run_toggles.get('variants', 1)
+        
+        return merged
+    
+    def _build_model_context(self, merged: Dict[str, Any]) -> ModelReadyContext:
+        """Build compact model-ready context (only essentials).
+        
+        Args:
+            merged: Merged parameters from precedence logic
+            
+        Returns:
+            ModelReadyContext with compact data
+        """
+        voice_fingerprint = merged.get('voice_fingerprint')
+        voice_applied = bool(voice_fingerprint and voice_fingerprint.get('top_phrases'))
+        
+        # Build compact voice style summary
+        voice_style = None
+        if voice_applied:
+            voice_style = {
+                'sentence_length': voice_fingerprint.get('sentence_length_band', 'medium'),
+                'tone_markers': voice_fingerprint.get('signature_moves', [])[:3],
+                'include_naturally': voice_fingerprint.get('top_phrases', [])[:5],
+                'avoid': voice_fingerprint.get('avoid_phrases', [])[:5],
+                'cta_style': voice_fingerprint.get('typical_cta_patterns', [])[:2]
+            }
+            
+            # Add micro-examples if available
+            if micro_examples := voice_fingerprint.get('micro_examples'):
+                voice_style['micro_examples'] = micro_examples
+        
+        # Build brand inspiration descriptors
+        brand_inspirations = merged.get('brand_inspirations', [])
+        brand_anti_inspirations = merged.get('brand_anti_inspirations', [])
+        vibe_preset = merged.get('vibe_preset')
+        
+        inspiration_applied = bool(brand_inspirations or vibe_preset)
+        inspiration_style = None
+        if inspiration_applied:
+            inspiration_style = self._convert_inspirations_to_descriptors(
+                brand_inspirations,
+                brand_anti_inspirations,
+                vibe_preset
+            )
+        
+        # Load industry pack constraints
+        industry = merged.get('industry', 'business')
+        industry_pack_id = None
+        industry_constraints = None
+        
+        # Try to load industry pack for known industries
+        industry_lower = industry.lower().replace(' ', '_').replace('/', '_')
+        # Map industry names to pack IDs
+        industry_map = {
+            'salon': 'salon',
+            'hair_studio': 'salon',
+            'dentist': 'dentist',
+            'dental_practice': 'dentist',
+            'gym': 'gym',
+            'fitness_center': 'gym',
+            'cleaner': 'cleaner',
+            'cleaning_service': 'cleaner',
+            'maid_service': 'cleaner'
+        }
+        
+        pack_id = industry_map.get(industry_lower)
+        if pack_id:
+            constraints = get_industry_constraints(pack_id)
+            if constraints and (constraints.get('do') or constraints.get('dont')):
+                industry_pack_id = pack_id
+                industry_constraints = constraints
+        
+        # Extract and evaluate Brand Kit
+        brand_kit = merged.get('brand_kit')
+        brand_kit_applied = bool(brand_kit and brand_kit.get('services'))
+        brand_kit_tier = None
+        if brand_kit_applied:
+            brand_kit_tier = self._evaluate_brand_kit_tier(brand_kit)
+        
+        return ModelReadyContext(
+            company_name=merged.get('company', ''),
+            industry=industry,
+            industry_pack_id=industry_pack_id,
+            industry_constraints=industry_constraints,
+            tone=merged.get('tone', 'professional'),
+            platforms=merged.get('platforms', []),
+            goals=merged.get('goals'),
+            keywords=merged.get('keywords'),
+            session_length=merged.get('session_length', 7),
+            offerings=merged.get('offerings'),
+            audience=merged.get('audience'),
+            voice_applied=voice_applied,
+            voice_style=voice_style,
+            template_applied=bool(merged.get('template_name')),
+            inspiration_applied=inspiration_applied,
+            inspiration_style=inspiration_style,
+            brand_kit_applied=brand_kit_applied,
+            brand_kit=brand_kit,
+            brand_kit_tier=brand_kit_tier
+        )
+    
+    def _convert_inspirations_to_descriptors(
+        self,
+        brand_inspirations: List[Dict[str, str]],
+        brand_anti_inspirations: List[Dict[str, str]],
+        vibe_preset: Optional[str]
+    ) -> VoiceInspiration:
+        """Convert brand inspirations into safe, actionable style descriptors.
+        
+        This method translates user's brand references into general style cues
+        WITHOUT copying specific brand language. It uses the "why" notes to
+        derive tone descriptors and behavioral guidelines.
+        
+        Args:
+            brand_inspirations: List of brands with optional "why" explanations
+            brand_anti_inspirations: Brands to avoid (anti-patterns)
+            vibe_preset: Optional preset vibe selection
+            
+        Returns:
+            VoiceInspiration with descriptors, do's, and don'ts
+        """
+        descriptors: List[str] = []
+        do_list: List[str] = []
+        dont_list: List[str] = []
+        
+        # Map vibe presets to descriptors
+        vibe_mapping = {
+            'friendly_modern': {
+                'descriptors': ['friendly', 'approachable', 'contemporary'],
+                'do': ['use casual language', 'keep it light', 'be conversational'],
+                'dont': ['be overly formal', 'use jargon']
+            },
+            'premium_minimal': {
+                'descriptors': ['premium', 'sophisticated', 'minimal'],
+                'do': ['use clean language', 'short impactful sentences', 'focus on quality'],
+                'dont': ['overexplain', 'use excessive emojis', 'be chatty']
+            },
+            'clinical_trustworthy': {
+                'descriptors': ['professional', 'trustworthy', 'authoritative'],
+                'do': ['cite facts', 'be clear and direct', 'maintain credibility'],
+                'dont': ['be casual', 'use slang', 'overuse emojis']
+            },
+            'playful_bold': {
+                'descriptors': ['playful', 'energetic', 'bold'],
+                'do': ['use creative language', 'be enthusiastic', 'take risks'],
+                'dont': ['be boring', 'play it too safe']
+            },
+            'no_emojis_direct': {
+                'descriptors': ['direct', 'straightforward', 'clear'],
+                'do': ['get to the point', 'use plain language', 'focus on facts'],
+                'dont': ['use emojis', 'be vague', 'add fluff']
+            }
+        }
+        
+        # Apply vibe preset if selected
+        if vibe_preset and vibe_preset in vibe_mapping:
+            preset = vibe_mapping[vibe_preset]
+            descriptors.extend(preset['descriptors'])
+            do_list.extend(preset['do'])
+            dont_list.extend(preset['dont'])
+        
+        # Extract descriptors from brand "why" notes
+        for inspiration in brand_inspirations:
+            why = (inspiration.get('why') or '').lower()
+            if not why:
+                continue
+            
+            # Parse "why" notes for style cues
+            if any(word in why for word in ['simple', 'clean', 'minimal', 'clear']):
+                if 'simple' not in descriptors:
+                    descriptors.append('simple')
+                if 'short sentences' not in do_list:
+                    do_list.append('short sentences')
+            
+            if any(word in why for word in ['funny', 'humor', 'wit', 'clever']):
+                if 'playful' not in descriptors:
+                    descriptors.append('playful')
+                if 'add humor where appropriate' not in do_list:
+                    do_list.append('add humor where appropriate')
+            
+            if any(word in why for word in ['professional', 'serious', 'formal']):
+                if 'professional' not in descriptors:
+                    descriptors.append('professional')
+                if 'avoid casual language' not in dont_list:
+                    dont_list.append('avoid casual language')
+            
+            if any(word in why for word in ['warm', 'friendly', 'personal']):
+                if 'warm' not in descriptors:
+                    descriptors.append('warm')
+                if 'be personable' not in do_list:
+                    do_list.append('be personable')
+            
+            if any(word in why for word in ['confident', 'bold', 'strong']):
+                if 'confident' not in descriptors:
+                    descriptors.append('confident')
+                if 'use strong statements' not in do_list:
+                    do_list.append('use strong statements')
+            
+            if 'no fluff' in why or 'no-nonsense' in why:
+                if 'direct' not in descriptors:
+                    descriptors.append('direct')
+                if 'avoid unnecessary words' not in dont_list:
+                    dont_list.append('avoid unnecessary words')
+        
+        # Extract anti-patterns from "anti" inspirations
+        for anti in brand_anti_inspirations:
+            why = (anti.get('why') or '').lower()
+            name = (anti.get('name') or '').lower()
+            
+            if any(word in why or word in name for word in ['salesy', 'pushy', 'aggressive']):
+                if 'avoid aggressive sales language' not in dont_list:
+                    dont_list.append('avoid aggressive sales language')
+            
+            if any(word in why or word in name for word in ['boring', 'generic', 'bland']):
+                if 'avoid generic phrases' not in dont_list:
+                    dont_list.append('avoid generic phrases')
+        
+        # Defaults if nothing extracted
+        if not descriptors:
+            descriptors = ['authentic', 'engaging']
+        if not do_list:
+            do_list = ['be clear and concise']
+        if not dont_list:
+            dont_list = ['use overly complex language']
+        
+        return VoiceInspiration(
+            descriptors=descriptors[:5],  # Limit to top 5
+            do=do_list[:5],
+            dont=dont_list[:5],
+            vibe_preset=vibe_preset
+        )
+    
+    def _evaluate_brand_kit_tier(self, brand_kit: Dict[str, Any]) -> str:
+        """Evaluate Brand Kit completeness tier.
+        
+        Tiers:
+        - "minimum": At least 1 service
+        - "stronger": Services + audience (role/pain/outcome) 
+        - "best": Services + audience + (proof or differentiators)
+        
+        Args:
+            brand_kit: Brand Kit data
+            
+        Returns:
+            Tier string: "minimum" | "stronger" | "best" | "incomplete"
+        """
+        has_services = bool(brand_kit.get('services'))
+        has_audience = bool(
+            brand_kit.get('audience_role') or 
+            brand_kit.get('audience_pain') or 
+            brand_kit.get('audience_outcome')
+        )
+        has_proof_or_diff = bool(
+            brand_kit.get('proof') or 
+            brand_kit.get('differentiators')
+        )
+        
+        if has_services and has_audience and has_proof_or_diff:
+            return "best"
+        elif has_services and has_audience:
+            return "stronger"
+        elif has_services:
+            return "minimum"
+        else:
+            return "incomplete"
+    
+    # ========================================================================
+    # Schema Builders
+    # ========================================================================
+    
+    def _build_social_schema(self) -> Dict[str, Any]:
+        """Build strict JSON schema for social posts output."""
+        return {
+            "type": "object",
+            "required": ["posts"],
+            "properties": {
+                "posts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["date", "pillar", "cards"],
+                        "properties": {
+                            "date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+                            "pillar": {
+                                "type": "string",
+                                "enum": ["Educational", "Behind-the-Scenes", "Testimonial", 
+                                        "Product", "Engagement", "Story"]
+                            },
+                            "cards": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                    "type": "object",
+                                    "required": ["platform", "caption"],
+                                    "properties": {
+                                        "platform": {"type": "string"},
+                                        "caption": {"type": "string", "minLength": 1},
+                                        "hashtags": {"type": "array", "items": {"type": "string"}},
+                                        "hook": {"type": "string"},
+                                        "cta": {"type": "string"},
+                                        "media_idea": {"type": "string"}
+                                    }
+                                }
+                            },
+                            "voice_note": {"type": "string"}
+                        }
+                    }
+                }
+            }
+        }
+    
+    def _build_reel_schema(self, reel_toggles: Dict[str, Any]) -> Dict[str, Any]:
+        """Build strict JSON schema for reel script output."""
+        schema = {
+            "type": "object",
+            "required": ["script"],
+            "properties": {
+                "script": {
+                    "type": "object",
+                    "required": ["hook", "beats", "cta", "caption", "hashtags"],
+                    "properties": {
+                        "hook": {"type": "string", "minLength": 1},
+                        "beats": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": ["text"],
+                                "properties": {
+                                    "text": {"type": "string"},
+                                    "shot": {"type": "string"},
+                                    "on_screen_text": {"type": "string"}
+                                }
+                            }
+                        },
+                        "cta": {"type": "string", "minLength": 1},
+                        "caption": {"type": "string"},
+                        "hashtags": {"type": "array", "items": {"type": "string"}}
+                    }
+                }
+            }
+        }
+        
+        # Add optional fields based on toggles
+        if reel_toggles.get('include_shot_list'):
+            schema['properties']['script']['properties']['shot_list'] = {
+                "type": "array",
+                "items": {"type": "string"}
+            }
+        
+        return schema
+    
+    def _build_review_schema(self) -> Dict[str, Any]:
+        """Build strict JSON schema for review responses output."""
+        return {
+            "type": "object",
+            "required": ["responses"],
+            "properties": {
+                "responses": {
+                    "type": "object",
+                    "properties": {
+                        "short": {"type": "string", "minLength": 1},
+                        "medium": {"type": "string", "minLength": 1},
+                        "long": {"type": "string", "minLength": 1}
+                    },
+                    "minProperties": 1
+                },
+                "tone": {"type": "string"},
+                "voice_applied": {"type": "boolean"}
+            }
+        }
+    
+    # ========================================================================
+    # Prompt Set Builders
+    # ========================================================================
+    
+    def _build_social_prompt_set(self, context: ModelReadyContext) -> PromptSet:
+        """Build complete prompt set for social generation with voice anchoring."""
+        
+        # System message with safety constraint and NO COACHING rule
+        system = (
+            "You are Eazeily, an expert social media content generator. "
+            "Generate engaging, on-brand content that sounds natural and human. "
+            "CRITICAL: Return ONLY valid JSON matching the exact schema provided. "
+            "Never include private contact information (phone, email, address) in public posts. "
+            "IMPORTANT: Do not imitate or reproduce trademarked slogans or recognizable brand phrases. "
+            "Use only general style cues and tone inspiration. "
+            "\n\nOUTPUT REQUIREMENTS (STRICTLY ENFORCED):\n"
+            "- Captions must be PASTE-READY final copy ONLY\n"
+            "- NO coaching language (e.g., 'you should', 'make sure to', 'consider posting')\n"
+            "- NO guidance text (e.g., 'Focus:', 'Platform tip:', 'Share a quick tip...')\n"
+            "- Strategy notes go in 'notes' field, NEVER in caption\n"
+            "- Each caption MUST have structure: numbered list, bullets, or concrete examples"
+        )
+        
+        # Context section (compact)
+        context_parts = []
+        
+        # BUSINESS SNAPSHOT section
+        snapshot_parts = []
+        if context.get('company_name'):
+            snapshot_parts.append(f"Company: {context['company_name']}")
+        if context.get('industry'):
+            snapshot_parts.append(f"Industry: {context['industry']}")
+        if context.get('offerings'):
+            snapshot_parts.append(f"Offerings: {context['offerings']}")
+        
+        if snapshot_parts:
+            context_parts.append("BUSINESS SNAPSHOT:")
+            context_parts.append("  " + " | ".join(snapshot_parts))
+        
+        # Brand Kit signals (if present) - MUST USE rules with labeled sections
+        if context.get('brand_kit_applied') and (brand_kit := context.get('brand_kit')):
+            brand_kit_parts = []
+            brand_kit_parts.append("\nBRAND SIGNALS (MUST USE in every post):")
+            
+            # OFFER/SERVICES section (chips)
+            if services := brand_kit.get('services'):
+                services_to_show = services[:MAX_SERVICES_IN_PROMPT]
+                brand_kit_parts.append(f"  Offer/Services: {', '.join(services_to_show)}")
+            
+            # AUDIENCE section (chips)
+            audience_parts = []
+            if role := brand_kit.get('audience_role'):
+                audience_parts.append(f"Who: {role}")
+            if pain := brand_kit.get('audience_pain'):
+                audience_parts.append(f"Pain: {pain}")
+            if outcome := brand_kit.get('audience_outcome'):
+                audience_parts.append(f"Outcome: {outcome}")
+            if objection := brand_kit.get('audience_objection'):
+                audience_parts.append(f"Objection: {objection}")
+            
+            if audience_parts:
+                brand_kit_parts.append(f"  Audience: {' | '.join(audience_parts)}")
+            
+            # PROOF section (chips)
+            if proof := brand_kit.get('proof'):
+                proof_to_show = proof[:MAX_PROOF_IN_PROMPT]
+                brand_kit_parts.append(f"  Proof/Credentials: {', '.join(proof_to_show)}")
+            
+            # Differentiators (what makes you different)
+            if differentiators := brand_kit.get('differentiators'):
+                diff_to_show = differentiators[:MAX_DIFFERENTIATORS_IN_PROMPT]
+                brand_kit_parts.append(f"  What makes you different: {', '.join(diff_to_show)}")
+            
+            # MUST USE rules for social posts
+            brand_kit_parts.append("\n  CONTENT REQUIREMENTS (each post MUST include):")
+            brand_kit_parts.append("    ✓ At least ONE: service/offer mention OR differentiator OR proof point")
+            brand_kit_parts.append("    ✓ At least ONE: pain/outcome reference OR audience callout")
+            brand_kit_parts.append("    ✓ Structure: numbered list, bullets, or concrete example")
+            
+            context_parts.append("\n".join(brand_kit_parts))
+        
+        # Industry-specific constraints (if applicable)
+        if context.get('industry_pack_id') and (industry_constraints := context.get('industry_constraints')):
+            constraint_parts = []
+            constraint_parts.append(f"INDUSTRY GUIDELINES ({context.get('industry_pack_id')}):")
+            
+            if do_list := industry_constraints.get('do'):
+                constraint_parts.append(f"  ✓ DO: {'; '.join(do_list[:5])}")
+            if dont_list := industry_constraints.get('dont'):
+                constraint_parts.append(f"  ✗ DON'T: {'; '.join(dont_list[:5])}")
+            
+            context_parts.append("\n".join(constraint_parts))
+        
+        # STYLE SIGNALS: Brand inspiration (if applied) - lower priority than voice fingerprint
+        if context.get('inspiration_applied') and (inspiration_style := context.get('inspiration_style')):
+            inspiration_parts = []
+            inspiration_parts.append("\nSTYLE SIGNALS (brand inspiration - tone cues only, don't imitate or mention brands):")
+            
+            if descriptors := inspiration_style.get('descriptors'):
+                inspiration_parts.append(f"  Tone: {', '.join(descriptors)}")
+            if do_list := inspiration_style.get('do'):
+                inspiration_parts.append(f"  Do: {'; '.join(do_list)}")
+            if dont_list := inspiration_style.get('dont'):
+                inspiration_parts.append(f"  Don't: {'; '.join(dont_list)}")
+            
+            context_parts.append("\n".join(inspiration_parts))
+        
+        # Voice style (if applied) - higher priority, overrides inspiration
+        if context.get('voice_applied') and (voice_style := context.get('voice_style')):
+            voice_parts = []
+            voice_parts.append(f"VOICE STYLE (personal fingerprint - highest priority):")
+            voice_parts.append(f"  Sentence length: {voice_style.get('sentence_length', 'medium')}")
+            
+            if include := voice_style.get('include_naturally'):
+                voice_parts.append(f"  Include naturally: {', '.join(include)}")
+            if avoid := voice_style.get('avoid'):
+                voice_parts.append(f"  AVOID: {', '.join(avoid)}")
+            if cta_style := voice_style.get('cta_style'):
+                voice_parts.append(f"  CTA style: {', '.join(cta_style)}")
+            
+            # Voice anchoring: micro-examples
+            if micro_examples := voice_style.get('micro_examples'):
+                voice_parts.append(f"\nVOICE EXAMPLES:")
+                if example_caption := micro_examples.get('example_caption'):
+                    voice_parts.append(f'  Caption example: "{example_caption}"')
+                if example_cta := micro_examples.get('example_cta'):
+                    voice_parts.append(f'  CTA example: "{example_cta}"')
+                if avoid_rewrite := micro_examples.get('avoid_rewrite'):
+                    voice_parts.append(
+                        f'  ❌ Avoid: "{avoid_rewrite.get("bad")}" '
+                        f'→ ✓ Use: "{avoid_rewrite.get("good")}"'
+                    )
+            
+            context_parts.append('\n'.join(voice_parts))
+        
+        context_section = '\n'.join(context_parts)
+        
+        # Request section
+        request_parts = []
+        request_parts.append(f"GENERATE: {context.get('session_length', 7)} social media posts")
+        request_parts.append(f"TONE: {context.get('tone', 'professional')}")
+        
+        if platforms := context.get('platforms'):
+            request_parts.append(f"PLATFORMS: {', '.join(platforms)}")
+            # Add platform-specific rules
+            request_parts.append(self._build_platform_rules(platforms))
+        
+        if goals := context.get('goals'):
+            request_parts.append(f"GOALS: {', '.join(goals)}")
+        if keywords := context.get('keywords'):
+            request_parts.append(f"KEYWORDS: {', '.join(keywords)}")
+        
+        request_section = '\n'.join(request_parts)
+        
+        return PromptSet(
+            system=system,
+            context=context_section,
+            request=request_section
+        )
+    
+    def _build_reel_prompt_set(
+        self,
+        context: ModelReadyContext,
+        reel_toggles: Dict[str, Any]
+    ) -> PromptSet:
+        """Build complete prompt set for reel generation."""
+        
+        system = (
+            "You are Eazeily, an expert video content creator. "
+            "Generate engaging video scripts (Reels/TikTok/Shorts) with hooks, beats, and CTAs. "
+            "CRITICAL: Return ONLY valid JSON matching the exact schema provided. "
+            "Hook viewers in first 3 seconds. Use short, punchy lines."
+        )
+        
+        # Build context (reuse social logic, it's compact)
+        context_parts = []
+        if context.get('company_name'):
+            context_parts.append(f"Company: {context['company_name']}")
+        if context.get('industry'):
+            context_parts.append(f"Industry: {context['industry']}")
+        
+        if context.get('voice_applied') and (voice_style := context.get('voice_style')):
+            context_parts.append(f"Voice style: {voice_style.get('sentence_length', 'medium')} sentences")
+            if include := voice_style.get('include_naturally'):
+                context_parts.append(f"Include: {', '.join(include[:3])}")
+        
+        context_section = '\n'.join(context_parts)
+        
+        # Request
+        request_parts = ["GENERATE: Video script (Reel/TikTok/Short)"]
+        request_parts.append(f"TONE: {context.get('tone', 'professional')}")
+        
+        if hook_style := reel_toggles.get('hook_style'):
+            request_parts.append(f"HOOK STYLE: {hook_style}")
+        if duration := reel_toggles.get('duration'):
+            request_parts.append(f"DURATION: ~{duration} seconds")
+        
+        request_parts.append(
+            "KEY REQUIREMENTS:\n"
+            "- Hook in first 3 seconds\n"
+            "- Short lines (5-8 words)\n"
+            "- Clear visual progression\n"
+            "- Strong CTA"
+        )
+        
+        request_section = '\n'.join(request_parts)
+        
+        return PromptSet(
+            system=system,
+            context=context_section,
+            request=request_section
+        )
+    
+    def _build_review_prompt_set(
+        self,
+        context: ModelReadyContext,
+        review_text: str,
+        rating: Optional[int]
+    ) -> PromptSet:
+        """Build complete prompt set for review response generation."""
+        
+        system = (
+            "You are Eazeily, an expert at crafting professional review responses. "
+            "Generate authentic, gracious responses that acknowledge specific feedback. "
+            "CRITICAL: Return ONLY valid JSON matching the exact schema provided. "
+            "Stay professional regardless of review tone. Never include contact info."
+        )
+        
+        # Context
+        context_parts = []
+        if context.get('company_name'):
+            context_parts.append(f"Company: {context['company_name']}")
+        
+        if context.get('voice_applied') and (voice_style := context.get('voice_style')):
+            context_parts.append(f"Brand voice: {context.get('tone', 'professional')}")
+            if cta_style := voice_style.get('cta_style'):
+                context_parts.append(f"CTA approach: {', '.join(cta_style[:1])}")
+        
+        context_section = '\n'.join(context_parts)
+        
+        # Request
+        request_parts = ["GENERATE: Response to customer review"]
+        request_parts.append(f"TONE: {context.get('tone', 'professional')}")
+        if rating:
+            request_parts.append(f"RATING: {rating}/5 stars")
+        
+        request_parts.append(f"\nREVIEW TEXT:\n{review_text}")
+        request_parts.append(
+            "\nGUIDELINES:\n"
+            "- Acknowledge specific feedback\n"
+            "- Stay professional and gracious\n"
+            "- Be genuine, not generic\n"
+            "- Provide short (~50w), medium (~100w), long (~150w) variants"
+        )
+        
+        request_section = '\n'.join(request_parts)
+        
+        return PromptSet(
+            system=system,
+            context=context_section,
+            request=request_section
+        )
+    
+    def _build_platform_rules(self, platforms: List[str]) -> str:
+        """Build platform-specific constraints."""
+        platform_rules = {
+            'instagram': 'Visual-first. 2200 chars max. 12 hashtags. Line breaks.',
+            'facebook': 'Conversational. 1200 chars max. 4 hashtags. Community focus.',
+            'linkedin': 'Professional. 1300 chars max. 5 hashtags. Value-forward.',
+            'twitter': 'Punchy. 280 chars max. 3 hashtags. Thread if needed.',
+            'tiktok': 'Hook first. 1500 chars max. 5 hashtags. Short lines.',
+            'youtube': 'Hook + value. 5000 chars max. 6 hashtags. Structure.'
+        }
+        
+        rules = []
+        for platform in platforms:
+            if rule := platform_rules.get(platform.lower()):
+                rules.append(f"  {platform.upper()}: {rule}")
+        
+        return '\n'.join(['PLATFORM RULES:'] + rules) if rules else ''
+    
+    # ========================================================================
+    # Trace & Debugging
+    # ========================================================================
+    
+    def _build_trace_summary(
+        self,
+        request_id: str,
+        content_type: str,
+        merged: Dict[str, Any],
+        model_context: ModelReadyContext
+    ) -> Dict[str, Any]:
+        """Build redacted trace summary for debugging (no PII).
+        
+        Args:
+            request_id: Request identifier
+            content_type: Type of content (social, reels, reviews)
+            merged: Merged parameters
+            model_context: Final model context
+            
+        Returns:
+            Trace summary dict (safe for logging)
+        """
+        voice_fingerprint = merged.get('voice_fingerprint')
+        
+        # Estimate token budget (rough)
+        token_estimate = self._estimate_tokens(model_context)
+        
+        return {
+            'request_id': request_id,
+            'content_type': content_type,
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'selections': {
+                'tone': merged.get('tone'),
+                'platforms': merged.get('platforms', []),
+                'session_length': merged.get('session_length'),
+                'goals_count': len(merged.get('goals') or []),
+                'keywords_count': len(merged.get('keywords') or [])
+            },
+            'voice_fingerprint_applied': bool(voice_fingerprint and voice_fingerprint.get('top_phrases')),
+            'template_used': merged.get('template_name'),
+            'token_budget_estimate': token_estimate,
+            'flags': {
+                'voice_applied': model_context.get('voice_applied', False),
+                'template_applied': model_context.get('template_applied', False)
+            }
+        }
+    
+    def _estimate_tokens(self, context: ModelReadyContext) -> int:
+        """Rough token estimate for prompt size.
+        
+        Args:
+            context: Model-ready context
+            
+        Returns:
+            Estimated token count (very rough, ~4 chars per token)
+        """
+        # Rough estimation: sum character counts and divide by 4
+        char_count = 0
+        
+        # System message ~150 tokens
+        char_count += 600
+        
+        # Context fields
+        char_count += len(str(context.get('company_name', '')))
+        char_count += len(str(context.get('industry', '')))
+        char_count += len(str(context.get('offerings', '')))
+        char_count += len(str(context.get('audience', '')))
+        
+        # Voice style (if present)
+        if voice_style := context.get('voice_style'):
+            char_count += len(json.dumps(voice_style))
+        
+        # Request params
+        char_count += len(str(context.get('platforms', []))) * 20
+        char_count += len(str(context.get('keywords', []))) * 10
+        char_count += len(str(context.get('goals', []))) * 10
+        
+        # Rough conversion (4 chars per token)
+        return char_count // 4
+    
+    def _generate_request_id(self) -> str:
+        """Generate unique request ID."""
+        import uuid
+        return uuid.uuid4().hex[:12]

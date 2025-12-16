@@ -1,0 +1,46 @@
+{
+  "id": "email_followup",
+  "name": "Follow-up Email",
+  "channel": "email",
+  "description": "Follow-up email after initial contact or inquiry",
+  "baseline": {
+    "subject": "Following up on your inquiry",
+    "body": "Hi,\n\nI wanted to follow up on your recent inquiry. Do you have any questions? We'd love to help you get started.\n\nOur team is here to make the process easy and answer any questions you might have.\n\nLooking forward to hearing from you!\n\nBest regards,\nThe Team",
+    "cta": "Reply to this email"
+  },
+  "personalized": {
+    "subject": "Quick follow-up: Ready to solve {pain}?",
+    "body": "Hi,\n\nI wanted to follow up about {service}. I understand that {audience} often face challenges with {pain}.\n\nWe specialize in helping you achieve {outcome}. {differentiator} sets us apart from the rest.\n\n{proof}. Many of our clients have seen amazing results.\n\nReady to take the next step? {cta}\n\nBest regards,\nThe Team",
+    "cta": "{cta}"
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Home Renovation Services"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "homeowners"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "outdated kitchens and bathrooms"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "a modern, functional living space"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "Fixed pricing and 3-week turnaround guarantee"
+    },
+    "proof": {
+      "description": "Social proof or credibility",
+      "example": "98% of our clients would recommend us to friends"
+    },
+    "cta": {
+      "description": "Call to action",
+      "example": "Schedule a free consultation"
+    }
+  }
+}

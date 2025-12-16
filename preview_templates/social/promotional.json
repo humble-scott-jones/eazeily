@@ -1,0 +1,56 @@
+{
+  "id": "social_promotional",
+  "name": "Promotional Post",
+  "channel": "social",
+  "description": "Attention-grabbing promotional post for social media",
+  "baseline": {
+    "caption": "🎉 Special offer! Book your service today and experience the difference. Limited time only - don't miss out!",
+    "hashtags": ["#specialoffer", "#bookingopen", "#limitedtime"],
+    "platform_hints": {
+      "instagram": "Visual content works best",
+      "facebook": "Consider adding a photo or video",
+      "linkedin": "Emphasize professional value",
+      "twitter": "Keep it concise and actionable"
+    }
+  },
+  "personalized": {
+    "caption": "🎉 {service} Special! We help {audience} overcome {pain} and achieve {outcome}. What makes us different? {differentiator}. {proof} Book now - {cta}!",
+    "hashtags": ["#{service}", "#{audience}", "#bookingopen"],
+    "platform_hints": {
+      "instagram": "Showcase visual results",
+      "facebook": "Share customer success stories",
+      "linkedin": "Highlight professional outcomes",
+      "twitter": "Quick wins and benefits"
+    }
+  },
+  "slots": {
+    "service": {
+      "description": "The service or product being offered",
+      "example": "Premium Cleaning"
+    },
+    "audience": {
+      "description": "Target audience",
+      "example": "busy professionals"
+    },
+    "pain": {
+      "description": "Customer pain point",
+      "example": "lack of time for housework"
+    },
+    "outcome": {
+      "description": "Desired outcome",
+      "example": "a spotless home"
+    },
+    "differentiator": {
+      "description": "What makes you unique",
+      "example": "eco-friendly products and same-day service"
+    },
+    "proof": {
+      "description": "Social proof or credibility",
+      "example": "5-star rated by 200+ happy clients"
+    },
+    "cta": {
+      "description": "Call to action",
+      "example": "Get 20% off your first booking"
+    }
+  }
+}

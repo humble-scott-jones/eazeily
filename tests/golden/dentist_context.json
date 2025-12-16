@@ -1,0 +1,70 @@
+{
+  "model_context": {
+    "company_name": "Dentist Example Co.",
+    "industry": "Dentist",
+    "industry_pack_id": "dentist",
+    "industry_constraints": {
+      "do": [
+        "educate on preventive care",
+        "demystify common procedures",
+        "highlight patient comfort measures",
+        "showcase technology and expertise",
+        "provide general oral health tips"
+      ],
+      "dont": [
+        "guarantee specific outcomes",
+        "diagnose conditions remotely",
+        "recommend specific treatments without consultation",
+        "violate HIPAA privacy rules",
+        "make fear-based appeals"
+      ]
+    },
+    "tone": "professional",
+    "platforms": [
+      "instagram"
+    ],
+    "goals": [
+      "engagement",
+      "bookings"
+    ],
+    "keywords": [
+      "quality",
+      "local",
+      "professional"
+    ],
+    "session_length": 7,
+    "offerings": "high-quality services",
+    "audience": "local community",
+    "voice_applied": false,
+    "voice_style": null,
+    "template_applied": false,
+    "inspiration_applied": false,
+    "inspiration_style": null,
+    "brand_kit_applied": false,
+    "brand_kit": null,
+    "brand_kit_tier": null
+  },
+  "prompt_set": {
+    "system": "You are Eazeily, an expert social media content generator. Generate engaging, on-brand content that sounds natural and human. CRITICAL: Return ONLY valid JSON matching the exact schema provided. Never include private contact information (phone, email, address) in public posts. IMPORTANT: Do not imitate or reproduce trademarked slogans or recognizable brand phrases. Use only general style cues and tone inspiration. \n\nOUTPUT REQUIREMENTS (STRICTLY ENFORCED):\n- Captions must be PASTE-READY final copy ONLY\n- NO coaching language (e.g., 'you should', 'make sure to', 'consider posting')\n- NO guidance text (e.g., 'Focus:', 'Platform tip:', 'Share a quick tip...')\n- Strategy notes go in 'notes' field, NEVER in caption\n- Each caption MUST have structure: numbered list, bullets, or concrete examples",
+    "context": "BUSINESS SNAPSHOT:\n  Company: Dentist Example Co. | Industry: Dentist | Offerings: high-quality services\nINDUSTRY GUIDELINES (dentist):\n  \u2713 DO: educate on preventive care; demystify common procedures; highlight patient comfort measures; showcase technology and expertise; provide general oral health tips\n  \u2717 DON'T: guarantee specific outcomes; diagnose conditions remotely; recommend specific treatments without consultation; violate HIPAA privacy rules; make fear-based appeals",
+    "request": "GENERATE: 7 social media posts\nTONE: professional\nPLATFORMS: instagram\nPLATFORM RULES:\n  INSTAGRAM: Visual-first. 2200 chars max. 12 hashtags. Line breaks.\nGOALS: engagement, bookings\nKEYWORDS: quality, local, professional"
+  },
+  "trace_summary": {
+    "content_type": "social",
+    "selections": {
+      "tone": "professional",
+      "platforms": [
+        "instagram"
+      ],
+      "session_length": 7,
+      "goals_count": 2,
+      "keywords_count": 3
+    },
+    "voice_fingerprint_applied": false,
+    "template_used": null,
+    "flags": {
+      "voice_applied": false,
+      "template_applied": false
+    }
+  }
+}
