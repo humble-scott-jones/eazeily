@@ -32,7 +32,7 @@
 
     // For GOOD tier, add form fields
     if (id === 'good') {
-      const form = el('div', { class: 'space-y-4 mb-4' });
+      const form = el('div', { class: 'space-y-4 mb-4', style: 'display: block; visibility: visible;' });
       
       // Company field
       const companyGroup = el('div');
@@ -41,7 +41,8 @@
         type: 'text', 
         class: 'w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500',
         placeholder: 'e.g., Laura\'s Bakery',
-        id: 'tier-company'
+        id: 'tier-company',
+        style: 'display: block; width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem;'
       });
       companyGroup.appendChild(companyInput);
       form.appendChild(companyGroup);
@@ -51,7 +52,8 @@
       industryGroup.appendChild(el('label', { class: 'block text-sm font-medium text-slate-700 mb-1', text: 'Industry' }));
       const industrySelect = el('select', { 
         class: 'w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500',
-        id: 'tier-industry'
+        id: 'tier-industry',
+        style: 'display: block; width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem;'
       });
       industrySelect.appendChild(el('option', { value: '', text: 'Choose your industry...' }));
       // Add some common industries
@@ -67,7 +69,8 @@
       toneGroup.appendChild(el('label', { class: 'block text-sm font-medium text-slate-700 mb-1', text: 'Tone' }));
       const toneSelect = el('select', { 
         class: 'w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500',
-        id: 'tier-tone'
+        id: 'tier-tone',
+        style: 'display: block; width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #d1d5db; border-radius: 0.5rem;'
       });
       toneSelect.appendChild(el('option', { value: '', text: 'Choose your tone...' }));
       const tones = ['Professional', 'Friendly', 'Casual', 'Inspirational', 'Humorous', 'Bold'];
