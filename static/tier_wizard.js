@@ -1,6 +1,7 @@
 // Minimal Tier Wizard progressive enhancement
 // Renders three tiers (Good, Better, Best) and a sticky quality meter.
 (function () {
+  console.log('Tier wizard script loaded');
   function el(tag, attrs = {}, children = []) {
     const n = document.createElement(tag);
     Object.keys(attrs).forEach(k => {
@@ -170,8 +171,13 @@
   }
 
   async function mount() {
+    console.log('Tier wizard mount function called');
     const root = document.getElementById('tier-wizard-root');
-    if (!root) return;
+    console.log('Tier wizard root element:', root);
+    if (!root) {
+      console.log('Tier wizard root not found');
+      return;
+    }
     const container = el('div', { class: 'grid gap-4 lg:grid-cols-[1fr,320px]' });
     const left = el('div', { class: 'space-y-4' });
     const right = el('aside', { class: 'space-y-4' });
@@ -226,8 +232,16 @@
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    console.log('DOMContentLoaded fired for tier wizard');
     // Only mount if tier-wizard is enabled on body
-    if (document.body.getAttribute('data-tier-wizard') !== '1') return;
+    const body = document.body;
+    const tierWizardEnabled = body.getAttribute('data-tier-wizard') === '1';
+    console.log('Tier wizard enabled:', tierWizardEnabled);
+    if (!tierWizardEnabled) {
+      console.log('Tier wizard not enabled, skipping mount');
+      return;
+    }
+    console.log('Tier wizard enabled, calling mount');
     await mount();
   });
 })();
