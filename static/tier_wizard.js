@@ -178,6 +178,14 @@
       console.log('Tier wizard root not found');
       return;
     }
+    
+    // Add a visible test element first
+    const testDiv = el('div', { 
+      style: 'background: red; color: white; padding: 20px; margin: 10px; border: 2px solid black;',
+      text: 'TIER WIZARD IS LOADING...'
+    });
+    root.appendChild(testDiv);
+    console.log('Added test element to root');
     const container = el('div', { class: 'grid gap-4 lg:grid-cols-[1fr,320px]' });
     const left = el('div', { class: 'space-y-4' });
     const right = el('aside', { class: 'space-y-4' });
@@ -231,17 +239,24 @@
     updateQualityMeter();
   }
 
-  document.addEventListener('DOMContentLoaded', async () => {
-    console.log('DOMContentLoaded fired for tier wizard');
-    // Only mount if tier-wizard is enabled on body
+  // Mount immediately if document is ready, otherwise wait for DOMContentLoaded
+  function initTierWizard() {
+    console.log('initTierWizard called');
     const body = document.body;
-    const tierWizardEnabled = body.getAttribute('data-tier-wizard') === '1';
+    const tierWizardEnabled = body && body.getAttribute('data-tier-wizard') === '1';
     console.log('Tier wizard enabled:', tierWizardEnabled);
     if (!tierWizardEnabled) {
       console.log('Tier wizard not enabled, skipping mount');
       return;
     }
     console.log('Tier wizard enabled, calling mount');
-    await mount();
-  });
+    mount();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTierWizard);
+  } else {
+    // DOM already loaded
+    initTierWizard();
+  }
 })();
