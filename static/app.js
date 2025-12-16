@@ -395,7 +395,41 @@ let skipStep2 = false;
 // load optional flags then config (share promise for later waits)
 const bootPromise = loadFlags().then(loadConfig).catch(err => { console.error(err); });
 bootPromise
-  .then(() => hydrateWizardPreview())
+  .then(async () => {
+    // Hydrate legacy preview UI first (non-destructive)
+    await hydrateWizardPreview();
+
+    // If we're on the /app route, and tier_wizard flag is enabled, prefer TierWizard
+    try {
+      const path = window.location && window.location.pathname ? window.location.pathname : '';
+      if (path.startsWith('/app')) {
+        const flags = window.FLAGS || {};
+        if (flags.tierWizard && window.TierWizard && typeof window.TierWizard.boot === 'function') {
+          // Hide legacy containers used by the step wizard
+          const legacySelectors = ['#wiz', '#steps', '#steps-mobile', '.step-panel', '.steps'];
+          legacySelectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => {
+              try { el.style.display = 'none'; } catch (e) { /* ignore */ }
+            });
+          });
+
+          // Ensure tier root exists and is visible
+          const tw = document.getElementById('tier-wizard-root');
+          if (tw) tw.style.display = '';
+
+          // Boot the TierWizard with current flags and (optionally) preloaded profile
+          let profile = null;
+          try { profile = await loadSavedProfile(); } catch (e) { /* ignore */ }
+          await window.TierWizard.boot({ flags, profile });
+
+          // Early return: do not run legacy showStep boot path for /app
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Error while deciding tier wizard boot:', err);
+    }
+  })
   .catch(() => hydrateWizardPreview());
 
 // attempt to load saved profile for this session and prefill fields
@@ -3575,11 +3609,11 @@ function updateBrandKitMeter(tier, score) {
   
   if (helperEl) {
     if (tier === 'best') {
-      helperEl.textContent = 'Amazing! Your Brand Kit is complete. We'll generate ready-to-send emails and quotes for you.';
+      helperEl.textContent = "Amazing! Your Brand Kit is complete. We'll generate ready-to-send emails and quotes for you.";
     } else if (tier === 'stronger') {
-      helperEl.textContent = 'Add 2 more and your posts will feel more credible (we'll include proof and why someone should choose you).';
+      helperEl.textContent = "Add 2 more and your posts will feel more credible (we'll include proof and why someone should choose you).";
     } else {
-      helperEl.textContent = 'Fill these 5 fields and you'll get posts you can copy/paste with your services and results included.';
+      helperEl.textContent = "Fill these 5 fields and you'll get posts you can copy/paste with your services and results included.";
     }
   }
 }

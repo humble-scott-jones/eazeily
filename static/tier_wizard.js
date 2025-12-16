@@ -239,42 +239,26 @@
     updateQualityMeter();
   }
 
-  // Mount immediately if document is ready, otherwise wait for DOMContentLoaded
-  function initTierWizard() {
-    console.log('initTierWizard called');
-    
-    // Wait for FLAGS to be loaded
-    function checkFlags() {
-      console.log('Checking FLAGS:', window.FLAGS);
-      if (window.FLAGS) {
-        const tierWizardEnabled = window.FLAGS.tierWizard;
-        console.log('Tier wizard flag enabled:', tierWizardEnabled);
-        if (!tierWizardEnabled) {
-          console.log('Tier wizard flag not enabled, skipping mount');
-          return;
-        }
+  // Expose a stable, explicit boot API. Consumers should call TierWizard.boot({ flags, profile, packs })
+  // Boot will be a no-op if the root element is missing or if the flag is disabled.
+  window.TierWizard = {
+    boot: async function boot(opts = {}) {
+      try {
+        const flags = opts.flags || window.FLAGS || {};
+        // Respect explicit falsey flag
+        if (!flags.tierWizard) return;
+        // Provide flags globally for any legacy code that checks window.FLAGS
+        window.FLAGS = flags;
+
         const body = document.body;
-        if (!body) {
-          console.log('Body not found');
-          return;
-        }
-        body.setAttribute('data-tier-wizard', '1');
-        console.log('Set data-tier-wizard attribute');
-        console.log('Tier wizard enabled, calling mount');
-        mount();
-      } else {
-        // FLAGS not loaded yet, check again in 100ms
-        setTimeout(checkFlags, 100);
+        if (body) body.setAttribute('data-tier-wizard', '1');
+
+        // Mount into the root (mount is a local async function above)
+        await mount();
+      } catch (err) {
+        // Do not throw — calling code should tolerate failures
+        console.error('TierWizard.boot error', err);
       }
     }
-    
-    checkFlags();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initTierWizard);
-  } else {
-    // DOM already loaded
-    initTierWizard();
-  }
+  };
 })();
