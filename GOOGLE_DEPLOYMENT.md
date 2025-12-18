@@ -96,8 +96,8 @@ Set production environment variables:
 # Stripe (if using payments)
 gcloud app deploy --set-env-vars STRIPE_SECRET_KEY=sk_test_...,STRIPE_PUBLISHABLE_KEY=pk_test_...
 
-# OpenAI (if using AI features)
-gcloud app deploy --set-env-vars OPENAI_API_KEY=sk-...
+# Gemini (if using AI features)
+gcloud app deploy --set-env-vars GEMINI_API_KEY=your-gemini-api-key
 ```
 
 ## Cost Comparison: Google vs Other Platforms

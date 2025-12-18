@@ -254,8 +254,10 @@ def validate_with_schema_enforcement(
     data: Any,
     content_type: str,
     openai_client: Optional[Any] = None,
+    gemini_client: Optional[Any] = None, # New parameter
     prompt_set: Optional[Dict[str, str]] = None,
-    json_schema: Optional[Dict[str, Any]] = None
+    json_schema: Optional[Dict[str, Any]] = None,
+    system_instruction: Optional[str] = None # New parameter
 ) -> Dict[str, Any]:
     """Validate output with strict schema enforcement and repair pass.
     
@@ -295,15 +297,17 @@ def validate_with_schema_enforcement(
         logger.warning(f"Initial validation failed for {content_type}: {e}")
         result['error'] = str(e)
         
-        # Try repair pass if OpenAI client and prompt available
-        if openai_client and prompt_set:
+        # Try repair pass if OpenAI/Gemini client and prompt available
+        if (openai_client or gemini_client) and prompt_set:
             logger.info(f"Attempting repair pass for {content_type}")
             try:
                 repaired_data = _attempt_repair_pass(
                     openai_client=openai_client,
+                    gemini_client=gemini_client, # Pass Gemini client
                     prompt_set=prompt_set,
                     json_schema=json_schema,
-                    original_error=str(e)
+                    original_error=str(e),
+                    system_instruction=system_instruction # Pass system instruction
                 )
                 
                 # Validate repaired output
@@ -329,18 +333,22 @@ def validate_with_schema_enforcement(
 
 
 def _attempt_repair_pass(
-    openai_client: Any,
+    openai_client: Optional[Any],
+    gemini_client: Optional[Any], # New parameter
     prompt_set: Dict[str, str],
     json_schema: Optional[Dict[str, Any]],
-    original_error: str
+    original_error: str,
+    system_instruction: Optional[str] = None # New parameter
 ) -> Any:
     """Attempt single repair pass with stricter instructions.
     
     Args:
         openai_client: OpenAI client
+        gemini_client: Gemini client # New arg doc
         prompt_set: Original prompt set
         json_schema: JSON schema for validation
         original_error: Error from first attempt
+        system_instruction: Original system instruction (for Gemini) # New arg doc
         
     Returns:
         Repaired output data
@@ -349,8 +357,11 @@ def _attempt_repair_pass(
         Exception: If repair pass fails
     """
     # Build stricter prompt
-    system = prompt_set.get('system', '')
-    system += (
+    system_message_content = prompt_set.get('system', '')
+    if system_instruction: # For Gemini, system_instruction is separate
+        system_message_content = system_instruction
+    
+    system_message_content += (
         "\n\nIMPORTANT: Your previous output had validation errors. "
         "This is your ONE chance to fix it. "
         f"Error details: {original_error}. "
@@ -365,23 +376,39 @@ def _attempt_repair_pass(
     
     # Build messages
     messages = [
-        {"role": "system", "content": system},
         {"role": "user", "content": f"{context}\n\n{request}"}
     ]
     
-    # Call OpenAI with stricter validation
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            temperature=0.3,  # Lower temperature for more consistency
-            response_format={"type": "json_object"}
-        )
-        
-        import json
-        content = response.choices[0].message.content
-        return json.loads(content)
-        
-    except Exception as e:
-        logger.error(f"OpenAI repair call failed: {e}")
-        raise
+    # Prioritize Gemini if available
+    if gemini_client:
+        try:
+            # Call Gemini with stricter validation
+            response = gemini_client.generate_structured(
+                messages,
+                temperature=0.3, # Lower temperature for more consistency
+                system_instruction=system_message_content, # Pass system instruction for Gemini
+                model='gemini-1.5-flash' # Use a faster model for repair if possible, or same as original
+            )
+            return response
+        except Exception as e:
+            logger.error(f"Gemini repair call failed: {e}")
+            raise
+    elif openai_client:
+        try:
+            # Call OpenAI with stricter validation
+            response = openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "system", "content": system_message_content}] + messages,
+                temperature=0.3, # Lower temperature for more consistency
+                response_format={"type": "json_object"}
+            )
+            
+            import json
+            content = response.choices[0].message.content
+            return json.loads(content)
+            
+        except Exception as e:
+            logger.error(f"OpenAI repair call failed: {e}")
+            raise
+    else:
+        raise Exception("No AI client available for repair pass.")

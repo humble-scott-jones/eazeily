@@ -1,6 +1,6 @@
 # Prompt Templates and Few-Shot Examples
 
-This file contains recommended prompts and a few-shot set of examples for using the OpenAI API to generate short social captions and review responses.
+This file contains recommended prompts and a few-shot set of examples for using the Gemini API to generate short social captions and review responses.
 
 ## Caption generation (single-brief -> N variants)
 
@@ -62,7 +62,7 @@ Output: "Thanks for the heads-up — we're glad you enjoyed the pastries but we'
 ## Suggestions for engineering
 - Cache prompt templates and model responses for identical inputs to reduce cost.
 - Rate-limit the generation endpoint for anonymous requests; encourage sign-in for unlimited generation.
-- Store the temperature and model in environment variables (e.g., OPENAI_MODEL, OPENAI_TEMP).
+- Store the temperature and model in environment variables (e.g., GEMINI_MODEL, OPENAI_TEMP).
 
 ## File usage
 - `PROMPTS.md` is a living doc; keep it in the repository to sync prompt changes with code changes.

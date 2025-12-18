@@ -12,7 +12,7 @@ from .context_builder import merge_contexts, extract_merged_params
 from .voice_style_builder import build_voice_style_guide
 from .prompt_builder import build_social_prompt, build_reel_prompt, build_review_response_prompt
 from .prompt_compiler import PromptCompiler, ProfileDefaults, VoiceFingerprint, RunToggles
-from .openai_client import create_client as create_openai_client
+from .gemini_client import create_client as create_gemini_client
 from .output_validator import (
     validate_and_repair_social_posts,
     validate_and_repair_reel_script,
@@ -41,30 +41,30 @@ class GenerationService:
     
     def __init__(
         self,
-        openai_api_key: Optional[str] = None,
-        openai_model: Optional[str] = None,
-        enable_openai: bool = True,
+        gemini_api_key: Optional[str] = None, # New parameter
+        gemini_model: Optional[str] = None, # New parameter
+        enable_gemini: bool = True, # New parameter
         use_prompt_compiler: bool = False
     ):
         """Initialize generation service.
         
         Args:
-            openai_api_key: Optional OpenAI API key
-            openai_model: Optional OpenAI model name
-            enable_openai: Whether to use OpenAI (default True)
+            gemini_api_key: Optional Gemini API key # New arg doc
+            gemini_model: Optional Gemini model name # New arg doc
+            enable_gemini: Whether to use Gemini (default True) # New arg doc
             use_prompt_compiler: Whether to use new PromptCompiler (default False for gradual migration)
         """
-        self.openai_client = None
-        if enable_openai:
-            self.openai_client = create_openai_client(
-                api_key=openai_api_key,
-                model=openai_model
-            )
+        self.gemini_client = None # New client initialization
+        if enable_gemini: # New client initialization
+            self.gemini_client = create_gemini_client( # New client initialization
+                api_key=gemini_api_key, # New client initialization
+                model=gemini_model # New client initialization
+            ) # New client initialization
         
         self.use_prompt_compiler = use_prompt_compiler
         
         logger.info(
-            f"GenerationService initialized (OpenAI: {'enabled' if self.openai_client else 'disabled'}, "
+            f"GenerationService initialized (Gemini: {'enabled' if self.gemini_client else 'disabled'}, " # Updated logging
             f"PromptCompiler: {'enabled' if use_prompt_compiler else 'disabled'})"
         )
     
@@ -96,17 +96,21 @@ class GenerationService:
         self,
         request_id: str,
         data: Dict[str, Any],
-        openai_used: bool,
+        gemini_used: bool, # New parameter
         summary: Optional[Dict[str, Any]] = None,
         warnings: Optional[List[str]] = None,
         used_signals: Optional[Dict[str, Any]] = None
     ) -> SuccessResponse:
         """Build standardized success response."""
-        source = "openai" if openai_used else "fallback"
-        mode = "generated" if openai_used else "fallback_suggestions"
+        source = "fallback"
+        mode = "fallback_suggestions"
+
+        if gemini_used:
+            source = "gemini"
+            mode = "generated"
         
-        # Add fallback warning if not using OpenAI
-        if not openai_used:
+        # Add fallback warning if no AI used
+        if not gemini_used:
             if warnings is None:
                 warnings = []
             if "AI generation temporarily unavailable - showing template suggestions" not in warnings:
@@ -116,8 +120,8 @@ class GenerationService:
             'ok': True,
             'request_id': request_id,
             'source': source,
-            'openai_used': openai_used,
-            'fallback_used': not openai_used,
+            'gemini_used': gemini_used, # Add gemini_used to response
+            'fallback_used': not gemini_used, # Update fallback_used
             'data': data,
             'summary': summary,
             'warnings': warnings,
@@ -213,32 +217,41 @@ class GenerationService:
                 f"brand_kit_tier={brand_kit_tier}"
             )
             
-            # Try OpenAI first
-            openai_used = False
+            # Try Gemini first
+            gemini_used = False # New variable
             data = None
             
-            if self.openai_client:
+            if self.gemini_client: # New logic for Gemini
                 try:
-                    logger.info(f"[{request_id}] Attempting OpenAI generation")
+                    logger.info(f"[{request_id}] Attempting Gemini generation")
                     
                     # Build prompt
                     messages = build_social_prompt(context, session_length=session_length)
                     
+                    # Extract system instruction
+                    system_instruction = None
+                    if messages and messages[0]['role'] == 'system':
+                        system_instruction = messages[0]['content']
+                        messages = messages[1:] # Remove system message from list
+                    
                     # Generate
-                    result = self.openai_client.generate_structured(messages)
+                    result = self.gemini_client.generate_structured(
+                        messages,
+                        system_instruction=system_instruction
+                    )
                     
                     # Validate
                     validated = validate_and_repair_social_posts(result)
                     data = validated
-                    openai_used = True
+                    gemini_used = True
                     
-                    logger.info(f"[{request_id}] OpenAI generation successful")
+                    logger.info(f"[{request_id}] Gemini generation successful")
                     
                 except Exception as e:
-                    logger.warning(f"[{request_id}] OpenAI generation failed: {e}, falling back")
+                    logger.warning(f"[{request_id}] Gemini generation failed: {e}, falling back")
             
-            # Fallback if OpenAI not available or failed
-            if data is None:
+            # Fallback if neither AI used or failed
+            if data is None: # Fallback condition simplified
                 logger.info(f"[{request_id}] Using fallback generation")
                 fallback_result = generate_social_posts_fallback(
                     session_length=session_length,
@@ -276,7 +289,7 @@ class GenerationService:
             # Apply hard validation gate with repair
             validation_result = validate_and_repair_posts(
                 posts=normalized_posts,
-                openai_client=self.openai_client if openai_used else None,
+                gemini_client=self.gemini_client if gemini_used else None, # New: Pass Gemini client
                 request_id=request_id
             )
             
@@ -318,7 +331,7 @@ class GenerationService:
             return self._build_success_response(
                 request_id=request_id,
                 data={'posts': normalized_posts, 'count': len(normalized_posts)},
-                openai_used=openai_used,
+                gemini_used=gemini_used, # Pass gemini_used
                 summary={
                     'posts_generated': len(normalized_posts),
                     'voice_applied': voice_guide is not None,
@@ -399,13 +412,13 @@ class GenerationService:
             include_shot_list = request_data.get('include_shot_list', False)
             include_on_screen_text = request_data.get('include_on_screen_text', False)
             
-            # Try OpenAI
-            openai_used = False
+            # Try Gemini first
+            gemini_used = False # New variable
             data = None
             
-            if self.openai_client:
+            if self.gemini_client: # New logic for Gemini
                 try:
-                    logger.info(f"[{request_id}] Attempting OpenAI generation")
+                    logger.info(f"[{request_id}] Attempting Gemini generation")
                     
                     messages = build_reel_prompt(
                         context,
@@ -416,18 +429,27 @@ class GenerationService:
                         include_on_screen_text=include_on_screen_text
                     )
                     
-                    result = self.openai_client.generate_structured(messages)
+                    # Extract system instruction
+                    system_instruction = None
+                    if messages and messages[0]['role'] == 'system':
+                        system_instruction = messages[0]['content']
+                        messages = messages[1:] # Remove system message from list
+                    
+                    result = self.gemini_client.generate_structured(
+                        messages,
+                        system_instruction=system_instruction
+                    )
                     validated = validate_and_repair_reel_script(result)
                     data = validated
-                    openai_used = True
+                    gemini_used = True
                     
-                    logger.info(f"[{request_id}] OpenAI generation successful")
+                    logger.info(f"[{request_id}] Gemini generation successful")
                     
                 except Exception as e:
-                    logger.warning(f"[{request_id}] OpenAI failed: {e}, falling back")
+                    logger.warning(f"[{request_id}] Gemini failed: {e}, falling back")
             
             # Fallback
-            if data is None:
+            if data is None: # Fallback condition simplified
                 logger.info(f"[{request_id}] Using fallback generation")
                 fallback_result = generate_reel_script_fallback(
                     hook_style=hook_style,
@@ -448,7 +470,7 @@ class GenerationService:
             return self._build_success_response(
                 request_id=request_id,
                 data=data,
-                openai_used=openai_used,
+                gemini_used=gemini_used, # Pass gemini_used
                 summary={'voice_applied': voice_guide is not None},
                 warnings=warnings if warnings else None
             )
@@ -524,13 +546,13 @@ class GenerationService:
                 voice_guide=voice_guide
             )
             
-            # Try OpenAI
-            openai_used = False
+            # Try Gemini first
+            gemini_used = False # New variable
             data = None
             
-            if self.openai_client:
+            if self.gemini_client: # New logic for Gemini
                 try:
-                    logger.info(f"[{request_id}] Attempting OpenAI generation")
+                    logger.info(f"[{request_id}] Attempting Gemini generation")
                     
                     messages = build_review_response_prompt(
                         context,
@@ -540,18 +562,27 @@ class GenerationService:
                         use_brand_voice=use_brand_voice
                     )
                     
-                    result = self.openai_client.generate_structured(messages)
+                    # Extract system instruction
+                    system_instruction = None
+                    if messages and messages[0]['role'] == 'system':
+                        system_instruction = messages[0]['content']
+                        messages = messages[1:] # Remove system message from list
+                    
+                    result = self.gemini_client.generate_structured(
+                        messages,
+                        system_instruction=system_instruction
+                    )
                     validated = validate_and_repair_review_responses(result)
                     data = validated
-                    openai_used = True
+                    gemini_used = True
                     
-                    logger.info(f"[{request_id}] OpenAI generation successful")
+                    logger.info(f"[{request_id}] Gemini generation successful")
                     
                 except Exception as e:
-                    logger.warning(f"[{request_id}] OpenAI failed: {e}, falling back")
+                    logger.warning(f"[{request_id}] Gemini failed: {e}, falling back")
             
             # Fallback
-            if data is None:
+            if data is None: # Fallback condition simplified
                 logger.info(f"[{request_id}] Using fallback generation")
                 company_name = workspace.get('company_name', '') if workspace else ''
                 fallback_result = generate_review_response_fallback(
@@ -574,7 +605,7 @@ class GenerationService:
             return self._build_success_response(
                 request_id=request_id,
                 data=data,
-                openai_used=openai_used,
+                gemini_used=gemini_used, # Pass gemini_used
                 summary={'voice_applied': use_brand_voice and voice_guide is not None},
                 warnings=warnings if warnings else None
             )
@@ -736,47 +767,53 @@ class GenerationService:
             prompt_set = compiler_output['prompt_set']
             json_schema = compiler_output['json_schema']
             
-            # Try OpenAI generation
-            openai_used = False
+            # Try Gemini generation
+            gemini_used = False # New variable
             data = None
             
-            if self.openai_client:
+            if self.gemini_client: # New logic for Gemini
                 try:
-                    logger.info(f"[{request_id}] Attempting OpenAI generation with compiled prompt")
+                    logger.info(f"[{request_id}] Attempting Gemini generation with compiled prompt")
                     
                     # Build messages from prompt set
+                    # Note: Gemini takes system instruction separately
                     messages = [
-                        {"role": "system", "content": prompt_set['system']},
                         {"role": "user", "content": f"{prompt_set['context']}\n\n{prompt_set['request']}"}
                     ]
                     
+                    system_instruction = prompt_set['system']
+                    
                     # Generate
-                    result = self.openai_client.generate_structured(messages)
+                    result = self.gemini_client.generate_structured(
+                        messages,
+                        system_instruction=system_instruction
+                    )
                     
                     # Validate with schema enforcement (includes repair pass)
                     validation_result = validate_with_schema_enforcement(
                         result,
                         content_type,
-                        openai_client=self.openai_client,
+                        gemini_client=self.gemini_client, # Pass Gemini client
                         prompt_set=prompt_set,
-                        json_schema=json_schema
+                        json_schema=json_schema,
+                        system_instruction=system_instruction # Pass system instruction for repair
                     )
                     
                     if validation_result['ok']:
                         data = validation_result['data']
-                        openai_used = True
+                        gemini_used = True
                         logger.info(
-                            f"[{request_id}] OpenAI generation successful "
+                            f"[{request_id}] Gemini generation successful "
                             f"(repaired: {validation_result.get('repaired', False)})"
                         )
                     else:
                         logger.warning(f"[{request_id}] Validation failed: {validation_result['error']}")
                     
                 except Exception as e:
-                    logger.warning(f"[{request_id}] OpenAI generation failed: {e}, falling back")
+                    logger.warning(f"[{request_id}] Gemini generation failed: {e}, falling back")
             
             # Fallback if needed
-            if data is None:
+            if data is None: # Fallback condition simplified
                 logger.info(f"[{request_id}] Using fallback generation")
                 data = self._generate_fallback(
                     content_type,
@@ -791,7 +828,7 @@ class GenerationService:
             return self._build_success_response(
                 request_id=request_id,
                 data=data,
-                openai_used=openai_used,
+                gemini_used=gemini_used, # Pass gemini_used
                 summary={
                     'voice_applied': compiler_output['model_context'].get('voice_applied', False),
                     'template_applied': compiler_output['model_context'].get('template_applied', False),

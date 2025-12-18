@@ -206,7 +206,7 @@ def build_repair_prompt(
         context: Optional context for repair
         
     Returns:
-        List of messages for OpenAI repair request
+        List of messages for Gemini repair request
     """
     platform = post_card.get('platform', 'unknown')
     caption = post_card.get('caption', '')
@@ -254,7 +254,7 @@ Rewritten caption:"""
 def attempt_repair(
     post_card: Dict[str, Any],
     evaluation: Dict[str, Any],
-    openai_client: Optional[Any] = None,
+    gemini_client: Optional[Any] = None,
     context: Optional[Dict[str, Any]] = None,
     request_id: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -263,7 +263,7 @@ def attempt_repair(
     Args:
         post_card: Original post card that failed
         evaluation: Quality evaluation with errors
-        openai_client: Optional OpenAI client for repair
+        gemini_client: Optional Gemini client for repair
         context: Optional context for repair
         request_id: Optional request ID for logging
         
@@ -276,20 +276,20 @@ def attempt_repair(
     """
     request_id = request_id or 'unknown'
     
-    if not openai_client:
+    if not gemini_client:
         return {
             'ok': False,
-            'error': 'No OpenAI client available for repair'
+            'error': 'No Gemini client available for repair'
         }
     
     try:
         # Build repair prompt
         messages = build_repair_prompt(post_card, evaluation, context)
         
-        # Call OpenAI for repair
+        # Call Gemini for repair
         logger.info(f"[{request_id}] Attempting repair for {post_card.get('platform')} post")
         
-        response = openai_client.chat.completions.create(
+        response = gemini_client.chat.completions.create(
             model='gpt-4o-mini',
             messages=messages,
             temperature=0.7,

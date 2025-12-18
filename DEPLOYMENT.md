@@ -9,7 +9,7 @@ This runbook describes the deployment process for Togetherly, including pre-depl
 - **Platform:** Railway project with two environments: `staging` and `production`.
 - **Triggers:** Push to `staging` deploys to staging; push to `main` deploys to production after manual environment approval; `workflow_dispatch` supports on-demand redeploys for either environment.
 - **Workflow:** `.github/workflows/deploy-railway.yml` installs Railway CLI, logs in via service token, and runs `railway up` against the appropriate environment/service.
-- **Required GitHub secrets:** `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID_STAGING`, `RAILWAY_SERVICE_ID_PRODUCTION`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_PRODUCTION`, plus app secrets per environment (`SECRET_KEY`, Stripe keys/price/webhook, `OPENAI_API_KEY`, `ADMIN_EMAILS`, optional `GITHUB_FEEDBACK_*`, `TEAM_MEMBER_LIMIT`, `PASSWORD_HASH_METHOD`, `DATABASE_URL` if using Postgres).
+- **Required GitHub secrets:** `RAILWAY_PROJECT_ID`, `RAILWAY_SERVICE_ID_STAGING`, `RAILWAY_SERVICE_ID_PRODUCTION`, `RAILWAY_TOKEN_STAGING`, `RAILWAY_TOKEN_PRODUCTION`, plus app secrets per environment (`SECRET_KEY`, Stripe keys/price/webhook, `GEMINI_API_KEY`, `ADMIN_EMAILS`, optional `GITHUB_FEEDBACK_*`, `TEAM_MEMBER_LIMIT`, `PASSWORD_HASH_METHOD`, `DATABASE_URL` if using Postgres).
 - **Railway environment vars:** Mirror the app secrets above inside each Railway environment; keep values identical across envs except for secrets/keys and webhook URLs. Healthcheck path uses `/health`.
 - **Railway database vars:** Remove any legacy `DB_PATH` variable from Railway → Service → Variables so deployments **must** use the managed Postgres `DATABASE_URL`. Leaving `DB_PATH` defined allows Flask to fall back to SQLite if `DATABASE_URL` disappears, which silently diverges environments. Use the dashboard to delete the key; the CLI cannot remove it yet.
 - **Rollback:** List deployments with `railway deployments list --project <project-id> --environment staging|production`; roll back with `railway deployment rollback <deployment-id> --project <project-id> --environment staging|production`. Validate with a smoke ping to `/health` after rollback.
@@ -19,7 +19,7 @@ This runbook describes the deployment process for Togetherly, including pre-depl
 - **Platform:** Google App Engine with distinct staging and production projects.
 - **Triggers:** Push to `staging` deploys to staging; push to `main` deploys to production after environment approval; `workflow_dispatch` supports on-demand redeploys for either environment.
 - **Workflow:** `.github/workflows/deploy-appengine.yml` renders `deploy/appengine/app.yaml.tmpl` per environment and runs `gcloud app deploy` against the target project.
-- **Required GitHub secrets:** `GCP_SA_KEY_STAGING`, `GCP_PROJECT_STAGING`, `GCP_SA_KEY_PRODUCTION`, `GCP_PROJECT_PRODUCTION`, plus the app secrets referenced in the workflow for each environment (`SECRET_KEY`, Stripe keys, `OPENAI_API_KEY`, `ADMIN_EMAILS`, `GITHUB_FEEDBACK_*`, etc.).
+- **Required GitHub secrets:** `GCP_SA_KEY_STAGING`, `GCP_PROJECT_STAGING`, `GCP_SA_KEY_PRODUCTION`, `GCP_PROJECT_PRODUCTION`, plus the app secrets referenced in the workflow for each environment (`SECRET_KEY`, Stripe keys, `GEMINI_API_KEY`, `ADMIN_EMAILS`, `GITHUB_FEEDBACK_*`, etc.).
 - **Rollback:** Use App Engine version rollback via the Google Cloud console or `gcloud app versions list` / `gcloud app services set-traffic` to shift traffic back to the previous version.
 
 ## Environments
@@ -339,7 +339,7 @@ curl https://togetherly.app/health
   "database": "connected",
   "services": {
     "stripe": "available",
-    "openai": "available"
+    "gemini": "available"
   }
 }
 ```
@@ -500,7 +500,7 @@ Notes on Railway and other CI hooks:
 - `SECRET_KEY` - Session encryption key
 - `DATABASE_URL` - PostgreSQL connection string
 - `STRIPE_SECRET_KEY` - Payment processing
-- `OPENAI_API_KEY` - Content generation
+- `GEMINI_API_KEY` - Content generation
 - `ADMIN_EMAILS` - Admin user emails
 
 ### Deployment Schedule

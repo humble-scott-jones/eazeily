@@ -28,7 +28,7 @@ heroku config:set PORT=5000
 
 # Optional: Add Stripe & OpenAI
 heroku config:set STRIPE_SECRET_KEY=sk_test_...
-heroku config:set OPENAI_API_KEY=sk-...
+heroku config:set GEMINI_API_KEY=sk-...
 
 # Deploy
 git add .
@@ -104,7 +104,7 @@ STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_public
 STRIPE_PRICE_ID=price_your_price_id
 
 # Optional - AI Features
-OPENAI_API_KEY=sk-your_openai_key
+GEMINI_API_KEY=sk-your_openai_key
 
 # Optional - Admin Access
 ADMIN_EMAILS=your@email.com

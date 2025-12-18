@@ -18,10 +18,10 @@ pytestmark = pytest.mark.skipif(os.getenv('RUN_UI_SMOKE') != '1', reason='UI smo
 def start_server():
     """Start the Flask server for testing."""
     py = './.venv/bin/python' if (ROOT / '.venv' / 'bin' / 'python').exists() else 'python3'
-    # Ensure OpenAI is disabled to force fallback mode
+    # Ensure Gemini is disabled to force fallback mode
     env = os.environ.copy()
-    env.pop('OPENAI_API_KEY', None)
-    env['USE_OPENAI_FOR_POSTS'] = '0'
+    env.pop('GEMINI_API_KEY', None)
+    env['USE_GEMINI_FOR_POSTS'] = '0'
     
     p = subprocess.Popen([py, 'app.py'], cwd=str(ROOT), env=env)
     for _ in range(30):
@@ -161,10 +161,10 @@ def test_fallback_banner_appears_when_source_fallback():
 
 
 def test_banner_hidden_when_source_openai():
-    """Test that banner is hidden when source is openai (future test for when OpenAI is available)."""
-    # This test would be run when OpenAI is actually configured
+    """Test that banner is hidden when source is openai (future test for when Gemini is available)."""
+    # This test would be run when Gemini is actually configured
     # For now, we'll skip it since we're forcing fallback mode
-    pytest.skip("OpenAI not configured in test environment")
+    pytest.skip("Gemini not configured in test environment")
 
 
 if __name__ == '__main__':

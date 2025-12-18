@@ -6,11 +6,7 @@ import logging
 from datetime import timedelta, date
 from pathlib import Path
 from typing import Optional, Any, Mapping, Sequence
-
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
+from services.generation.generation_service import GenerationService # New import
 
 logger = logging.getLogger(__name__)
 from platform_rules import DEFAULT_VARIANT_PLATFORMS, apply_platform_rules
@@ -32,17 +28,10 @@ PLATFORM_HINTS = {
     "twitter": "Short & punchy. 1–2 tweets per post; avoid walls of text.",
 }
 
-USE_OPENAI_FOR_POSTS = bool(os.getenv('OPENAI_API_KEY') or os.getenv('USE_OPENAI_FOR_POSTS'))
-_openai_client = None
-if USE_OPENAI_FOR_POSTS and OpenAI and os.getenv('OPENAI_API_KEY'):
-    try:
-        _openai_client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-    except Exception:
-        pass
-
-_TREND_MODEL = os.getenv('OPENAI_TRENDS_MODEL', 'gpt-4o-mini')
 _CACHE_DIR = Path(os.getenv('TREND_CACHE_DIR') or (Path(__file__).resolve().parent / '.cache'))
 _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
 
 
 def _slugify_industry(industry: str) -> str:
@@ -57,28 +46,6 @@ def _trend_cache_path(industry: str) -> str:
     return str(_CACHE_DIR / f'trends-{slug}.json')
 
 
-def _extract_openai_content(response) -> Optional[str]:
-    try:
-        if isinstance(response, dict):
-            choices = response.get('choices') or []
-        else:
-            choices = getattr(response, 'choices', None)
-        if not choices:
-            return None
-        first = choices[0]
-        message = getattr(first, 'message', None)
-        if message and getattr(message, 'content', None):
-            return message.content  # type: ignore[attr-defined]
-        if isinstance(first, dict):
-            msg = first.get('message') or {}
-            if isinstance(msg, dict) and msg.get('content'):
-                return str(msg.get('content'))
-        text = getattr(first, 'text', None)
-        if text:
-            return str(text)
-    except Exception:
-        return None
-    return None
 
 
 def _parse_trend_payload(raw: str) -> Optional[list[dict[str, Any]]]:
@@ -157,27 +124,36 @@ def fetch_trend_context(industry: str, ttl_hours: int = 6) -> list[dict[str, Any
     if cached is not None:
         return cached
 
-    if USE_OPENAI_FOR_POSTS and _openai_client:
-        try:
-            prompt = (
-                "List three emerging content trends for the {industry} industry. "
-                "Respond ONLY with a JSON array where each item has 'topic', 'rationale', and 'confidence'."
-            ).format(industry=industry or 'local business')
-            response = _openai_client.chat.completions.create(  # type: ignore[attr-defined]
-                model=_TREND_MODEL,
-                messages=[
-                    {'role': 'system', 'content': 'You are a marketing strategist.'},
-                    {'role': 'user', 'content': prompt}
-                ],
-                temperature=0.4
-            )
-            content = _extract_openai_content(response)
-            parsed = _parse_trend_payload(content or '')
-            if parsed:
-                _save_trend_cache(cache_path, parsed)
-                return parsed
-        except Exception:
-            return []
+    # Initialize GenerationService for trend fetching
+    # Use a faster, cheaper Gemini model for trends
+    trend_generation_service = GenerationService(
+        enable_openai=False, # Disable OpenAI for this specialized service
+        enable_gemini=True,
+        gemini_model=os.getenv('GEMINI_TRENDS_MODEL', 'gemini-1.5-flash') # Use a fast model
+    )
+
+    try:
+        prompt_content = (
+            "List three emerging content trends for the {industry} industry. "
+            "Respond ONLY with a JSON array where each item has 'topic', 'rationale', and 'confidence'."
+        ).format(industry=industry or 'local business')
+
+        system_instruction = 'You are a marketing strategist.'
+        
+        response_content = trend_generation_service.generate_text(
+            messages=[{'role': 'user', 'content': prompt_content}],
+            system_instruction=system_instruction,
+            temperature=0.4
+        )
+        
+        parsed = _parse_trend_payload(response_content or '')
+        if parsed:
+            _save_trend_cache(cache_path, parsed)
+            return parsed
+    except Exception as e:
+        logger.error(f"Failed to fetch trends using GenerationService: {e}")
+        # Fallback to local trends if GenerationService fails
+        pass
 
     fallback = _fallback_trends(industry)
     _save_trend_cache(cache_path, fallback)
@@ -1162,236 +1138,4 @@ def generate_posts(
 
     return posts
 
-def _build_openai_prompt(
-    days: int,
-    industry: str,
-    tone: str,
-    platforms: list[str],
-    brand_keywords: list[str],
-    niche_keywords: list[str],
-    goals: list[str],
-    company: str,
-    voice_profile: dict,
-    trend_context: list[dict]
-) -> str:
-    trends_text = ""
-    if trend_context:
-        trends_text = "Incorporate these trends where relevant:\n" + "\n".join(
-            [f"- {t.get('topic')}: {t.get('rationale')}" for t in trend_context]
-        )
 
-    voice_instr = ""
-    if voice_profile:
-        voice_instr = f"Voice instructions: {json.dumps(voice_profile)}"
-
-    return f"""
-    Generate {days} social media posts for a {industry} business named "{company}".
-    Tone: {tone}.
-    Platforms: {', '.join(platforms)}.
-    Keywords: {', '.join(brand_keywords + niche_keywords)}.
-    Goals: {', '.join(goals)}.
-    {voice_instr}
-    
-    {trends_text}
-    
-    Respond ONLY with a JSON array of objects. Each object must have:
-    - "caption": The post text (include hashtags).
-    - "pillar": The content pillar.
-    - "image_prompt": A description for an image.
-    
-    Ensure captions are engaging, platform-appropriate, and natural.
-    """
-
-def _parse_openai_posts(content: str) -> Optional[list[dict]]:
-    return _parse_trend_payload(content)
-
-
-def _fallback_generate_posts(
-    *,
-    profile: Optional[Mapping[str, Any]],
-    days: int,
-    start_day: date,
-    industry: str,
-    tone: str,
-    platforms: list[str],
-    brand_keywords: list[str],
-    include_images: bool,
-    niche_keywords: list[str],
-    goals: list[str],
-    company: str,
-    details: Mapping[str, Any],
-    voice_profile: Mapping[str, Any],
-    request_id: str = "",
-) -> list[dict[str, Any]]:
-    """Call `generate_posts` and ensure failures are logged with context."""
-
-    try:
-        return generate_posts(
-            profile=profile,
-            days=days,
-            start_day=start_day,
-            industry=industry,
-            tone=tone,
-            platforms=platforms,
-            brand_keywords=brand_keywords,
-            include_images=include_images,
-            niche_keywords=niche_keywords,
-            goals=goals,
-            company=company,
-            details=details,
-            voice_profile=voice_profile,
-        )
-    except Exception:
-        logger.exception("Fallback generation failed", extra={"request_id": request_id})
-        raise
-
-def generate_posts_with_openai(
-    profile: Optional[Mapping[str, Any]] = None,
-    *,
-    days: Optional[int] = None,
-    start_day: Optional[date] = None,
-    industry: str = "Business",
-    tone: str = "friendly",
-    platforms: Optional[list[str]] = None,
-    brand_keywords: Optional[list[str]] = None,
-    include_images: bool = True,
-    niche_keywords: Optional[list[str]] = None,
-    goals: Optional[list[str]] = None,
-    company: str = "",
-    details: Optional[Mapping[str, Any]] = None,
-    voice_profile: Optional[Mapping[str, Any]] = None,
-    include_trends: bool = False,
-    request_id: str = "",
-) -> list[dict[str, Any]]:
-    """Generate posts using OpenAI if available, otherwise fallback to templates."""
-    
-    # Normalize arguments (similar to generate_posts)
-    if isinstance(profile, Mapping):
-        default = profile
-        days = days or default.get("days") or default.get("plan_days")
-        start_day = start_day or default.get("start_day")
-        industry = default.get("industry", industry)
-        tone = default.get("tone", tone)
-        platforms = default.get("platforms", platforms)
-        brand_keywords = default.get("brand_keywords", brand_keywords)
-        include_images = default.get("include_images", include_images)
-        niche_keywords = default.get("niche_keywords", niche_keywords)
-        goals = default.get("goals", goals)
-        company = default.get("company", company)
-        details = default.get("details", details)
-
-    days = int(days or 7)
-    start_day = _coerce_start_day(start_day)
-    industry = (industry or "Business").strip() or "Business"
-    tone = tone or "friendly"
-    platforms = list(platforms or ["instagram"])
-    if not platforms:
-        platforms = ["instagram"]
-    brand_keywords = list(brand_keywords or [])
-    niche_keywords = list(niche_keywords or [])
-    goals = list(goals or [])
-    details = dict(details or {})
-    voice_profile = voice_profile or details.get('voice_profile') or {}
-    voice_profile = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
-    company = company or ""
-
-    # Check if OpenAI is available
-    if not USE_OPENAI_FOR_POSTS or not _openai_client:
-        return _fallback_generate_posts(
-            profile=profile,
-            days=days,
-            start_day=start_day,
-            industry=industry,
-            tone=tone,
-            platforms=platforms,
-            brand_keywords=brand_keywords,
-            include_images=include_images,
-            niche_keywords=niche_keywords,
-            goals=goals,
-            company=company,
-            details=details,
-            voice_profile=voice_profile,
-            request_id=request_id,
-        )
-
-    # Fetch trends if requested
-    trend_context = []
-    if include_trends:
-        trend_context = fetch_trend_context(industry)
-
-    # Construct prompt
-    prompt = _build_openai_prompt(
-        days=days,
-        industry=industry,
-        tone=tone,
-        platforms=platforms,
-        brand_keywords=brand_keywords,
-        niche_keywords=niche_keywords,
-        goals=goals,
-        company=company,
-        voice_profile=voice_profile,
-        trend_context=trend_context
-    )
-
-    try:
-        response = _openai_client.chat.completions.create(
-            model=os.getenv('OPENAI_MODEL', 'gpt-4o-mini'),
-            messages=[
-                {'role': 'system', 'content': 'You are an expert social media strategist.'},
-                {'role': 'user', 'content': prompt}
-            ],
-            temperature=0.7
-        )
-        content = _extract_openai_content(response)
-        posts_data = _parse_openai_posts(content or '')
-
-        if not posts_data:
-            raise ValueError("Failed to parse OpenAI response")
-
-        # Post-process posts (add dates, images, etc.)
-        final_posts = []
-        for i, post in enumerate(posts_data[:days]):
-            post_date = start_day + timedelta(days=i)
-
-            # Ensure required fields
-            if 'caption' not in post:
-                post['caption'] = "Check this out!"
-
-            # Add image prompt if needed
-            if include_images and 'image_prompt' not in post:
-                post['image_prompt'] = image_prompt(industry, post.get('pillar', 'General'), brand_keywords, company)
-
-            post['date'] = post_date.isoformat()
-            post['day'] = post_date.strftime('%A')
-            post['platform'] = platforms[0] # Simplified: assume primary platform for now or handle multi-platform
-
-            final_posts.append(post)
-
-        if not final_posts:
-            raise ValueError("OpenAI produced no posts")
-
-        return final_posts
-
-    except Exception:
-        logger.exception("OpenAI generation failed", extra={"request_id": request_id})
-        fallback_posts = _fallback_generate_posts(
-            profile=profile,
-            days=days,
-            start_day=start_day,
-            industry=industry,
-            tone=tone,
-            platforms=platforms,
-            brand_keywords=brand_keywords,
-            include_images=include_images,
-            niche_keywords=niche_keywords,
-            goals=goals,
-            company=company,
-            details=details,
-            voice_profile=voice_profile,
-            request_id=request_id,
-        )
-
-        if not fallback_posts:
-            raise RuntimeError("Fallback generation produced no posts")
-
-        return fallback_posts

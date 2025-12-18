@@ -304,7 +304,7 @@ def build_repair_prompt(
         validation: Validation result with errors
         
     Returns:
-        List of messages for OpenAI repair request
+        List of messages for Gemini repair request
     """
     platform = post_card.get('platform', 'unknown')
     caption = post_card.get('caption', '')
@@ -351,7 +351,7 @@ Rewritten caption:"""
 def attempt_repair(
     post_card: Dict[str, Any],
     validation: Dict[str, Any],
-    openai_client: Optional[Any] = None,
+    gemini_client: Optional[Any] = None,
     request_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Attempt to repair a failed post card (ONE repair attempt only).
@@ -359,7 +359,7 @@ def attempt_repair(
     Args:
         post_card: Original post card that failed
         validation: Validation result with errors
-        openai_client: Optional OpenAI client for repair
+        gemini_client: Optional Gemini client for repair
         request_id: Optional request ID for logging
         
     Returns:
@@ -370,20 +370,20 @@ def attempt_repair(
     """
     request_id = request_id or 'unknown'
     
-    if not openai_client:
+    if not gemini_client:
         return {
             'ok': False,
-            'error': 'No OpenAI client available for repair'
+            'error': 'No Gemini client available for repair'
         }
     
     try:
         # Build repair prompt
         messages = build_repair_prompt(post_card, validation)
         
-        # Call OpenAI for repair (ONE attempt only)
+        # Call Gemini for repair (ONE attempt only)
         logger.info(f"[{request_id}] Attempting repair for {post_card.get('platform')} post")
         
-        response = openai_client.chat.completions.create(
+        response = gemini_client.chat.completions.create(
             model='gpt-4o-mini',
             messages=messages,
             temperature=0.7,
@@ -425,7 +425,7 @@ def attempt_repair(
 
 def validate_and_repair_posts(
     posts: List[Dict[str, Any]],
-    openai_client: Optional[Any] = None,
+    gemini_client: Optional[Any] = None,
     request_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Validate posts and attempt repair if needed (unified entry point).
@@ -434,7 +434,7 @@ def validate_and_repair_posts(
     
     Args:
         posts: List of post cards to validate
-        openai_client: Optional OpenAI client for repair
+        gemini_client: Optional Gemini client for repair
         request_id: Optional request ID for logging
         
     Returns:
@@ -456,10 +456,10 @@ def validate_and_repair_posts(
             'posts': posts
         }
     
-    # Some posts failed - attempt repair if OpenAI available
-    if not openai_client:
+    # Some posts failed - attempt repair if Gemini available
+    if not gemini_client:
         # No repair available - return error
-        logger.error(f"[{request_id}] Validation failed, no OpenAI for repair")
+        logger.error(f"[{request_id}] Validation failed, no Gemini for repair")
         return {
             'ok': False,
             'error': {
@@ -483,7 +483,7 @@ def validate_and_repair_posts(
             repair_result = attempt_repair(
                 post_card=post_card,
                 validation=result,
-                openai_client=openai_client,
+                gemini_client=gemini_client,
                 request_id=request_id
             )
             

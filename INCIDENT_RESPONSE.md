@@ -269,7 +269,7 @@ git log --oneline -5
 
 # Check external services
 curl https://status.stripe.com
-curl https://status.openai.com
+curl https://status.gemini.com
 
 # Check database
 psql -c "SELECT * FROM pg_stat_activity WHERE state = 'active';"
@@ -435,15 +435,15 @@ kubectl get pods
 **Troubleshooting:**
 ```bash
 # Check external service status
-curl https://status.openai.com
+curl https://status.gemini.com
 curl https://status.stripe.com
 
 # Check API error rate
-grep "openai.*ERROR\|stripe.*ERROR" logs/app.log | tail -50
+grep "gemini.*ERROR\|stripe.*ERROR" logs/app.log | tail -50
 
 # Test API connectivity
-curl -X POST https://api.openai.com/v1/... \
-  -H "Authorization: Bearer $OPENAI_API_KEY"
+curl -X POST https://api.gemini.com/v1/... \
+  -H "Authorization: Bearer $GEMINI_API_KEY"
 ```
 
 **Resolution:**

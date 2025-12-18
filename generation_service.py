@@ -12,7 +12,7 @@ class GenerationResponse:
     ok: bool
     status: int
     body: JsonDict
-    openai_used: bool
+    gemini_used: bool
     outcome: str
 
 
@@ -30,7 +30,7 @@ class GenerationService:
             future.cancel()
             raise TimeoutError("Generation timed out")
 
-    def _classify_openai_error(self, exc: Exception) -> str:
+    def _classify_gemini_error(self, exc: Exception) -> str:
         message = f"{type(exc).__name__}: {exc}".lower()
         if isinstance(exc, TimeoutError) or "timeout" in message:
             return "timeout"
@@ -42,7 +42,7 @@ class GenerationService:
             return "bad_output"
         return "unknown"
 
-    def _build_error(self, *, code: str, request_id: str, message: str, status: int, openai_used: bool, outcome: str, source: str = "fallback") -> GenerationResponse:
+    def _build_error(self, *, code: str, request_id: str, message: str, status: int, gemini_used: bool, outcome: str, source: str = "fallback") -> GenerationResponse:
         body = {
             "ok": False,
             "request_id": request_id,
@@ -53,7 +53,7 @@ class GenerationService:
                 "message": message,
             },
         }
-        return GenerationResponse(ok=False, status=status, body=body, openai_used=openai_used, outcome=outcome)
+        return GenerationResponse(ok=False, status=status, body=body, gemini_used=gemini_used, outcome=outcome)
 
     def generate(
         self,
@@ -64,13 +64,13 @@ class GenerationService:
         validator: Callable[[Mapping[str, Any]], Mapping[str, str]],
         normalizer: Callable[[Mapping[str, Any]], Mapping[str, Any]],
         output_validator: Callable[[Any], Any],
-        openai_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
+        gemini_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
         fallback_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
-        use_openai: bool = False,
+        use_gemini: bool = False,
         disable_fallback: bool = False,
     ) -> GenerationResponse:
         start_ts = time.time()
-        openai_used = False
+        gemini_used = False
         try:
             validation_errors = validator(payload)
             if validation_errors:
@@ -80,7 +80,7 @@ class GenerationService:
                     request_id=request_id,
                     message=str(first_error),
                     status=400,
-                    openai_used=False,
+                    gemini_used=False,
                     outcome="validation_error",
                 )
             normalized = normalizer(payload)
@@ -91,7 +91,7 @@ class GenerationService:
                 request_id=request_id,
                 message="Invalid request.",
                 status=400,
-                openai_used=False,
+                gemini_used=False,
                 outcome="validation_exception",
             )
 
@@ -99,26 +99,26 @@ class GenerationService:
         data = None
         error_code = "unknown"
 
-        if use_openai and openai_callable:
+        if use_gemini and gemini_callable:
             try:
-                data = self._run_with_timeout(lambda: openai_callable(normalized))
-                source = "openai"
-                openai_used = True
+                data = self._run_with_timeout(lambda: gemini_callable(normalized))
+                source = "gemini"
+                gemini_used = True
             except Exception as exc:
-                openai_used = True
-                error_code = self._classify_openai_error(exc)
+                gemini_used = True
+                error_code = self._classify_gemini_error(exc)
                 if error_code == "timeout":
-                    self._log_outcome(endpoint, request_id, start_ts, outcome="timeout", openai_used=openai_used)
+                    self._log_outcome(endpoint, request_id, start_ts, outcome="timeout", gemini_used=gemini_used)
                     return self._build_error(
                         code="timeout",
                         request_id=request_id,
                         message="Generation timed out.",
                         status=504,
-                        openai_used=openai_used,
+                        gemini_used=gemini_used,
                         outcome="timeout",
                     )
                 self.logger.warning(
-                    "generation.openai_failed",
+                    "generation.gemini_failed",
                     extra={"request_id": request_id, "endpoint": endpoint, "error_code": error_code},
                 )
                 
@@ -129,9 +129,9 @@ class GenerationService:
                         request_id=request_id,
                         message="AI generation failed and fallback is disabled.",
                         status=503,
-                        openai_used=openai_used,
+                        gemini_used=gemini_used,
                         outcome=error_code,
-                        source="openai",
+                        source="gemini",
                     )
 
         if data is None and fallback_callable and not disable_fallback:
@@ -141,7 +141,7 @@ class GenerationService:
             except Exception as exc:
                 self.logger.exception(
                     "generation.fallback_failed",
-                    extra={"request_id": request_id, "endpoint": endpoint, "openai_used": openai_used},
+                    extra={"request_id": request_id, "endpoint": endpoint, "gemini_used": gemini_used},
                 )
                 if isinstance(exc, TimeoutError):
                     return self._build_error(
@@ -149,7 +149,7 @@ class GenerationService:
                         request_id=request_id,
                         message="Generation timed out.",
                         status=504,
-                        openai_used=openai_used,
+                        gemini_used=gemini_used,
                         outcome="timeout",
                     )
 
@@ -159,7 +159,7 @@ class GenerationService:
                     request_id=request_id,
                     message="Generation failed.",
                     status=500,
-                    openai_used=openai_used,
+                    gemini_used=gemini_used,
                     outcome=outcome,
                 )
 
@@ -169,7 +169,7 @@ class GenerationService:
                 request_id=request_id,
                 message="Generation failed.",
                 status=500,
-                openai_used=openai_used,
+                gemini_used=gemini_used,
                 outcome="no_data",
             )
 
@@ -180,7 +180,7 @@ class GenerationService:
                 "generation.bad_output",
                 extra={"request_id": request_id, "endpoint": endpoint, "source": source},
             )
-            if source == "openai" and fallback_callable:
+            if source == "gemini" and fallback_callable:
                 try:
                     data = self._run_with_timeout(lambda: fallback_callable(normalized))
                     validated_data = output_validator(data)
@@ -191,7 +191,7 @@ class GenerationService:
                         request_id=request_id,
                         message="Generation produced invalid output.",
                         status=500,
-                        openai_used=openai_used,
+                        gemini_used=gemini_used,
                         outcome="bad_output",
                     )
             else:
@@ -200,7 +200,7 @@ class GenerationService:
                     request_id=request_id,
                     message="Generation produced invalid output.",
                     status=500,
-                    openai_used=openai_used,
+                    gemini_used=gemini_used,
                     outcome="bad_output",
                 )
 
@@ -210,12 +210,12 @@ class GenerationService:
             request_id,
             start_ts,
             outcome="success",
-            openai_used=openai_used,
+            gemini_used=gemini_used,
             extra={"source": source, "latency_ms": latency_ms},
         )
 
         # Build response with source and mode
-        mode = "generated" if source == "openai" else "fallback_suggestions"
+        mode = "generated" if source == "gemini" else "fallback_suggestions"
         body = {
             "ok": True,
             "request_id": request_id,
@@ -232,18 +232,18 @@ class GenerationService:
             ok=True,
             status=200,
             body=body,
-            openai_used=openai_used,
+            gemini_used=gemini_used,
             outcome="success",
         )
 
-    def _log_outcome(self, endpoint: str, request_id: str, start_ts: float, *, outcome: str, openai_used: bool, extra: Optional[dict] = None):
+    def _log_outcome(self, endpoint: str, request_id: str, start_ts: float, *, outcome: str, gemini_used: bool, extra: Optional[dict] = None):
         latency_ms = int((time.time() - start_ts) * 1000)
         payload = {
             "endpoint": endpoint,
             "request_id": request_id,
             "latency_ms": latency_ms,
             "outcome": outcome,
-            "openai_used": openai_used,
+            "gemini_used": gemini_used,
         }
         if extra:
             payload.update(extra)

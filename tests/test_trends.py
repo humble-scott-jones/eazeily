@@ -2,10 +2,10 @@ import os
 import generator
 
 
-def test_fetch_trend_context_no_openai_returns_list():
-    # Ensure function is safe to call without OpenAI configured
-    os.environ.pop('OPENAI_API_KEY', None)
-    os.environ.pop('USE_OPENAI_FOR_POSTS', None)
+def test_fetch_trend_context_no_gemini_returns_list():
+    # Ensure function is safe to call without Gemini configured
+    os.environ.pop('GEMINI_API_KEY', None)
+    os.environ.pop('USE_GEMINI_FOR_POSTS', None)
     res = generator.fetch_trend_context('restaurant')
     assert isinstance(res, list)
 

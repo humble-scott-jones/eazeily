@@ -218,19 +218,7 @@ OUTBOUND_KILL_SWITCH = (os.getenv('KILL_SWITCH_OUTBOUND') or os.getenv('DISABLE_
 RATE_LIMIT_STORE = {}
 RATE_LIMIT_LOCK = threading.Lock()
 
-openai_client = None
-USE_OPENAI = bool(os.getenv("OPENAI_API_KEY"))
-OPENAI_GENERATE_MODEL = os.getenv('OPENAI_GENERATE_MODEL', 'gpt-4o-mini')
-if USE_OPENAI:
-    try:
-        from openai import OpenAI
-        openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-    except Exception:
-        USE_OPENAI = False
-        openai_client = None
-if OUTBOUND_KILL_SWITCH:
-    USE_OPENAI = False
-    openai_client = None
+
 
 # Initialize old generation service for backward compatibility
 if OldGenerationService:
@@ -241,8 +229,8 @@ else:
 
 # Initialize new generation service
 new_generation_service = NewGenerationService(
-    openai_api_key=os.getenv('OPENAI_API_KEY'),
-    enable_openai=USE_OPENAI and not OUTBOUND_KILL_SWITCH
+    gemini_api_key=os.getenv('GEMINI_API_KEY'),
+    enable_gemini=USE_GEMINI and not OUTBOUND_KILL_SWITCH
 )
 
 class OutboundBlocked(RuntimeError):
@@ -448,8 +436,8 @@ def _parse_posts_payload(raw: Optional[str]):
     return cleaned or None
 
 
-def _generate_posts_via_openai(spec: dict):
-    if not USE_OPENAI or openai_client is None:
+def _generate_posts_via_gemini(spec: dict):
+    if not USE_GEMINI or gemini_client is None:
         return None
     try:
         payload = dict(spec)
@@ -469,8 +457,8 @@ def _generate_posts_via_openai(spec: dict):
                 'avg_length': voice_profile_ctx.get('avg_length'),
                 'style_instruction': voice_profile_ctx.get('style_instruction'),
             }
-        response = openai_client.chat.completions.create(  # type: ignore[attr-defined]
-            model=OPENAI_GENERATE_MODEL,
+        response = gemini_client.chat.completions.create(  # type: ignore[attr-defined]
+            model=GEMINI_GENERATE_MODEL,
             messages=[
                 {'role': 'system', 'content': 'You are an assistant that outputs ONLY strict JSON arrays of post objects.'},
                 {'role': 'user', 'content': json.dumps(prompt)}
@@ -484,7 +472,7 @@ def _generate_posts_via_openai(spec: dict):
 
 
 def _generate_posts_from_image(spec: dict):
-    if not USE_OPENAI or openai_client is None:
+    if not USE_GEMINI or gemini_client is None:
         return None
     image_data_url = spec.get('image_data_url')
     if not image_data_url:
@@ -546,8 +534,8 @@ def _generate_posts_from_image(spec: dict):
                 'image_url': {'url': image_data_url}
             }
         ]
-        response = openai_client.chat.completions.create(  # type: ignore[attr-defined]
-            model=OPENAI_GENERATE_MODEL,
+        response = gemini_client.chat.completions.create(  # type: ignore[attr-defined]
+            model=GEMINI_GENERATE_MODEL,
             messages=[
                 {'role': 'system', 'content': 'You are a social media strategist. Output STRICT JSON arrays of posts.'},
                 {'role': 'user', 'content': user_content}
@@ -1195,7 +1183,7 @@ def readyz():
     checks = {
         'database': 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}",
         'stripe': 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured',
-        'openai': 'configured' if USE_OPENAI else 'not_configured',
+        'gemini': 'configured' if USE_GEMINI else 'not_configured',
         'github_feedback': 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured',
     }
 
@@ -1258,7 +1246,7 @@ def api_debug_health():
     checks = {
         'database': 'connected' if healthy else f"unhealthy: {db_error or 'unknown'}",
         'stripe': 'configured' if (os.getenv('STRIPE_SECRET_KEY') and stripe) else 'not_configured',
-        'openai': 'configured' if USE_OPENAI else 'not_configured',
+        'gemini': 'configured' if USE_GEMINI else 'not_configured',
         'github_feedback': 'configured' if GITHUB_FEEDBACK_TOKEN else 'not_configured',
     }
 
@@ -1276,11 +1264,11 @@ def api_debug_health():
     return jsonify(payload), status_code
 
 
-@app.get('/api/debug/openai-status')
-def api_debug_openai_status():
+@app.get('/api/debug/gemini-status')
+def api_debug_gemini_status():
     request_id = _get_request_id()
-    configured = bool(os.getenv('OPENAI_API_KEY'))
-    client_ready = bool(USE_OPENAI and openai_client is not None)
+    configured = bool(os.getenv('GEMINI_API_KEY'))
+    client_ready = bool(USE_GEMINI and gemini_client is not None)
 
     reason = None
     if OUTBOUND_KILL_SWITCH:
@@ -2944,10 +2932,10 @@ def api_generate():
         if len(image_data_url) > IMAGE_DATA_URL_MAX_BYTES:
             return _log_and_abort(400, 'Image too large', code='image_too_large')
 
-        if not USE_OPENAI or openai_client is None:
+        if not USE_GEMINI or gemini_client is None:
             return _log_and_abort(
                 503,
-                'Image-to-post generation requires OpenAI. Add OPENAI_API_KEY or disable image uploads.',
+                'Image-to-post generation requires Gemini. Add GEMINI_API_KEY or disable image uploads.',
                 event="generator.failed",
             )
 
@@ -2959,7 +2947,7 @@ def api_generate():
             app.logger.info("generator.success", extra={**request_meta, "event": "generator.success", "duration_ms": duration_ms, "count": len(posts)})
             body = {
                 'ok': True,
-                'source': 'openai',
+                'source': 'gemini',
                 'mode': 'generated',
                 'data': {'posts': posts, 'count': len(posts)},
                 'request_id': request_id,
@@ -2978,9 +2966,9 @@ def api_generate():
         validator=_validate_generate_payload,
         normalizer=_normalize_generate_payload,
         output_validator=_validate_posts_output,
-        openai_callable=lambda normalized: gen_mod.generate_posts_with_openai(request_id=request_id, **normalized),
+        gemini_callable=lambda normalized: gen_mod.generate_posts_with_gemini(request_id=request_id, **normalized),
         fallback_callable=lambda normalized: generate_posts(**{k: v for k, v in normalized.items() if k != 'include_trends'}),
-        use_openai=gen_mod.USE_OPENAI_FOR_POSTS,
+        use_gemini=gen_mod.USE_GEMINI_FOR_POSTS,
         disable_fallback=flags.get('disableFallbackSuggestions', False),
     )
 
@@ -3140,7 +3128,7 @@ def api_generate_review_response():
         normalizer=_normalize_review_payload,
         output_validator=_validate_review_output,
         fallback_callable=lambda normalized: gen_mod.generate_review_response(**normalized),
-        use_openai=False,
+        use_gemini=False,
     )
 
     body = dict(service_response.body)
@@ -4691,7 +4679,7 @@ def api_generate_variants():
         normalizer=_normalize_variants_payload,
         output_validator=_validate_variants_output,
         fallback_callable=_generate_variants_fallback,
-        use_openai=False,
+        use_gemini=False,
     )
 
     body = dict(service_response.body)

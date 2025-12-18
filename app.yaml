@@ -22,5 +22,5 @@ env_variables:
 # Optional: Add these if you have the keys
 # STRIPE_SECRET_KEY: "sk_test_..."
 # STRIPE_PUBLISHABLE_KEY: "pk_test_..."
-# OPENAI_API_KEY: "sk-..."
+# GEMINI_API_KEY: "your-gemini-api-key"
 # ADMIN_EMAILS: "your@email.com"
