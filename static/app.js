@@ -207,6 +207,54 @@ function setAuthView(view = 'login', opts = {}){
   }
 })();
 
+// Attach handlers early to server-rendered industry choices so tests that
+// click them immediately after navigation will trigger the same logic as
+// client-rendered choices. This runs before full config hydration.
+function attachEarlyIndustryHandlers(){
+  try{
+    const wrap = document.getElementById('industries');
+    if (!wrap) return;
+    const existing = wrap.querySelectorAll('.choice');
+    if (existing && existing.length > 0){
+      existing.forEach(el => {
+        if (el.dataset._handler_attached) return;
+        el.dataset._handler_attached = '1';
+        el.addEventListener('click', () => {
+          const key = el.dataset.industry || el.dataset.key || el.getAttribute('data-key');
+          const label = (el.querySelector && el.querySelector('.title')) ? el.querySelector('.title').textContent.trim() : el.textContent.trim();
+          const opt = (CFG && CFG.industries) ? (CFG.industries.find(o => o.key === key) || { key, label }) : { key, label };
+          // visual selection
+          wrap.querySelectorAll('.choice').forEach(c => c.classList.remove('selected'));
+          el.classList.add('selected');
+          // update answers state similar to renderIndustryChoices
+          answers.industry = opt.label;
+          answers.industry_key = opt.key;
+          const manualKeywords = answers.manual_keywords || [];
+          answers.brand_keywords = [...manualKeywords];
+          answers.details = {};
+          try{ if (typeof renderIndustryQuestions === 'function') renderIndustryQuestions(opt.key); }catch(e){}
+          try{ if (typeof fetchAndApplyGoodDefaults === 'function') fetchAndApplyGoodDefaults(opt.key).catch(()=>{}); }catch(e){}
+          try{
+            const noteInput = document.getElementById('note');
+            const meta = (CFG && CFG.industries || []).find(i => i.key === opt.key) || {};
+            const sk = document.getElementById('suggested-keywords');
+            if (sk){ sk.innerHTML = ''; const kws = meta.suggested_keywords || []; kws.forEach(k => { const btn = document.createElement('button'); btn.className = 'choice text-sm preselected'; btn.textContent = k; btn.title = 'Preselected keyword for this industry'; btn.addEventListener('click', () => { toggleKeyword(k); btn.classList.toggle('selected'); }); sk.appendChild(btn); }); }
+            if (noteInput) noteInput.placeholder = meta.note_placeholder || noteInput.placeholder;
+            const suggestedKeywords = meta.suggested_keywords || [];
+            if (suggestedKeywords.length > 0) { answers.brand_keywords = answers.brand_keywords || []; suggestedKeywords.forEach(kw => { if (!answers.brand_keywords.includes(kw)) answers.brand_keywords.push(kw); }); }
+            try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
+          }catch(e){}
+          updateSummary();
+          if (step === 1 && nextBtn && typeof nextBtn.focus === 'function') nextBtn.focus();
+        });
+      });
+    }
+  }catch(e){ /* safe no-op */ }
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attachEarlyIndustryHandlers);
+else attachEarlyIndustryHandlers();
+
 async function refreshCurrentUser(){
   try{
     const res = await fetch('/api/current_user', { credentials: 'include' });
@@ -376,6 +424,87 @@ const answers = {
   }
 };
 
+// Bridge function exposed on window that allows server-rendered buttons to
+// select an industry and update the closure-scoped `answers` variable.
+// This function runs inside the same closure as the rest of the app so it
+// can mutate local vars like `answers`, call internal helpers, and keep
+// behavior consistent with client-rendered selections.
+window.__selectIndustryBridge = function(key, label){
+  try{
+    const wrap = document.getElementById('industries') || document.getElementById('qb-industries');
+    if (wrap) wrap.querySelectorAll('.choice').forEach(c=>c.classList.remove('selected'));
+    const el = document.querySelector('[data-industry="'+key+'"]');
+    if (el) el.classList.add('selected');
+    answers.industry = label;
+    answers.industry_key = key;
+    const manualKeywords = answers.manual_keywords || [];
+    answers.brand_keywords = [...manualKeywords];
+    answers.details = {};
+    try{ renderIndustryQuestions && renderIndustryQuestions(key); }catch(e){}
+    try{ if (typeof fetchAndApplyGoodDefaults === 'function') fetchAndApplyGoodDefaults(key).catch(()=>{}); }catch(e){}
+    try{
+      const noteInput = document.getElementById('note');
+      const meta = (CFG && CFG.industries || []).find(i => i.key === key) || {};
+      const sk = document.getElementById('suggested-keywords');
+      if (sk){ sk.innerHTML = ''; const kws = meta.suggested_keywords || []; kws.forEach(k => { const btn = document.createElement('button'); btn.className = 'choice text-sm preselected'; btn.textContent = k; btn.title = 'Preselected keyword for this industry'; btn.addEventListener('click', () => { toggleKeyword(k); btn.classList.toggle('selected'); }); sk.appendChild(btn); }); }
+      if (noteInput) noteInput.placeholder = meta.note_placeholder || noteInput.placeholder;
+      const suggestedKeywords = meta.suggested_keywords || [];
+      if (suggestedKeywords.length > 0) { answers.brand_keywords = answers.brand_keywords || []; suggestedKeywords.forEach(kw => { if (!answers.brand_keywords.includes(kw)) answers.brand_keywords.push(kw); }); }
+      try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
+    }catch(e){}
+    updateSummary();
+    if (step === 1 && nextBtn && typeof nextBtn.focus === 'function') nextBtn.focus();
+  }catch(e){/* ignore */}
+};
+// Diagnostic accessor for tests/debug scripts to read the internal wizard step
+window.__getWizardStep = function(){ try{ return typeof step !== 'undefined' ? step : null; }catch(e){ return null; } };
+
+// Also listen for a custom event so server-side buttons (or test helpers)
+// can dispatch an 'industry-selected' event and the app will update its
+// closure-scoped state accordingly. This is a resilient way to bridge
+// server-rendered markup and the in-closure data model.
+document.addEventListener('industry-selected', (ev) => {
+  try{
+    const d = ev && ev.detail ? ev.detail : null;
+    if (!d) return;
+    const key = d.key;
+    const label = d.label;
+    const wrap = document.getElementById('industries') || document.getElementById('qb-industries');
+    if (wrap) wrap.querySelectorAll('.choice').forEach(c=>c.classList.remove('selected'));
+    const el = document.querySelector('[data-industry="'+key+'"]');
+    if (el) el.classList.add('selected');
+    answers.industry = label;
+    answers.industry_key = key;
+    const manualKeywords = answers.manual_keywords || [];
+    answers.brand_keywords = [...manualKeywords];
+    answers.details = {};
+    try{ renderIndustryQuestions && renderIndustryQuestions(key); }catch(e){}
+    try{ if (typeof fetchAndApplyGoodDefaults === 'function') fetchAndApplyGoodDefaults(key).catch(()=>{}); }catch(e){}
+    try{
+      const noteInput = document.getElementById('note');
+      const meta = (CFG && CFG.industries || []).find(i => i.key === key) || {};
+      const sk = document.getElementById('suggested-keywords');
+      if (sk){ sk.innerHTML = ''; const kws = meta.suggested_keywords || []; kws.forEach(k => { const btn = document.createElement('button'); btn.className = 'choice text-sm preselected'; btn.textContent = k; btn.title = 'Preselected keyword for this industry'; btn.addEventListener('click', () => { toggleKeyword(k); btn.classList.toggle('selected'); }); sk.appendChild(btn); }); }
+      if (noteInput) noteInput.placeholder = meta.note_placeholder || noteInput.placeholder;
+      const suggestedKeywords = meta.suggested_keywords || [];
+      if (suggestedKeywords.length > 0) { answers.brand_keywords = answers.brand_keywords || []; suggestedKeywords.forEach(kw => { if (!answers.brand_keywords.includes(kw)) answers.brand_keywords.push(kw); }); }
+      try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
+    }catch(e){}
+    updateSummary();
+    if (step === 1 && nextBtn && typeof nextBtn.focus === 'function') nextBtn.focus();
+  }catch(e){/* ignore */}
+});
+
+// Allow external scripts to request brand-kit hydration if the main
+// bootstrap path hasn't run yet. Tests and server-side fallbacks can
+// dispatch the 'hydrate-brand-kit' event to initialize listeners.
+document.addEventListener('hydrate-brand-kit', () => {
+  try{
+    if (typeof hydrateBrandKitUI === 'function') hydrateBrandKitUI();
+    else if (typeof setupBrandKitListeners === 'function') setupBrandKitListeners();
+  }catch(e){/* ignore */}
+});
+
 const prevBtn = document.getElementById("prev");
 const nextBtn = document.getElementById("next");
 const results = document.getElementById("results");
@@ -392,6 +521,34 @@ const previewGenerateLink = document.getElementById('generate-after-preview');
 let finishCountdownInterval = null;
 let skipStep2 = false;
 
+// Helper: attempt to boot TierWizard with a short retry loop so we are
+// tolerant of script load order and hydration races. Returns true on
+// successful boot, false otherwise.
+async function safeBootTierWizard(flags, profile){
+  try{
+    const maxMs = 5000;
+    const interval = 100;
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+      if (window.TierWizard && typeof window.TierWizard.boot === 'function') {
+        try{
+          await window.TierWizard.boot({ flags, profile });
+          return true;
+        }catch(e){
+          console.error('TierWizard.boot failed', e);
+          return false;
+        }
+      }
+      await new Promise(r => setTimeout(r, interval));
+    }
+    console.warn('TierWizard.boot not available after timeout');
+    return false;
+  }catch(e){
+    console.error('safeBootTierWizard error', e);
+    return false;
+  }
+}
+
 // load optional flags then config (share promise for later waits)
 const bootPromise = loadFlags().then(loadConfig).catch(err => { console.error(err); });
 bootPromise
@@ -404,26 +561,29 @@ bootPromise
       const path = window.location && window.location.pathname ? window.location.pathname : '';
       if (path.startsWith('/app')) {
         const flags = window.FLAGS || {};
-        if (flags.tierWizard && window.TierWizard && typeof window.TierWizard.boot === 'function') {
-          // Hide legacy containers used by the step wizard
-          const legacySelectors = ['#wiz', '#steps', '#steps-mobile', '.step-panel', '.steps'];
-          legacySelectors.forEach(sel => {
-            document.querySelectorAll(sel).forEach(el => {
-              try { el.style.display = 'none'; } catch (e) { /* ignore */ }
-            });
-          });
-
-          // Ensure tier root exists and is visible
-          const tw = document.getElementById('tier-wizard-root');
-          if (tw) tw.style.display = '';
-
-          // Boot the TierWizard with current flags and (optionally) preloaded profile
+        if (flags.tierWizard) {
+          // Try to safely boot the TierWizard (wait a short time if the
+          // bundle hasn't parsed yet). If boot succeeds, hide legacy
+          // containers and avoid running the legacy boot path.
           let profile = null;
           try { profile = await loadSavedProfile(); } catch (e) { /* ignore */ }
-          await window.TierWizard.boot({ flags, profile });
+          const booted = await safeBootTierWizard(flags, profile);
+          if (booted) {
+            // Hide legacy containers used by the step wizard
+            const legacySelectors = ['#wiz', '#steps', '#steps-mobile', '.step-panel', '.steps'];
+            legacySelectors.forEach(sel => {
+              document.querySelectorAll(sel).forEach(el => {
+                try { el.style.display = 'none'; } catch (e) { /* ignore */ }
+              });
+            });
 
-          // Early return: do not run legacy showStep boot path for /app
-          return;
+            // Ensure tier root exists and is visible
+            const tw = document.getElementById('tier-wizard-root');
+            if (tw) tw.style.display = '';
+
+            // Early return: do not run legacy showStep boot path for /app
+            return;
+          }
         }
       }
     } catch (err) {
@@ -868,73 +1028,112 @@ document.addEventListener('DOMContentLoaded', () => {
       tokenInput?.focus();
       return;
     }
-    if (!pw || pw.length < 6){
-      setAuthMessage('Choose a password with at least 6 characters.', 'error');
-      passwordInput?.focus();
-      return;
-    }
-    const btn = e.submitter || confirmResetForm.querySelector('button[type=submit]');
-    try{
-      setButtonLoading(btn, true);
-  const r = await fetch('/api/confirm-password-reset', { method: 'POST', credentials: 'include', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token, password: pw }) });
-      const j = await r.json().catch(()=>null);
-      if (!r.ok){ setAuthMessage((j && j.error) || 'Reset failed', 'error'); return; }
-      setAuthMessage('Password updated. You can sign in with the new password.', 'success');
-      showToast('Password reset');
-      tokenInput.value = '';
-      passwordInput.value = '';
-      setAuthView('login', { focusField: 'password' });
-    }catch(err){
-      console.error('password reset confirmation failed', err);
-      setAuthMessage('Reset failed. Please try again.', 'error');
-    }finally{
-      setButtonLoading(btn, false);
-    }
-  });
-});
+        // If server-side rendered choices are present, attach handlers instead of
+        // recreating elements to avoid race/duplication during e2e tests.
+        const existing = wrap.querySelectorAll('.choice');
+        if (existing && existing.length > 0) {
+          existing.forEach(el => {
+            // prefer data-key, fallback to data-industry for serverside markup
+            const key = el.dataset.key || el.dataset.industry || el.getAttribute('data-key') || el.getAttribute('data-industry');
+            // find matching opt if available
+            const opt = list.find(o => o.key === key);
+            el.addEventListener('click', () => {
+              wrap.querySelectorAll('.choice').forEach(c=>c.classList.remove('selected'));
+              el.classList.add('selected');
+              if (opt) {
+                answers.industry = opt.label;
+                answers.industry_key = opt.key;
+                const manualKeywords = answers.manual_keywords || [];
+                answers.brand_keywords = [...manualKeywords];
+                answers.details = {};
+                renderIndustryQuestions(opt.key);
+                fetchAndApplyGoodDefaults(opt.key).catch(err => console.error('Failed to apply good defaults:', err));
+                // suggested keywords
+                try{
+                  const noteInput = document.getElementById('note');
+                  const meta = (CFG && CFG.industries || []).find(i => i.key === opt.key) || {};
+                  const sk = document.getElementById('suggested-keywords');
+                  if (sk){ sk.innerHTML = ''; const kws = meta.suggested_keywords || []; kws.forEach(k => { const btn = document.createElement('button'); btn.className = 'choice text-sm preselected'; btn.textContent = k; btn.title = 'Preselected keyword for this industry'; btn.addEventListener('click', () => { toggleKeyword(k); btn.classList.toggle('selected'); }); sk.appendChild(btn); }); }
+                  if (noteInput) noteInput.placeholder = meta.note_placeholder || noteInput.placeholder;
+                  const suggestedKeywords = meta.suggested_keywords || [];
+                  if (suggestedKeywords.length > 0) { answers.brand_keywords = answers.brand_keywords || []; suggestedKeywords.forEach(kw => { if (!answers.brand_keywords.includes(kw)) answers.brand_keywords.push(kw); }); }
+                  try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
+                }catch(e){/* ignore */}
+              }
+              updateSummary();
+              if (step === 1 && nextBtn && typeof nextBtn.focus === 'function') nextBtn.focus();
+            });
+          });
+          return;
+        }
 
-function ensureQuickStartAuth(){
-  if (isLoggedIn()) return true;
-  showToast('Create a free account first so Quick Start can auto-fill the wizard for you.');
-  const heroCta = document.getElementById('cta-create-account');
-  if (heroCta){
-    const highlightClasses = ['ring-2','ring-offset-2','ring-purple-300'];
-    heroCta.classList.add(...highlightClasses);
-    heroCta.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => heroCta.classList.remove(...highlightClasses), 2000);
-  }
-  openAuthModal('signup', { prefillEmail: getKnownEmailValue() });
-  return false;
-}
-
-// UI helpers: show inline messages & toasts
-function showPaywall(message, opts = {}){
-  const payModal = document.getElementById('paywall-modal');
-  if (!payModal){
-    alert(message || 'Paid subscription required');
-    return;
-  }
-  const paywallEmail = document.getElementById('paywall-email');
-  const desiredEmail = opts.prefillEmail || getKnownEmailValue();
-  if (paywallEmail && desiredEmail && !paywallEmail.value){
-    paywallEmail.value = desiredEmail;
-  }
-  if (paywallEmail && paywallEmail.value){
-    broadcastEmailValue('paywall-email', paywallEmail.value);
-  }
-  if (message){ setPaywallMessage(message, opts.messageType || 'info'); }
-  else clearPaywallMessage();
-  payModal.classList.remove('hidden');
-  const focusTarget = opts.focusEmail === false ? null : (paywallEmail || payModal.querySelector('[data-autofocus]'));
-  if (focusTarget && typeof focusTarget.focus === 'function') focusTarget.focus({ preventScroll: true });
-  trapFocus(payModal);
-  try{ ensureStripeElementsInitialized().catch(()=>{}); }catch(e){}
-}
-
-function closePaywall(){
-  const payModal = document.getElementById('paywall-modal');
-  if (!payModal) return;
-  payModal.classList.add('hidden');
+        // Otherwise render choices from scratch
+        list.forEach(opt => {
+          const div = document.createElement("button");
+          div.className = "choice"; div.setAttribute("data-key", opt.key);
+          div.innerHTML = `<div class="emoji">${opt.icon}</div><div class="title">${opt.label}</div>`;
+          div.addEventListener("click", () => {
+            wrap.querySelectorAll(".choice").forEach(c=>c.classList.remove("selected"));
+            div.classList.add("selected");
+            // store both key and label for reliable lookups
+            answers.industry = opt.label;
+            answers.industry_key = opt.key;
+            // preserve manually entered keywords, clear industry-specific data
+            const manualKeywords = answers.manual_keywords || [];
+            answers.brand_keywords = [...manualKeywords];
+            answers.details = {};
+            renderIndustryQuestions(opt.key);
+      
+            // Fetch and apply GOOD defaults for this industry
+            fetchAndApplyGoodDefaults(opt.key).catch(err => {
+              console.error('Failed to apply good defaults:', err);
+            });
+      
+            // set suggested keywords and note placeholder for this industry
+            try{
+              const noteInput = document.getElementById('note');
+              const meta = (CFG && CFG.industries || []).find(i => i.key === opt.key) || {};
+              // render suggested keywords as chips
+              const sk = document.getElementById('suggested-keywords');
+              if (sk){
+                sk.innerHTML = '';
+                const kws = meta.suggested_keywords || [];
+                kws.forEach(k => {
+                  const btn = document.createElement('button');
+                  btn.className = 'choice text-sm preselected'; btn.textContent = k;
+                  btn.title = 'Preselected keyword for this industry';
+                  btn.addEventListener('click', () => {
+                    toggleKeyword(k);
+                    btn.classList.toggle('selected');
+                  });
+                  sk.appendChild(btn);
+                });
+              }
+              if (noteInput){
+                noteInput.placeholder = meta.note_placeholder || noteInput.placeholder;
+              }
+              // set answers.brand_keywords to include the suggested keywords for this industry
+              // always add industry-specific keywords to ensure they're preselected
+              const suggestedKeywords = meta.suggested_keywords || [];
+              if (suggestedKeywords.length > 0) {
+                answers.brand_keywords = answers.brand_keywords || [];
+                // Add suggested keywords that aren't already in the list
+                suggestedKeywords.forEach(kw => {
+                  if (!answers.brand_keywords.includes(kw)) {
+                    answers.brand_keywords.push(kw);
+                  }
+                });
+              }
+              // mark selected state on the rendered chips
+              try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
+            }catch(e){/* ignore */}
+            updateSummary();
+            if (step === 1 && nextBtn && typeof nextBtn.focus === 'function'){
+              nextBtn.focus();
+            }
+          });
+          wrap.appendChild(div);
+        });
   clearPaywallMessage();
   _restoreLastFocus();
 }
@@ -959,6 +1158,7 @@ function showGlobalAlert(msg, type='error'){
   else el.classList.add('bg-red-50','text-red-700');
   // auto-dismiss
   setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 5000);
+}
 function showSavingFeedback() {
   const stepTitle = document.getElementById('step-title');
   if (stepTitle) {
@@ -1014,6 +1214,42 @@ function validateCompany(name){
 function renderIndustryChoices(list){
   const wrap = document.getElementById("industries");
   if (!wrap) return;
+  // If server-side rendered choices exist, attach handlers and avoid
+  // re-rendering to prevent races where tests click server elements
+  // that don't yet have listeners.
+  const existing = wrap.querySelectorAll('.choice');
+  if (existing && existing.length > 0) {
+    existing.forEach(el => {
+      const key = el.dataset.key || el.dataset.industry || el.getAttribute('data-key') || el.getAttribute('data-industry');
+      const opt = list.find(o => o.key === key);
+      el.addEventListener('click', () => {
+        wrap.querySelectorAll('.choice').forEach(c=>c.classList.remove('selected'));
+        el.classList.add('selected');
+        if (opt) {
+          answers.industry = opt.label;
+          answers.industry_key = opt.key;
+          const manualKeywords = answers.manual_keywords || [];
+          answers.brand_keywords = [...manualKeywords];
+          answers.details = {};
+          renderIndustryQuestions(opt.key);
+          fetchAndApplyGoodDefaults(opt.key).catch(err => console.error('Failed to apply good defaults:', err));
+          try{
+            const noteInput = document.getElementById('note');
+            const meta = (CFG && CFG.industries || []).find(i => i.key === opt.key) || {};
+            const sk = document.getElementById('suggested-keywords');
+            if (sk){ sk.innerHTML = ''; const kws = meta.suggested_keywords || []; kws.forEach(k => { const btn = document.createElement('button'); btn.className = 'choice text-sm preselected'; btn.textContent = k; btn.title = 'Preselected keyword for this industry'; btn.addEventListener('click', () => { toggleKeyword(k); btn.classList.toggle('selected'); }); sk.appendChild(btn); }); }
+            if (noteInput) noteInput.placeholder = meta.note_placeholder || noteInput.placeholder;
+            const suggestedKeywords = meta.suggested_keywords || [];
+            if (suggestedKeywords.length > 0) { answers.brand_keywords = answers.brand_keywords || []; suggestedKeywords.forEach(kw => { if (!answers.brand_keywords.includes(kw)) answers.brand_keywords.push(kw); }); }
+            try{ const sk2 = document.getElementById('suggested-keywords'); if (sk2){ Array.from(sk2.children).forEach(btn => { if (answers.brand_keywords.includes(btn.textContent)) btn.classList.add('selected'); }) } }catch(e){}
+          }catch(e){}
+        }
+        updateSummary();
+        if (step === 1 && nextBtn && typeof nextBtn.focus === 'function') nextBtn.focus();
+      });
+    });
+    return;
+  }
   wrap.innerHTML = "";
   list.forEach(opt => {
     const div = document.createElement("button");
