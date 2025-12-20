@@ -178,6 +178,12 @@
       console.log('Tier wizard root not found');
       return;
     }
+    // Idempotency guard: if we've already mounted, do nothing
+    if (root.dataset && root.dataset.tierWizardMounted) {
+      console.log('Tier wizard already mounted — skipping');
+      return;
+    }
+    if (root.dataset) root.dataset.tierWizardMounted = '1';
     
     // Add a visible test element first
     const testDiv = el('div', { 
@@ -246,7 +252,10 @@
       try {
         const flags = opts.flags || window.FLAGS || {};
         // Respect explicit falsey flag
-        if (!flags.tierWizard) return;
+        // If the flag is explicitly false, do not boot. If the flag is
+        // undefined (app bundle not yet loaded), allow auto-boot so the
+        // wizard can initialize during deploys where app.js may run later.
+        if (flags.tierWizard === false) return;
         // Provide flags globally for any legacy code that checks window.FLAGS
         window.FLAGS = flags;
 
@@ -261,4 +270,31 @@
       }
     }
   };
+
+  // Auto-start helper: if the page path is /app and the feature flag is not
+  // explicitly disabled, try to boot after a short delay. This makes the
+  // tier wizard resilient to script ordering (app.js may load first or later)
+  // and helps staging rollouts where the template may include the tier root
+  // but the main app bundle hasn't yet invoked boot.
+  (function autoBootIfAppropriate(){
+    try{
+      const shouldAuto = (function(){
+        const path = (window.location && window.location.pathname) || '';
+        if (!path.startsWith('/app')) return false;
+        // if FLAGS exists and explicitly disables tierWizard, do not auto-boot
+        if (typeof window.FLAGS !== 'undefined' && window.FLAGS && window.FLAGS.tierWizard === false) return false;
+        return true;
+      })();
+      if (!shouldAuto) return;
+      // wait briefly to allow DOM to be ready; if boot is called by app.js
+      // it will be a no-op because of idempotency guard.
+      setTimeout(() => {
+        try{
+          if (window.TierWizard && typeof window.TierWizard.boot === 'function') {
+            window.TierWizard.boot({ flags: window.FLAGS || {} }).catch(()=>{});
+          }
+        }catch(e){/* ignore */}
+      }, 600);
+    }catch(e){/* ignore */}
+  })();
 })();
