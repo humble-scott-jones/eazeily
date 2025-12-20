@@ -27,6 +27,8 @@
       <div class="flex items-center gap-4">
         <a class="text-sm text-slate-600 hover:text-brand transition" href="/">Home</a>
         <a class="auth-link text-sm text-brand hover:underline cursor-pointer">Sign in</a>
+        <!-- Visible deploy revision (filled asynchronously) -->
+        <span id="deploy-rev" class="text-xs text-slate-500 ml-4" style="display:none"></span>
       </div>
     </div>
   </header>
@@ -692,6 +694,22 @@
             }
           }catch(e){}
         });
+      }catch(e){}
+    })();
+  </script>
+
+  <!-- Small helper to show current deployed revision for debugging staging/edge caches -->
+  <script>
+    (function(){
+      try{
+        fetch('/api/version', {cache: 'no-cache'})
+        .then(function(r){ if(!r.ok) throw new Error('no version'); return r.json(); })
+        .then(function(j){
+          var el = document.getElementById('deploy-rev');
+          var sha = j && (j.git_sha || j.sha || j.commit) || '';
+          if(el && sha){ el.textContent = 'rev: ' + sha.slice(0,8); el.style.display = 'inline-block'; }
+          if(document && document.body && sha) document.body.setAttribute('data-deploy-rev', sha);
+        }).catch(function(){/* ignore */});
       }catch(e){}
     })();
   </script>
