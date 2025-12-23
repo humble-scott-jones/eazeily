@@ -60,7 +60,18 @@ function initializeUI() {
   // Render industries
   const industriesContainer = document.getElementById('qb-industries');
   if (industriesContainer && CFG.industries) {
-    CFG.industries.forEach(ind => {
+    // If server-side pre-rendered buttons are present, don't duplicate them.
+    if (industriesContainer.querySelector('.industry-btn')) {
+      // already rendered on server; attach click handlers to the existing buttons
+      industriesContainer.querySelectorAll('.industry-btn').forEach(btn => {
+        // ensure dataset is set (server markup should include data-industry)
+        const key = btn.dataset.industry;
+        if (key) {
+          btn.addEventListener('click', () => selectIndustry(key));
+        }
+      });
+    } else {
+      CFG.industries.forEach(ind => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'industry-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-purple-500 text-sm font-medium text-slate-700 hover:text-purple-700 transition flex items-center gap-2';
@@ -68,7 +79,8 @@ function initializeUI() {
       btn.innerHTML = `<span>${ind.icon || '📁'}</span><span>${ind.label}</span>`;
       btn.addEventListener('click', () => selectIndustry(ind.key));
       industriesContainer.appendChild(btn);
-    });
+      });
+    }
   }
   
   // Render platforms
@@ -380,7 +392,11 @@ function generateGoodPreview() {
   const outcome = qualityData.outcomes[0] || 'great results';
   const cta = qualityData.ctaIntent ? getCtaText(qualityData.ctaIntent) : 'Contact us';
   
-  return `Ready to ${outcome}? We offer ${service} for ${audience}. ${cta} to learn more!`;
+  const base = `Ready to ${outcome}? We offer ${service} for ${audience}. ${cta} to learn more!`;
+  if (qualityData.businessName && qualityData.businessName.trim().length > 0) {
+    return `${qualityData.businessName.trim()} — ${base}`;
+  }
+  return base;
 }
 
 function generateBetterPreview() {
@@ -400,7 +416,11 @@ function generateBetterPreview() {
   const proof = qualityData.proof[0] || 'years of experience';
   const cta = qualityData.ctaIntent ? getCtaText(qualityData.ctaIntent) : 'Contact us';
   
-  return `Ready to ${outcome}? With ${proof}, we offer ${service} for ${audience}. Our ${diff} sets us apart. ${cta} today!`;
+  const base = `Ready to ${outcome}? With ${proof}, we offer ${service} for ${audience}. Our ${diff} sets us apart. ${cta} today!`;
+  if (qualityData.businessName && qualityData.businessName.trim().length > 0) {
+    return `${qualityData.businessName.trim()} — ${base}`;
+  }
+  return base;
 }
 
 function generateBestPreview() {
@@ -417,7 +437,11 @@ function generateBestPreview() {
   const objection = qualityData.objections[0] || 'the investment';
   const cta = qualityData.ctaIntent ? getCtaText(qualityData.ctaIntent) : 'Contact us';
   
-  return `Ready to ${outcome}? With ${proof}, we offer ${service} for ${audience}. Our ${diff} ensures quality results. Concerned about ${objection}? We make it easy. ${cta} today for a consultation!`;
+  const base = `Ready to ${outcome}? With ${proof}, we offer ${service} for ${audience}. Our ${diff} ensures quality results. Concerned about ${objection}? We make it easy. ${cta} today for a consultation!`;
+  if (qualityData.businessName && qualityData.businessName.trim().length > 0) {
+    return `${qualityData.businessName.trim()} — ${base}`;
+  }
+  return base;
 }
 
 function getCtaText(intent) {

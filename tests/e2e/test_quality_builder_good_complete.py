@@ -58,7 +58,8 @@ def test_quality_builder_good_complete_under_90_seconds(page, live_server):
     
     # Verify preview updated
     preview_good = page.locator('#preview-good').inner_text()
-    assert 'Test Shop' in preview_good or 'Retail' in preview_good.lower()
+    preview_good_lower = preview_good.lower()
+    assert 'test shop' in preview_good_lower or 'retail' in preview_good_lower
     
     # Verify save button is enabled
     save_btn = page.locator('#qb-save')
