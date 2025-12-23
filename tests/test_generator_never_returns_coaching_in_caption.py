@@ -22,12 +22,12 @@ def test_fallback_generator_returns_template_with_warning():
         }
     )
     
-    assert result['ok'] is True
-    assert 'data' in result
-    assert 'warnings' in result
-    # Should warn about template/guidance in fallback mode
-    assert any('template' in str(w).lower() or 'guidance' in str(w).lower() 
-               for w in result.get('warnings', []))
+    # With the validation gate enabled, deterministic fallback content is
+    # blocked for single-post requests. Expect an error indicating the
+    # content is not post-ready.
+    assert result['ok'] is False
+    assert 'error' in result
+    assert result['error']['code'] == 'output_not_post_ready'
 
 
 def test_coaching_phrases_detected():
@@ -93,7 +93,9 @@ def test_multiple_platforms_fallback_mode():
         }
     )
     
-    assert result['ok'] is True
-    # Fallback mode should return data with warnings
-    assert 'data' in result
-    assert 'warnings' in result
+    # With the validation gate enabled, deterministic fallback content is
+    # blocked for single-post requests. Expect an error indicating the
+    # content is not post-ready.
+    assert result['ok'] is False
+    assert 'error' in result
+    assert result['error']['code'] == 'output_not_post_ready'

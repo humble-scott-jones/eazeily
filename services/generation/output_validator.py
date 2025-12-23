@@ -10,6 +10,7 @@ from .output_schemas import (
     ReelOutput,
     ReviewResponseOutput
 )
+from .openai_adapter import make_openai_callable
 
 
 logger = logging.getLogger(__name__)
@@ -394,19 +395,44 @@ def _attempt_repair_pass(
             logger.error(f"Gemini repair call failed: {e}")
             raise
     elif openai_client:
+        # Use adapter to handle real OpenAI clients or delegate to Gemini/GenerationService
+        openai_callable = make_openai_callable(None, openai_client=openai_client, gemini_client=gemini_client)
+        if not openai_callable:
+            raise Exception("No AI client available for repair pass.")
+
         try:
-            # Call OpenAI with stricter validation
-            response = openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "system", "content": system_message_content}] + messages,
-                temperature=0.3, # Lower temperature for more consistency
-                response_format={"type": "json_object"}
-            )
-            
+            payload = {
+                'model': 'gpt-4o-mini',
+                'messages': [{"role": "system", "content": system_message_content}] + messages,
+                'temperature': 0.3,
+                'response_format': {"type": "json_object"}
+            }
+            resp = openai_callable(payload)
+
+            # Extract text content from various response shapes
+            content = None
+            try:
+                content = resp.choices[0].message.content
+            except Exception:
+                if isinstance(resp, dict):
+                    choices = resp.get('choices') or []
+                    if choices:
+                        first = choices[0]
+                        if isinstance(first, dict):
+                            msg = first.get('message') or {}
+                            content = msg.get('content') or first.get('text')
+                if content is None:
+                    content = getattr(resp, 'text', None) or None
+
+            if content is None:
+                # If adapter returned a structured object (e.g. Gemini generate_structured), return it directly
+                if isinstance(resp, dict):
+                    return resp
+                raise Exception('No textual content returned from repair backend')
+
             import json
-            content = response.choices[0].message.content
             return json.loads(content)
-            
+
         except Exception as e:
             logger.error(f"OpenAI repair call failed: {e}")
             raise

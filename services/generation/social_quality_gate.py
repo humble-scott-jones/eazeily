@@ -255,6 +255,7 @@ def attempt_repair(
     post_card: Dict[str, Any],
     evaluation: Dict[str, Any],
     gemini_client: Optional[Any] = None,
+    openai_client: Optional[Any] = None,
     context: Optional[Dict[str, Any]] = None,
     request_id: Optional[str] = None
 ) -> Dict[str, Any]:
@@ -276,6 +277,16 @@ def attempt_repair(
     """
     request_id = request_id or 'unknown'
     
+    # If caller provided an explicit openai_client (even None), prefer it
+    if openai_client is None and gemini_client is None:
+        return {
+            'ok': False,
+            'error': 'No OpenAI client available for repair'
+        }
+
+    if not gemini_client and openai_client is not None:
+        gemini_client = openai_client
+
     if not gemini_client:
         return {
             'ok': False,

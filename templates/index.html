@@ -8,6 +8,72 @@
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/eazeily-theme.css" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <script>
+      // Early, capturing toggle listener to ensure the "Show me an example"
+      // control works even if other scripts re-render the Brand Kit panel.
+      (function(){
+        try{
+          document.addEventListener('click', function(e){
+            var btn = (e.target && e.target.closest) ? e.target.closest('#show-example-toggle') : null;
+            if (!btn) return;
+            var el = document.getElementById('example-comparison');
+            if (!el) return;
+            // Determine current visible state
+            var cs = window.getComputedStyle(el);
+            var isHidden = cs.display === 'none' || el.classList.contains('hidden');
+            if (isHidden) {
+              // Force visible and defensively re-apply after a short delay to outlive other scripts
+              el.classList.remove('hidden');
+              try{ el.style.setProperty('display','block','important'); }catch(e){ el.style.display='block'; }
+              setTimeout(function(){ try{ el.classList.remove('hidden'); el.style.setProperty('display','block','important'); }catch(e){ el.style.display='block'; } }, 80);
+            } else {
+              el.classList.add('hidden');
+              try{ el.style.setProperty('display','none','important'); }catch(e){ el.style.display='none'; }
+              setTimeout(function(){ try{ el.classList.add('hidden'); el.style.setProperty('display','none','important'); }catch(e){ el.style.display='none'; } }, 80);
+            }
+            var icon = btn.querySelector('span');
+            if (icon) icon.textContent = isHidden ? '▼' : '▶';
+          }, true); // use capture so this runs before other bubble handlers
+          console.log('EARLY_TOGGLE_INSTALLED');
+        }catch(e){ console.warn('early toggle attach failed', e); }
+      })();
+    </script>
+    <script>
+      // Early capturing listener to ensure chip-suggestion buttons set their
+      // target inputs even when the Brand Kit panel is re-rendered later by
+      // client JavaScript. This runs in the capture phase so it executes
+      // before most bubble listeners that might stop propagation.
+      (function(){
+        try{
+          function applyChipValue(btn){
+            if (!btn) return;
+            var targetId = btn.getAttribute('data-target');
+            var value = btn.getAttribute('data-value');
+            if (!targetId || !value) return;
+            var input = document.getElementById(targetId);
+            if (!input) return;
+            try{ input.value = value; }catch(err){}
+            try{ input.dispatchEvent(new Event('input', { bubbles: true })); }catch(err){}
+            try{ input.dispatchEvent(new Event('change', { bubbles: true })); }catch(err){}
+          }
+          // pointerdown fires earlier than click — apply value immediately so
+          // other JS that runs on click can't override it.
+          document.addEventListener('pointerdown', function(e){
+            var btn = (e.target && e.target.closest) ? e.target.closest('.chip-suggestion') : null;
+            if (!btn) return;
+            applyChipValue(btn);
+          }, true);
+
+          // also keep a click capture fallback
+          document.addEventListener('click', function(e){
+            var btn = (e.target && e.target.closest) ? e.target.closest('.chip-suggestion') : null;
+            if (!btn) return;
+            applyChipValue(btn);
+          }, true);
+          console.log('EARLY_CHIP_HANDLER_INSTALLED');
+        }catch(e){ console.warn('early chip handler attach failed', e); }
+      })();
+    </script>
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="{{ initial_user | tojson | forceescape }}">
   <!-- Background decoration -->
@@ -202,11 +268,18 @@
 
             <!-- Show me an example toggle -->
             <div class="bg-white rounded-xl border border-slate-200 p-4">
-              <button type="button" id="show-example-toggle" class="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center gap-2">
+              <!-- CSS-driven toggle so tests don't rely on JS listener timing -->
+              <input id="show-example-checkbox" type="checkbox" class="hidden" />
+              <label for="show-example-checkbox" id="show-example-toggle" class="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center gap-2 cursor-pointer">
                 <span>▶</span>
                 <span>Show me an example</span>
-              </button>
-              <div id="example-comparison" class="hidden mt-4 space-y-4">
+              </label>
+              <div id="example-comparison" class="mt-4 space-y-4" style="display:none;">
+                <style>
+                  /* When the checkbox is checked, show the example comparison. */
+                  #show-example-checkbox:checked + #show-example-toggle + #example-comparison { display: block !important; }
+                  #show-example-checkbox + #show-example-toggle + #example-comparison { display: none !important; }
+                </style>
                 <div class="space-y-2">
                   <p class="text-xs uppercase tracking-wide text-slate-500 font-semibold">BEFORE (Good tier)</p>
                   <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm text-slate-700">
@@ -220,6 +293,22 @@
                   </div>
                 </div>
               </div>
+              <script>
+                // Inline, defensive listener to ensure the example toggle always works
+                (function(){
+                  try{
+                    const btn = document.getElementById('show-example-toggle');
+                    if (!btn) return;
+                    btn.addEventListener('click', function(){
+                      const el = document.getElementById('example-comparison');
+                      if (!el) return;
+                      el.classList.toggle('hidden');
+                      const icon = btn.querySelector('span');
+                      if (icon) icon.textContent = el.classList.contains('hidden') ? '▶' : '▼';
+                    });
+                  }catch(e){/* ignore */}
+                })();
+              </script>
             </div>
 
             <div id="brand-kit-form" class="space-y-6">
@@ -251,9 +340,189 @@
                   <p class="text-xs text-slate-500">Who is your target customer?</p>
                   <input type="text" id="bk-audience" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., busy professionals, first-time homebuyers" />
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="busy professionals">busy professionals</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="small business owners">small business owners</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="families">families</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="busy professionals" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">busy professionals</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="small business owners" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">small business owners</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover;border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="families" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">families</button>
+                  </div>
+                </div>
+          
+        <!-- Progress Text and Bar -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-2">
+            <!-- Initial values; updated dynamically by showStep() in app.js -->
+            <p id="progress-text" class="text-sm font-semibold text-slate-700">Step 1 of 6</p>
+            <p id="step-title" class="text-sm font-medium text-purple-600">Choose your industry</p>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-gradient-to-r from-purple-500 to-blue-500 h-full rounded-full transition-all duration-300" style="width: 20%;"></div>
+          </div>
+        </div>
+
+        <!-- Pro Tips -->
+        <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+              </svg>
+            </div>
+            <h5 class="font-semibold text-slate-900">Pro Tips</h5>
+          </div>
+          <ul class="space-y-2 text-sm text-slate-700">
+            <li class="flex gap-2">
+              <span class="text-purple-500 mt-1">•</span>
+              <span>Choose keywords that match your brand voice</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-purple-500 mt-1">•</span>
+              <span>Include seasonal themes for timely content</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-purple-500 mt-1">•</span>
+              <span>Review and customize generated content</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+  <!-- Tier Wizard (new) -->
+  <div id="tier-wizard-root" class="space-y-6"></div>
+
+  <!-- Form Steps (legacy, hidden when tier wizard enabled) -->
+  <div id="wiz" class="space-y-6">
+        <div class="step-panel bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="1">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 1</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Choose your industry</h2>
+              <p class="text-slate-600">Pick the closest match so we can load the right follow-up questions, tones, and sample keywords.</p>
+            </div>
+            <div>
+              <label class="block text-xl font-semibold mb-4 text-slate-900">What best describes your work?</label>
+              <div id="industries" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <script>
+                  // Inline helper for server-rendered industry buttons so clicks work
+                  // even before the full client app has attached handlers.
+                  window.__selectIndustryInline = function(key, label){
+                    try{
+                      // Dispatch an event for the in-closure app code to consume.
+                      const ev = new CustomEvent('industry-selected', { detail: { key: key, label: label } });
+                      document.dispatchEvent(ev);
+                    }catch(e){/* ignore */}
+                    try{
+                      // Fallback: also set a window-scoped answers object so debug
+                      // helpers and pages without the closure listener still see a value.
+                      window.answers = window.answers || {};
+                      window.answers.industry = label;
+                      window.answers.industry_key = key;
+                      window.answers.brand_keywords = (window.answers.manual_keywords || []).slice();
+                      window.answers.details = {};
+                    }catch(e){}
+                  };
+                </script>
+                {{ industries_html | safe }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="2">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 2</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Brand Kit (Recommended)</h2>
+              <p class="text-slate-600 text-lg font-medium">This is how Eazeily writes posts that sound like YOUR business.</p>
+            </div>
+
+            <!-- Good/Better/Best Meter -->
+            <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-slate-900">Your Brand Kit Completeness</h3>
+                <span id="brand-kit-tier" class="px-3 py-1 rounded-full text-sm font-medium bg-slate-200 text-slate-700">Good</span>
+              </div>
+              <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
+                <div id="brand-kit-meter" class="bg-gradient-to-r from-yellow-400 to-yellow-500 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
+              </div>
+              <p id="brand-kit-helper" class="text-sm text-slate-700">Fill these 5 fields and you'll get posts you can copy/paste with your services and results included.</p>
+            </div>
+
+            <!-- Show me an example toggle -->
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <!-- CSS-driven toggle so tests don't rely on JS listener timing -->
+              <input id="show-example-checkbox" type="checkbox" class="hidden" />
+              <label for="show-example-checkbox" id="show-example-toggle" class="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center gap-2 cursor-pointer">
+                <span>▶</span>
+                <span>Show me an example</span>
+              </label>
+              <div id="example-comparison" class="mt-4 space-y-4" style="display:none;">
+                <style>
+                  /* When the checkbox is checked, show the example comparison. */
+                  #show-example-checkbox:checked + #show-example-toggle + #example-comparison { display: block !important; }
+                  #show-example-checkbox + #show-example-toggle + #example-comparison { display: none !important; }
+                </style>
+                <div class="space-y-2">
+                  <p class="text-xs uppercase tracking-wide text-slate-500 font-semibold">BEFORE (Good tier)</p>
+                  <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm text-slate-700">
+                    "Ready to get started? We offer great services to help you succeed. Contact us today!"
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <p class="text-xs uppercase tracking-wide text-purple-600 font-semibold">AFTER (Best tier)</p>
+                  <div class="bg-purple-50 rounded-lg p-4 border border-purple-200 text-sm text-slate-700">
+                    "Ready to transform your online presence? As a trusted web design agency with 10+ years experience, we've helped 200+ businesses increase conversions by 40%. Our proven process: strategy first, beautiful design, ongoing support. Book your free consultation today → [link]"
+                  </div>
+                </div>
+              </div>
+              <script>
+                // Inline, defensive listener to ensure the example toggle always works
+                (function(){
+                  try{
+                    const btn = document.getElementById('show-example-toggle');
+                    if (!btn) return;
+                    btn.addEventListener('click', function(){
+                      const el = document.getElementById('example-comparison');
+                      if (!el) return;
+                      el.classList.toggle('hidden');
+                      const icon = btn.querySelector('span');
+                      if (icon) icon.textContent = el.classList.contains('hidden') ? '▶' : '▼';
+                    });
+                  }catch(e){/* ignore */}
+                })();
+              </script>
+            </div>
+
+            <div id="brand-kit-form" class="space-y-6">
+              <!-- GOOD tier fields -->
+              <div class="space-y-5 p-5 rounded-xl border-2 border-green-200 bg-green-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-green-500 text-white">GOOD</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Minimum inputs (2 minutes)</h4>
+                </div>
+
+                <!-- 1. Business name -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Business name (optional)</label>
+                  <input type="text" id="bk-business-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" />
+                </div>
+
+                <!-- 2. Services (pick 3-5) -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Services (pick 3-5)</label>
+                  <p class="text-xs text-slate-500">What do you offer?</p>
+                  <div id="bk-services-chips" class="flex flex-wrap gap-2 mb-2"></div>
+                  <input type="text" id="bk-services-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" />
+                  <button type="button" class="text-xs text-purple-600 hover:text-purple-700 font-medium" data-suggestion-target="bk-services-input" data-suggestions='["Consultation","Custom Design","Installation","Training","Support"]'>Not sure? Use a suggestion</button>
+                </div>
+
+                <!-- 3. Who you help -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Who you help (audience)</label>
+                  <p class="text-xs text-slate-500">Who is your target customer?</p>
+                  <input type="text" id="bk-audience" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., busy professionals, first-time homebuyers" />
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="busy professionals" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">busy professionals</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="small business owners" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">small business owners</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="families" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">families</button>
                   </div>
                 </div>
 
@@ -263,9 +532,9 @@
                   <p class="text-xs text-slate-500">What challenge do your customers face?</p>
                   <input type="text" id="bk-pain" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., wasting time on manual tasks" />
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="wasting time">wasting time</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="feeling overwhelmed">feeling overwhelmed</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="not seeing results">not seeing results</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="wasting time" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">wasting time</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="feeling overwhelmed" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">feeling overwhelmed</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="not seeing results" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">not seeing results</button>
                   </div>
                 </div>
 
@@ -275,9 +544,9 @@
                   <p class="text-xs text-slate-500">What transformation do they get?</p>
                   <input type="text" id="bk-outcome" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., save 10 hours per week" />
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="save time">save time</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="increase revenue">increase revenue</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="feel confident">feel confident</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="save time" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">save time</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="increase revenue" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">increase revenue</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="feel confident" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">feel confident</button>
                   </div>
                 </div>
               </div>
@@ -321,10 +590,10 @@
                   <div id="bk-differentiators-chips" class="flex flex-wrap gap-2 mb-2"></div>
                   <input type="text" id="bk-differentiators-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" />
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Fast turnaround">Fast turnaround</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Personalized service">Personalized service</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Family-owned">Family-owned</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Certified experts">Certified experts</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Fast turnaround" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Fast turnaround</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Personalized service" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Personalized service</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Family-owned" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Family-owned</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Certified experts" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Certified experts</button>
                   </div>
                 </div>
 
@@ -334,9 +603,9 @@
                   <p class="text-xs text-slate-500">Years in business, certifications, #clients, testimonial snippet</p>
                   <input type="text" id="bk-proof" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., 10+ years experience, 500+ happy clients" />
                   <div class="flex flex-wrap gap-2">
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="10+ years experience">10+ years experience</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Licensed & insured">Licensed & insured</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Award-winning">Award-winning</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="10+ years experience" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">10+ years experience</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Licensed & insured" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Licensed & insured</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Award-winning" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Award-winning</button>
                   </div>
                 </div>
               </div>
@@ -718,3 +987,4 @@
 {% include 'paywall_modal.html' %}
 </body>
 </html>
+>>>>>>> Stashed changes

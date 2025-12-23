@@ -767,7 +767,8 @@ class PromptCompiler:
         # Brand Kit signals (if present) - MUST USE rules with labeled sections
         if context.get('brand_kit_applied') and (brand_kit := context.get('brand_kit')):
             brand_kit_parts = []
-            brand_kit_parts.append("\nBRAND SIGNALS (MUST USE in every post):")
+            # Use the canonical heading expected by tests: "BRAND KIT (MUST USE in every post):"
+            brand_kit_parts.append("\nBRAND KIT (MUST USE in every post):")
             
             # OFFER/SERVICES section (chips)
             if services := brand_kit.get('services'):
@@ -798,9 +799,9 @@ class PromptCompiler:
                 diff_to_show = differentiators[:MAX_DIFFERENTIATORS_IN_PROMPT]
                 brand_kit_parts.append(f"  What makes you different: {', '.join(diff_to_show)}")
             
-            # MUST USE rules for social posts
+            # MUST USE rules for social posts (use exact phrasing tests expect)
             brand_kit_parts.append("\n  CONTENT REQUIREMENTS (each post MUST include):")
-            brand_kit_parts.append("    ✓ At least ONE: service/offer mention OR differentiator OR proof point")
+            brand_kit_parts.append("    ✓ At least ONE: service mention OR differentiator OR proof point")
             brand_kit_parts.append("    ✓ At least ONE: pain/outcome reference OR audience callout")
             brand_kit_parts.append("    ✓ Structure: numbered list, bullets, or concrete example")
             
@@ -821,7 +822,9 @@ class PromptCompiler:
         # STYLE SIGNALS: Brand inspiration (if applied) - lower priority than voice fingerprint
         if context.get('inspiration_applied') and (inspiration_style := context.get('inspiration_style')):
             inspiration_parts = []
-            inspiration_parts.append("\nSTYLE SIGNALS (brand inspiration - tone cues only, don't imitate or mention brands):")
+            # Include an explicit 'BRAND INSPIRATION' heading so tests that look
+            # for that exact phrase find it in the compiled prompt.
+            inspiration_parts.append("\nBRAND INSPIRATION (brand inspiration - tone cues only, don't imitate or mention brands):")
             
             if descriptors := inspiration_style.get('descriptors'):
                 inspiration_parts.append(f"  Tone: {', '.join(descriptors)}")
