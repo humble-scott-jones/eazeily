@@ -2,7 +2,8 @@ Flask==3.0.3
 Flask-Cors==4.0.1
 python-dateutil==2.9.0.post0
 google-generativeai>=0.7.0
-pillow==10.5.0
+# pin to a released pillow version available on PyPI for this build image
+pillow==10.4.0
 requests==2.31.0
 PyYAML==6.0.2
 stripe==12.0.0
