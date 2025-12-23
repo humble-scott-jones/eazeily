@@ -3,6 +3,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Optional
+from services.generation.output_schemas import build_success_response, build_error_response
 
 JsonDict = Dict[str, Any]
 
@@ -43,16 +44,15 @@ class GenerationService:
         return "unknown"
 
     def _build_error(self, *, code: str, request_id: str, message: str, status: int, gemini_used: bool, outcome: str, source: str = "fallback") -> GenerationResponse:
-        body = {
-            "ok": False,
-            "request_id": request_id,
-            "source": source,
-            "mode": "error",
-            "error": {
-                "code": code,
-                "message": message,
-            },
-        }
+        body = build_error_response(
+            request_id=request_id,
+            code=code,
+            message=message,
+            source=source,
+            details=None,
+            gemini_used=gemini_used,
+            openai_used=(source == 'openai')
+        )
         return GenerationResponse(ok=False, status=status, body=body, gemini_used=gemini_used, outcome=outcome)
 
     def generate(
@@ -65,8 +65,10 @@ class GenerationService:
         normalizer: Callable[[Mapping[str, Any]], Mapping[str, Any]],
         output_validator: Callable[[Any], Any],
         gemini_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
+        openai_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
         fallback_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
         use_gemini: bool = False,
+        use_openai: bool = False,
         disable_fallback: bool = False,
     ) -> GenerationResponse:
         start_ts = time.time()
@@ -99,13 +101,23 @@ class GenerationService:
         data = None
         error_code = "unknown"
 
+        # Decide which AI callable to use: Gemini or (legacy) OpenAI alias
+        ai_callable = None
+        ai_source = None
         if use_gemini and gemini_callable:
+            ai_callable = gemini_callable
+            ai_source = 'gemini'
+        elif use_openai and openai_callable:
+            ai_callable = openai_callable
+            ai_source = 'openai'
+
+        if ai_callable:
             try:
-                data = self._run_with_timeout(lambda: gemini_callable(normalized))
-                source = "gemini"
-                gemini_used = True
+                data = self._run_with_timeout(lambda: ai_callable(normalized))
+                source = ai_source
+                gemini_used = (ai_source == 'gemini')
             except Exception as exc:
-                gemini_used = True
+                gemini_used = (ai_source == 'gemini')
                 error_code = self._classify_gemini_error(exc)
                 if error_code == "timeout":
                     self._log_outcome(endpoint, request_id, start_ts, outcome="timeout", gemini_used=gemini_used)
@@ -121,7 +133,7 @@ class GenerationService:
                     "generation.gemini_failed",
                     extra={"request_id": request_id, "endpoint": endpoint, "error_code": error_code},
                 )
-                
+
                 # If fallback is disabled, return error immediately
                 if disable_fallback:
                     return self._build_error(
@@ -131,7 +143,7 @@ class GenerationService:
                         status=503,
                         gemini_used=gemini_used,
                         outcome=error_code,
-                        source="gemini",
+                        source=(ai_source or "gemini"),
                     )
 
         if data is None and fallback_callable and not disable_fallback:
@@ -214,24 +226,23 @@ class GenerationService:
             extra={"source": source, "latency_ms": latency_ms},
         )
 
-        # Build response with source and mode
-        mode = "generated" if source == "gemini" else "fallback_suggestions"
-        body = {
-            "ok": True,
-            "request_id": request_id,
-            "source": source,
-            "mode": mode,
-            "data": validated_data
-        }
-        
-        # Add warnings if using fallback
-        if source == "fallback":
-            body["warnings"] = ["AI generation temporarily unavailable - showing template suggestions"]
-        
+        # Build canonical success response
+        openai_used = (source == 'openai')
+        resp_body = build_success_response(
+            request_id=request_id,
+            data=validated_data,
+            gemini_used=gemini_used,
+            openai_used=openai_used,
+            summary=None,
+            warnings=( ["AI generation temporarily unavailable - showing template suggestions"] if source == 'fallback' else None ),
+            used_signals=None,
+            source=source
+        )
+
         return GenerationResponse(
             ok=True,
             status=200,
-            body=body,
+            body=resp_body,
             gemini_used=gemini_used,
             outcome="success",
         )

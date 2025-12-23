@@ -18,6 +18,7 @@ os.environ.setdefault('FLASK_ENV', 'test')
 os.environ.setdefault('DISABLE_RATE_LIMITS', '1')
 
 import app as togetherly_app
+from tests.e2e.conftest import app
 
 
 @pytest.fixture

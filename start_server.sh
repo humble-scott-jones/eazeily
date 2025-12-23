@@ -28,4 +28,4 @@ echo "Visit: http://localhost:5001"
 echo "Press Ctrl+C to stop"
 echo ""
 
-python3 app.py
+nohup python3 app.py > server.log 2>&1 &

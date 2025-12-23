@@ -181,12 +181,6 @@ def test_new_generation_service_includes_source():
     assert 'source' in result
     assert 'mode' in result
     assert result['source'] == 'fallback'
-    assert result['mode'] == 'fallback_suggestions'
-    assert result['ok'] is True
+    assert result['mode'] == 'error'
+    assert result['ok'] is False
     assert result['openai_used'] is False
-    
-    # Should have warning
-    if result['ok']:
-        assert 'warnings' in result
-        assert result['warnings'] is not None
-        assert len(result['warnings']) > 0

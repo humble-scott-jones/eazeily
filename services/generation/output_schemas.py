@@ -161,6 +161,9 @@ class SuccessResponse(TypedDict):
     warnings: Optional[List[str]]
     used_signals: Optional[UsedSignals]
     source: Optional[str]
+    # Short mode string describing how the output was produced. Examples:
+    # 'generated' (model-generated), 'fallback_suggestions' (template fallback)
+    mode: Optional[str]
 
 
 class ErrorResponse(TypedDict):
@@ -168,6 +171,9 @@ class ErrorResponse(TypedDict):
     ok: bool  # False
     request_id: str
     error: ErrorDetail
+    # For easier backward compatibility some callers expect top-level source/mode
+    source: Optional[str]
+    mode: Optional[str]
 
 
 # Validation result schemas
@@ -253,3 +259,109 @@ def validate_review_responses(data: Any) -> ReviewResponseOutput:
         'voice_applied': data.get('voice_applied', False),
         'summary': data.get('summary')
     }
+
+
+# Canonical response builders and helpers
+def build_success_response(
+    request_id: str,
+    data: Any,
+    *,
+    gemini_used: bool = False,
+    openai_used: bool = False,
+    summary: Optional[Dict[str, Any]] = None,
+    warnings: Optional[List[str]] = None,
+    used_signals: Optional[UsedSignals] = None,
+    source: Optional[str] = None,
+) -> SuccessResponse:
+    """Build a canonical success response for generation endpoints.
+
+    Keeps both boolean flags and a `source` string for backward compatibility.
+    """
+    # Determine source if not provided
+    if source is None:
+        if gemini_used:
+            source = 'gemini'
+        elif openai_used:
+            source = 'openai'
+        else:
+            source = 'fallback'
+
+    fallback_used = (source == 'fallback')
+
+    resp: SuccessResponse = {
+        'ok': True,
+        'request_id': request_id,
+        'openai_used': bool(openai_used),
+        'fallback_used': bool(fallback_used),
+        'data': data,
+        'summary': summary,
+        'warnings': warnings,
+        'used_signals': used_signals,
+        'source': source,
+        # Provide a small, human-friendly mode string used by tests and callers.
+        # 'generated' for model-generated output, 'fallback_suggestions' for fallback templates,
+        # and other values can be added as needed.
+        'mode': ('generated' if source in ('openai', 'gemini') else 'fallback_suggestions' if source == 'fallback' else 'unknown'),
+    }
+
+    return resp
+
+
+def build_error_response(
+    request_id: str,
+    code: str,
+    message: str,
+    *,
+    source: str = 'unknown',
+    details: Optional[Dict[str, Any]] = None,
+    gemini_used: bool = False,
+    openai_used: bool = False,
+) -> ErrorResponse:
+    """Build a canonical error response for generation endpoints.
+
+    `source` should be one of 'gemini', 'openai', 'fallback', or 'unknown'.
+    """
+    err: ErrorDetail = {
+        'code': code,
+        'message': message,
+        'details': details,
+    }
+
+    resp: ErrorResponse = {
+        'ok': False,
+        'request_id': request_id,
+        'error': err,
+        'source': source,
+        'mode': 'error',
+    }
+
+    # For legacy callers that inspected booleans on error responses, provide
+    # them via the error details to avoid changing the top-level shape.
+    if details is None:
+        resp['error']['details'] = {
+            'gemini_used': bool(gemini_used),
+            'openai_used': bool(openai_used),
+            'source': source,
+        }
+    else:
+        # If details were provided, ensure booleans/source are present for
+        # easier migration for callers.
+        details.setdefault('gemini_used', bool(gemini_used))
+        details.setdefault('openai_used', bool(openai_used))
+        details.setdefault('source', source)
+        resp['error']['details'] = details
+
+    # Add top-level source/mode for easier consumption by legacy tests/callers
+    resp['source'] = source
+    resp['mode'] = 'error'
+
+    return resp
+
+
+def is_success(resp: Dict[str, Any]) -> bool:
+    return bool(resp and isinstance(resp, dict) and resp.get('ok') is True)
+
+
+def is_error(resp: Dict[str, Any]) -> bool:
+    return bool(resp and isinstance(resp, dict) and resp.get('ok') is False)
+

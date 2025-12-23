@@ -3225,6 +3225,85 @@ document.addEventListener('DOMContentLoaded', () => {
   initDashboardModes();
 });
 
+// Delegated toggle for example comparison. This ensures the "Show me an example"
+// button works even if setupBrandKitListeners wasn't able to attach its handler
+// due to timing or DOM re-rendering during tests.
+document.addEventListener('click', (e) => {
+  try {
+    // Example toggle
+    const btn = e.target.closest && e.target.closest('#show-example-toggle');
+    if (btn) {
+      const exampleComparison = document.getElementById('example-comparison');
+      if (!exampleComparison) return;
+      exampleComparison.classList.toggle('hidden');
+      const icon = btn.querySelector('span');
+      if (icon) icon.textContent = exampleComparison.classList.contains('hidden') ? '▶' : '▼';
+      return;
+    }
+
+    // Global delegated handler for chip suggestions (defensive fallback)
+    const chip = e.target && e.target.closest && e.target.closest('.chip-suggestion');
+    if (chip) {
+      try {
+        const targetId = chip.dataset.target;
+        const value = chip.dataset.value;
+        console.log('DELEGATED CHIP CLICK (global)', targetId, value);
+        const input = document.getElementById(targetId);
+        if (input) {
+          input.value = value;
+          input.dispatchEvent(new Event('input'));
+          input.dispatchEvent(new Event('change'));
+          // re-apply after short delay in case of re-render
+          setTimeout(() => {
+            try {
+              const cur = document.getElementById(targetId);
+              if (cur && cur.value !== value) {
+                cur.value = value;
+                cur.dispatchEvent(new Event('input'));
+                cur.dispatchEvent(new Event('change'));
+                console.log('DELEGATED CHIP CLICK: re-applied after delay (global)', targetId, value);
+              }
+            } catch (e) { /* ignore */ }
+          }, 50);
+          // attach diagnostic observer
+          try {
+            window.__brandkit_mutation_log = window.__brandkit_mutation_log || [];
+            (function attachObserver(targetId) {
+              const el = document.getElementById(targetId);
+              const root = el ? el.parentNode || document.body : document.body;
+              const obs = new MutationObserver((mutations) => {
+                const now = Date.now();
+                mutations.forEach(m => {
+                  try {
+                    const record = {
+                      ts: now,
+                      type: m.type,
+                      target: (m.target && (m.target.id || m.target.className || m.target.nodeName)) || null,
+                      added: m.addedNodes && m.addedNodes.length ? Array.from(m.addedNodes).map(n => (n.id||n.className||n.nodeName)) : [],
+                      removed: m.removedNodes && m.removedNodes.length ? Array.from(m.removedNodes).map(n => (n.id||n.className||n.nodeName)) : [],
+                      attrName: m.attributeName || null,
+                      inputValue: (document.getElementById(targetId) && document.getElementById(targetId).value) || ''
+                    };
+                    window.__brandkit_mutation_log.push(record);
+                    console.log('BRANDKIT_MUTATION', record);
+                  } catch (e) { /* ignore */ }
+                });
+              });
+              try { obs.observe(root, { childList: true, subtree: true, attributes: true, characterData: true }); } catch(e) { /* ignore */ }
+              setTimeout(() => { try { obs.disconnect(); console.log('BRANDKIT_MUTATION: observer disconnected (global)'); } catch(e){} }, 800);
+            })(targetId);
+          } catch (e) { /* ignore */ }
+        }
+      } catch (err) { console.warn('chip delegation error', err); }
+      return;
+    }
+  } catch (err) {
+    // Non-fatal; keep UI resilient in tests and prod
+    console.warn('example toggle delegation error', err);
+  }
+}, { capture: true });
+console.log('DELEGATION: show-example-toggle delegation installed');
+
 function initDashboardModes() {
   const modes = {
     social: { btn: 'mode-social', section: 'content-generator', hide: ['review-response'] },
@@ -3664,6 +3743,91 @@ function setupBrandKitListeners() {
       }
     });
   });
+
+  // Delegated click handler fallback for chip suggestions and example toggle.
+  // This ensures clicks still work if elements are re-rendered after initial
+  // script execution (robust for headless/e2e environments).
+  document.addEventListener('click', (e) => {
+    try {
+      const chip = e.target && e.target.closest && e.target.closest('.chip-suggestion');
+      if (chip) {
+        const targetId = chip.dataset.target;
+        const value = chip.dataset.value;
+        console.log('DELEGATED CHIP CLICK', targetId, value);
+        const input = document.getElementById(targetId);
+        if (input) {
+          input.value = value;
+          input.dispatchEvent(new Event('input'));
+          input.dispatchEvent(new Event('change'));
+          // Defensive re-apply: sometimes an async load or re-render can
+          // overwrite the value immediately after this handler runs (seen
+          // in headless/e2e runs). Re-apply after a short delay if needed.
+          try {
+            setTimeout(() => {
+              try {
+                const cur = document.getElementById(targetId);
+                if (cur && cur.value !== value) {
+                  cur.value = value;
+                  cur.dispatchEvent(new Event('input'));
+                  cur.dispatchEvent(new Event('change'));
+                  console.log('DELEGATED CHIP CLICK: re-applied after delay', targetId, value);
+                }
+              } catch (e) { /* non-fatal */ }
+            }, 50);
+          } catch (e) { /* non-fatal */ }
+
+          // Diagnostic MutationObserver: record any DOM mutations that affect
+          // the input or its parent immediately after the click. This helps
+          // detect if the input is being replaced/cleared by a re-render.
+          try {
+            window.__brandkit_mutation_log = window.__brandkit_mutation_log || [];
+            (function attachObserver(targetId) {
+              const el = document.getElementById(targetId);
+              const root = el ? el.parentNode || document.body : document.body;
+              const obs = new MutationObserver((mutations) => {
+                const now = Date.now();
+                mutations.forEach(m => {
+                  try {
+                    const record = {
+                      ts: now,
+                      type: m.type,
+                      target: (m.target && (m.target.id || m.target.className || m.target.nodeName)) || null,
+                      added: m.addedNodes && m.addedNodes.length ? Array.from(m.addedNodes).map(n => (n.id||n.className||n.nodeName)) : [],
+                      removed: m.removedNodes && m.removedNodes.length ? Array.from(m.removedNodes).map(n => (n.id||n.className||n.nodeName)) : [],
+                      attrName: m.attributeName || null,
+                      inputValue: (document.getElementById(targetId) && document.getElementById(targetId).value) || ''
+                    };
+                    window.__brandkit_mutation_log.push(record);
+                    console.log('BRANDKIT_MUTATION', record);
+                  } catch (e) { /* ignore */ }
+                });
+              });
+              try { obs.observe(root, { childList: true, subtree: true, attributes: true, characterData: true }); } catch(e) { /* ignore */ }
+              // Auto-disconnect after 800ms
+              setTimeout(() => { try { obs.disconnect(); console.log('BRANDKIT_MUTATION: observer disconnected'); } catch(e){} }, 800);
+            })(targetId);
+          } catch (e) { /* non-fatal */ }
+        }
+        return;
+      }
+
+      const toggle = e.target && e.target.closest && e.target.closest('#show-example-toggle');
+      if (toggle) {
+        const exampleComparison = document.getElementById('example-comparison');
+        if (exampleComparison) {
+          exampleComparison.classList.toggle('hidden');
+          const icon = toggle.querySelector('span');
+          if (icon) {
+            icon.textContent = exampleComparison.classList.contains('hidden') ? '▶' : '▼';
+          }
+        }
+        return;
+      }
+    } catch (err) {
+      // swallow errors to avoid breaking other UI in edge cases
+      console.warn('delegated handler error', err);
+    }
+  }, { capture: false });
   
   // Suggestion buttons that insert predefined values
   const suggestionButtons = document.querySelectorAll('[data-suggestion-target]');

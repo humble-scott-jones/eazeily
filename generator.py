@@ -7,9 +7,20 @@ from datetime import timedelta, date
 from pathlib import Path
 from typing import Optional, Any, Mapping, Sequence
 from services.generation.generation_service import GenerationService # New import
+from services.generation.openai_adapter import make_openai_callable
 
 logger = logging.getLogger(__name__)
 from platform_rules import DEFAULT_VARIANT_PLATFORMS, apply_platform_rules
+
+# Feature toggles for generation backends. By default OpenAI/Gemini are
+# disabled at the library level; environment or tests can toggle these when
+# needed. OpenAI support has been removed in this branch so keep the flag for
+# API compatibility only.
+USE_OPENAI_FOR_POSTS = False
+USE_GEMINI_FOR_POSTS = False
+# Compatibility placeholder for tests that monkeypatch a module-level OpenAI client
+# (some legacy tests expect `_openai_client` to exist and be settable).
+_openai_client = None
 
 PILLARS_BY_DEFAULT = [
     ("Educational", "Share a quick tip that solves a common problem for your audience."),
@@ -139,13 +150,54 @@ def fetch_trend_context(industry: str, ttl_hours: int = 6) -> list[dict[str, Any
         ).format(industry=industry or 'local business')
 
         system_instruction = 'You are a marketing strategist.'
-        
+
+        # Back-compat: tests may monkeypatch a module-level OpenAI client
+        # (generator._openai_client). If configured, prefer using that so
+        # legacy tests continue to work. Otherwise, use the GenerationService
+        # helper which attempts Gemini when available. Use the openai_adapter
+        # to avoid direct OpenAI call shapes scattered here.
+        if USE_OPENAI_FOR_POSTS:
+            openai_callable = make_openai_callable(trend_generation_service, openai_client=_openai_client)
+            if openai_callable:
+                try:
+                    payload = {
+                        'model': os.getenv('OPENAI_TRENDS_MODEL', 'gpt-3.5-turbo'),
+                        'messages': [{'role': 'user', 'content': prompt_content}],
+                        'temperature': 0.4,
+                    }
+                    resp = openai_callable(payload)
+
+                    # Extract content from returned object (support OpenAI-like and Gemini-like responses)
+                    response_content = None
+                    try:
+                        response_content = resp.choices[0].message.content
+                    except Exception:
+                        # Try dict-like shapes
+                        if isinstance(resp, dict):
+                            choices = resp.get('choices') or []
+                            if choices:
+                                first = choices[0]
+                                # first may be a dict with 'message' or 'text'
+                                if isinstance(first, dict):
+                                    msg = first.get('message') or {}
+                                    response_content = msg.get('content') or first.get('text')
+                        if response_content is None:
+                            response_content = getattr(resp, 'text', None) or ''
+
+                    parsed = _parse_trend_payload(response_content or '')
+                    if parsed:
+                        _save_trend_cache(cache_path, parsed)
+                        return parsed
+                except Exception:
+                    # fallthrough to GenerationService path below
+                    pass
+
         response_content = trend_generation_service.generate_text(
             messages=[{'role': 'user', 'content': prompt_content}],
             system_instruction=system_instruction,
             temperature=0.4
         )
-        
+
         parsed = _parse_trend_payload(response_content or '')
         if parsed:
             _save_trend_cache(cache_path, parsed)
