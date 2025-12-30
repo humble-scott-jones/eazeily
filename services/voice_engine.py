@@ -3,9 +3,20 @@ import json
 from typing import Dict, List, Any
 
 try:
-    import google.generativeai as genai
-except Exception:  # pragma: no cover - genai may not be installed in test env
-    genai = None
+    # Prefer the maintained `google.genai` package when available.
+    import google.genai as _genai_new  # type: ignore
+except Exception:  # pragma: no cover - package may not be installed in test env
+    _genai_new = None
+
+try:
+    # Fallback to the legacy package if present. It is deprecated but harmless
+    # to keep as a fallback so older deployments don't hard-fail.
+    import google.generativeai as _genai_old  # type: ignore
+except Exception:  # pragma: no cover - package may not be installed in test env
+    _genai_old = None
+
+# Prefer new API surface when available, otherwise fall back to legacy.
+genai = _genai_new or _genai_old
 
 
 class VoiceEngine:
@@ -18,14 +29,33 @@ class VoiceEngine:
     def __init__(self, api_key: str | None = None):
         self.api_key = api_key or os.getenv('GENAI_API_KEY') or os.getenv('GOOGLE_API_KEY')
         self.genai = genai
+        # Track which library we actually have so we can adapt call shapes.
+        self._using_new_genai = (_genai_new is not None)
+        self._using_old_genai = (_genai_old is not None)
         if self.genai and self.api_key:
             try:
                 # library provides simple configure function in many versions
+                # Try the common configure pattern used by the old pkg
                 try:
-                    self.genai.configure(api_key=self.api_key)
+                    if hasattr(self.genai, 'configure'):
+                        self.genai.configure(api_key=self.api_key)
                 except Exception:
-                    # older/newer shims may differ; ignore if configure missing
+                    # Older/newer shims may differ; ignore if configure missing
                     pass
+                # For the newer `google.genai` package there may be a client
+                # object; try to construct a minimal client if exposed.
+                try:
+                    if self._using_new_genai and hasattr(self.genai, 'Client'):
+                        # Some versions expose a Client or Generative models API.
+                        try:
+                            self.genai_client = self.genai.Client(api_key=self.api_key)
+                        except Exception:
+                            # not all versions have same constructor signature
+                            self.genai_client = None
+                    else:
+                        self.genai_client = None
+                except Exception:
+                    self.genai_client = None
             except Exception:
                 pass
 
@@ -48,7 +78,35 @@ class VoiceEngine:
             return {"style_guide": "; ".join((lines[:3] if lines else ['conversational'])), "examples": examples}
 
         try:
-            response = self.genai.generate_text(model='gemini-1.5-flash', prompt=prompt)
+            # Attempt several compatible call shapes depending on the SDK
+            response = None
+            # 1) Newer `google.genai` may offer a client or a top-level generate function
+            if getattr(self, 'genai_client', None) is not None:
+                try:
+                    # Try a common client call if available
+                    response = self.genai_client.generate_text(model='gemini-1.5-flash', prompt=prompt)
+                except Exception:
+                    response = None
+
+            if response is None:
+                try:
+                    # Some versions expose generate_text on the module
+                    response = self.genai.generate_text(model='gemini-1.5-flash', prompt=prompt)
+                except Exception:
+                    response = None
+
+            # If still None, try legacy names/shapes
+            if response is None and hasattr(self.genai, 'TextGeneration'):
+                try:
+                    # defensive: try a class-based API
+                    gen = self.genai.TextGeneration()
+                    response = gen.generate(model='gemini-1.5-flash', prompt=prompt)
+                except Exception:
+                    response = None
+
+            if response is None:
+                # As a last resort, try calling the module directly (older SDK)
+                response = getattr(self.genai, 'generate_text', lambda **kw: None)(model='gemini-1.5-flash', prompt=prompt)
             # support multiple shapes: prefer response.candidates[0].content or response.output
             text = None
             if hasattr(response, 'candidates') and response.candidates:
@@ -96,7 +154,29 @@ class VoiceEngine:
             return f"{topic} — written in a {('professional' if 'pro' in style.lower() else 'conversational')} tone."
 
         try:
-            response = self.genai.generate_text(model='gemini-1.5-flash', prompt=prompt)
+            # Try same adaptive invocation strategy as above
+            response = None
+            if getattr(self, 'genai_client', None) is not None:
+                try:
+                    response = self.genai_client.generate_text(model='gemini-1.5-flash', prompt=prompt)
+                except Exception:
+                    response = None
+
+            if response is None:
+                try:
+                    response = self.genai.generate_text(model='gemini-1.5-flash', prompt=prompt)
+                except Exception:
+                    response = None
+
+            if response is None and hasattr(self.genai, 'TextGeneration'):
+                try:
+                    gen = self.genai.TextGeneration()
+                    response = gen.generate(model='gemini-1.5-flash', prompt=prompt)
+                except Exception:
+                    response = None
+
+            if response is None:
+                response = getattr(self.genai, 'generate_text', lambda **kw: None)(model='gemini-1.5-flash', prompt=prompt)
             if hasattr(response, 'candidates') and response.candidates:
                 return response.candidates[0].content.strip()
             if isinstance(response, dict) and 'output' in response:
