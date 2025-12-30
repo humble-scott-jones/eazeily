@@ -1,43 +1,37 @@
-import os
-import json
+"""Minimal GenerationService shim used to allow app startup.
+
+This lightweight class provides only the small API surface other
+modules import at startup (not a full implementation).
+"""
+
 from typing import Any, Optional
+import json
 
 
 class GenerationService:
-    """Tiny, safe shim to replicate the minimal GenerationService API
-    used by generator.py. This intentionally avoids external SDK calls and
-    returns deterministic fallbacks so the app can boot.
-    """
+    """Tiny, deterministic GenerationService shim."""
 
     def __init__(self, enable_openai: bool = False, enable_gemini: bool = False, gemini_model: Optional[str] = None):
-        self.enable_openai = enable_openai
-        self.enable_gemini = enable_gemini
-        self.gemini_model = gemini_model or os.getenv('GEMINI_TRENDS_MODEL')
+        self.enable_openai = bool(enable_openai)
+        self.enable_gemini = bool(enable_gemini)
+        self.gemini_model = gemini_model
 
-    def generate_text(self, *args, **kwargs) -> str:
-        """Simple generate_text shim.
+    def generate_text(self, *args, **kwargs) -> Any:
+        """Return a deterministic placeholder response.
 
-        Accepts either a `messages` + `system_instruction` style or a
-        `prompt` string and returns a JSON-ish string suitable for the
-        generator code's parsing attempts.
+        Accepts either messages (list of dicts) or a prompt string.
         """
-        # If messages are supplied, make a simple deterministic response
-        messages = kwargs.get('messages') or None
+        messages = kwargs.get("messages") or (args[0] if args else None)
         if messages and isinstance(messages, list):
-            topics = [m.get('content', '') for m in messages if isinstance(m, dict)]
-            payload = [
-                {"topic": (topics[0] or "Quick tip for small businesses"), "rationale": "Affordable, actionable", "confidence": "medium"},
-                {"topic": "Behind-the-scenes marketing", "rationale": "Shows process", "confidence": "low"},
-                {"topic": "Customer stories", "rationale": "Social proof", "confidence": "high"},
-            ]
-            return json.dumps(payload)
+            topics = [m.get("content", "") for m in messages if isinstance(m, dict)]
+            return json.dumps([{"topic": topics[0] if topics else "sample", "confidence": "low"}])
 
-        prompt = kwargs.get('prompt') or (args[0] if args else '')
+        prompt = kwargs.get("prompt") or (args[0] if args else "")
         if isinstance(prompt, str) and prompt:
-            # Return a short text
-            return "[\"Example tip: share a concrete how-to that solves a common problem.\"]"
+            return json.dumps({"text": prompt[:200]})
 
-        return "[]"
+        return json.dumps({})
+
 """Generation Service - orchestrates content generation with context and voice.
 
 This is the "secret sauce" - intelligently merges context, applies voice style,
@@ -91,207 +85,40 @@ class GenerationService:
         # Gemini parameters
         gemini_api_key: Optional[str] = None, # New parameter
         gemini_model: Optional[str] = None, # New parameter
-        enable_gemini: bool = True, # New parameter
-        use_prompt_compiler: bool = False
-    ):
-        """Initialize generation service.
-        
-        Args:
-            gemini_api_key: Optional Gemini API key # New arg doc
-            gemini_model: Optional Gemini model name # New arg doc
-            enable_gemini: Whether to use Gemini (default True) # New arg doc
-            use_prompt_compiler: Whether to use new PromptCompiler (default False for gradual migration)
+        """Minimal GenerationService shim used to allow app startup.
+
+        This lightweight class provides only the small API surface other
+        modules import at startup (not a full implementation).
         """
-        # OpenAI is intentionally disabled in this branch. Keep an attribute
-        # so callers can inspect it if needed but never create a client.
-        self.openai_enabled = bool(enable_openai)
-        self.openai_client = None
 
-        # Initialize Gemini client where requested
-        self.gemini_client = None
-        if enable_gemini:
-            try:
-                self.gemini_client = create_gemini_client(api_key=gemini_api_key, model=gemini_model)
-            except Exception:
-                self.gemini_client = None
+        from typing import Any, Optional
+        import json
 
-        self.use_prompt_compiler = use_prompt_compiler
 
-        logger.info(
-            f"GenerationService initialized (OpenAI: {'enabled' if self.openai_enabled else 'disabled'}, "
-            f"Gemini: {'enabled' if self.gemini_client else 'disabled'}, "
-            f"PromptCompiler: {'enabled' if use_prompt_compiler else 'disabled'})"
-        )
-    
-    def _generate_request_id(self) -> str:
-        """Generate unique request ID."""
-        return uuid.uuid4().hex[:12]
-    
-    def _build_error_response(
-        self,
-        request_id: str,
-        code: str,
-        message: str,
-        details: Optional[Dict[str, Any]] = None
-    ) -> ErrorResponse:
-        """Build standardized error response."""
-        return {
-            'ok': False,
-            'request_id': request_id,
-            'source': 'fallback',
-            'mode': 'error',
-            'gemini_used': False,
-            'openai_used': False,
-            'error': {
-                'code': code,
-                'message': message,
-                'details': details
-            }
-        }
-    
-    def _build_success_response(
-        self,
-        request_id: str,
-        data: Dict[str, Any],
-        gemini_used: bool, # New parameter
-        summary: Optional[Dict[str, Any]] = None,
-        warnings: Optional[List[str]] = None,
-        used_signals: Optional[Dict[str, Any]] = None
-    ) -> SuccessResponse:
-        """Build standardized success response."""
-        source = "fallback"
-        mode = "fallback_suggestions"
+        class GenerationService:
+            """Tiny, deterministic GenerationService shim."""
 
-        if gemini_used:
-            source = "gemini"
-            mode = "generated"
-        
-        # Add fallback warning if no AI used
-        if not gemini_used:
-            if warnings is None:
-                warnings = []
-            if "AI generation temporarily unavailable - showing template suggestions" not in warnings:
-                warnings.insert(0, "AI generation temporarily unavailable - showing template suggestions")
-        
-        response: SuccessResponse = {
-            'ok': True,
-            'request_id': request_id,
-            'source': source,
-            'gemini_used': gemini_used, # Add gemini_used to response
-            'openai_used': False, # OpenAI removed in this branch; keep key for compatibility
-            'fallback_used': not gemini_used, # Update fallback_used
-            'data': data,
-            'summary': summary,
-            'warnings': warnings,
-            'used_signals': used_signals
-        }
-        
-        # Add legacy 'mode' field for backward compatibility (not in SuccessResponse type)
-        response['mode'] = mode  # type: ignore
-        
-        return response
+            def __init__(self, enable_openai: bool = False, enable_gemini: bool = False, gemini_model: Optional[str] = None):
+                self.enable_openai = bool(enable_openai)
+                self.enable_gemini = bool(enable_gemini)
+                self.gemini_model = gemini_model
 
-    def generate_text(self, messages: list, system_instruction: Optional[str] = None, temperature: float = 0.3) -> Optional[str]:
-        """Compatibility helper: generate a simple text string from messages.
+            def generate_text(self, *args, **kwargs) -> Any:
+                """Return a deterministic placeholder response.
 
-        This method mirrors the older GenerationService helper used by other
-        modules (e.g. trend fetching). When Gemini is available, attempt a
-        lightweight generation; otherwise return an empty string.
-        """
-        try:
-            if self.gemini_client:
-                # If gemini client exposes `generate_text` or `generate_structured`
-                # try to use the available method and extract textual content.
-                if hasattr(self.gemini_client, 'generate_text'):
-                    return self.gemini_client.generate_text(messages=messages, system_instruction=system_instruction, temperature=temperature)
-                if hasattr(self.gemini_client, 'generate_structured'):
-                    # generate_structured may return structured choices; attempt to extract
-                    res = self.gemini_client.generate_structured(messages, system_instruction=system_instruction)
-                    # Try extracting text from a common location
-                    if isinstance(res, dict):
-                        # attempt to find first choice content
-                        choices = res.get('choices') or []
-                        if choices:
-                            first = choices[0]
-                            msg = first.get('message') or {}
-                            return msg.get('content') or first.get('text')
-                    # Fallback: coerce to string
-                    return str(res)
-        except Exception:
-            # Silently fail to preserve compatibility; caller should handle empty return
-            return None
-        return None
+                Accepts either messages (list of dicts) or a prompt string.
+                """
+                messages = kwargs.get("messages") or (args[0] if args else None)
+                if messages and isinstance(messages, list):
+                    topics = [m.get("content", "") for m in messages if isinstance(m, dict)]
+                    return json.dumps([{"topic": topics[0] if topics else "sample", "confidence": "low"}])
 
-    def generate(self, *, endpoint: str, request_id: Optional[str] = None, payload: Optional[Dict[str, Any]] = None, validator=None, normalizer=None, output_validator=None, openai_callable=None, fallback_callable=None, use_openai: bool = False, **kwargs):
-        """Back-compat generic generation shim used by older tests.
+                prompt = kwargs.get("prompt") or (args[0] if args else "")
+                if isinstance(prompt, str) and prompt:
+                    return json.dumps({"text": prompt[:200]})
 
-        This method accepts an `openai_callable` and `fallback_callable` and will
-        attempt OpenAI (if requested) then fallback. It returns a simple
-        response-like object with `.ok` and `.body` to mirror older behavior
-        used by tests.
-        """
-        # Minimal response object expected by tests
-        class Resp:
-            def __init__(self, ok: bool, body: Dict[str, Any]):
-                self.ok = ok
-                self.body = body
+                return json.dumps({})
 
-        request_id = request_id or self._generate_request_id()
-
-        try:
-            # Normalize payload via provided normalizer if present
-            normalized = payload
-            if normalizer:
-                normalized = normalizer(payload)
-
-            # Try OpenAI path if requested and callable provided
-            data = None
-            openai_used = False
-            source = 'fallback'
-            mode = 'fallback_suggestions'
-            warnings = []
-
-            if use_openai and openai_callable:
-                try:
-                    data = openai_callable(normalized)
-                    openai_used = True
-                    source = 'openai'
-                    mode = 'generated'
-                except Exception:
-                    # fall through to fallback
-                    data = None
-
-            if data is None and fallback_callable:
-                data = fallback_callable(normalized)
-                source = 'fallback'
-                mode = 'fallback_suggestions'
-
-            if data is None:
-                # No source available
-                body = {
-                    'ok': False,
-                    'source': 'fallback',
-                    'mode': 'error',
-                    'error': {'code': 'no_source', 'message': 'No generation source available'},
-                    'request_id': request_id
-                }
-                return Resp(ok=False, body=body)
-
-            # Optionally validate/output-validate via provided functions
-            if validator:
-                validator(normalized)
-            if output_validator:
-                validated = output_validator(data)
-                # If the validator returned an error shape, prefer that
-                if isinstance(validated, dict) and validated.get('ok') is False:
-                    body = {
-                        'ok': False,
-                        'source': source,
-                        'mode': 'error',
-                        'error': validated.get('error'),
-                        'request_id': request_id
-                    }
-                    return Resp(ok=False, body=body)
 
             # Build success body
             body = {
