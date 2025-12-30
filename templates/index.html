@@ -126,74 +126,7 @@
 
   <main class="relative max-w-7xl mx-auto p-6 grid lg:grid-cols-[1fr,400px] gap-8">
     <!-- Main Content Area -->
-    <div class="space-y-6">
-      <!-- Welcome Header -->
-      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-2">
-              Let's set up your voice
-            </h1>
-            <p class="text-slate-600 text-lg">Friendly questions. Clear choices. Amazing results.</p>
-          </div>
-          <div class="steps hidden md:flex items-center gap-2" id="steps">
-            <span class="step active">1</span>
-            <div class="bar"></div>
-            <span class="step">2</span>
-            <div class="bar"></div>
-            <span class="step">3</span>
-            <div class="bar"></div>
-            <span class="step">4</span>
-            <div class="bar"></div>
-            <span class="step">5</span>
-            <div class="bar"></div>
-            <span class="step">6</span>
-          </div>
-        </div>
 
-        <!-- Mobile Steps -->
-        <div class="steps md:hidden flex items-center justify-center gap-2 mb-6" id="steps-mobile">
-          <span class="step active">1</span>
-          <div class="bar"></div>
-          <span class="step">2</span>
-          <div class="bar"></div>
-          <span class="step">3</span>
-          <div class="bar"></div>
-          <span class="step">4</span>
-          <div class="bar"></div>
-          <span class="step">5</span>
-          <div class="bar"></div>
-          <span class="step">6</span>
-        </div>
-
-        <!-- Progress Text and Bar -->
-        <div class="mb-6">
-          <div class="flex items-center justify-between mb-2">
-            <!-- Initial values; updated dynamically by showStep() in app.js -->
-            <p id="progress-text" class="text-sm font-semibold text-slate-700">Step 1 of 6</p>
-            <p id="step-title" class="text-sm font-medium text-purple-600">Choose your industry</p>
-          </div>
-          <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-            <div id="progress-bar" class="bg-gradient-to-r from-purple-500 to-blue-500 h-full rounded-full transition-all duration-300" style="width: 20%;"></div>
-          </div>
-        </div>
-
-        <!-- Pro Tips -->
-        <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-              </svg>
-            </div>
-            <h5 class="font-semibold text-slate-900">Pro Tips</h5>
-          </div>
-          <ul class="space-y-2 text-sm text-slate-700">
-            <li class="flex gap-2">
-              <span class="text-purple-500 mt-1">•</span>
-              <span>Choose keywords that match your brand voice</span>
-            </li>
-            <li class="flex gap-2">
               <span class="text-purple-500 mt-1">•</span>
               <span>Include seasonal themes for timely content</span>
             </li>
@@ -322,7 +255,7 @@
                 <!-- 1. Business name -->
                 <div class="space-y-2">
                   <label class="block text-sm font-semibold text-slate-900">Business name (optional)</label>
-                  <input type="text" id="bk-business-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" />
+                  <input type="text" id="bk-business-name" class="w-full input form-input text-sm" placeholder="e.g., Laura's Bakery" />
                 </div>
 
                 <!-- 2. Services (pick 3-5) -->
@@ -330,7 +263,7 @@
                   <label class="block text-sm font-semibold text-slate-900">Services (pick 3-5)</label>
                   <p class="text-xs text-slate-500">What do you offer?</p>
                   <div id="bk-services-chips" class="flex flex-wrap gap-2 mb-2"></div>
-                  <input type="text" id="bk-services-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" />
+                  <input type="text" id="bk-services-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
                   <button type="button" class="text-xs text-purple-600 hover:text-purple-700 font-medium" data-suggestion-target="bk-services-input" data-suggestions='["Consultation","Custom Design","Installation","Training","Support"]'>Not sure? Use a suggestion</button>
                 </div>
 
@@ -338,187 +271,7 @@
                 <div class="space-y-2">
                   <label class="block text-sm font-semibold text-slate-900">Who you help (audience)</label>
                   <p class="text-xs text-slate-500">Who is your target customer?</p>
-                  <input type="text" id="bk-audience" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., busy professionals, first-time homebuyers" />
-                  <div class="flex flex-wrap gap-2">
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="busy professionals" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">busy professionals</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="small business owners" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">small business owners</button>
-                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover;border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="families" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">families</button>
-                  </div>
-                </div>
-          
-        <!-- Progress Text and Bar -->
-        <div class="mb-6">
-          <div class="flex items-center justify-between mb-2">
-            <!-- Initial values; updated dynamically by showStep() in app.js -->
-            <p id="progress-text" class="text-sm font-semibold text-slate-700">Step 1 of 6</p>
-            <p id="step-title" class="text-sm font-medium text-purple-600">Choose your industry</p>
-          </div>
-          <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
-            <div id="progress-bar" class="bg-gradient-to-r from-purple-500 to-blue-500 h-full rounded-full transition-all duration-300" style="width: 20%;"></div>
-          </div>
-        </div>
-
-        <!-- Pro Tips -->
-        <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
-          <div class="flex items-center gap-3 mb-4">
-            <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-              </svg>
-            </div>
-            <h5 class="font-semibold text-slate-900">Pro Tips</h5>
-          </div>
-          <ul class="space-y-2 text-sm text-slate-700">
-            <li class="flex gap-2">
-              <span class="text-purple-500 mt-1">•</span>
-              <span>Choose keywords that match your brand voice</span>
-            </li>
-            <li class="flex gap-2">
-              <span class="text-purple-500 mt-1">•</span>
-              <span>Include seasonal themes for timely content</span>
-            </li>
-            <li class="flex gap-2">
-              <span class="text-purple-500 mt-1">•</span>
-              <span>Review and customize generated content</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-  <!-- Tier Wizard (new) -->
-  <div id="tier-wizard-root" class="space-y-6"></div>
-
-  <!-- Form Steps (legacy, hidden when tier wizard enabled) -->
-  <div id="wiz" class="space-y-6">
-        <div class="step-panel bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="1">
-          <div class="space-y-6">
-            <div class="space-y-2">
-              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 1</p>
-              <h2 class="text-2xl font-semibold text-slate-900">Choose your industry</h2>
-              <p class="text-slate-600">Pick the closest match so we can load the right follow-up questions, tones, and sample keywords.</p>
-            </div>
-            <div>
-              <label class="block text-xl font-semibold mb-4 text-slate-900">What best describes your work?</label>
-              <div id="industries" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <script>
-                  // Inline helper for server-rendered industry buttons so clicks work
-                  // even before the full client app has attached handlers.
-                  window.__selectIndustryInline = function(key, label){
-                    try{
-                      // Dispatch an event for the in-closure app code to consume.
-                      const ev = new CustomEvent('industry-selected', { detail: { key: key, label: label } });
-                      document.dispatchEvent(ev);
-                    }catch(e){/* ignore */}
-                    try{
-                      // Fallback: also set a window-scoped answers object so debug
-                      // helpers and pages without the closure listener still see a value.
-                      window.answers = window.answers || {};
-                      window.answers.industry = label;
-                      window.answers.industry_key = key;
-                      window.answers.brand_keywords = (window.answers.manual_keywords || []).slice();
-                      window.answers.details = {};
-                    }catch(e){}
-                  };
-                </script>
-                {{ industries_html | safe }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="2">
-          <div class="space-y-6">
-            <div class="space-y-2">
-              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 2</p>
-              <h2 class="text-2xl font-semibold text-slate-900">Brand Kit (Recommended)</h2>
-              <p class="text-slate-600 text-lg font-medium">This is how Eazeily writes posts that sound like YOUR business.</p>
-            </div>
-
-            <!-- Good/Better/Best Meter -->
-            <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-lg font-semibold text-slate-900">Your Brand Kit Completeness</h3>
-                <span id="brand-kit-tier" class="px-3 py-1 rounded-full text-sm font-medium bg-slate-200 text-slate-700">Good</span>
-              </div>
-              <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
-                <div id="brand-kit-meter" class="bg-gradient-to-r from-yellow-400 to-yellow-500 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
-              </div>
-              <p id="brand-kit-helper" class="text-sm text-slate-700">Fill these 5 fields and you'll get posts you can copy/paste with your services and results included.</p>
-            </div>
-
-            <!-- Show me an example toggle -->
-            <div class="bg-white rounded-xl border border-slate-200 p-4">
-              <!-- CSS-driven toggle so tests don't rely on JS listener timing -->
-              <input id="show-example-checkbox" type="checkbox" class="hidden" />
-              <label for="show-example-checkbox" id="show-example-toggle" class="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center gap-2 cursor-pointer">
-                <span>▶</span>
-                <span>Show me an example</span>
-              </label>
-              <div id="example-comparison" class="mt-4 space-y-4" style="display:none;">
-                <style>
-                  /* When the checkbox is checked, show the example comparison. */
-                  #show-example-checkbox:checked + #show-example-toggle + #example-comparison { display: block !important; }
-                  #show-example-checkbox + #show-example-toggle + #example-comparison { display: none !important; }
-                </style>
-                <div class="space-y-2">
-                  <p class="text-xs uppercase tracking-wide text-slate-500 font-semibold">BEFORE (Good tier)</p>
-                  <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm text-slate-700">
-                    "Ready to get started? We offer great services to help you succeed. Contact us today!"
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  <p class="text-xs uppercase tracking-wide text-purple-600 font-semibold">AFTER (Best tier)</p>
-                  <div class="bg-purple-50 rounded-lg p-4 border border-purple-200 text-sm text-slate-700">
-                    "Ready to transform your online presence? As a trusted web design agency with 10+ years experience, we've helped 200+ businesses increase conversions by 40%. Our proven process: strategy first, beautiful design, ongoing support. Book your free consultation today → [link]"
-                  </div>
-                </div>
-              </div>
-              <script>
-                // Inline, defensive listener to ensure the example toggle always works
-                (function(){
-                  try{
-                    const btn = document.getElementById('show-example-toggle');
-                    if (!btn) return;
-                    btn.addEventListener('click', function(){
-                      const el = document.getElementById('example-comparison');
-                      if (!el) return;
-                      el.classList.toggle('hidden');
-                      const icon = btn.querySelector('span');
-                      if (icon) icon.textContent = el.classList.contains('hidden') ? '▶' : '▼';
-                    });
-                  }catch(e){/* ignore */}
-                })();
-              </script>
-            </div>
-
-            <div id="brand-kit-form" class="space-y-6">
-              <!-- GOOD tier fields -->
-              <div class="space-y-5 p-5 rounded-xl border-2 border-green-200 bg-green-50/30">
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-green-500 text-white">GOOD</span>
-                  <h4 class="text-lg font-semibold text-slate-900">Minimum inputs (2 minutes)</h4>
-                </div>
-
-                <!-- 1. Business name -->
-                <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-slate-900">Business name (optional)</label>
-                  <input type="text" id="bk-business-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" />
-                </div>
-
-                <!-- 2. Services (pick 3-5) -->
-                <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-slate-900">Services (pick 3-5)</label>
-                  <p class="text-xs text-slate-500">What do you offer?</p>
-                  <div id="bk-services-chips" class="flex flex-wrap gap-2 mb-2"></div>
-                  <input type="text" id="bk-services-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" />
-                  <button type="button" class="text-xs text-purple-600 hover:text-purple-700 font-medium" data-suggestion-target="bk-services-input" data-suggestions='["Consultation","Custom Design","Installation","Training","Support"]'>Not sure? Use a suggestion</button>
-                </div>
-
-                <!-- 3. Who you help -->
-                <div class="space-y-2">
-                  <label class="block text-sm font-semibold text-slate-900">Who you help (audience)</label>
-                  <p class="text-xs text-slate-500">Who is your target customer?</p>
-                  <input type="text" id="bk-audience" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., busy professionals, first-time homebuyers" />
+                  <input type="text" id="bk-audience" class="w-full input form-input text-sm" placeholder="e.g., busy professionals, first-time homebuyers" />
                   <div class="flex flex-wrap gap-2">
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="busy professionals" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">busy professionals</button>
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="small business owners" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">small business owners</button>
@@ -530,7 +283,7 @@
                 <div class="space-y-2">
                   <label class="block text-sm font-semibold text-slate-900">What problem you solve (pain)</label>
                   <p class="text-xs text-slate-500">What challenge do your customers face?</p>
-                  <input type="text" id="bk-pain" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., wasting time on manual tasks" />
+                  <input type="text" id="bk-pain" class="w-full input form-input text-sm" placeholder="e.g., wasting time on manual tasks" />
                   <div class="flex flex-wrap gap-2">
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="wasting time" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">wasting time</button>
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="feeling overwhelmed" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">feeling overwhelmed</button>
@@ -542,7 +295,7 @@
                 <div class="space-y-2">
                   <label class="block text-sm font-semibold text-slate-900">The result you deliver (outcome)</label>
                   <p class="text-xs text-slate-500">What transformation do they get?</p>
-                  <input type="text" id="bk-outcome" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., save 10 hours per week" />
+                  <input type="text" id="bk-outcome" class="w-full input form-input text-sm" placeholder="e.g., save 10 hours per week" />
                   <div class="flex flex-wrap gap-2">
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="save time" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">save time</button>
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="increase revenue" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">increase revenue</button>
@@ -588,7 +341,7 @@
                   <label class="block text-sm font-semibold text-slate-900">Differentiators (pick 1-3)</label>
                   <p class="text-xs text-slate-500">What makes you unique?</p>
                   <div id="bk-differentiators-chips" class="flex flex-wrap gap-2 mb-2"></div>
-                  <input type="text" id="bk-differentiators-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" />
+                  <input type="text" id="bk-differentiators-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
                   <div class="flex flex-wrap gap-2">
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Fast turnaround" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Fast turnaround</button>
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Personalized service" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Personalized service</button>
@@ -601,7 +354,7 @@
                 <div class="space-y-2">
                   <label class="block text-sm font-semibold text-slate-900">Proof (credentials, experience)</label>
                   <p class="text-xs text-slate-500">Years in business, certifications, #clients, testimonial snippet</p>
-                  <input type="text" id="bk-proof" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., 10+ years experience, 500+ happy clients" />
+                  <input type="text" id="bk-proof" class="w-full input form-input text-sm" placeholder="e.g., 10+ years experience, 500+ happy clients" />
                   <div class="flex flex-wrap gap-2">
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="10+ years experience" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">10+ years experience</button>
                     <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Licensed & insured" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Licensed & insured</button>
@@ -621,18 +374,18 @@
                 <!-- 8. Email signature defaults -->
                 <div class="space-y-2">
                   <label class="block text-sm font-semibold text-slate-900">Email signature (name/title/contact)</label>
-                  <input type="text" id="bk-email-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Your name" />
-                  <input type="text" id="bk-email-title" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Your title" />
-                  <input type="text" id="bk-email-contact" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Email or phone" />
+                  <input type="text" id="bk-email-name" class="w-full input form-input text-sm" placeholder="Your name" />
+                  <input type="text" id="bk-email-title" class="w-full input form-input text-sm" placeholder="Your title" />
+                  <input type="text" id="bk-email-contact" class="w-full input form-input text-sm" placeholder="Email or phone" />
                 </div>
 
                 <!-- 9. Quote defaults -->
                 <div class="space-y-2">
                   <label class="block text-sm font-semibold text-slate-900">Quote defaults</label>
-                  <input type="text" id="bk-deposit" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Deposit % (e.g., 50%)" />
-                  <input type="text" id="bk-turnaround" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Turnaround time (e.g., 2-3 weeks)" />
-                  <input type="text" id="bk-validity" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Quote validity (e.g., 30 days)" />
-                  <input type="text" id="bk-payment-methods" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Payment methods (e.g., Cash, Venmo, PayPal)" />
+                  <input type="text" id="bk-deposit" class="w-full input form-input text-sm" placeholder="Deposit % (e.g., 50%)" />
+                  <input type="text" id="bk-turnaround" class="w-full input form-input text-sm" placeholder="Turnaround time (e.g., 2-3 weeks)" />
+                  <input type="text" id="bk-validity" class="w-full input form-input text-sm" placeholder="Quote validity (e.g., 30 days)" />
+                  <input type="text" id="bk-payment-methods" class="w-full input form-input text-sm" placeholder="Payment methods (e.g., Cash, Venmo, PayPal)" />
                 </div>
 
                 <!-- 10. Logo upload -->
@@ -801,14 +554,14 @@
                 </div>
                 <div id="suggested-keywords" class="flex flex-wrap gap-2 mb-4"></div>
                 <label class="block text-lg font-semibold text-slate-900">Add more keywords (optional)</label>
-                <input id="extra-keywords" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter or separate with commas" />
+                <input id="extra-keywords" class="w-full input form-input text-base" placeholder="Type and press Enter or separate with commas" />
                 <p class="text-sm text-slate-500 mt-2">Select suggested keywords or type your own. We'll include them in your plan.</p>
               </div>
               <div class="space-y-4">
                 <label class="block text-lg font-semibold text-slate-900">Monthly focus or promo (optional)</label>
-                <input id="note" autocomplete="off" spellcheck="false" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Spring sale, workshop, new menu launch" />
+                <input id="note" autocomplete="off" spellcheck="false" class="w-full input form-input text-base" placeholder="e.g., Spring sale, workshop, new menu launch" />
                 <label class="block text-lg font-semibold text-slate-900">Company / Business name (optional)</label>
-                <input id="company" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" />
+                <input id="company" class="w-full input form-input text-base" placeholder="e.g., Laura's Bakery" />
                 <div id="error-company" class="text-sm text-red-600 mt-2 hidden" aria-live="polite"></div>
               </div>
             </div>
@@ -847,8 +600,8 @@
           <div class="mt-6 space-y-3 text-sm text-slate-600 bg-slate-50 rounded-xl border border-slate-200 p-4 hidden" id="preview-cta">
             <p id="preview-hint">We’ll drop a sample plan below once you save. Give it a quick look before heading to your dashboard.</p>
             <div class="flex flex-wrap gap-3">
-              <button type="button" id="jump-to-preview" class="btn-secondary text-base py-2 px-4 rounded-xl">Jump to preview</button>
-              <a id="generate-after-preview" href="/generate" class="btn-primary text-base py-2 px-4 rounded-xl hidden">Open Generate dashboard</a>
+              <button type="button" id="jump-to-preview" class="btn-secondary">Jump to preview</button>
+              <a id="generate-after-preview" href="/generate" class="btn-primary hidden">Open Generate dashboard</a>
             </div>
           </div>
         </div>
@@ -856,8 +609,8 @@
         <!-- Navigation -->
         <div class="sticky bottom-0 -mb-6 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg rounded-t-2xl p-6 z-10">
           <div class="flex justify-between items-center">
-            <button id="prev" class="btn-secondary text-base py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed" disabled>Back</button>
-            <button id="next" class="btn-primary text-base py-3 pr-10 pl-6 rounded-xl">
+            <button id="prev" class="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed" disabled>Back</button>
+            <button id="next" class="btn-primary">
               Continue
             </button>
           </div>
@@ -886,7 +639,7 @@
         <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6 border border-purple-100">
           <h4 class="text-lg font-semibold mb-4 text-slate-900 text-center">Ready to generate your content?</h4>
           <div class="text-center">
-            <a href="/generate" class="btn-primary text-base py-3 px-6 rounded-xl inline-block">
+            <a href="/generate" class="btn-primary text-base inline-block">
               🚀 Go to Generate Page
             </a>
           </div>
@@ -987,4 +740,3 @@
 {% include 'paywall_modal.html' %}
 </body>
 </html>
->>>>>>> Stashed changes

@@ -1,0 +1,455 @@
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quality Builder – Eazeily</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/eazeily-theme.css">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0, 0, 0, 0);white-space:nowrap;border-width:0}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.inset-0{inset:0px}.left-1\/2{left:50%}.top-1\/2{top:50%}.z-50{z-index:50}.mx-auto{margin-left:auto;margin-right:auto}.mb-2{margin-bottom:0.5rem}.mb-6{margin-bottom:1.5rem}.mt-2{margin-top:0.5rem}.mt-6{margin-top:1.5rem}.mb-4{margin-bottom:1rem}.mt-3{margin-top:0.75rem}.mt-4{margin-top:1rem}.mt-1{margin-top:0.25rem}.block{display:block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-3{height:0.75rem}.h-6{height:1.5rem}.h-9{height:2.25rem}.h-full{height:100%}.min-h-screen{min-height:100vh}.w-9{width:2.25rem}.w-full{width:100%}.max-w-5xl{max-width:64rem}.max-w-6xl{max-width:72rem}.max-w-md{max-width:28rem}.flex-1{flex:1 1 0%}.-translate-x-1\/2{--tw-translate-x:-50%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.-translate-y-1\/2{--tw-translate-y:-50%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.cursor-pointer{cursor:pointer}.grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.flex-wrap{flex-wrap:wrap}.items-start{align-items:flex-start}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.gap-2{gap:0.5rem}.gap-1{gap:0.25rem}.space-y-2 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.5rem * var(--tw-space-y-reverse))}.space-y-3 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.75rem * var(--tw-space-y-reverse))}.space-y-6 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.5rem * var(--tw-space-y-reverse))}.space-y-1 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.25rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.25rem * var(--tw-space-y-reverse))}.space-y-4 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem * var(--tw-space-y-reverse))}.space-y-5 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.25rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.25rem * var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.rounded-2xl{border-radius:1rem}.rounded-full{border-radius:9999px}.rounded-md{border-radius:0.375rem}.rounded-xl{border-radius:0.75rem}.rounded-lg{border-radius:0.5rem}.border{border-width:1px}.border-2{border-width:2px}.border-b{border-bottom-width:1px}.border-blue-400{--tw-border-opacity:1;border-color:rgb(96 165 250 / var(--tw-border-opacity, 1))}.border-green-400{--tw-border-opacity:1;border-color:rgb(74 222 128 / var(--tw-border-opacity, 1))}.border-purple-400{--tw-border-opacity:1;border-color:rgb(192 132 252 / var(--tw-border-opacity, 1))}.border-slate-200{--tw-border-opacity:1;border-color:rgb(226 232 240 / var(--tw-border-opacity, 1))}.border-blue-200{--tw-border-opacity:1;border-color:rgb(191 219 254 / var(--tw-border-opacity, 1))}.border-green-200{--tw-border-opacity:1;border-color:rgb(187 247 208 / var(--tw-border-opacity, 1))}.border-purple-200{--tw-border-opacity:1;border-color:rgb(233 213 255 / var(--tw-border-opacity, 1))}.border-slate-300{--tw-border-opacity:1;border-color:rgb(203 213 225 / var(--tw-border-opacity, 1))}.bg-blue-50{--tw-bg-opacity:1;background-color:rgb(239 246 255 / var(--tw-bg-opacity, 1))}.bg-green-50{--tw-bg-opacity:1;background-color:rgb(240 253 244 / var(--tw-bg-opacity, 1))}.bg-purple-50{--tw-bg-opacity:1;background-color:rgb(250 245 255 / var(--tw-bg-opacity, 1))}.bg-slate-200{--tw-bg-opacity:1;background-color:rgb(226 232 240 / var(--tw-bg-opacity, 1))}.bg-slate-500{--tw-bg-opacity:1;background-color:rgb(100 116 139 / var(--tw-bg-opacity, 1))}.bg-white\/80{background-color:rgb(255 255 255 / 0.8)}.bg-white\/95{background-color:rgb(255 255 255 / 0.95)}.bg-blue-500{--tw-bg-opacity:1;background-color:rgb(59 130 246 / var(--tw-bg-opacity, 1))}.bg-green-500{--tw-bg-opacity:1;background-color:rgb(34 197 94 / var(--tw-bg-opacity, 1))}.bg-purple-100{--tw-bg-opacity:1;background-color:rgb(243 232 255 / var(--tw-bg-opacity, 1))}.bg-purple-600{--tw-bg-opacity:1;background-color:rgb(147 51 234 / var(--tw-bg-opacity, 1))}.bg-slate-100{--tw-bg-opacity:1;background-color:rgb(241 245 249 / var(--tw-bg-opacity, 1))}.bg-slate-50{--tw-bg-opacity:1;background-color:rgb(248 250 252 / var(--tw-bg-opacity, 1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.bg-black\/40{background-color:rgb(0 0 0 / 0.4)}.bg-gradient-to-br{background-image:linear-gradient(to bottom right, var(--tw-gradient-stops))}.bg-gradient-to-r{background-image:linear-gradient(to right, var(--tw-gradient-stops))}.from-green-400{--tw-gradient-from:#4ade80 var(--tw-gradient-from-position);--tw-gradient-to:rgb(74 222 128 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.from-slate-50{--tw-gradient-from:#f8fafc var(--tw-gradient-from-position);--tw-gradient-to:rgb(248 250 252 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.via-blue-50{--tw-gradient-to:rgb(239 246 255 / 0)  var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), #eff6ff var(--tw-gradient-via-position), var(--tw-gradient-to)}.via-blue-500{--tw-gradient-to:rgb(59 130 246 / 0)  var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), #3b82f6 var(--tw-gradient-via-position), var(--tw-gradient-to)}.to-indigo-100{--tw-gradient-to:#e0e7ff var(--tw-gradient-to-position)}.to-purple-600{--tw-gradient-to:#9333ea var(--tw-gradient-to-position)}.p-6{padding:1.5rem}.p-8{padding:2rem}.p-4{padding:1rem}.p-1{padding:0.25rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-4{padding-top:1rem;padding-bottom:1rem}.px-2{padding-left:0.5rem;padding-right:0.5rem}.px-4{padding-left:1rem;padding-right:1rem}.px-8{padding-left:2rem;padding-right:2rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.pt-4{padding-top:1rem}.text-center{text-align:center}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-semibold{font-weight:600}.font-medium{font-weight:500}.uppercase{text-transform:uppercase}.tracking-\[0\.3em\]{letter-spacing:0.3em}.text-blue-700{--tw-text-opacity:1;color:rgb(29 78 216 / var(--tw-text-opacity, 1))}.text-green-700{--tw-text-opacity:1;color:rgb(21 128 61 / var(--tw-text-opacity, 1))}.text-purple-600{--tw-text-opacity:1;color:rgb(147 51 234 / var(--tw-text-opacity, 1))}.text-purple-700{--tw-text-opacity:1;color:rgb(126 34 206 / var(--tw-text-opacity, 1))}.text-red-500{--tw-text-opacity:1;color:rgb(239 68 68 / var(--tw-text-opacity, 1))}.text-slate-500{--tw-text-opacity:1;color:rgb(100 116 139 / var(--tw-text-opacity, 1))}.text-slate-600{--tw-text-opacity:1;color:rgb(71 85 105 / var(--tw-text-opacity, 1))}.text-slate-700{--tw-text-opacity:1;color:rgb(51 65 85 / var(--tw-text-opacity, 1))}.text-slate-900{--tw-text-opacity:1;color:rgb(15 23 42 / var(--tw-text-opacity, 1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.text-slate-400{--tw-text-opacity:1;color:rgb(148 163 184 / var(--tw-text-opacity, 1))}.shadow-lg{--tw-shadow:0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow{--tw-shadow:0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgb(0 0 0 / 0.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.backdrop-blur-sm{--tw-backdrop-blur:blur(4px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.transition{transition-property:color, background-color, border-color, fill, stroke, opacity, box-shadow, transform, filter, -webkit-text-decoration-color, -webkit-backdrop-filter;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter, -webkit-text-decoration-color, -webkit-backdrop-filter;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.duration-500{transition-duration:500ms}.hover\:border-purple-500:hover{--tw-border-opacity:1;border-color:rgb(168 85 247 / var(--tw-border-opacity, 1))}.hover\:bg-blue-100:hover{--tw-bg-opacity:1;background-color:rgb(219 234 254 / var(--tw-bg-opacity, 1))}.hover\:bg-green-100:hover{--tw-bg-opacity:1;background-color:rgb(220 252 231 / var(--tw-bg-opacity, 1))}.hover\:bg-purple-100:hover{--tw-bg-opacity:1;background-color:rgb(243 232 255 / var(--tw-bg-opacity, 1))}.hover\:bg-purple-50:hover{--tw-bg-opacity:1;background-color:rgb(250 245 255 / var(--tw-bg-opacity, 1))}.hover\:text-purple-700:hover{--tw-text-opacity:1;color:rgb(126 34 206 / var(--tw-text-opacity, 1))}.hover\:text-slate-700:hover{--tw-text-opacity:1;color:rgb(51 65 85 / var(--tw-text-opacity, 1))}.hover\:text-slate-900:hover{--tw-text-opacity:1;color:rgb(15 23 42 / var(--tw-text-opacity, 1))}.hover\:underline:hover{-webkit-text-decoration-line:underline;text-decoration-line:underline}@media (min-width: 640px){.sm\:block{display:block}}@media (min-width: 768px){.md\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}}</style></head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="null">
+  
+  <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <img src="/static/logo.svg" alt="Eazeily icon" class="w-9 h-9">
+        <img src="/static/eazeily-logo.svg" alt="Eazeily wordmark" class="h-6 hidden sm:block">
+        <span class="sr-only">Eazeily</span>
+      </a>
+      <div class="flex items-center gap-4">
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/">Home</a>
+        <a class="auth-link text-sm text-brand hover:underline cursor-pointer">Sign in</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="relative max-w-5xl mx-auto p-6">
+    <!-- Quality Builder Header -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200 mb-6">
+      <h1 class="text-3xl font-bold text-slate-900 mb-2">Quality Builder</h1>
+      <p class="text-lg text-slate-600">Get premium posts in under 90 seconds — every field makes your content better</p>
+      
+      <!-- Quality Level Selector -->
+      <div class="mt-6 flex items-center gap-3">
+        <button id="level-good" class="quality-level-btn active px-6 py-3 rounded-xl border-2 border-green-400 bg-green-50 text-green-700 font-semibold hover:bg-green-100 transition">
+          Good
+        </button>
+        <button id="level-better" class="quality-level-btn px-6 py-3 rounded-xl border-2 border-blue-400 bg-blue-50 text-blue-700 font-semibold hover:bg-blue-100 transition">
+          Better
+        </button>
+        <button id="level-best" class="quality-level-btn px-6 py-3 rounded-xl border-2 border-purple-400 bg-purple-50 text-purple-700 font-semibold hover:bg-purple-100 transition">
+          Best
+        </button>
+      </div>
+
+      <!-- Quality Score Meter -->
+      <div class="mt-6">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold text-slate-700">Your Quality Score</h3>
+          <span id="quality-score-text" class="text-sm font-bold text-purple-600">0%</span>
+        </div>
+        <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+          <div id="quality-score-bar" class="bg-gradient-to-r from-green-400 via-blue-500 to-purple-600 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
+        </div>
+        <p id="quality-next-step" class="text-sm text-slate-600 mt-2">Fill in the basics below to get started</p>
+      </div>
+    </div>
+
+    <!-- Section A: Basics (Always Visible) -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200 mb-6">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="px-3 py-1 rounded-md text-xs font-bold bg-slate-500 text-white">BASICS</span>
+        <h2 class="text-2xl font-semibold text-slate-900">Start Here</h2>
+      </div>
+
+      <!-- Industry -->
+      <div class="space-y-2 mb-6">
+        <label class="block text-sm font-semibold text-slate-900">Industry <span class="text-red-500">*</span></label>
+        <p class="text-xs text-slate-500">What best describes your work?</p>
+    <div id="qb-industries" class="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <script>
+        // Inline helper for server-rendered industry buttons used on quality-builder
+        window.__selectIndustryInline = function(key, label){
+          try{
+            const ev = new CustomEvent('industry-selected', { detail: { key: key, label: label } });
+            document.dispatchEvent(ev);
+          }catch(e){/* ignore */}
+          try{
+            window.answers = window.answers || {};
+            window.answers.industry = label;
+            window.answers.industry_key = key;
+            window.answers.brand_keywords = (window.answers.manual_keywords || []).slice();
+            window.answers.details = {};
+          }catch(e){}
+        };
+      </script>
+      <button type="button" class="choice choice-btn industry-btn" data-industry="realtor" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;realtor&quot;, &quot;Realtor / Real Estate&quot;) : window.__selectIndustryInline(&quot;realtor&quot;, &quot;Realtor / Real Estate&quot;))">🏡 <span class="title">Realtor / Real Estate</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="restaurant" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;restaurant&quot;, &quot;Restaurant / Caf\u00e9&quot;) : window.__selectIndustryInline(&quot;restaurant&quot;, &quot;Restaurant / Caf\u00e9&quot;))">🍽️ <span class="title">Restaurant / Café</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="retail" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;retail&quot;, &quot;Retail / Boutique&quot;) : window.__selectIndustryInline(&quot;retail&quot;, &quot;Retail / Boutique&quot;))">🛍️ <span class="title">Retail / Boutique</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="fitness" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;fitness&quot;, &quot;Fitness / Wellness&quot;) : window.__selectIndustryInline(&quot;fitness&quot;, &quot;Fitness / Wellness&quot;))">💪 <span class="title">Fitness / Wellness</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="artisan" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;artisan&quot;, &quot;Artisan / Maker&quot;) : window.__selectIndustryInline(&quot;artisan&quot;, &quot;Artisan / Maker&quot;))">🎨 <span class="title">Artisan / Maker</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="coach" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;coach&quot;, &quot;Coach / Consultant&quot;) : window.__selectIndustryInline(&quot;coach&quot;, &quot;Coach / Consultant&quot;))">🧭 <span class="title">Coach / Consultant</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="nonprofit" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;nonprofit&quot;, &quot;Nonprofit / Community&quot;) : window.__selectIndustryInline(&quot;nonprofit&quot;, &quot;Nonprofit / Community&quot;))">🤝 <span class="title">Nonprofit / Community</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="home_services" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;home_services&quot;, &quot;Home Services&quot;) : window.__selectIndustryInline(&quot;home_services&quot;, &quot;Home Services&quot;))">🛠️ <span class="title">Home Services</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="healthcare" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;healthcare&quot;, &quot;Healthcare&quot;) : window.__selectIndustryInline(&quot;healthcare&quot;, &quot;Healthcare&quot;))">🩺 <span class="title">Healthcare</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="church" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;church&quot;, &quot;Church&quot;) : window.__selectIndustryInline(&quot;church&quot;, &quot;Church&quot;))">⛪ <span class="title">Church</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="house_host" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;house_host&quot;, &quot;House Host / Vacation Rental&quot;) : window.__selectIndustryInline(&quot;house_host&quot;, &quot;House Host / Vacation Rental&quot;))">🏠 <span class="title">House Host / Vacation Rental</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="salon" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;salon&quot;, &quot;Salon / Hair Studio&quot;) : window.__selectIndustryInline(&quot;salon&quot;, &quot;Salon / Hair Studio&quot;))">💇 <span class="title">Salon / Hair Studio</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="dentist" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;dentist&quot;, &quot;Dentist / Dental Practice&quot;) : window.__selectIndustryInline(&quot;dentist&quot;, &quot;Dentist / Dental Practice&quot;))">🦷 <span class="title">Dentist / Dental Practice</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="gym" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;gym&quot;, &quot;Gym / Fitness Center&quot;) : window.__selectIndustryInline(&quot;gym&quot;, &quot;Gym / Fitness Center&quot;))">🏋️ <span class="title">Gym / Fitness Center</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="cleaner" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;cleaner&quot;, &quot;Cleaning Service&quot;) : window.__selectIndustryInline(&quot;cleaner&quot;, &quot;Cleaning Service&quot;))">🧹 <span class="title">Cleaning Service</span></button>
+<button type="button" class="choice choice-btn industry-btn" data-industry="other" onclick="(window.__selectIndustryBridge ? window.__selectIndustryBridge(&quot;other&quot;, &quot;Other / Custom&quot;) : window.__selectIndustryInline(&quot;other&quot;, &quot;Other / Custom&quot;))">✨ <span class="title">Other / Custom</span></button>
+    </div>
+      </div>
+
+      <!-- Business Name -->
+      <div class="space-y-2 mb-6">
+        <label class="block text-sm font-semibold text-slate-900">Business name <span class="text-slate-400">(recommended)</span></label>
+        <input type="text" id="qb-business-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="e.g., Laura's Bakery" style="">
+      </div>
+
+      <!-- Service Area -->
+      <div class="space-y-2 mb-6">
+        <label class="block text-sm font-semibold text-slate-900">Service area <span class="text-slate-400">(optional)</span></label>
+        <input type="text" id="qb-service-area" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="e.g., Austin, TX" style="">
+      </div>
+
+      <!-- Primary Platforms -->
+      <div class="space-y-2">
+        <label class="block text-sm font-semibold text-slate-900">Primary platforms <span class="text-red-500">*</span></label>
+        <p class="text-xs text-slate-500">Where do you post? (Pick at least one)</p>
+        <div id="qb-platforms" class="flex flex-wrap gap-3"><button type="button" class="platform-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-platform="instagram">Instagram</button><button type="button" class="platform-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-platform="facebook">Facebook</button><button type="button" class="platform-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-platform="linkedin">LinkedIn</button><button type="button" class="platform-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-platform="twitter">X / Twitter</button><button type="button" class="platform-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-platform="tiktok">TikTok</button><button type="button" class="platform-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-platform="short_video">Reels / Shorts</button><button type="button" class="platform-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-platform="reviews">Review responses</button></div>
+      </div>
+    </div>
+
+    <!-- Section B: Good (Minimum to unlock Premium Posts) -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border-2 border-green-200 mb-6">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <span class="px-3 py-1 rounded-md text-xs font-bold bg-green-500 text-white">GOOD</span>
+          <h2 class="text-2xl font-semibold text-slate-900">Minimum inputs (2 minutes)</h2>
+        </div>
+        <button type="button" id="toggle-good" class="text-sm text-slate-500 hover:text-slate-700">▼</button>
+      </div>
+      
+      <div id="section-good-content" class="space-y-6">
+        <p class="text-sm text-slate-600 mb-4">Fill these 5 fields and you'll get copy/paste-ready posts</p>
+
+        <!-- 1. Services -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">1. Services (pick 2–5)</label>
+          <p class="text-xs text-slate-500">What do you offer?</p>
+          <div id="qb-services-chips" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="text" id="qb-services-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" style="">
+          <div class="flex items-center gap-2 mt-2">
+            <button type="button" class="qb-suggestion-btn text-xs text-purple-600 hover:text-purple-700 font-medium" data-suggestions="[&quot;Consultation&quot;,&quot;Custom Design&quot;,&quot;Installation&quot;,&quot;Training&quot;,&quot;Support&quot;]">📋 Suggestions</button>
+            <button type="button" class="qb-pick-for-me text-xs text-slate-600 hover:text-slate-700 font-medium" data-field="services">✨ Pick for me</button>
+          </div>
+        </div>
+
+        <!-- 2. Target Customer -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">2. Target customer (pick 1–3)</label>
+          <p class="text-xs text-slate-500">Who do you help?</p>
+          <div id="qb-audience-chips" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="text" id="qb-audience-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" style="">
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-audience-input" data-value="busy professionals">busy professionals</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-audience-input" data-value="small business owners">small business owners</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-audience-input" data-value="families">families</button>
+          </div>
+        </div>
+
+        <!-- 3. Biggest Pain -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">3. Biggest pain you solve (pick 1–3)</label>
+          <p class="text-xs text-slate-500">What challenge do they face?</p>
+          <div id="qb-pain-chips" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="text" id="qb-pain-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" style="">
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-pain-input" data-value="wasting time">wasting time</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-pain-input" data-value="feeling overwhelmed">feeling overwhelmed</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-pain-input" data-value="not seeing results">not seeing results</button>
+          </div>
+        </div>
+
+        <!-- 4. Desired Outcome -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">4. Desired outcome (pick 1–2)</label>
+          <p class="text-xs text-slate-500">What transformation do they get?</p>
+          <div id="qb-outcome-chips" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="text" id="qb-outcome-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" style="">
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-outcome-input" data-value="save time">save time</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-outcome-input" data-value="increase revenue">increase revenue</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-outcome-input" data-value="feel confident">feel confident</button>
+          </div>
+        </div>
+
+        <!-- 5. Primary CTA Intent -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">5. Primary CTA intent</label>
+          <p class="text-xs text-slate-500">What action should people take?</p>
+          <div id="qb-cta-buttons" class="flex flex-wrap gap-2">
+            <button type="button" class="cta-intent-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="book">📅 Book</button>
+            <button type="button" class="cta-intent-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="call">📞 Call</button>
+            <button type="button" class="cta-intent-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="dm">💬 DM</button>
+            <button type="button" class="cta-intent-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="quote">📋 Request quote</button>
+            <button type="button" class="cta-intent-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="visit">🌐 Visit site</button>
+          </div>
+        </div>
+
+        <div class="text-center pt-4">
+          <button type="button" class="text-sm text-purple-600 hover:text-purple-700 font-medium">Use recommended defaults for all fields</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section C: Better (Credibility + Conversion boost) -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border-2 border-blue-200 mb-6">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <span class="px-3 py-1 rounded-md text-xs font-bold bg-blue-500 text-white">BETTER</span>
+          <h2 class="text-2xl font-semibold text-slate-900">Credibility + Conversion</h2>
+        </div>
+        <button type="button" id="toggle-better" class="text-sm text-slate-500 hover:text-slate-700">▶</button>
+      </div>
+      
+      <div id="section-better-content" class="space-y-6 hidden">
+        <p class="text-sm text-slate-600 mb-4">Add proof and what makes you unique — your posts will feel more credible</p>
+
+        <!-- 6. Differentiators -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">6. Differentiators (pick 2–5)</label>
+          <p class="text-xs text-slate-500">What makes you unique?</p>
+          <div id="qb-differentiators-chips" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="text" id="qb-differentiators-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" style="">
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-differentiators-input" data-value="Fast turnaround">Fast turnaround</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-differentiators-input" data-value="Personalized service">Personalized service</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-differentiators-input" data-value="Family-owned">Family-owned</button>
+          </div>
+        </div>
+
+        <!-- 7. Proof -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">7. Proof (pick ≥1)</label>
+          <p class="text-xs text-slate-500">Years, certifications, insured/licensed, #clients, ratings, testimonial snippet</p>
+          <div id="qb-proof-chips" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="text" id="qb-proof-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" style="">
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-proof-input" data-value="10+ years experience">10+ years experience</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-proof-input" data-value="Licensed &amp; insured">Licensed &amp; insured</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-proof-input" data-value="500+ happy clients">500+ happy clients</button>
+          </div>
+        </div>
+
+        <!-- 8. Offer Shape -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">8. Offer shape (pick 1)</label>
+          <p class="text-xs text-slate-500">How do you structure your service?</p>
+          <div id="qb-offer-buttons" class="flex flex-wrap gap-2">
+            <button type="button" class="offer-shape-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="consultation">Consultation</button>
+            <button type="button" class="offer-shape-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="packages">Package tiers</button>
+            <button type="button" class="offer-shape-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="membership">Membership</button>
+            <button type="button" class="offer-shape-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="one-time">One-time service</button>
+            <button type="button" class="offer-shape-btn px-4 py-2 rounded-lg border-2 border-slate-300 bg-white hover:border-purple-500 hover:bg-purple-50 transition" data-value="custom">Custom quote</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section D: Best (Most "expert" + least editing) -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border-2 border-purple-200 mb-6">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <span class="px-3 py-1 rounded-md text-xs font-bold bg-purple-600 text-white">BEST</span>
+          <h2 class="text-2xl font-semibold text-slate-900">Expert-level content</h2>
+        </div>
+        <button type="button" id="toggle-best" class="text-sm text-slate-500 hover:text-slate-700">▶</button>
+      </div>
+      
+      <div id="section-best-content" class="space-y-6 hidden">
+        <p class="text-sm text-slate-600 mb-4">Handle objections + policies — your posts will feel most expert and require least editing</p>
+
+        <!-- 9. Objections -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">9. Objections (pick 1–2)</label>
+          <p class="text-xs text-slate-500">Common concerns your customers have?</p>
+          <div id="qb-objections-chips" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="text" id="qb-objections-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="e.g., Too expensive, Takes too long" style="">
+        </div>
+
+        <!-- 10. Policies/Constraints -->
+        <div class="space-y-2">
+          <label class="block text-sm font-semibold text-slate-900">10. Policies/constraints (pick 1–3)</label>
+          <p class="text-xs text-slate-500">Deposit, cancellation, turnaround, service boundaries, guarantees</p>
+          <div id="qb-policies-chips" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="text" id="qb-policies-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" style="">
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-policies-input" data-value="50% deposit required">50% deposit required</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-policies-input" data-value="24hr cancellation policy">24hr cancellation policy</button>
+            <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-policies-input" data-value="100% satisfaction guarantee">100% satisfaction guarantee</button>
+          </div>
+        </div>
+
+        <!-- 11. Email defaults (collapsed) -->
+        <details class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <summary class="cursor-pointer font-semibold text-slate-900">Email signature defaults (optional)</summary>
+          <div class="mt-4 space-y-3">
+            <input type="text" id="qb-email-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Your name" style="">
+            <input type="text" id="qb-email-title" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Your title" style="">
+            <input type="text" id="qb-email-contact" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Email or phone" style="">
+          </div>
+        </details>
+
+        <!-- 12. Quote defaults (collapsed) -->
+        <details class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+          <summary class="cursor-pointer font-semibold text-slate-900">Quote defaults (optional)</summary>
+          <div class="mt-4 space-y-3">
+            <input type="text" id="qb-deposit" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Deposit % (e.g., 50%)" style="">
+            <input type="text" id="qb-turnaround" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Turnaround time (e.g., 2-3 weeks)" style="">
+            <input type="text" id="qb-validity" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Quote validity (e.g., 30 days)" style="">
+            <input type="text" id="qb-payment-methods" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Payment methods (e.g., Cash, Venmo)" style="">
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Preview Section -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200 mb-6">
+      <h2 class="text-2xl font-semibold text-slate-900 mb-4">See the difference</h2>
+      <p class="text-slate-600 mb-6">Compare how your content improves with each quality level</p>
+
+      <!-- Preview Tabs -->
+      <div class="flex gap-2 mb-4">
+        <button id="preview-tab-social" class="preview-tab active px-4 py-2 rounded-lg bg-purple-100 text-purple-700 font-medium">Social</button>
+        <button id="preview-tab-email" class="preview-tab px-4 py-2 rounded-lg bg-slate-100 text-slate-600 font-medium">Email</button>
+        <button id="preview-tab-quote" class="preview-tab px-4 py-2 rounded-lg bg-slate-100 text-slate-600 font-medium">Quote</button>
+      </div>
+
+      <!-- Preview Content -->
+      <div id="preview-content" class="space-y-6">
+        <!-- Good Preview -->
+        <div class="preview-example">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="px-2 py-1 rounded-md text-xs font-bold bg-green-500 text-white">GOOD</span>
+            <span class="text-sm font-semibold text-slate-700">Specific, useful</span>
+          </div>
+          <div class="bg-green-50 rounded-lg p-4 border border-green-200 text-sm text-slate-700" id="preview-good">
+            <em class="text-slate-500">Fill in the basics above to see your Good-level content here...</em>
+          </div>
+        </div>
+
+        <!-- Better Preview -->
+        <div class="preview-example">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="px-2 py-1 rounded-md text-xs font-bold bg-blue-500 text-white">BETTER</span>
+            <span class="text-sm font-semibold text-slate-700">Adds proof + stronger CTA</span>
+          </div>
+          <div class="bg-blue-50 rounded-lg p-4 border border-blue-200 text-sm text-slate-700" id="preview-better">
+            <em class="text-slate-500">Add Better-tier fields to see improved content...</em>
+          </div>
+        </div>
+
+        <!-- Best Preview -->
+        <div class="preview-example">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="px-2 py-1 rounded-md text-xs font-bold bg-purple-600 text-white">BEST</span>
+            <span class="text-sm font-semibold text-slate-700">Handles objections + feels expert</span>
+          </div>
+          <div class="bg-purple-50 rounded-lg p-4 border border-purple-200 text-sm text-slate-700" id="preview-best">
+            <em class="text-slate-500">Complete all fields to see expert-level content...</em>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Save Button -->
+    <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200 mb-6 text-center">
+      <button id="qb-save" class="btn-primary text-lg py-4 px-8 rounded-xl">
+        Save &amp; Continue to Dashboard
+      </button>
+      <p class="text-sm text-slate-500 mt-3">You can edit these anytime from your Account page</p>
+    </div>
+  </main>
+
+  <script src="/static/quality_builder.js"></script>
+  <!-- Auth modal (signup / login / password reset) -->
+<div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-auth-view="login">
+  <div class="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 shadow-2xl space-y-5" tabindex="-1">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Eazeily account</p>
+        <h3 id="auth-title" class="text-2xl font-semibold text-slate-900 mt-1">Sign in</h3>
+        <p id="auth-subtitle" class="text-sm text-slate-500 mt-1">Access your saved brand voice and content plans.</p>
+      </div>
+      <button id="auth-close" class="text-slate-500 hover:text-slate-900" aria-label="Close">✕</button>
+    </div>
+
+    <div class="flex gap-1 bg-slate-100 rounded-full p-1" role="tablist">
+      <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-600 auth-tab bg-white shadow auth-tab--active" data-auth-tab="login" aria-selected="true">Sign in</button>
+      <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-500 auth-tab" data-auth-tab="signup" aria-selected="false">Create account</button>
+    </div>
+
+    <div id="auth-message" class="hidden rounded-xl px-4 py-3 text-sm font-medium" role="status" aria-live="polite"></div>
+
+    <div id="auth-forms" class="space-y-6">
+      <form id="login-form" class="space-y-4">
+        <div class="space-y-1">
+          <label for="auth-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="auth-email" type="email" class="w-full input" placeholder="you@business.com" required="" autocomplete="email" aria-describedby="auth-message" data-autofocus="" style="">
+        </div>
+        <div class="space-y-1">
+          <label for="auth-password" class="text-sm font-medium text-slate-700">Password</label>
+          <input id="auth-password" type="password" class="w-full input" placeholder="••••••••" required="" autocomplete="current-password" aria-describedby="auth-message" style="">
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Continue</button>
+        <div class="flex items-center justify-between text-sm text-slate-500">
+          <button type="button" class="text-brand hover:underline" data-auth-action="reset">Forgot password?</button>
+          <button type="button" class="text-slate-600 hover:text-brand" data-auth-action="signup">Create account</button>
+        </div>
+      </form>
+
+      <form id="signup-form" class="hidden space-y-4">
+        <div class="space-y-1">
+          <label for="signup-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="signup-email" type="email" class="w-full input" placeholder="you@business.com" required="" autocomplete="email" aria-describedby="auth-message" data-autofocus="" style="">
+        </div>
+        <div class="space-y-1">
+          <label for="signup-password" class="text-sm font-medium text-slate-700">Password</label>
+          <input id="signup-password" type="password" class="w-full input" placeholder="At least 6 characters" required="" minlength="6" autocomplete="new-password" aria-describedby="auth-message" style="">
+          <p class="text-xs text-slate-500">You'll use this to sign in next time.</p>
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Create free account</button>
+        <p class="text-sm text-center text-slate-500">Already signed up? <button type="button" class="text-brand hover:underline" data-auth-action="login">Sign in</button></p>
+      </form>
+
+      <form id="reset-form" class="hidden space-y-4">
+        <p class="text-sm text-slate-500">We'll email you reset instructions and show the token here for dev builds.</p>
+        <div class="space-y-1">
+          <label for="reset-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="reset-email" type="email" class="w-full input" placeholder="you@business.com" required="" autocomplete="email" aria-describedby="auth-message" data-autofocus="" style="">
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Send reset link</button>
+        <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
+      </form>
+
+      <form id="confirm-reset-form" class="hidden space-y-4">
+        <p class="text-sm text-slate-500">Paste the token we sent (or use the dev token below) and choose a new password.</p>
+        <div class="space-y-1">
+          <label for="confirm-token" class="text-sm font-medium text-slate-700">Reset token</label>
+          <input id="confirm-token" class="w-full input" placeholder="xxxx-xxxx" aria-describedby="auth-message" data-autofocus="" style="">
+        </div>
+        <div class="space-y-1">
+          <label for="confirm-password" class="text-sm font-medium text-slate-700">New password</label>
+          <input id="confirm-password" type="password" class="w-full input" placeholder="••••••••" aria-describedby="auth-message" autocomplete="new-password" style="">
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Set new password</button>
+        <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+</body></html>

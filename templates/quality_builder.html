@@ -92,13 +92,13 @@
       <!-- Business Name -->
       <div class="space-y-2 mb-6">
         <label class="block text-sm font-semibold text-slate-900">Business name <span class="text-slate-400">(recommended)</span></label>
-        <input type="text" id="qb-business-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="e.g., Laura's Bakery" />
+  <input type="text" id="qb-business-name" class="w-full input form-input text-sm" placeholder="e.g., Laura's Bakery" />
       </div>
 
       <!-- Service Area -->
       <div class="space-y-2 mb-6">
         <label class="block text-sm font-semibold text-slate-900">Service area <span class="text-slate-400">(optional)</span></label>
-        <input type="text" id="qb-service-area" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="e.g., Austin, TX" />
+  <input type="text" id="qb-service-area" class="w-full input form-input text-sm" placeholder="e.g., Austin, TX" />
       </div>
 
       <!-- Primary Platforms -->
@@ -127,7 +127,7 @@
           <label class="block text-sm font-semibold text-slate-900">1. Services (pick 2–5)</label>
           <p class="text-xs text-slate-500">What do you offer?</p>
           <div id="qb-services-chips" class="flex flex-wrap gap-2 mb-2"></div>
-          <input type="text" id="qb-services-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" />
+          <input type="text" id="qb-services-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
           <div class="flex items-center gap-2 mt-2">
             <button type="button" class="qb-suggestion-btn text-xs text-purple-600 hover:text-purple-700 font-medium" data-suggestions='["Consultation","Custom Design","Installation","Training","Support"]'>📋 Suggestions</button>
             <button type="button" class="qb-pick-for-me text-xs text-slate-600 hover:text-slate-700 font-medium" data-field="services">✨ Pick for me</button>
@@ -139,7 +139,7 @@
           <label class="block text-sm font-semibold text-slate-900">2. Target customer (pick 1–3)</label>
           <p class="text-xs text-slate-500">Who do you help?</p>
           <div id="qb-audience-chips" class="flex flex-wrap gap-2 mb-2"></div>
-          <input type="text" id="qb-audience-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" />
+          <input type="text" id="qb-audience-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
           <div class="flex flex-wrap gap-2 mt-2">
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-audience-input" data-value="busy professionals" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">busy professionals</button>
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-audience-input" data-value="small business owners" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">small business owners</button>
@@ -152,7 +152,7 @@
           <label class="block text-sm font-semibold text-slate-900">3. Biggest pain you solve (pick 1–3)</label>
           <p class="text-xs text-slate-500">What challenge do they face?</p>
           <div id="qb-pain-chips" class="flex flex-wrap gap-2 mb-2"></div>
-          <input type="text" id="qb-pain-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" />
+          <input type="text" id="qb-pain-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
           <div class="flex flex-wrap gap-2 mt-2">
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-pain-input" data-value="wasting time" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">wasting time</button>
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-pain-input" data-value="feeling overwhelmed" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">feeling overwhelmed</button>
@@ -165,7 +165,7 @@
           <label class="block text-sm font-semibold text-slate-900">4. Desired outcome (pick 1–2)</label>
           <p class="text-xs text-slate-500">What transformation do they get?</p>
           <div id="qb-outcome-chips" class="flex flex-wrap gap-2 mb-2"></div>
-          <input type="text" id="qb-outcome-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" />
+          <input type="text" id="qb-outcome-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
           <div class="flex flex-wrap gap-2 mt-2">
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-outcome-input" data-value="save time" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">save time</button>
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-outcome-input" data-value="increase revenue" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">increase revenue</button>
@@ -210,7 +210,7 @@
           <label class="block text-sm font-semibold text-slate-900">6. Differentiators (pick 2–5)</label>
           <p class="text-xs text-slate-500">What makes you unique?</p>
           <div id="qb-differentiators-chips" class="flex flex-wrap gap-2 mb-2"></div>
-          <input type="text" id="qb-differentiators-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" />
+          <input type="text" id="qb-differentiators-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
           <div class="flex flex-wrap gap-2 mt-2">
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-differentiators-input" data-value="Fast turnaround" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Fast turnaround</button>
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-differentiators-input" data-value="Personalized service" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Personalized service</button>
@@ -223,7 +223,7 @@
           <label class="block text-sm font-semibold text-slate-900">7. Proof (pick ≥1)</label>
           <p class="text-xs text-slate-500">Years, certifications, insured/licensed, #clients, ratings, testimonial snippet</p>
           <div id="qb-proof-chips" class="flex flex-wrap gap-2 mb-2"></div>
-          <input type="text" id="qb-proof-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" />
+          <input type="text" id="qb-proof-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
           <div class="flex flex-wrap gap-2 mt-2">
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-proof-input" data-value="10+ years experience" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">10+ years experience</button>
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-proof-input" data-value="Licensed & insured" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">Licensed & insured</button>
@@ -264,7 +264,7 @@
           <label class="block text-sm font-semibold text-slate-900">9. Objections (pick 1–2)</label>
           <p class="text-xs text-slate-500">Common concerns your customers have?</p>
           <div id="qb-objections-chips" class="flex flex-wrap gap-2 mb-2"></div>
-          <input type="text" id="qb-objections-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="e.g., Too expensive, Takes too long" />
+          <input type="text" id="qb-objections-input" class="w-full input form-input text-sm" placeholder="e.g., Too expensive, Takes too long" />
         </div>
 
         <!-- 10. Policies/Constraints -->
@@ -272,7 +272,7 @@
           <label class="block text-sm font-semibold text-slate-900">10. Policies/constraints (pick 1–3)</label>
           <p class="text-xs text-slate-500">Deposit, cancellation, turnaround, service boundaries, guarantees</p>
           <div id="qb-policies-chips" class="flex flex-wrap gap-2 mb-2"></div>
-          <input type="text" id="qb-policies-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Type and press Enter" />
+          <input type="text" id="qb-policies-input" class="w-full input form-input text-sm" placeholder="Type and press Enter" />
           <div class="flex flex-wrap gap-2 mt-2">
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-policies-input" data-value="50% deposit required" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">50% deposit required</button>
             <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50" data-target="qb-policies-input" data-value="24hr cancellation policy" onclick="(function(el){const t=document.getElementById(el.dataset.target); if(t){t.value=el.dataset.value; t.dispatchEvent(new Event('input',{bubbles:true})); t.dispatchEvent(new Event('change',{bubbles:true}));}})(this)">24hr cancellation policy</button>
@@ -284,9 +284,9 @@
         <details class="bg-slate-50 rounded-xl p-4 border border-slate-200">
           <summary class="cursor-pointer font-semibold text-slate-900">Email signature defaults (optional)</summary>
           <div class="mt-4 space-y-3">
-            <input type="text" id="qb-email-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Your name" />
-            <input type="text" id="qb-email-title" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Your title" />
-            <input type="text" id="qb-email-contact" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Email or phone" />
+            <input type="text" id="qb-email-name" class="w-full input form-input text-sm" placeholder="Your name" />
+            <input type="text" id="qb-email-title" class="w-full input form-input text-sm" placeholder="Your title" />
+            <input type="text" id="qb-email-contact" class="w-full input form-input text-sm" placeholder="Email or phone" />
           </div>
         </details>
 
@@ -294,10 +294,10 @@
         <details class="bg-slate-50 rounded-xl p-4 border border-slate-200">
           <summary class="cursor-pointer font-semibold text-slate-900">Quote defaults (optional)</summary>
           <div class="mt-4 space-y-3">
-            <input type="text" id="qb-deposit" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Deposit % (e.g., 50%)" />
-            <input type="text" id="qb-turnaround" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Turnaround time (e.g., 2-3 weeks)" />
-            <input type="text" id="qb-validity" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Quote validity (e.g., 30 days)" />
-            <input type="text" id="qb-payment-methods" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300" placeholder="Payment methods (e.g., Cash, Venmo)" />
+            <input type="text" id="qb-deposit" class="w-full input form-input text-sm" placeholder="Deposit % (e.g., 50%)" />
+            <input type="text" id="qb-turnaround" class="w-full input form-input text-sm" placeholder="Turnaround time (e.g., 2-3 weeks)" />
+            <input type="text" id="qb-validity" class="w-full input form-input text-sm" placeholder="Quote validity (e.g., 30 days)" />
+            <input type="text" id="qb-payment-methods" class="w-full input form-input text-sm" placeholder="Payment methods (e.g., Cash, Venmo)" />
           </div>
         </details>
       </div>
@@ -354,7 +354,7 @@
 
     <!-- Save Button -->
     <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200 mb-6 text-center">
-      <button id="qb-save" class="btn-primary text-lg py-4 px-8 rounded-xl">
+      <button id="qb-save" class="btn-primary">
         Save & Continue to Dashboard
       </button>
       <p class="text-sm text-slate-500 mt-3">You can edit these anytime from your Account page</p>

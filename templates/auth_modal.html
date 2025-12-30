@@ -21,13 +21,13 @@
       <form id="login-form" class="space-y-4">
         <div class="space-y-1">
           <label for="auth-email" class="text-sm font-medium text-slate-700">Email</label>
-          <input id="auth-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
+          <input id="auth-email" type="email" class="w-full input form-input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
         </div>
         <div class="space-y-1">
           <label for="auth-password" class="text-sm font-medium text-slate-700">Password</label>
-          <input id="auth-password" type="password" class="w-full input" placeholder="••••••••" required autocomplete="current-password" aria-describedby="auth-message" />
+          <input id="auth-password" type="password" class="w-full input form-input" placeholder="••••••••" required autocomplete="current-password" aria-describedby="auth-message" />
         </div>
-        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Continue</button>
+  <button type="submit" class="btn-primary w-full">Continue</button>
         <div class="flex items-center justify-between text-sm text-slate-500">
           <button type="button" class="text-brand hover:underline" data-auth-action="reset">Forgot password?</button>
           <button type="button" class="text-slate-600 hover:text-brand" data-auth-action="signup">Create account</button>
@@ -37,14 +37,14 @@
       <form id="signup-form" class="hidden space-y-4">
         <div class="space-y-1">
           <label for="signup-email" class="text-sm font-medium text-slate-700">Email</label>
-          <input id="signup-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
+          <input id="signup-email" type="email" class="w-full input form-input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
         </div>
         <div class="space-y-1">
           <label for="signup-password" class="text-sm font-medium text-slate-700">Password</label>
-          <input id="signup-password" type="password" class="w-full input" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password" aria-describedby="auth-message" />
+          <input id="signup-password" type="password" class="w-full input form-input" placeholder="At least 6 characters" required minlength="6" autocomplete="new-password" aria-describedby="auth-message" />
           <p class="text-xs text-slate-500">You'll use this to sign in next time.</p>
         </div>
-        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Create free account</button>
+  <button type="submit" class="btn-primary w-full">Create free account</button>
         <p class="text-sm text-center text-slate-500">Already signed up? <button type="button" class="text-brand hover:underline" data-auth-action="login">Sign in</button></p>
       </form>
 
@@ -52,9 +52,9 @@
         <p class="text-sm text-slate-500">We'll email you reset instructions and show the token here for dev builds.</p>
         <div class="space-y-1">
           <label for="reset-email" class="text-sm font-medium text-slate-700">Email</label>
-          <input id="reset-email" type="email" class="w-full input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
+          <input id="reset-email" type="email" class="w-full input form-input" placeholder="you@business.com" required autocomplete="email" aria-describedby="auth-message" data-autofocus />
         </div>
-        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Send reset link</button>
+  <button type="submit" class="btn-primary w-full">Send reset link</button>
         <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
       </form>
 
@@ -62,13 +62,13 @@
         <p class="text-sm text-slate-500">Paste the token we sent (or use the dev token below) and choose a new password.</p>
         <div class="space-y-1">
           <label for="confirm-token" class="text-sm font-medium text-slate-700">Reset token</label>
-          <input id="confirm-token" class="w-full input" placeholder="xxxx-xxxx" aria-describedby="auth-message" data-autofocus />
+          <input id="confirm-token" class="w-full input form-input" placeholder="xxxx-xxxx" aria-describedby="auth-message" data-autofocus />
         </div>
         <div class="space-y-1">
           <label for="confirm-password" class="text-sm font-medium text-slate-700">New password</label>
-          <input id="confirm-password" type="password" class="w-full input" placeholder="••••••••" aria-describedby="auth-message" autocomplete="new-password" />
+          <input id="confirm-password" type="password" class="w-full input form-input" placeholder="••••••••" aria-describedby="auth-message" autocomplete="new-password" />
         </div>
-        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Set new password</button>
+  <button type="submit" class="btn-primary w-full">Set new password</button>
         <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
       </form>
     </div>

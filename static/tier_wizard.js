@@ -2,6 +2,28 @@
 // Renders three tiers (Good, Better, Best) and a sticky quality meter.
 (function () {
   console.log('Tier wizard script loaded');
+
+  // Defensive: remove duplicate wizard root elements if template mistakenly renders more than one.
+  // If multiple nodes with id "tier-wizard-root" exist, keep the first and remove the rest.
+  (function removeDuplicateWizardRoots(){
+    try{
+      if (typeof document === 'undefined') return;
+      // Run after DOM ready to ensure nodes are present
+      function prune(){
+        try{
+          const nodes = document.querySelectorAll('#tier-wizard-root');
+          if (nodes && nodes.length > 1){
+            for (let i = 1; i < nodes.length; i++){
+              try{ nodes[i].parentNode && nodes[i].parentNode.removeChild(nodes[i]); }catch(e){}
+            }
+            console.log('Removed duplicate tier-wizard-root elements, kept first');
+          }
+        }catch(e){/* ignore */}
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', prune);
+      else setTimeout(prune, 0);
+    }catch(e){}
+  })();
   function el(tag, attrs = {}, children = []) {
     const n = document.createElement(tag);
     Object.keys(attrs).forEach(k => {

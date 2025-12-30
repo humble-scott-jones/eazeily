@@ -1,0 +1,930 @@
+/Users/daniellejones/Documents/togetherly_v2/services/generation/gemini_client.py:11: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+2025-12-23 00:43:41,533 INFO GenerationService initialized (OpenAI: disabled, Gemini: disabled, PromptCompiler: disabled)
+2025-12-23 00:43:41,542 INFO Starting dev server on 127.0.0.1:5001
+2025-12-23 00:43:41,673 INFO Registered routes:
+/
+/__dev__/create_user
+/__dev__/create_user
+/__dev__/ping
+/__dev__/ping
+/__dev__/queue-test
+/__dev__/queue-test
+/__dev__/routes
+/__dev__/trends
+/account
+/admin
+/api/account
+/api/account/upgrade
+/api/admin/team-members
+/api/admin/team-members/<int:member_id>
+/api/admin/users
+/api/brand_kit
+/api/cancel-subscription
+/api/confirm-password-reset
+/api/content
+/api/create-checkout-session
+/api/create-subscription
+/api/current_user
+/api/debug/gemini-status
+/api/debug/health
+/api/debug/openai-status
+/api/drafts/<draft_id>/undo-template
+/api/feedback
+/api/feedback/report
+/api/generate
+/api/generate-review-response
+/api/generate-variants
+/api/generate/reels
+/api/generate/reviews
+/api/generate/social
+/api/industry_packs/<industry_id>/chips
+/api/industry_packs/<industry_id>/good_defaults
+/api/login
+/api/logout
+/api/preview-templates
+/api/preview-templates/<channel>
+/api/preview-templates/<channel>/<template_id>
+/api/profile
+/api/profile_v2
+/api/reconcile-job
+/api/reconcile-jobs/<job_id>
+/api/reconcile-subscriptions
+/api/request-password-reset
+/api/signup
+/api/stripe-webhook
+/api/team/approvals
+/api/team/approvals/<approval_id>/transition
+/api/templates
+/api/templates/<template_id>
+/api/templates/<template_id>/apply
+/api/user_chip_selections
+/api/user_chip_selections
+/api/version
+/api/voice-profile
+/api/voice/analyze
+/api/voice/save
+/api/voice/scrape
+/api/waitlist
+/app
+/brand-inspiration-setup
+/drafts/<draft_id>
+/generate
+/generate/reels
+/generate/reviews
+/generate/social
+/health
+/healthz
+/inbox
+/launch
+/planner
+/preview-demo
+/quality-builder
+/readyz
+/review-response
+/settings
+/static/<path:filename>
+/voice-setup
+ * Serving Flask app 'app'
+ * Debug mode: off
+2025-12-23 00:43:41,678 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+2025-12-23 00:43:41,678 INFO [33mPress CTRL+C to quit[0m
+2025-12-23 00:43:45,183 INFO 127.0.0.1 - - [23/Dec/2025 00:43:45] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:43:50,062 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:43:50,070 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:43:50,071 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:43:50,071 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:43:50,071 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:43:50,073 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:43:50,091 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:43:50,099 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:43:50,496 INFO 127.0.0.1 - - [23/Dec/2025 00:43:50] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:43:51,083 INFO profile.fetch
+2025-12-23 00:43:51,083 INFO profile.loaded
+2025-12-23 00:43:51,084 INFO 127.0.0.1 - - [23/Dec/2025 00:43:51] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:44:08,064 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:44:08,070 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:44:08,070 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:44:08,071 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:44:08,071 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:44:08,072 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:44:08,081 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:44:08,088 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:44:08,411 INFO 127.0.0.1 - - [23/Dec/2025 00:44:08] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:49:17,295 INFO 127.0.0.1 - - [23/Dec/2025 00:49:17] "HEAD /app HTTP/1.1" 200 -
+2025-12-23 00:49:18,963 INFO 127.0.0.1 - - [23/Dec/2025 00:49:18] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:49:18,998 INFO 127.0.0.1 - - [23/Dec/2025 00:49:18] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:18,999 INFO 127.0.0.1 - - [23/Dec/2025 00:49:18] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:19,000 INFO 127.0.0.1 - - [23/Dec/2025 00:49:19] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:19,000 INFO 127.0.0.1 - - [23/Dec/2025 00:49:19] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:19,006 INFO 127.0.0.1 - - [23/Dec/2025 00:49:19] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:49:19,031 INFO 127.0.0.1 - - [23/Dec/2025 00:49:19] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:49:19,039 INFO 127.0.0.1 - - [23/Dec/2025 00:49:19] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:49:19,460 INFO 127.0.0.1 - - [23/Dec/2025 00:49:19] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:49:20,030 INFO profile.fetch
+2025-12-23 00:49:20,030 INFO profile.loaded
+2025-12-23 00:49:20,030 INFO 127.0.0.1 - - [23/Dec/2025 00:49:20] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:21,629 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /generate/social HTTP/1.1" 200 -
+2025-12-23 00:49:21,635 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:21,636 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:21,636 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:21,637 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:21,647 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:49:21,649 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/social_copy_first_renderer.js HTTP/1.1" 200 -
+2025-12-23 00:49:21,649 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/js/profile_hydrator_v2.js HTTP/1.1" 200 -
+2025-12-23 00:49:21,649 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "[36mGET /static/app.js HTTP/1.1[0m" 304 -
+2025-12-23 00:49:21,649 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/js/chip_selector.js HTTP/1.1" 200 -
+2025-12-23 00:49:21,649 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:49:21,751 INFO brand_kit.loaded
+2025-12-23 00:49:21,752 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /api/brand_kit HTTP/1.1" 200 -
+2025-12-23 00:49:21,753 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:21,762 INFO profile_v2.fetch
+2025-12-23 00:49:21,762 INFO profile_v2.loaded
+2025-12-23 00:49:21,762 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /api/profile_v2 HTTP/1.1" 200 -
+2025-12-23 00:49:21,769 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:49:21,771 INFO Industry pack 'Business' not found, falling back to 'general'
+2025-12-23 00:49:21,771 WARNING Chip pack using legacy string chips; consider upgrading to objects with {id, label}
+2025-12-23 00:49:21,772 WARNING Chip pack using legacy string chips; consider upgrading to objects with {id, label}
+2025-12-23 00:49:21,772 WARNING Chip pack using legacy string chips; consider upgrading to objects with {id, label}
+2025-12-23 00:49:21,772 WARNING Chip pack using legacy string chips; consider upgrading to objects with {id, label}
+2025-12-23 00:49:21,772 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /api/industry_packs/Business/chips HTTP/1.1" 200 -
+2025-12-23 00:49:21,837 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:49:21,843 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:21,843 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:21,843 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:21,844 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:21,846 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:49:21,855 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:49:21,860 INFO 127.0.0.1 - - [23/Dec/2025 00:49:21] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:49:22,193 INFO 127.0.0.1 - - [23/Dec/2025 00:49:22] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:49:22,777 INFO profile.fetch
+2025-12-23 00:49:22,777 INFO profile.loaded
+2025-12-23 00:49:22,778 INFO 127.0.0.1 - - [23/Dec/2025 00:49:22] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:23,356 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /generate/social HTTP/1.1" 200 -
+2025-12-23 00:49:23,362 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:23,362 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:23,363 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:23,364 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:23,374 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:49:23,374 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /static/social_copy_first_renderer.js HTTP/1.1" 200 -
+2025-12-23 00:49:23,375 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /static/js/profile_hydrator_v2.js HTTP/1.1" 200 -
+2025-12-23 00:49:23,375 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:49:23,375 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /static/js/chip_selector.js HTTP/1.1" 200 -
+2025-12-23 00:49:23,375 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "[36mGET /static/app.js HTTP/1.1[0m" 304 -
+2025-12-23 00:49:23,482 INFO brand_kit.loaded
+2025-12-23 00:49:23,482 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /api/brand_kit HTTP/1.1" 200 -
+2025-12-23 00:49:23,483 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:23,486 INFO profile_v2.fetch
+2025-12-23 00:49:23,486 INFO profile_v2.loaded
+2025-12-23 00:49:23,486 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /api/profile_v2 HTTP/1.1" 200 -
+2025-12-23 00:49:23,490 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:49:23,491 INFO Industry pack 'Business' not found, falling back to 'general'
+2025-12-23 00:49:23,491 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /api/industry_packs/Business/chips HTTP/1.1" 200 -
+2025-12-23 00:49:23,509 INFO 127.0.0.1 - - [23/Dec/2025 00:49:23] "GET /api/user_chip_selections?industry=Business HTTP/1.1" 200 -
+2025-12-23 00:49:24,577 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:49:24,584 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:24,585 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:24,585 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:24,585 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:24,587 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:49:24,596 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:49:24,602 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:49:24,929 INFO 127.0.0.1 - - [23/Dec/2025 00:49:24] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:49:25,509 INFO profile.fetch
+2025-12-23 00:49:25,509 INFO profile.loaded
+2025-12-23 00:49:25,510 INFO 127.0.0.1 - - [23/Dec/2025 00:49:25] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:28,049 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:49:28,055 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:28,056 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:28,056 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:28,057 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:28,058 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:49:28,067 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:49:28,073 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:49:28,398 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:49:28,948 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:49:28,953 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:28,954 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:28,955 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:28,955 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:28,957 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:49:28,966 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:49:28,972 INFO 127.0.0.1 - - [23/Dec/2025 00:49:28] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:49:29,307 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:49:29,845 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /settings HTTP/1.1" 200 -
+2025-12-23 00:49:29,851 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:29,851 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:29,851 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:29,851 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:29,867 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:49:29,869 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:49:29,872 INFO 127.0.0.1 - - [23/Dec/2025 00:49:29] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:49:30,131 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:30,132 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "GET /api/voice-profile HTTP/1.1" 200 -
+2025-12-23 00:49:30,135 INFO profile.fetch
+2025-12-23 00:49:30,136 INFO profile.loaded
+2025-12-23 00:49:30,136 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:30,151 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:49:30,185 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:49:30,191 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:30,191 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:30,192 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:30,192 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:30,200 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:49:30,201 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:49:30,203 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "[36mGET /static/app.js HTTP/1.1[0m" 304 -
+2025-12-23 00:49:30,341 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:49:30,925 INFO profile.fetch
+2025-12-23 00:49:30,925 INFO profile.loaded
+2025-12-23 00:49:30,926 INFO 127.0.0.1 - - [23/Dec/2025 00:49:30] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:31,288 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:31,293 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:31,294 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:31,294 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:31,294 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:31,296 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:31,587 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:31,590 INFO profile.fetch
+2025-12-23 00:49:31,590 INFO profile.loaded
+2025-12-23 00:49:31,590 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:31,951 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:31,956 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:31,956 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:31,957 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:31,957 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:31,959 INFO 127.0.0.1 - - [23/Dec/2025 00:49:31] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:32,276 INFO 127.0.0.1 - - [23/Dec/2025 00:49:32] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:32,280 INFO profile.fetch
+2025-12-23 00:49:32,280 INFO profile.loaded
+2025-12-23 00:49:32,280 INFO 127.0.0.1 - - [23/Dec/2025 00:49:32] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:34,277 INFO 127.0.0.1 - - [23/Dec/2025 00:49:34] "POST /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:34,869 INFO 127.0.0.1 - - [23/Dec/2025 00:49:34] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:34,874 INFO 127.0.0.1 - - [23/Dec/2025 00:49:34] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:34,874 INFO 127.0.0.1 - - [23/Dec/2025 00:49:34] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:34,874 INFO 127.0.0.1 - - [23/Dec/2025 00:49:34] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:34,875 INFO 127.0.0.1 - - [23/Dec/2025 00:49:34] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:34,877 INFO 127.0.0.1 - - [23/Dec/2025 00:49:34] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:35,164 INFO 127.0.0.1 - - [23/Dec/2025 00:49:35] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:35,167 INFO profile.fetch
+2025-12-23 00:49:35,167 INFO profile.loaded
+2025-12-23 00:49:35,167 INFO 127.0.0.1 - - [23/Dec/2025 00:49:35] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:37,639 INFO 127.0.0.1 - - [23/Dec/2025 00:49:37] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:37,644 INFO 127.0.0.1 - - [23/Dec/2025 00:49:37] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:37,645 INFO 127.0.0.1 - - [23/Dec/2025 00:49:37] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:37,645 INFO 127.0.0.1 - - [23/Dec/2025 00:49:37] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:37,645 INFO 127.0.0.1 - - [23/Dec/2025 00:49:37] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:37,646 INFO 127.0.0.1 - - [23/Dec/2025 00:49:37] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:37,963 INFO 127.0.0.1 - - [23/Dec/2025 00:49:37] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:37,966 INFO profile.fetch
+2025-12-23 00:49:37,966 INFO profile.loaded
+2025-12-23 00:49:37,967 INFO 127.0.0.1 - - [23/Dec/2025 00:49:37] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:39,082 INFO 127.0.0.1 - - [23/Dec/2025 00:49:39] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:39,087 INFO 127.0.0.1 - - [23/Dec/2025 00:49:39] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:39,088 INFO 127.0.0.1 - - [23/Dec/2025 00:49:39] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:39,088 INFO 127.0.0.1 - - [23/Dec/2025 00:49:39] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:39,088 INFO 127.0.0.1 - - [23/Dec/2025 00:49:39] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:39,090 INFO 127.0.0.1 - - [23/Dec/2025 00:49:39] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:39,438 INFO 127.0.0.1 - - [23/Dec/2025 00:49:39] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:39,441 INFO profile.fetch
+2025-12-23 00:49:39,441 INFO profile.loaded
+2025-12-23 00:49:39,441 INFO 127.0.0.1 - - [23/Dec/2025 00:49:39] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:40,298 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:40,303 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:40,303 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:40,304 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:40,304 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:40,306 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:40,612 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:40,616 INFO profile.fetch
+2025-12-23 00:49:40,616 INFO profile.loaded
+2025-12-23 00:49:40,616 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:40,911 INFO 127.0.0.1 - - [23/Dec/2025 00:49:40] "POST /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:41,919 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "[32mGET /generate HTTP/1.1[0m" 302 -
+2025-12-23 00:49:41,920 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "GET /generate/social HTTP/1.1" 200 -
+2025-12-23 00:49:41,928 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:41,929 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:41,929 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:41,929 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:41,940 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:49:41,940 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "GET /static/social_copy_first_renderer.js HTTP/1.1" 200 -
+2025-12-23 00:49:41,940 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:49:41,940 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:49:41,941 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "GET /static/js/profile_hydrator_v2.js HTTP/1.1" 200 -
+2025-12-23 00:49:41,941 INFO 127.0.0.1 - - [23/Dec/2025 00:49:41] "GET /static/js/chip_selector.js HTTP/1.1" 200 -
+2025-12-23 00:49:42,068 INFO brand_kit.loaded
+2025-12-23 00:49:42,068 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "GET /api/brand_kit HTTP/1.1" 200 -
+2025-12-23 00:49:42,069 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:42,079 INFO profile_v2.fetch
+2025-12-23 00:49:42,079 INFO profile_v2.loaded
+2025-12-23 00:49:42,079 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "GET /api/profile_v2 HTTP/1.1" 200 -
+2025-12-23 00:49:42,087 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:49:42,993 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:42,998 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:42,999 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:42,999 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:42,999 INFO 127.0.0.1 - - [23/Dec/2025 00:49:42] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:43,001 INFO 127.0.0.1 - - [23/Dec/2025 00:49:43] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:43,430 INFO 127.0.0.1 - - [23/Dec/2025 00:49:43] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:43,433 INFO profile.fetch
+2025-12-23 00:49:43,433 INFO profile.loaded
+2025-12-23 00:49:43,433 INFO 127.0.0.1 - - [23/Dec/2025 00:49:43] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:43,596 INFO 127.0.0.1 - - [23/Dec/2025 00:49:43] "POST /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:44,603 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "[32mGET /generate HTTP/1.1[0m" 302 -
+2025-12-23 00:49:44,605 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /generate/social HTTP/1.1" 200 -
+2025-12-23 00:49:44,611 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:44,612 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:44,612 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:44,612 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:44,623 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /static/js/profile_hydrator_v2.js HTTP/1.1" 200 -
+2025-12-23 00:49:44,624 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:49:44,624 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /static/js/chip_selector.js HTTP/1.1" 200 -
+2025-12-23 00:49:44,624 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:49:44,625 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /static/social_copy_first_renderer.js HTTP/1.1" 200 -
+2025-12-23 00:49:44,625 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:49:44,749 INFO brand_kit.loaded
+2025-12-23 00:49:44,750 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /api/brand_kit HTTP/1.1" 200 -
+2025-12-23 00:49:44,750 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:44,758 INFO profile_v2.fetch
+2025-12-23 00:49:44,758 INFO profile_v2.loaded
+2025-12-23 00:49:44,759 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "GET /api/profile_v2 HTTP/1.1" 200 -
+2025-12-23 00:49:44,762 INFO 127.0.0.1 - - [23/Dec/2025 00:49:44] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:49:45,639 INFO 127.0.0.1 - - [23/Dec/2025 00:49:45] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:45,645 INFO 127.0.0.1 - - [23/Dec/2025 00:49:45] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:45,645 INFO 127.0.0.1 - - [23/Dec/2025 00:49:45] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:45,646 INFO 127.0.0.1 - - [23/Dec/2025 00:49:45] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:49:45,647 INFO 127.0.0.1 - - [23/Dec/2025 00:49:45] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:49:45,649 INFO 127.0.0.1 - - [23/Dec/2025 00:49:45] "[36mGET /static/quality_builder.js HTTP/1.1[0m" 304 -
+2025-12-23 00:49:45,725 INFO 127.0.0.1 - - [23/Dec/2025 00:49:45] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:45,728 INFO profile.fetch
+2025-12-23 00:49:45,729 INFO profile.loaded
+2025-12-23 00:49:45,729 INFO 127.0.0.1 - - [23/Dec/2025 00:49:45] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:46,842 INFO 127.0.0.1 - - [23/Dec/2025 00:49:46] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:46,847 INFO 127.0.0.1 - - [23/Dec/2025 00:49:46] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:46,847 INFO 127.0.0.1 - - [23/Dec/2025 00:49:46] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:46,848 INFO 127.0.0.1 - - [23/Dec/2025 00:49:46] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:46,849 INFO 127.0.0.1 - - [23/Dec/2025 00:49:46] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:46,850 INFO 127.0.0.1 - - [23/Dec/2025 00:49:46] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:47,153 INFO 127.0.0.1 - - [23/Dec/2025 00:49:47] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:47,156 INFO profile.fetch
+2025-12-23 00:49:47,156 INFO profile.loaded
+2025-12-23 00:49:47,156 INFO 127.0.0.1 - - [23/Dec/2025 00:49:47] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:49,797 INFO 127.0.0.1 - - [23/Dec/2025 00:49:49] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:49,801 INFO 127.0.0.1 - - [23/Dec/2025 00:49:49] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:49,802 INFO 127.0.0.1 - - [23/Dec/2025 00:49:49] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:49,802 INFO 127.0.0.1 - - [23/Dec/2025 00:49:49] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:49,802 INFO 127.0.0.1 - - [23/Dec/2025 00:49:49] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:49,804 INFO 127.0.0.1 - - [23/Dec/2025 00:49:49] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:50,119 INFO 127.0.0.1 - - [23/Dec/2025 00:49:50] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:50,123 INFO profile.fetch
+2025-12-23 00:49:50,123 INFO profile.loaded
+2025-12-23 00:49:50,123 INFO 127.0.0.1 - - [23/Dec/2025 00:49:50] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:52,584 INFO 127.0.0.1 - - [23/Dec/2025 00:49:52] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:52,589 INFO 127.0.0.1 - - [23/Dec/2025 00:49:52] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:52,590 INFO 127.0.0.1 - - [23/Dec/2025 00:49:52] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:52,590 INFO 127.0.0.1 - - [23/Dec/2025 00:49:52] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:52,591 INFO 127.0.0.1 - - [23/Dec/2025 00:49:52] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:52,592 INFO 127.0.0.1 - - [23/Dec/2025 00:49:52] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:52,905 INFO 127.0.0.1 - - [23/Dec/2025 00:49:52] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:52,910 INFO profile.fetch
+2025-12-23 00:49:52,910 INFO profile.loaded
+2025-12-23 00:49:52,911 INFO 127.0.0.1 - - [23/Dec/2025 00:49:52] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:55,922 INFO 127.0.0.1 - - [23/Dec/2025 00:49:55] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:55,928 INFO 127.0.0.1 - - [23/Dec/2025 00:49:55] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:55,929 INFO 127.0.0.1 - - [23/Dec/2025 00:49:55] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:55,929 INFO 127.0.0.1 - - [23/Dec/2025 00:49:55] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:55,929 INFO 127.0.0.1 - - [23/Dec/2025 00:49:55] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:55,931 INFO 127.0.0.1 - - [23/Dec/2025 00:49:55] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:56,231 INFO 127.0.0.1 - - [23/Dec/2025 00:49:56] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:56,235 INFO profile.fetch
+2025-12-23 00:49:56,235 INFO profile.loaded
+2025-12-23 00:49:56,235 INFO 127.0.0.1 - - [23/Dec/2025 00:49:56] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:57,027 INFO 127.0.0.1 - - [23/Dec/2025 00:49:57] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:57,033 INFO 127.0.0.1 - - [23/Dec/2025 00:49:57] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:57,033 INFO 127.0.0.1 - - [23/Dec/2025 00:49:57] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:57,033 INFO 127.0.0.1 - - [23/Dec/2025 00:49:57] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:57,034 INFO 127.0.0.1 - - [23/Dec/2025 00:49:57] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:57,035 INFO 127.0.0.1 - - [23/Dec/2025 00:49:57] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:57,355 INFO 127.0.0.1 - - [23/Dec/2025 00:49:57] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:57,358 INFO profile.fetch
+2025-12-23 00:49:57,358 INFO profile.loaded
+2025-12-23 00:49:57,358 INFO 127.0.0.1 - - [23/Dec/2025 00:49:57] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:58,334 INFO 127.0.0.1 - - [23/Dec/2025 00:49:58] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:58,339 INFO 127.0.0.1 - - [23/Dec/2025 00:49:58] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:58,340 INFO 127.0.0.1 - - [23/Dec/2025 00:49:58] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:58,340 INFO 127.0.0.1 - - [23/Dec/2025 00:49:58] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:58,341 INFO 127.0.0.1 - - [23/Dec/2025 00:49:58] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:58,342 INFO 127.0.0.1 - - [23/Dec/2025 00:49:58] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:58,653 INFO 127.0.0.1 - - [23/Dec/2025 00:49:58] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:58,656 INFO profile.fetch
+2025-12-23 00:49:58,656 INFO profile.loaded
+2025-12-23 00:49:58,657 INFO 127.0.0.1 - - [23/Dec/2025 00:49:58] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:59,084 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:59,090 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:59,090 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:59,090 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:59,091 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:59,092 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:59,410 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:59,413 INFO profile.fetch
+2025-12-23 00:49:59,413 INFO profile.loaded
+2025-12-23 00:49:59,413 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:49:59,529 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:49:59,535 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:49:59,535 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:59,535 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:49:59,536 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:49:59,538 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:49:59,844 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:49:59,847 INFO profile.fetch
+2025-12-23 00:49:59,847 INFO profile.loaded
+2025-12-23 00:49:59,847 INFO 127.0.0.1 - - [23/Dec/2025 00:49:59] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:50:01,264 INFO 127.0.0.1 - - [23/Dec/2025 00:50:01] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:50:01,269 INFO 127.0.0.1 - - [23/Dec/2025 00:50:01] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:50:01,269 INFO 127.0.0.1 - - [23/Dec/2025 00:50:01] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:50:01,270 INFO 127.0.0.1 - - [23/Dec/2025 00:50:01] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:01,270 INFO 127.0.0.1 - - [23/Dec/2025 00:50:01] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:01,272 INFO 127.0.0.1 - - [23/Dec/2025 00:50:01] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:50:01,590 INFO 127.0.0.1 - - [23/Dec/2025 00:50:01] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:50:01,593 INFO profile.fetch
+2025-12-23 00:50:01,593 INFO profile.loaded
+2025-12-23 00:50:01,593 INFO 127.0.0.1 - - [23/Dec/2025 00:50:01] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:50:02,448 INFO 127.0.0.1 - - [23/Dec/2025 00:50:02] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:50:02,452 INFO 127.0.0.1 - - [23/Dec/2025 00:50:02] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:50:02,453 INFO 127.0.0.1 - - [23/Dec/2025 00:50:02] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:02,454 INFO 127.0.0.1 - - [23/Dec/2025 00:50:02] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:02,454 INFO 127.0.0.1 - - [23/Dec/2025 00:50:02] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:50:02,456 INFO 127.0.0.1 - - [23/Dec/2025 00:50:02] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:50:02,768 INFO 127.0.0.1 - - [23/Dec/2025 00:50:02] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:50:02,770 INFO profile.fetch
+2025-12-23 00:50:02,771 INFO profile.loaded
+2025-12-23 00:50:02,771 INFO 127.0.0.1 - - [23/Dec/2025 00:50:02] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:50:03,559 INFO 127.0.0.1 - - [23/Dec/2025 00:50:03] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:50:03,564 INFO 127.0.0.1 - - [23/Dec/2025 00:50:03] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:03,564 INFO 127.0.0.1 - - [23/Dec/2025 00:50:03] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:50:03,565 INFO 127.0.0.1 - - [23/Dec/2025 00:50:03] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:03,566 INFO 127.0.0.1 - - [23/Dec/2025 00:50:03] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:50:03,567 INFO 127.0.0.1 - - [23/Dec/2025 00:50:03] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:50:03,878 INFO 127.0.0.1 - - [23/Dec/2025 00:50:03] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:50:03,881 INFO profile.fetch
+2025-12-23 00:50:03,881 INFO profile.loaded
+2025-12-23 00:50:03,881 INFO 127.0.0.1 - - [23/Dec/2025 00:50:03] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:50:06,276 INFO 127.0.0.1 - - [23/Dec/2025 00:50:06] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:50:06,281 INFO 127.0.0.1 - - [23/Dec/2025 00:50:06] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:50:06,281 INFO 127.0.0.1 - - [23/Dec/2025 00:50:06] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:06,282 INFO 127.0.0.1 - - [23/Dec/2025 00:50:06] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:50:06,282 INFO 127.0.0.1 - - [23/Dec/2025 00:50:06] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:06,284 INFO 127.0.0.1 - - [23/Dec/2025 00:50:06] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:50:06,579 INFO 127.0.0.1 - - [23/Dec/2025 00:50:06] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:50:06,582 INFO profile.fetch
+2025-12-23 00:50:06,582 INFO profile.loaded
+2025-12-23 00:50:06,582 INFO 127.0.0.1 - - [23/Dec/2025 00:50:06] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:50:09,680 INFO 127.0.0.1 - - [23/Dec/2025 00:50:09] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:50:09,685 INFO 127.0.0.1 - - [23/Dec/2025 00:50:09] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:50:09,685 INFO 127.0.0.1 - - [23/Dec/2025 00:50:09] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:09,686 INFO 127.0.0.1 - - [23/Dec/2025 00:50:09] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:50:09,686 INFO 127.0.0.1 - - [23/Dec/2025 00:50:09] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:09,688 INFO 127.0.0.1 - - [23/Dec/2025 00:50:09] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:50:09,991 INFO 127.0.0.1 - - [23/Dec/2025 00:50:09] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:50:09,994 INFO profile.fetch
+2025-12-23 00:50:09,994 INFO profile.loaded
+2025-12-23 00:50:09,994 INFO 127.0.0.1 - - [23/Dec/2025 00:50:09] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:50:11,159 INFO 127.0.0.1 - - [23/Dec/2025 00:50:11] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:50:11,164 INFO 127.0.0.1 - - [23/Dec/2025 00:50:11] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:50:11,165 INFO 127.0.0.1 - - [23/Dec/2025 00:50:11] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:11,165 INFO 127.0.0.1 - - [23/Dec/2025 00:50:11] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:50:11,166 INFO 127.0.0.1 - - [23/Dec/2025 00:50:11] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:11,167 INFO 127.0.0.1 - - [23/Dec/2025 00:50:11] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:50:11,484 INFO 127.0.0.1 - - [23/Dec/2025 00:50:11] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:50:11,487 INFO profile.fetch
+2025-12-23 00:50:11,487 INFO profile.loaded
+2025-12-23 00:50:11,487 INFO 127.0.0.1 - - [23/Dec/2025 00:50:11] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:50:12,466 INFO 127.0.0.1 - - [23/Dec/2025 00:50:12] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:50:12,471 INFO 127.0.0.1 - - [23/Dec/2025 00:50:12] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:50:12,471 INFO 127.0.0.1 - - [23/Dec/2025 00:50:12] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:50:12,472 INFO 127.0.0.1 - - [23/Dec/2025 00:50:12] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:12,473 INFO 127.0.0.1 - - [23/Dec/2025 00:50:12] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:50:12,475 INFO 127.0.0.1 - - [23/Dec/2025 00:50:12] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:50:12,784 INFO 127.0.0.1 - - [23/Dec/2025 00:50:12] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:50:12,786 INFO profile.fetch
+2025-12-23 00:50:12,786 INFO profile.loaded
+2025-12-23 00:50:12,786 INFO 127.0.0.1 - - [23/Dec/2025 00:50:12] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:54:03,496 INFO 127.0.0.1 - - [23/Dec/2025 00:54:03] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:54:03,502 INFO 127.0.0.1 - - [23/Dec/2025 00:54:03] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:54:03,502 INFO 127.0.0.1 - - [23/Dec/2025 00:54:03] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:54:03,502 INFO 127.0.0.1 - - [23/Dec/2025 00:54:03] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:54:03,502 INFO 127.0.0.1 - - [23/Dec/2025 00:54:03] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:54:03,504 INFO 127.0.0.1 - - [23/Dec/2025 00:54:03] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:54:03,856 INFO 127.0.0.1 - - [23/Dec/2025 00:54:03] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:54:03,858 INFO profile.fetch
+2025-12-23 00:54:03,858 INFO profile.loaded
+2025-12-23 00:54:03,859 INFO 127.0.0.1 - - [23/Dec/2025 00:54:03] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:27,544 INFO 127.0.0.1 - - [23/Dec/2025 00:55:27] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:27,552 INFO 127.0.0.1 - - [23/Dec/2025 00:55:27] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:27,552 INFO 127.0.0.1 - - [23/Dec/2025 00:55:27] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:27,553 INFO 127.0.0.1 - - [23/Dec/2025 00:55:27] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:27,553 INFO 127.0.0.1 - - [23/Dec/2025 00:55:27] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:27,555 INFO 127.0.0.1 - - [23/Dec/2025 00:55:27] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:55:27,933 INFO 127.0.0.1 - - [23/Dec/2025 00:55:27] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:27,939 INFO profile.fetch
+2025-12-23 00:55:27,939 INFO profile.loaded
+2025-12-23 00:55:27,939 INFO 127.0.0.1 - - [23/Dec/2025 00:55:27] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:32,864 INFO 127.0.0.1 - - [23/Dec/2025 00:55:32] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:55:32,870 INFO 127.0.0.1 - - [23/Dec/2025 00:55:32] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:32,870 INFO 127.0.0.1 - - [23/Dec/2025 00:55:32] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:32,871 INFO 127.0.0.1 - - [23/Dec/2025 00:55:32] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:32,871 INFO 127.0.0.1 - - [23/Dec/2025 00:55:32] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:32,873 INFO 127.0.0.1 - - [23/Dec/2025 00:55:32] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:55:32,882 INFO 127.0.0.1 - - [23/Dec/2025 00:55:32] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:55:32,888 INFO 127.0.0.1 - - [23/Dec/2025 00:55:32] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:55:33,212 INFO 127.0.0.1 - - [23/Dec/2025 00:55:33] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:55:33,799 INFO profile.fetch
+2025-12-23 00:55:33,799 INFO profile.loaded
+2025-12-23 00:55:33,799 INFO 127.0.0.1 - - [23/Dec/2025 00:55:33] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:35,822 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /generate/social HTTP/1.1" 200 -
+2025-12-23 00:55:35,829 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:35,830 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:35,830 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:35,831 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:35,842 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /static/js/chip_selector.js HTTP/1.1" 200 -
+2025-12-23 00:55:35,842 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:55:35,842 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /static/social_copy_first_renderer.js HTTP/1.1" 200 -
+2025-12-23 00:55:35,842 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /static/js/profile_hydrator_v2.js HTTP/1.1" 200 -
+2025-12-23 00:55:35,842 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:55:35,842 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "[36mGET /static/app.js HTTP/1.1[0m" 304 -
+2025-12-23 00:55:35,948 INFO brand_kit.loaded
+2025-12-23 00:55:35,948 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /api/brand_kit HTTP/1.1" 200 -
+2025-12-23 00:55:35,949 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:35,957 INFO profile_v2.fetch
+2025-12-23 00:55:35,958 INFO profile_v2.loaded
+2025-12-23 00:55:35,958 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /api/profile_v2 HTTP/1.1" 200 -
+2025-12-23 00:55:35,961 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:55:35,963 INFO Industry pack 'Business' not found, falling back to 'general'
+2025-12-23 00:55:35,963 INFO 127.0.0.1 - - [23/Dec/2025 00:55:35] "GET /api/industry_packs/Business/chips HTTP/1.1" 200 -
+2025-12-23 00:55:36,039 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:55:36,044 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:36,045 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:36,045 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:36,046 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:36,048 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:55:36,057 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:55:36,063 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:55:36,396 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:55:36,980 INFO profile.fetch
+2025-12-23 00:55:36,980 INFO profile.loaded
+2025-12-23 00:55:36,980 INFO 127.0.0.1 - - [23/Dec/2025 00:55:36] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:37,561 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /generate/social HTTP/1.1" 200 -
+2025-12-23 00:55:37,569 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:37,569 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:37,569 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:37,570 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:37,580 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /static/js/profile_hydrator_v2.js HTTP/1.1" 200 -
+2025-12-23 00:55:37,580 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /static/social_copy_first_renderer.js HTTP/1.1" 200 -
+2025-12-23 00:55:37,582 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:55:37,582 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /static/js/chip_selector.js HTTP/1.1" 200 -
+2025-12-23 00:55:37,582 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:55:37,583 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "[36mGET /static/app.js HTTP/1.1[0m" 304 -
+2025-12-23 00:55:37,690 INFO brand_kit.loaded
+2025-12-23 00:55:37,690 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /api/brand_kit HTTP/1.1" 200 -
+2025-12-23 00:55:37,691 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:37,694 INFO profile_v2.fetch
+2025-12-23 00:55:37,694 INFO profile_v2.loaded
+2025-12-23 00:55:37,695 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /api/profile_v2 HTTP/1.1" 200 -
+2025-12-23 00:55:37,698 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:55:37,698 INFO Industry pack 'Business' not found, falling back to 'general'
+2025-12-23 00:55:37,698 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /api/industry_packs/Business/chips HTTP/1.1" 200 -
+2025-12-23 00:55:37,718 INFO 127.0.0.1 - - [23/Dec/2025 00:55:37] "GET /api/user_chip_selections?industry=Business HTTP/1.1" 200 -
+2025-12-23 00:55:38,791 INFO 127.0.0.1 - - [23/Dec/2025 00:55:38] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:55:38,797 INFO 127.0.0.1 - - [23/Dec/2025 00:55:38] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:38,797 INFO 127.0.0.1 - - [23/Dec/2025 00:55:38] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:38,797 INFO 127.0.0.1 - - [23/Dec/2025 00:55:38] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:38,797 INFO 127.0.0.1 - - [23/Dec/2025 00:55:38] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:38,800 INFO 127.0.0.1 - - [23/Dec/2025 00:55:38] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:55:38,809 INFO 127.0.0.1 - - [23/Dec/2025 00:55:38] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:55:38,815 INFO 127.0.0.1 - - [23/Dec/2025 00:55:38] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:55:39,147 INFO 127.0.0.1 - - [23/Dec/2025 00:55:39] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:55:39,730 INFO profile.fetch
+2025-12-23 00:55:39,730 INFO profile.loaded
+2025-12-23 00:55:39,731 INFO 127.0.0.1 - - [23/Dec/2025 00:55:39] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:42,240 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:55:42,245 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:42,246 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:42,246 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:42,247 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:42,248 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:55:42,258 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:55:42,264 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:55:42,628 INFO 127.0.0.1 - - [23/Dec/2025 00:55:42] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:55:43,182 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:55:43,188 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:43,188 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:43,188 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:43,189 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:43,191 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:55:43,200 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:55:43,205 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:55:43,515 INFO 127.0.0.1 - - [23/Dec/2025 00:55:43] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:55:44,060 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /settings HTTP/1.1" 200 -
+2025-12-23 00:55:44,066 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:44,066 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:44,066 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:44,066 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:44,083 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:55:44,084 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:55:44,087 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:55:44,340 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:44,341 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /api/voice-profile HTTP/1.1" 200 -
+2025-12-23 00:55:44,345 INFO profile.fetch
+2025-12-23 00:55:44,345 INFO profile.loaded
+2025-12-23 00:55:44,345 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:44,361 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:55:44,396 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:55:44,430 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:44,431 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:44,432 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:44,432 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:44,440 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:55:44,441 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:55:44,443 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "[36mGET /static/app.js HTTP/1.1[0m" 304 -
+2025-12-23 00:55:44,597 INFO 127.0.0.1 - - [23/Dec/2025 00:55:44] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:55:45,181 INFO profile.fetch
+2025-12-23 00:55:45,181 INFO profile.loaded
+2025-12-23 00:55:45,181 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:45,525 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:45,531 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:45,531 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:45,531 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:45,532 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:45,534 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:55:45,865 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:45,869 INFO profile.fetch
+2025-12-23 00:55:45,869 INFO profile.loaded
+2025-12-23 00:55:45,869 INFO 127.0.0.1 - - [23/Dec/2025 00:55:45] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:46,216 INFO 127.0.0.1 - - [23/Dec/2025 00:55:46] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:46,220 INFO 127.0.0.1 - - [23/Dec/2025 00:55:46] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:46,220 INFO 127.0.0.1 - - [23/Dec/2025 00:55:46] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:46,221 INFO 127.0.0.1 - - [23/Dec/2025 00:55:46] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:46,221 INFO 127.0.0.1 - - [23/Dec/2025 00:55:46] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:46,223 INFO 127.0.0.1 - - [23/Dec/2025 00:55:46] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:55:46,530 INFO 127.0.0.1 - - [23/Dec/2025 00:55:46] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:46,533 INFO profile.fetch
+2025-12-23 00:55:46,533 INFO profile.loaded
+2025-12-23 00:55:46,533 INFO 127.0.0.1 - - [23/Dec/2025 00:55:46] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:48,534 INFO 127.0.0.1 - - [23/Dec/2025 00:55:48] "POST /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:49,126 INFO 127.0.0.1 - - [23/Dec/2025 00:55:49] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:49,131 INFO 127.0.0.1 - - [23/Dec/2025 00:55:49] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:49,131 INFO 127.0.0.1 - - [23/Dec/2025 00:55:49] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:49,131 INFO 127.0.0.1 - - [23/Dec/2025 00:55:49] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:49,132 INFO 127.0.0.1 - - [23/Dec/2025 00:55:49] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:49,133 INFO 127.0.0.1 - - [23/Dec/2025 00:55:49] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:55:49,604 INFO 127.0.0.1 - - [23/Dec/2025 00:55:49] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:49,610 INFO profile.fetch
+2025-12-23 00:55:49,610 INFO profile.loaded
+2025-12-23 00:55:49,611 INFO 127.0.0.1 - - [23/Dec/2025 00:55:49] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:52,075 INFO 127.0.0.1 - - [23/Dec/2025 00:55:52] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:52,080 INFO 127.0.0.1 - - [23/Dec/2025 00:55:52] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:52,080 INFO 127.0.0.1 - - [23/Dec/2025 00:55:52] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:52,081 INFO 127.0.0.1 - - [23/Dec/2025 00:55:52] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:52,082 INFO 127.0.0.1 - - [23/Dec/2025 00:55:52] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:52,082 INFO 127.0.0.1 - - [23/Dec/2025 00:55:52] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:55:52,418 INFO 127.0.0.1 - - [23/Dec/2025 00:55:52] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:52,422 INFO profile.fetch
+2025-12-23 00:55:52,422 INFO profile.loaded
+2025-12-23 00:55:52,422 INFO 127.0.0.1 - - [23/Dec/2025 00:55:52] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:53,527 INFO 127.0.0.1 - - [23/Dec/2025 00:55:53] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:53,532 INFO 127.0.0.1 - - [23/Dec/2025 00:55:53] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:53,533 INFO 127.0.0.1 - - [23/Dec/2025 00:55:53] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:53,533 INFO 127.0.0.1 - - [23/Dec/2025 00:55:53] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:53,534 INFO 127.0.0.1 - - [23/Dec/2025 00:55:53] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:53,535 INFO 127.0.0.1 - - [23/Dec/2025 00:55:53] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:55:53,867 INFO 127.0.0.1 - - [23/Dec/2025 00:55:53] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:53,870 INFO profile.fetch
+2025-12-23 00:55:53,870 INFO profile.loaded
+2025-12-23 00:55:53,870 INFO 127.0.0.1 - - [23/Dec/2025 00:55:53] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:54,732 INFO 127.0.0.1 - - [23/Dec/2025 00:55:54] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:54,737 INFO 127.0.0.1 - - [23/Dec/2025 00:55:54] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:54,737 INFO 127.0.0.1 - - [23/Dec/2025 00:55:54] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:54,738 INFO 127.0.0.1 - - [23/Dec/2025 00:55:54] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:54,738 INFO 127.0.0.1 - - [23/Dec/2025 00:55:54] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:54,740 INFO 127.0.0.1 - - [23/Dec/2025 00:55:54] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:55:55,041 INFO 127.0.0.1 - - [23/Dec/2025 00:55:55] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:55,044 INFO profile.fetch
+2025-12-23 00:55:55,044 INFO profile.loaded
+2025-12-23 00:55:55,045 INFO 127.0.0.1 - - [23/Dec/2025 00:55:55] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:55,328 INFO 127.0.0.1 - - [23/Dec/2025 00:55:55] "POST /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:56,336 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "[32mGET /generate HTTP/1.1[0m" 302 -
+2025-12-23 00:55:56,339 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /generate/social HTTP/1.1" 200 -
+2025-12-23 00:55:56,345 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:56,346 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:56,347 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:56,347 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:56,360 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /static/js/chip_selector.js HTTP/1.1" 200 -
+2025-12-23 00:55:56,360 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:55:56,361 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:55:56,362 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:55:56,362 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /static/social_copy_first_renderer.js HTTP/1.1" 200 -
+2025-12-23 00:55:56,362 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /static/js/profile_hydrator_v2.js HTTP/1.1" 200 -
+2025-12-23 00:55:56,488 INFO brand_kit.loaded
+2025-12-23 00:55:56,489 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /api/brand_kit HTTP/1.1" 200 -
+2025-12-23 00:55:56,490 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:56,493 INFO profile_v2.fetch
+2025-12-23 00:55:56,494 INFO profile_v2.loaded
+2025-12-23 00:55:56,494 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "GET /api/profile_v2 HTTP/1.1" 200 -
+2025-12-23 00:55:56,497 INFO 127.0.0.1 - - [23/Dec/2025 00:55:56] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:55:57,410 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:57,415 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:55:57,416 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:57,416 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:55:57,416 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:55:57,418 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:55:57,745 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:57,751 INFO profile.fetch
+2025-12-23 00:55:57,751 INFO profile.loaded
+2025-12-23 00:55:57,751 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:57,920 INFO 127.0.0.1 - - [23/Dec/2025 00:55:57] "POST /api/profile HTTP/1.1" 200 -
+2025-12-23 00:55:58,927 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "[32mGET /generate HTTP/1.1[0m" 302 -
+2025-12-23 00:55:58,929 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "GET /generate/social HTTP/1.1" 200 -
+2025-12-23 00:55:58,937 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:58,938 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:58,939 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:58,939 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:58,951 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:55:58,951 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "GET /static/js/chip_selector.js HTTP/1.1" 200 -
+2025-12-23 00:55:58,952 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "GET /static/social_copy_first_renderer.js HTTP/1.1" 200 -
+2025-12-23 00:55:58,952 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "GET /static/dashboard.js HTTP/1.1" 200 -
+2025-12-23 00:55:58,953 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "GET /static/js/profile_hydrator_v2.js HTTP/1.1" 200 -
+2025-12-23 00:55:58,953 INFO 127.0.0.1 - - [23/Dec/2025 00:55:58] "GET /static/js/publishing_queue_state_init.js HTTP/1.1" 200 -
+2025-12-23 00:55:59,078 INFO brand_kit.loaded
+2025-12-23 00:55:59,079 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "GET /api/brand_kit HTTP/1.1" 200 -
+2025-12-23 00:55:59,080 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:55:59,084 INFO profile_v2.fetch
+2025-12-23 00:55:59,084 INFO profile_v2.loaded
+2025-12-23 00:55:59,084 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "GET /api/profile_v2 HTTP/1.1" 200 -
+2025-12-23 00:55:59,087 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "[31m[1mGET /api/templates HTTP/1.1[0m" 401 -
+2025-12-23 00:55:59,932 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:55:59,940 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "[36mGET /static/eazeily-theme.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:59,940 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "[36mGET /static/styles.css HTTP/1.1[0m" 304 -
+2025-12-23 00:55:59,940 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "[36mGET /static/eazeily-logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:59,940 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "[36mGET /static/logo.svg HTTP/1.1[0m" 304 -
+2025-12-23 00:55:59,943 INFO 127.0.0.1 - - [23/Dec/2025 00:55:59] "[36mGET /static/quality_builder.js HTTP/1.1[0m" 304 -
+2025-12-23 00:56:00,006 INFO 127.0.0.1 - - [23/Dec/2025 00:56:00] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:00,019 INFO profile.fetch
+2025-12-23 00:56:00,020 INFO profile.loaded
+2025-12-23 00:56:00,020 INFO 127.0.0.1 - - [23/Dec/2025 00:56:00] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:01,130 INFO 127.0.0.1 - - [23/Dec/2025 00:56:01] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:01,135 INFO 127.0.0.1 - - [23/Dec/2025 00:56:01] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:01,136 INFO 127.0.0.1 - - [23/Dec/2025 00:56:01] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:01,137 INFO 127.0.0.1 - - [23/Dec/2025 00:56:01] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:01,137 INFO 127.0.0.1 - - [23/Dec/2025 00:56:01] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:01,139 INFO 127.0.0.1 - - [23/Dec/2025 00:56:01] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:01,461 INFO 127.0.0.1 - - [23/Dec/2025 00:56:01] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:01,464 INFO profile.fetch
+2025-12-23 00:56:01,464 INFO profile.loaded
+2025-12-23 00:56:01,464 INFO 127.0.0.1 - - [23/Dec/2025 00:56:01] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:03,340 INFO 127.0.0.1 - - [23/Dec/2025 00:56:03] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:03,344 INFO 127.0.0.1 - - [23/Dec/2025 00:56:03] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:03,345 INFO 127.0.0.1 - - [23/Dec/2025 00:56:03] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:03,345 INFO 127.0.0.1 - - [23/Dec/2025 00:56:03] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:03,346 INFO 127.0.0.1 - - [23/Dec/2025 00:56:03] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:03,347 INFO 127.0.0.1 - - [23/Dec/2025 00:56:03] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:03,691 INFO 127.0.0.1 - - [23/Dec/2025 00:56:03] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:03,694 INFO profile.fetch
+2025-12-23 00:56:03,694 INFO profile.loaded
+2025-12-23 00:56:03,695 INFO 127.0.0.1 - - [23/Dec/2025 00:56:03] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:06,176 INFO 127.0.0.1 - - [23/Dec/2025 00:56:06] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:06,180 INFO 127.0.0.1 - - [23/Dec/2025 00:56:06] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:06,181 INFO 127.0.0.1 - - [23/Dec/2025 00:56:06] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:06,182 INFO 127.0.0.1 - - [23/Dec/2025 00:56:06] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:06,182 INFO 127.0.0.1 - - [23/Dec/2025 00:56:06] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:06,184 INFO 127.0.0.1 - - [23/Dec/2025 00:56:06] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:06,540 INFO 127.0.0.1 - - [23/Dec/2025 00:56:06] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:06,543 INFO profile.fetch
+2025-12-23 00:56:06,543 INFO profile.loaded
+2025-12-23 00:56:06,543 INFO 127.0.0.1 - - [23/Dec/2025 00:56:06] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:08,230 INFO 127.0.0.1 - - [23/Dec/2025 00:56:08] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:08,235 INFO 127.0.0.1 - - [23/Dec/2025 00:56:08] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:08,235 INFO 127.0.0.1 - - [23/Dec/2025 00:56:08] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:08,235 INFO 127.0.0.1 - - [23/Dec/2025 00:56:08] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:08,236 INFO 127.0.0.1 - - [23/Dec/2025 00:56:08] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:08,238 INFO 127.0.0.1 - - [23/Dec/2025 00:56:08] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:08,541 INFO 127.0.0.1 - - [23/Dec/2025 00:56:08] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:08,545 INFO profile.fetch
+2025-12-23 00:56:08,545 INFO profile.loaded
+2025-12-23 00:56:08,545 INFO 127.0.0.1 - - [23/Dec/2025 00:56:08] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:09,331 INFO 127.0.0.1 - - [23/Dec/2025 00:56:09] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:09,335 INFO 127.0.0.1 - - [23/Dec/2025 00:56:09] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:09,336 INFO 127.0.0.1 - - [23/Dec/2025 00:56:09] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:09,337 INFO 127.0.0.1 - - [23/Dec/2025 00:56:09] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:09,337 INFO 127.0.0.1 - - [23/Dec/2025 00:56:09] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:09,340 INFO 127.0.0.1 - - [23/Dec/2025 00:56:09] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:09,658 INFO 127.0.0.1 - - [23/Dec/2025 00:56:09] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:09,662 INFO profile.fetch
+2025-12-23 00:56:09,662 INFO profile.loaded
+2025-12-23 00:56:09,662 INFO 127.0.0.1 - - [23/Dec/2025 00:56:09] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:10,625 INFO 127.0.0.1 - - [23/Dec/2025 00:56:10] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:10,631 INFO 127.0.0.1 - - [23/Dec/2025 00:56:10] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:10,631 INFO 127.0.0.1 - - [23/Dec/2025 00:56:10] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:10,631 INFO 127.0.0.1 - - [23/Dec/2025 00:56:10] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:10,631 INFO 127.0.0.1 - - [23/Dec/2025 00:56:10] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:10,633 INFO 127.0.0.1 - - [23/Dec/2025 00:56:10] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:11,008 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:11,011 INFO profile.fetch
+2025-12-23 00:56:11,011 INFO profile.loaded
+2025-12-23 00:56:11,011 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:11,433 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:11,438 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:11,439 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:11,439 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:11,439 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:11,441 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:11,783 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:11,786 INFO profile.fetch
+2025-12-23 00:56:11,786 INFO profile.loaded
+2025-12-23 00:56:11,786 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:11,902 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:11,908 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:11,908 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:11,908 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:11,908 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:11,911 INFO 127.0.0.1 - - [23/Dec/2025 00:56:11] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:12,225 INFO 127.0.0.1 - - [23/Dec/2025 00:56:12] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:12,229 INFO profile.fetch
+2025-12-23 00:56:12,229 INFO profile.loaded
+2025-12-23 00:56:12,229 INFO 127.0.0.1 - - [23/Dec/2025 00:56:12] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:13,629 INFO 127.0.0.1 - - [23/Dec/2025 00:56:13] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:13,633 INFO 127.0.0.1 - - [23/Dec/2025 00:56:13] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:13,634 INFO 127.0.0.1 - - [23/Dec/2025 00:56:13] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:13,634 INFO 127.0.0.1 - - [23/Dec/2025 00:56:13] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:13,635 INFO 127.0.0.1 - - [23/Dec/2025 00:56:13] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:13,637 INFO 127.0.0.1 - - [23/Dec/2025 00:56:13] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:13,962 INFO 127.0.0.1 - - [23/Dec/2025 00:56:13] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:13,964 INFO profile.fetch
+2025-12-23 00:56:13,964 INFO profile.loaded
+2025-12-23 00:56:13,965 INFO 127.0.0.1 - - [23/Dec/2025 00:56:13] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:14,821 INFO 127.0.0.1 - - [23/Dec/2025 00:56:14] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:14,827 INFO 127.0.0.1 - - [23/Dec/2025 00:56:14] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:14,827 INFO 127.0.0.1 - - [23/Dec/2025 00:56:14] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:14,827 INFO 127.0.0.1 - - [23/Dec/2025 00:56:14] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:14,827 INFO 127.0.0.1 - - [23/Dec/2025 00:56:14] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:14,829 INFO 127.0.0.1 - - [23/Dec/2025 00:56:14] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:15,124 INFO 127.0.0.1 - - [23/Dec/2025 00:56:15] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:15,127 INFO profile.fetch
+2025-12-23 00:56:15,127 INFO profile.loaded
+2025-12-23 00:56:15,128 INFO 127.0.0.1 - - [23/Dec/2025 00:56:15] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:15,939 INFO 127.0.0.1 - - [23/Dec/2025 00:56:15] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:15,944 INFO 127.0.0.1 - - [23/Dec/2025 00:56:15] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:15,944 INFO 127.0.0.1 - - [23/Dec/2025 00:56:15] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:15,944 INFO 127.0.0.1 - - [23/Dec/2025 00:56:15] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:15,944 INFO 127.0.0.1 - - [23/Dec/2025 00:56:15] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:15,947 INFO 127.0.0.1 - - [23/Dec/2025 00:56:15] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:16,268 INFO 127.0.0.1 - - [23/Dec/2025 00:56:16] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:16,271 INFO profile.fetch
+2025-12-23 00:56:16,271 INFO profile.loaded
+2025-12-23 00:56:16,271 INFO 127.0.0.1 - - [23/Dec/2025 00:56:16] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:18,650 INFO 127.0.0.1 - - [23/Dec/2025 00:56:18] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:18,655 INFO 127.0.0.1 - - [23/Dec/2025 00:56:18] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:18,656 INFO 127.0.0.1 - - [23/Dec/2025 00:56:18] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:18,656 INFO 127.0.0.1 - - [23/Dec/2025 00:56:18] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:18,656 INFO 127.0.0.1 - - [23/Dec/2025 00:56:18] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:18,658 INFO 127.0.0.1 - - [23/Dec/2025 00:56:18] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:18,979 INFO 127.0.0.1 - - [23/Dec/2025 00:56:18] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:18,985 INFO profile.fetch
+2025-12-23 00:56:18,985 INFO profile.loaded
+2025-12-23 00:56:18,986 INFO 127.0.0.1 - - [23/Dec/2025 00:56:18] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:22,081 INFO 127.0.0.1 - - [23/Dec/2025 00:56:22] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:22,086 INFO 127.0.0.1 - - [23/Dec/2025 00:56:22] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:22,087 INFO 127.0.0.1 - - [23/Dec/2025 00:56:22] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:22,087 INFO 127.0.0.1 - - [23/Dec/2025 00:56:22] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:22,088 INFO 127.0.0.1 - - [23/Dec/2025 00:56:22] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:22,089 INFO 127.0.0.1 - - [23/Dec/2025 00:56:22] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:22,425 INFO 127.0.0.1 - - [23/Dec/2025 00:56:22] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:22,428 INFO profile.fetch
+2025-12-23 00:56:22,429 INFO profile.loaded
+2025-12-23 00:56:22,429 INFO 127.0.0.1 - - [23/Dec/2025 00:56:22] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:23,611 INFO 127.0.0.1 - - [23/Dec/2025 00:56:23] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:23,616 INFO 127.0.0.1 - - [23/Dec/2025 00:56:23] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:23,616 INFO 127.0.0.1 - - [23/Dec/2025 00:56:23] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:23,617 INFO 127.0.0.1 - - [23/Dec/2025 00:56:23] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:23,617 INFO 127.0.0.1 - - [23/Dec/2025 00:56:23] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:23,618 INFO 127.0.0.1 - - [23/Dec/2025 00:56:23] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:23,940 INFO 127.0.0.1 - - [23/Dec/2025 00:56:23] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:23,943 INFO profile.fetch
+2025-12-23 00:56:23,943 INFO profile.loaded
+2025-12-23 00:56:23,944 INFO 127.0.0.1 - - [23/Dec/2025 00:56:23] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:56:24,946 INFO 127.0.0.1 - - [23/Dec/2025 00:56:24] "GET /quality-builder HTTP/1.1" 200 -
+2025-12-23 00:56:24,951 INFO 127.0.0.1 - - [23/Dec/2025 00:56:24] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:24,951 INFO 127.0.0.1 - - [23/Dec/2025 00:56:24] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:56:24,951 INFO 127.0.0.1 - - [23/Dec/2025 00:56:24] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:56:24,952 INFO 127.0.0.1 - - [23/Dec/2025 00:56:24] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:56:24,953 INFO 127.0.0.1 - - [23/Dec/2025 00:56:24] "GET /static/quality_builder.js HTTP/1.1" 200 -
+2025-12-23 00:56:25,265 INFO 127.0.0.1 - - [23/Dec/2025 00:56:25] "GET /static/content/config.json HTTP/1.1" 200 -
+2025-12-23 00:56:25,268 INFO profile.fetch
+2025-12-23 00:56:25,268 INFO profile.loaded
+2025-12-23 00:56:25,268 INFO 127.0.0.1 - - [23/Dec/2025 00:56:25] "GET /api/profile HTTP/1.1" 200 -
