@@ -4,16 +4,31 @@ flask-login
 google-generativeai
 python-dotenv
 requests
-gunicorn
+flask==3.0.3
+Flask-SQLAlchemy
+Flask-Login
+Flask-Cors==4.0.1
+requests==2.31.0
+gunicorn==21.2.0
 whitenoise
 psycopg2-binary
-flaskFlask==3.0.3
 
-flask-sqlalchemyFlask-Cors==4.0.1
+PyYAML==6.0.2
+stripe==12.0.0
+python-dotenv==1.0.0
+pytest==7.4.0
+playwright==1.43.0
+SQLAlchemy==2.0.36
+alembic==1.13.3
+beautifulsoup4==4.12.3
+pillow==10.4.0
+google-genai
+# legacy fallback for older deployments; modern code uses `google-genai` and runtime code
+# prefers that package. Keep this only if you need the older shape; otherwise remove.
+google-generativeai>=0.7.0
 
-flask-loginpython-dateutil==2.9.0.post0
-
-google-generativeaigoogle-generativeai>=0.7.0
+# Keep a minimal, one-package-per-line clean manifest. If you want to pin further
+# packages for deterministic builds, add explicit versions here.
 
 python-dotenv# pin to a released pillow version available on PyPI for this build image
 
