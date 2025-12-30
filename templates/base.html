@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>{% block title %}Eazeily{% endblock %}</title>
+  </head>
+  <body class="bg-gray-50 text-gray-900">
+    <div class="min-h-screen flex">
+      <aside class="w-64 bg-white border-r hidden md:block">
+        <div class="p-4 text-xl font-semibold">Eazeily</div>
+        <nav class="p-4">
+          <a class="block py-2 px-3 rounded hover:bg-gray-100" href="/">Dashboard</a>
+          <a class="block py-2 px-3 rounded hover:bg-gray-100" href="/setup/voice">Voice</a>
+          <a class="block py-2 px-3 rounded hover:bg-gray-100" href="/auth/login">Settings</a>
+        </nav>
+      </aside>
+      <main class="flex-1 p-6">
+        <div class="max-w-4xl mx-auto">
+          {% block content %}{% endblock %}
+        </div>
+      </main>
+    </div>
+  </body>
+  </html>

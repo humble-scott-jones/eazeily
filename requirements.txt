@@ -1,10 +1,25 @@
-Flask==3.0.3
-Flask-Cors==4.0.1
-python-dateutil==2.9.0.post0
-google-generativeai>=0.7.0
-# pin to a released pillow version available on PyPI for this build image
-pillow==10.4.0
-requests==2.31.0
+flask
+flask-sqlalchemy
+flask-login
+google-generativeai
+python-dotenv
+requests
+gunicorn
+whitenoise
+psycopg2-binary
+flaskFlask==3.0.3
+
+flask-sqlalchemyFlask-Cors==4.0.1
+
+flask-loginpython-dateutil==2.9.0.post0
+
+google-generativeaigoogle-generativeai>=0.7.0
+
+python-dotenv# pin to a released pillow version available on PyPI for this build image
+
+requestspillow==10.4.0
+
+gunicornrequests==2.31.0
 PyYAML==6.0.2
 stripe==12.0.0
 python-dotenv==1.0.0

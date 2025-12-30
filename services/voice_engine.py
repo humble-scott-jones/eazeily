@@ -1,134 +1,106 @@
 import os
-import logging
-from typing import Optional, Dict, Any
-
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except Exception:
-    pass
+import json
+from typing import Dict, List, Any
 
 try:
     import google.generativeai as genai
-except Exception:
+except Exception:  # pragma: no cover - genai may not be installed in test env
     genai = None
 
-logger = logging.getLogger(__name__)
 
-
-class VoiceAnalyzer:
-    """Wraps Google Gemini calls to analyze a user's writing style and
-    generate content in that voice.
-
-    This class isolates external API calls so they can be easily mocked in
-    tests.
+class VoiceEngine:
+    """Simple wrapper around Gemini (gemini-1.5-flash) for style analysis
+    and few-shot generation. This class intentionally keeps calls compact and
+    returns plain Python structures (dicts / lists) so callers can store results
+    in the DB.
     """
 
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        if not self.api_key:
-            logger.warning("GEMINI_API_KEY not set; API calls will fail in production")
-        if genai is not None:
+    def __init__(self, api_key: str | None = None):
+        self.api_key = api_key or os.getenv('GENAI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+        self.genai = genai
+        if self.genai and self.api_key:
             try:
-                # configure client if supported
-                if hasattr(genai, "configure"):
-                    try:
-                        genai.configure(api_key=self.api_key)
-                    except Exception:
-                        # older/newer libs might differ; ignore configure errors
-                        pass
-                self.client = genai
+                # library provides simple configure function in many versions
+                try:
+                    self.genai.configure(api_key=self.api_key)
+                except Exception:
+                    # older/newer shims may differ; ignore if configure missing
+                    pass
             except Exception:
-                self.client = None
-        else:
-            self.client = None
+                pass
 
-    def _call_model(self, model: str, prompt: str, system_instruction: Optional[str] = None,
-                    temperature: float = 0.7, max_output_tokens: int = 512) -> str:
-        """Single place to call Gemini. Returns the generated text.
+    def analyze_style(self, raw_text: str) -> Dict[str, Any]:
+        """Analyze provided raw text and return a small style guide and
+        a list of example quotes that represent the voice.
 
-        The implementation attempts to use the common entry points of the
-        `google.generativeai` package but keeps errors obvious so tests can
-        mock this method instead of the underlying client.
+        Returns: {"style_guide": str, "examples": [str,...]}
         """
-        if self.client is None:
-            raise RuntimeError("google.generativeai is not available")
-
-        # Prefer a simple generate_text API where available
-        try:
-            if hasattr(self.client, "generate_text"):
-                # Some versions expose generate_text(model=..., input=...)
-                resp = self.client.generate_text(model=model, input=prompt, temperature=temperature)
-                # resp may be a dict-like or an object with candidates/content
-                if isinstance(resp, dict):
-                    # new style: {'candidates':[{'content': '...'}], ...}
-                    c = resp.get("candidates")
-                    if c and isinstance(c, list) and len(c) > 0:
-                        return c[0].get("content", "")
-                    return resp.get("content") or str(resp)
-                # try to extract text attr
-                text = getattr(resp, "text", None) or getattr(resp, "content", None)
-                if text:
-                    return text
-                return str(resp)
-
-            # Fallback older API: TextGenerationModel
-            if hasattr(self.client, "TextGenerationModel"):
-                Model = self.client.TextGenerationModel.from_pretrained(model)
-                out = Model.generate(prompt=prompt, temperature=temperature)
-                text = getattr(out, "text", None) or getattr(out, "content", None)
-                if text:
-                    return text
-                return str(out)
-
-        except Exception as e:
-            logger.exception("Error calling Gemini model %s", model)
-            raise
-
-        raise RuntimeError("No supported client interface found on google.generativeai")
-
-    def analyze_style(self, text_content: str) -> str:
-        """Analyze provided text and return a concise 'System Instruction'
-        paragraph that instructs an AI how to write like the author.
-        """
-        system_prompt = (
-            "You are a linguistic expert. Analyze the provided text. Extract the "
-            "specific tone, sentence structure patterns, vocabulary level, emoji usage frequency, "
-            "and controversial/contrarian scale. Return a concise 'System Instruction' paragraph "
-            "that would tell an AI how to write exactly like this person."
-        )
-
-        prompt = f"TEXT_TO_ANALYZE:\n\n{text_content}\n\nPlease return ONLY the System Instruction paragraph."
-        try:
-            model = "gemini-1.5-flash"
-            out = self._call_model(model=model, prompt=prompt, system_instruction=system_prompt,
-                                   temperature=0.2, max_output_tokens=300)
-            # Basic post-processing: strip and return
-            return (out or "").strip()
-        except Exception:
-            logger.exception("analyze_style failed; falling back to generic instruction")
-            return (
-                "Write in a clear, professional, and helpful tone. Mirror the author's sentence "
-                "lengths, punctuation, and vocabulary level. Keep messages concise and use emojis "
-                "sparingly, matching frequency observed in the sample."
-            )
-
-    def generate_with_voice(self, user_tier: str, style_instruction: str, topic: str, platform: str) -> Dict[str, Any]:
-        """Generate content for a topic using the provided style instruction.
-
-        Returns a dict with keys: ok (bool), model (str), output (str) or error.
-        """
-        model = "gemini-1.5-pro" if user_tier == "pro" else "gemini-1.5-flash"
-        temperature = 0.8 if user_tier == "pro" else 0.3
         prompt = (
-            f"SYSTEM_INSTRUCTION:\n{style_instruction}\n\n" 
-            f"TASK: Write a short {platform} post about: {topic}\n" 
-            f"Constraints: Keep it concise, on-brand, and follow the system instruction."
+            "Extract a concise style guide (3-4 bullet points) and pick 5 short example "
+            "quotes from the text that best represent the author's voice. Return as JSON "
+            "with keys 'style_guide' (string) and 'examples' (array of strings).\n\n" + raw_text
         )
+
+        if not self.genai:
+            # Best-effort fallback: naive heuristics
+            lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
+            examples = lines[:5]
+            return {"style_guide": "; ".join((lines[:3] if lines else ['conversational'])), "examples": examples}
+
         try:
-            out = self._call_model(model=model, prompt=prompt, system_instruction=style_instruction,
-                                   temperature=temperature, max_output_tokens=256)
-            return {"ok": True, "model": model, "output": (out or "").strip()}
-        except Exception as e:
-            logger.exception("generate_with_voice failed")
-            return {"ok": False, "error": str(e)}
+            response = self.genai.generate_text(model='gemini-1.5-flash', prompt=prompt)
+            # support multiple shapes: prefer response.candidates[0].content or response.output
+            text = None
+            if hasattr(response, 'candidates') and response.candidates:
+                text = response.candidates[0].content
+            elif isinstance(response, dict) and 'output' in response:
+                text = response['output']
+            else:
+                text = str(response)
+
+            # Try to coerce JSON out of response text
+            try:
+                parsed = json.loads(text)
+                style = parsed.get('style_guide') or parsed.get('style') or ""
+                examples = parsed.get('examples') or parsed.get('quotes') or []
+                return {"style_guide": style, "examples": examples}
+            except Exception:
+                # fallback: heuristics
+                lines = [l.strip() for l in text.splitlines() if l.strip()]
+                style = lines[0] if lines else ''
+                examples = lines[1:6]
+                return {"style_guide": style, "examples": examples}
+        except Exception:
+            # failure fallback
+            lines = [l.strip() for l in raw_text.splitlines() if l.strip()]
+            return {"style_guide": "conversational; helpful; concise", "examples": lines[:5]}
+
+    def generate_post(self, profile: Dict[str, Any], topic: str) -> str:
+        """Generate a post using few-shot prompting. The profile should expose
+        a 'style_guide' and 'examples' (iterable of short strings). The method
+        inserts the examples into the prompt context before asking for a new post.
+        Returns the generated post as text.
+        """
+        style = profile.get('style_guide') or ''
+        examples = profile.get('examples') or []
+
+        example_block = '\n'.join([f"- {e}" for e in examples])
+        prompt = (
+            f"You are a creative social writer. Follow this style guide:\n{style}\n\n"
+            f"Here are example quotes representing the voice:\n{example_block}\n\n"
+            f"Write a single social post about: {topic}\n- keep it short (1-3 sentences), on-brand, and follow the style guide."
+        )
+
+        if not self.genai:
+            # fallback deterministic stub
+            return f"{topic} — written in a {('professional' if 'pro' in style.lower() else 'conversational')} tone."
+
+        try:
+            response = self.genai.generate_text(model='gemini-1.5-flash', prompt=prompt)
+            if hasattr(response, 'candidates') and response.candidates:
+                return response.candidates[0].content.strip()
+            if isinstance(response, dict) and 'output' in response:
+                return str(response['output']).strip()
+            return str(response).strip()
+        except Exception:
+                return f"{topic} — (generated fallback)"

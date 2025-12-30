@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Voice Setup - Eazeily{% endblock %}
+
+{% block content %}
+  <h1 class="text-2xl font-bold mb-4">Setup Voice Profile</h1>
+
+  <form method="post" enctype="multipart/form-data" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium">URL to ingest</label>
+      <input name="url" type="text" class="mt-1 block w-full border rounded p-2" placeholder="https://example.com/blog-post" />
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium">Or upload a file</label>
+      <input name="file" type="file" class="mt-1 block w-full" />
+    </div>
+
+    <div>
+      <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded">Ingest & Analyze</button>
+    </div>
+  </form>
+{% endblock %}
