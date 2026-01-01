@@ -16,11 +16,10 @@ def create_app():
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
     
     # Database Configuration
-    database_url = os.getenv("DATABASE_URL")
-    if database_url and database_url.startswith("postgres://"):
-        database_url = database_url.replace("postgres://", "postgresql://", 1)
-    
-    app.config['SQLALCHEMY_DATABASE_URI'] = database_url or 'sqlite:///local.db'
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url or 'sqlite:///local.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # Initialize Extensions
@@ -29,6 +28,10 @@ def create_app():
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
+    
+    # Auto-create tables
+    with app.app_context():
+        db.create_all()
     
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -44,16 +47,6 @@ def create_app():
     # Register Blueprints
     from routes.wizard import wizard_bp
     app.register_blueprint(wizard_bp)
-
-    # Auto-create tables
-    with app.app_context():
-        try:
-            db.create_all()
-            logger.info("Database tables created successfully.")
-        except Exception as e:
-            logger.error(f"Error creating database tables: {e}")
-            # We might want to continue even if this fails, or fail hard.
-            # For now, log it.
 
     return app
 
