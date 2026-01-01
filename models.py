@@ -1,34 +1,29 @@
-from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
+from datetime import datetime
+import json
 
 db = SQLAlchemy()
 
-
 class User(UserMixin, db.Model):
-    __tablename__ = 'users'
-
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(255), unique=True, index=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=True)
-    tier = db.Column(db.String(20), default='free', nullable=False)
-
-    profiles = db.relationship('VoiceProfile', backref='user', lazy='dynamic')
-
-    def __repr__(self) -> str:  # pragma: no cover - simple repr
-        return f"<User {self.email} id={self.id}>"
-
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    tier = db.Column(db.String(20), default='free')
+    
+    # Relationship
+    voice_profile = db.relationship('VoiceProfile', backref='user', uselist=False)
 
 class VoiceProfile(db.Model):
-    __tablename__ = 'voice_profiles'
-
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    bio = db.Column(db.Text, nullable=True)
-    style_guide = db.Column(db.Text, nullable=True)
-    # examples can be stored as JSON when supported by the DB
-    examples = db.Column(db.JSON, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    bio = db.Column(db.Text)
+    style_guide = db.Column(db.Text)
+    examples = db.Column(db.Text)  # Storing JSON as Text
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def __repr__(self) -> str:
-        return f"<VoiceProfile id={self.id} user_id={self.user_id}>"
+    def set_examples(self, examples_list):
+        self.examples = json.dumps(examples_list)
+
+    def get_examples(self):
+        return json.loads(self.examples) if self.examples else []
