@@ -4,6 +4,7 @@ Test database configuration for Railway PostgreSQL deployment.
 import os
 import pytest
 from unittest.mock import patch, MagicMock
+from sqlalchemy.exc import OperationalError, DatabaseError
 
 
 def test_postgres_url_converted_to_postgresql():
@@ -45,11 +46,11 @@ def test_no_database_url_uses_sqlite():
 
 def test_tables_created_on_app_initialization():
     """Test that database tables are created when app is initialized."""
+    from app import create_app
+    from models import User, VoiceProfile
+    
     with patch.dict(os.environ, {}, clear=True):
         os.environ.pop('DATABASE_URL', None)
-        
-        from app import create_app
-        from models import db, User, VoiceProfile
         
         app = create_app()
         
@@ -61,7 +62,7 @@ def test_tables_created_on_app_initialization():
                 User.query.all()
                 VoiceProfile.query.all()
                 tables_exist = True
-            except Exception:
+            except (OperationalError, DatabaseError):
                 tables_exist = False
             
             assert tables_exist, "Database tables should be created on app initialization"
