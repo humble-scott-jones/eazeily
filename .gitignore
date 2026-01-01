@@ -3,6 +3,7 @@ test_venv/
 togetherly.db
 swelly.db
 eazeily.db
+instance/
 node_modules/
 tmp/
 *.pyc
