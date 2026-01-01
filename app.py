@@ -49,7 +49,7 @@ def create_app():
     app.register_blueprint(wizard_bp)
 
     # Health check endpoint for Railway
-    @app.route('/up')
+    @app.route('/healthz')
     def health_check():
         return "OK", 200
 
