@@ -135,6 +135,18 @@ def create_app(config_object: Optional[str] = None) -> Flask:
         # if the DB isn't reachable yet, let the app still start; failures will show in logs
         pass
 
+    # DEBUG: Log presence (not value) of AI-related environment variables so we
+    # can verify whether the runtime has access to secrets without exposing them.
+    try:
+        genai_present = bool(os.getenv('GENAI_API_KEY') or os.getenv('GOOGLE_API_KEY'))
+        openai_present = bool(os.getenv('OPENAI_API_KEY'))
+        app.logger.info(
+            f"Startup env: GENAI present={genai_present}, OPENAI present={openai_present}"
+        )
+    except Exception:
+        # Don't let logging errors prevent app startup
+        pass
+
     return app
 
 
