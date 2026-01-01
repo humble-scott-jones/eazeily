@@ -1,8 +1,13 @@
 import os
+import logging
 from flask import Flask
 from flask_login import LoginManager
 from whitenoise import WhiteNoise
 from models import db, User
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def create_app():
     app = Flask(__name__)
@@ -19,7 +24,11 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # Initialize Extensions
-    db.init_app(app)
+    try:
+        db.init_app(app)
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        raise
     
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -38,7 +47,13 @@ def create_app():
 
     # Auto-create tables
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+            logger.info("Database tables created successfully.")
+        except Exception as e:
+            logger.error(f"Error creating database tables: {e}")
+            # We might want to continue even if this fails, or fail hard.
+            # For now, log it.
 
     return app
 

@@ -1,22 +1,36 @@
 import os
 import json
+import logging
 import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 # Configure Gemini
-genai.configure(api_key=os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    logger.error("No API key found for Gemini. Please set GENAI_API_KEY or GOOGLE_API_KEY.")
+else:
+    genai.configure(api_key=api_key)
 
 class VoiceEngine:
     def __init__(self):
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        try:
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini model: {e}")
+            self.model = None
 
     def analyze_style(self, raw_text):
         """
         Analyzes raw text to extract a style guide and examples.
         Returns a JSON object with 'style_guide' and 'examples'.
         """
+        if not self.model:
+            logger.error("VoiceEngine model is not initialized.")
+            return {"style_guide": "Error: AI model not available.", "examples": []}
+
         prompt = """
         You are an expert content strategist. Analyze the following text to create a Voice Profile.
         
@@ -34,13 +48,17 @@ class VoiceEngine:
             text_response = response.text.replace('```json', '').replace('```', '').strip()
             return json.loads(text_response)
         except Exception as e:
-            print(f"Error in analyze_style: {e}")
-            return {"style_guide": "Default professional tone.", "examples": []}
+            logger.error(f"Error in analyze_style: {e}")
+            return {"style_guide": "Default professional tone (Error during analysis).", "examples": []}
 
     def generate_post(self, profile, topic):
         """
         Generates a post based on the profile and topic using Few-Shot Prompting.
         """
+        if not self.model:
+            logger.error("VoiceEngine model is not initialized.")
+            return "Error: AI model not available."
+
         examples = profile.get_examples()
         style_guide = profile.style_guide
         
@@ -67,5 +85,5 @@ class VoiceEngine:
             response = self.model.generate_content(prompt)
             return response.text.strip()
         except Exception as e:
-            print(f"Error in generate_post: {e}")
+            logger.error(f"Error in generate_post: {e}")
             return "Error generating content."
