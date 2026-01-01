@@ -101,7 +101,7 @@ def test_generate_post_with_examples(mock_genai):
     call_args = mock_model.generate_content.call_args[0][0]
     
     # Verify the prompt includes examples and the required format
-    assert "Here are 3 examples" in call_args or "Here are" in call_args.lower()
+    assert "examples of the user's past writing style" in call_args.lower()
     assert "Example post 1" in call_args
     assert "MIMICKING this style exactly" in call_args
     assert "New product launch" in call_args
@@ -175,10 +175,9 @@ def test_generate_post_uses_correct_prompt_format_with_examples(mock_genai):
     # Verify the prompt structure
     call_args = mock_model.generate_content.call_args[0][0]
     
-    # Check for key phrases from the required format
-    assert "Here are" in call_args
+    # Check for key phrases from the required format (using consistent case-insensitive checks)
     assert "examples of the user's past writing style" in call_args.lower()
-    assert "Study the sentence length, vocabulary, and tone" in call_args
+    assert "study the sentence length, vocabulary, and tone" in call_args.lower()
     assert "MIMICKING this style exactly" in call_args
     assert "climate change" in call_args
 

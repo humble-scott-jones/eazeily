@@ -78,9 +78,11 @@ class VoiceEngine:
             """
         else:
             # Use Few-Shot prompting with examples
-            examples_text = "\n\n".join([f"Example {i+1}: {ex}" for i, ex in enumerate(examples[:3])])
+            examples_to_use = examples[:3]
+            num_examples = len(examples_to_use)
+            examples_text = "\n\n".join([f"Example {i+1}: {ex}" for i, ex in enumerate(examples_to_use)])
             prompt = f"""
-Here are 3 examples of the user's past writing style. Study the sentence length, vocabulary, and tone.
+Here are {num_examples} examples of the user's past writing style. Study the sentence length, vocabulary, and tone.
 
 {examples_text}
 
