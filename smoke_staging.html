@@ -1,0 +1,751 @@
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Eazeily – Simple, smart social media that sounds like you</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+  <link rel="stylesheet" href="/static/eazeily-theme.css">
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<style>*, ::before, ::after{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgb(59 130 246 / 0.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/* ! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com */*,::after,::before{box-sizing:border-box;border-width:0;border-style:solid;border-color:#e5e7eb}::after,::before{--tw-content:''}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;tab-size:4;font-family:ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0;padding:0}legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0, 0, 0, 0);white-space:nowrap;border-width:0}.pointer-events-none{pointer-events:none}.fixed{position:fixed}.absolute{position:absolute}.relative{position:relative}.sticky{position:sticky}.inset-0{inset:0px}.-bottom-8{bottom:-2rem}.bottom-0{bottom:0px}.left-10{left:2.5rem}.left-20{left:5rem}.right-10{right:2.5rem}.top-20{top:5rem}.top-40{top:10rem}.top-6{top:1.5rem}.left-1\/2{left:50%}.top-1\/2{top:50%}.z-10{z-index:10}.z-50{z-index:50}.mx-auto{margin-left:auto;margin-right:auto}.-mb-6{margin-bottom:-1.5rem}.mb-2{margin-bottom:0.5rem}.mb-3{margin-bottom:0.75rem}.mb-4{margin-bottom:1rem}.mb-6{margin-bottom:1.5rem}.mt-1{margin-top:0.25rem}.mt-16{margin-top:4rem}.mt-2{margin-top:0.5rem}.mt-3{margin-top:0.75rem}.mt-4{margin-top:1rem}.mt-6{margin-top:1.5rem}.mt-8{margin-top:2rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-2{height:0.5rem}.h-3{height:0.75rem}.h-4{height:1rem}.h-5{height:1.25rem}.h-6{height:1.5rem}.h-72{height:18rem}.h-8{height:2rem}.h-9{height:2.25rem}.h-full{height:100%}.min-h-screen{min-height:100vh}.w-4{width:1rem}.w-5{width:1.25rem}.w-6{width:1.5rem}.w-72{width:18rem}.w-8{width:2rem}.w-9{width:2.25rem}.w-full{width:100%}.max-w-6xl{max-width:72rem}.max-w-7xl{max-width:80rem}.max-w-3xl{max-width:48rem}.max-w-md{max-width:28rem}.flex-1{flex:1 1 0%}.-translate-x-1\/2{--tw-translate-x:-50%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.-translate-y-1\/2{--tw-translate-y:-50%;transform:translate(var(--tw-translate-x), var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}@keyframes pulse{50%{opacity:.5}}.animate-pulse{animation:pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite}.cursor-pointer{cursor:pointer}.appearance-none{-webkit-appearance:none;appearance:none}.grid-cols-1{grid-template-columns:repeat(1, minmax(0, 1fr))}.grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-start{align-items:flex-start}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:0.25rem}.gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}.gap-6{gap:1.5rem}.gap-8{gap:2rem}.space-y-2 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.5rem * var(--tw-space-y-reverse))}.space-y-3 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.75rem * var(--tw-space-y-reverse))}.space-y-4 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem * var(--tw-space-y-reverse))}.space-y-5 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.25rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.25rem * var(--tw-space-y-reverse))}.space-y-6 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.5rem * var(--tw-space-y-reverse))}.space-y-1 > :not([hidden]) ~ :not([hidden]){--tw-space-y-reverse:0;margin-top:calc(0.25rem * calc(1 - var(--tw-space-y-reverse)));margin-bottom:calc(0.25rem * var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.whitespace-nowrap{white-space:nowrap}.rounded{border-radius:0.25rem}.rounded-2xl{border-radius:1rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:0.5rem}.rounded-md{border-radius:0.375rem}.rounded-xl{border-radius:0.75rem}.rounded-3xl{border-radius:1.5rem}.rounded-t-2xl{border-top-left-radius:1rem;border-top-right-radius:1rem}.border{border-width:1px}.border-2{border-width:2px}.border-b{border-bottom-width:1px}.border-t{border-top-width:1px}.border-dashed{border-style:dashed}.border-blue-200{--tw-border-opacity:1;border-color:rgb(191 219 254 / var(--tw-border-opacity, 1))}.border-green-200{--tw-border-opacity:1;border-color:rgb(187 247 208 / var(--tw-border-opacity, 1))}.border-purple-100{--tw-border-opacity:1;border-color:rgb(243 232 255 / var(--tw-border-opacity, 1))}.border-purple-200{--tw-border-opacity:1;border-color:rgb(233 213 255 / var(--tw-border-opacity, 1))}.border-red-200{--tw-border-opacity:1;border-color:rgb(254 202 202 / var(--tw-border-opacity, 1))}.border-slate-200{--tw-border-opacity:1;border-color:rgb(226 232 240 / var(--tw-border-opacity, 1))}.border-slate-300{--tw-border-opacity:1;border-color:rgb(203 213 225 / var(--tw-border-opacity, 1))}.bg-blue-50{--tw-bg-opacity:1;background-color:rgb(239 246 255 / var(--tw-bg-opacity, 1))}.bg-blue-50\/30{background-color:rgb(239 246 255 / 0.3)}.bg-blue-500{--tw-bg-opacity:1;background-color:rgb(59 130 246 / var(--tw-bg-opacity, 1))}.bg-green-50\/30{background-color:rgb(240 253 244 / 0.3)}.bg-green-500{--tw-bg-opacity:1;background-color:rgb(34 197 94 / var(--tw-bg-opacity, 1))}.bg-pink-300{--tw-bg-opacity:1;background-color:rgb(249 168 212 / var(--tw-bg-opacity, 1))}.bg-purple-300{--tw-bg-opacity:1;background-color:rgb(216 180 254 / var(--tw-bg-opacity, 1))}.bg-purple-50{--tw-bg-opacity:1;background-color:rgb(250 245 255 / var(--tw-bg-opacity, 1))}.bg-purple-50\/30{background-color:rgb(250 245 255 / 0.3)}.bg-purple-600{--tw-bg-opacity:1;background-color:rgb(147 51 234 / var(--tw-bg-opacity, 1))}.bg-red-50{--tw-bg-opacity:1;background-color:rgb(254 242 242 / var(--tw-bg-opacity, 1))}.bg-slate-100{--tw-bg-opacity:1;background-color:rgb(241 245 249 / var(--tw-bg-opacity, 1))}.bg-slate-200{--tw-bg-opacity:1;background-color:rgb(226 232 240 / var(--tw-bg-opacity, 1))}.bg-slate-50{--tw-bg-opacity:1;background-color:rgb(248 250 252 / var(--tw-bg-opacity, 1))}.bg-slate-50\/60{background-color:rgb(248 250 252 / 0.6)}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255 / var(--tw-bg-opacity, 1))}.bg-white\/80{background-color:rgb(255 255 255 / 0.8)}.bg-white\/95{background-color:rgb(255 255 255 / 0.95)}.bg-yellow-300{--tw-bg-opacity:1;background-color:rgb(253 224 71 / var(--tw-bg-opacity, 1))}.bg-black\/40{background-color:rgb(0 0 0 / 0.4)}.bg-slate-900\/60{background-color:rgb(15 23 42 / 0.6)}.bg-gradient-to-br{background-image:linear-gradient(to bottom right, var(--tw-gradient-stops))}.bg-gradient-to-r{background-image:linear-gradient(to right, var(--tw-gradient-stops))}.from-purple-50{--tw-gradient-from:#faf5ff var(--tw-gradient-from-position);--tw-gradient-to:rgb(250 245 255 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.from-purple-500{--tw-gradient-from:#a855f7 var(--tw-gradient-from-position);--tw-gradient-to:rgb(168 85 247 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.from-slate-50{--tw-gradient-from:#f8fafc var(--tw-gradient-from-position);--tw-gradient-to:rgb(248 250 252 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.from-slate-900{--tw-gradient-from:#0f172a var(--tw-gradient-from-position);--tw-gradient-to:rgb(15 23 42 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.from-yellow-400{--tw-gradient-from:#facc15 var(--tw-gradient-from-position);--tw-gradient-to:rgb(250 204 21 / 0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), var(--tw-gradient-to)}.via-blue-50{--tw-gradient-to:rgb(239 246 255 / 0)  var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from), #eff6ff var(--tw-gradient-via-position), var(--tw-gradient-to)}.to-blue-50{--tw-gradient-to:#eff6ff var(--tw-gradient-to-position)}.to-blue-500{--tw-gradient-to:#3b82f6 var(--tw-gradient-to-position)}.to-indigo-100{--tw-gradient-to:#e0e7ff var(--tw-gradient-to-position)}.to-slate-700{--tw-gradient-to:#334155 var(--tw-gradient-to-position)}.to-yellow-500{--tw-gradient-to:#eab308 var(--tw-gradient-to-position)}.bg-clip-text{-webkit-background-clip:text;background-clip:text}.p-3{padding:0.75rem}.p-4{padding:1rem}.p-5{padding:1.25rem}.p-6{padding:1.5rem}.p-8{padding:2rem}.p-1{padding:0.25rem}.px-2{padding-left:0.5rem;padding-right:0.5rem}.px-3{padding-left:0.75rem;padding-right:0.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-6{padding-left:1.5rem;padding-right:1.5rem}.py-1{padding-top:0.25rem;padding-bottom:0.25rem}.py-2{padding-top:0.5rem;padding-bottom:0.5rem}.py-3{padding-top:0.75rem;padding-bottom:0.75rem}.py-4{padding-top:1rem;padding-bottom:1rem}.py-8{padding-top:2rem;padding-bottom:2rem}.pl-6{padding-left:1.5rem}.pr-10{padding-right:2.5rem}.pt-4{padding-top:1rem}.pt-6{padding-top:1.5rem}.pt-8{padding-top:2rem}.text-center{text-align:center}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-base{font-size:1rem;line-height:1.5rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:0.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:0.75rem;line-height:1rem}.font-bold{font-weight:700}.font-medium{font-weight:500}.font-semibold{font-weight:600}.uppercase{text-transform:uppercase}.tracking-\[0\.3em\]{letter-spacing:0.3em}.tracking-wide{letter-spacing:0.025em}.tracking-\[0\.35em\]{letter-spacing:0.35em}.text-blue-800{--tw-text-opacity:1;color:rgb(30 64 175 / var(--tw-text-opacity, 1))}.text-green-600{--tw-text-opacity:1;color:rgb(22 163 74 / var(--tw-text-opacity, 1))}.text-indigo-600{--tw-text-opacity:1;color:rgb(79 70 229 / var(--tw-text-opacity, 1))}.text-purple-500{--tw-text-opacity:1;color:rgb(168 85 247 / var(--tw-text-opacity, 1))}.text-purple-600{--tw-text-opacity:1;color:rgb(147 51 234 / var(--tw-text-opacity, 1))}.text-purple-700{--tw-text-opacity:1;color:rgb(126 34 206 / var(--tw-text-opacity, 1))}.text-red-600{--tw-text-opacity:1;color:rgb(220 38 38 / var(--tw-text-opacity, 1))}.text-slate-400{--tw-text-opacity:1;color:rgb(148 163 184 / var(--tw-text-opacity, 1))}.text-slate-500{--tw-text-opacity:1;color:rgb(100 116 139 / var(--tw-text-opacity, 1))}.text-slate-600{--tw-text-opacity:1;color:rgb(71 85 105 / var(--tw-text-opacity, 1))}.text-slate-700{--tw-text-opacity:1;color:rgb(51 65 85 / var(--tw-text-opacity, 1))}.text-slate-900{--tw-text-opacity:1;color:rgb(15 23 42 / var(--tw-text-opacity, 1))}.text-transparent{color:transparent}.text-white{--tw-text-opacity:1;color:rgb(255 255 255 / var(--tw-text-opacity, 1))}.text-slate-800{--tw-text-opacity:1;color:rgb(30 41 59 / var(--tw-text-opacity, 1))}.underline{-webkit-text-decoration-line:underline;text-decoration-line:underline}.accent-purple-600{accent-color:#9333ea}.opacity-20{opacity:0.2}.mix-blend-multiply{mix-blend-mode:multiply}.shadow-lg{--tw-shadow:0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow{--tw-shadow:0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);--tw-shadow-colored:0 1px 3px 0 var(--tw-shadow-color), 0 1px 2px -1px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgb(0 0 0 / 0.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow)}.blur-xl{--tw-blur:blur(24px);filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.filter{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.backdrop-blur-sm{--tw-backdrop-blur:blur(4px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.transition{transition-property:color, background-color, border-color, fill, stroke, opacity, box-shadow, transform, filter, -webkit-text-decoration-color, -webkit-backdrop-filter;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;transition-property:color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter, -webkit-text-decoration-color, -webkit-backdrop-filter;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(0.4, 0, 0.2, 1);transition-duration:150ms}.duration-300{transition-duration:300ms}.duration-500{transition-duration:500ms}.file\:mr-4::file-selector-button{margin-right:1rem}.file\:rounded-lg::file-selector-button{border-radius:0.5rem}.file\:border-0::file-selector-button{border-width:0px}.file\:bg-purple-50::file-selector-button{--tw-bg-opacity:1;background-color:rgb(250 245 255 / var(--tw-bg-opacity, 1))}.file\:px-4::file-selector-button{padding-left:1rem;padding-right:1rem}.file\:py-2::file-selector-button{padding-top:0.5rem;padding-bottom:0.5rem}.file\:text-sm::file-selector-button{font-size:0.875rem;line-height:1.25rem}.file\:font-medium::file-selector-button{font-weight:500}.file\:text-purple-700::file-selector-button{--tw-text-opacity:1;color:rgb(126 34 206 / var(--tw-text-opacity, 1))}.hover\:border-indigo-500:hover{--tw-border-opacity:1;border-color:rgb(99 102 241 / var(--tw-border-opacity, 1))}.hover\:border-purple-500:hover{--tw-border-opacity:1;border-color:rgb(168 85 247 / var(--tw-border-opacity, 1))}.hover\:bg-purple-50:hover{--tw-bg-opacity:1;background-color:rgb(250 245 255 / var(--tw-bg-opacity, 1))}.hover\:text-indigo-700:hover{--tw-text-opacity:1;color:rgb(67 56 202 / var(--tw-text-opacity, 1))}.hover\:text-purple-700:hover{--tw-text-opacity:1;color:rgb(126 34 206 / var(--tw-text-opacity, 1))}.hover\:text-slate-700:hover{--tw-text-opacity:1;color:rgb(51 65 85 / var(--tw-text-opacity, 1))}.hover\:text-slate-900:hover{--tw-text-opacity:1;color:rgb(15 23 42 / var(--tw-text-opacity, 1))}.hover\:underline:hover{-webkit-text-decoration-line:underline;text-decoration-line:underline}.hover\:file\:bg-purple-100::file-selector-button:hover{--tw-bg-opacity:1;background-color:rgb(243 232 255 / var(--tw-bg-opacity, 1))}.focus\:border-purple-500:focus{--tw-border-opacity:1;border-color:rgb(168 85 247 / var(--tw-border-opacity, 1))}.focus\:ring-purple-500:focus{--tw-ring-opacity:1;--tw-ring-color:rgb(168 85 247 / var(--tw-ring-opacity, 1))}.disabled\:cursor-not-allowed:disabled{cursor:not-allowed}.disabled\:opacity-50:disabled{opacity:0.5}@media (min-width: 640px){.sm\:block{display:block}.sm\:w-auto{width:auto}.sm\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.sm\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.sm\:flex-row{flex-direction:row}}@media (min-width: 768px){.md\:flex{display:flex}.md\:hidden{display:none}.md\:w-auto{width:auto}.md\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.md\:flex-row{flex-direction:row}.md\:items-center{align-items:center}.md\:justify-between{justify-content:space-between}.md\:text-4xl{font-size:2.25rem;line-height:2.5rem}}@media (min-width: 1024px){.lg\:grid-cols-2{grid-template-columns:repeat(2, minmax(0, 1fr))}.lg\:grid-cols-3{grid-template-columns:repeat(3, minmax(0, 1fr))}.lg\:grid-cols-\[1fr\2c 400px\]{grid-template-columns:1fr 400px}}</style></head>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 min-h-screen" data-initial-user="null">
+  <!-- Background decoration -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+    <div class="absolute top-40 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
+    <div class="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-4000"></div>
+  </div>
+
+  <header class="relative px-6 py-4 bg-white/95 backdrop-blur border-b border-slate-200 shadow-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3">
+        <img src="/static/logo.svg" alt="Eazeily icon" class="w-9 h-9">
+        <img src="/static/eazeily-logo.svg" alt="Eazeily wordmark" class="h-6 hidden sm:block">
+        <span class="sr-only">Eazeily</span>
+      </a>
+      <div class="flex items-center gap-4">
+        <a class="text-sm text-slate-600 hover:text-brand transition" href="/">Home</a>
+        <a class="auth-link text-sm text-brand hover:underline cursor-pointer">Sign in</a>
+      </div>
+    </div>
+  </header>
+
+  
+
+  <div class="max-w-6xl mx-auto px-6 py-8 text-center">
+    <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Welcome to Eazeily</h1>
+    <p class="text-lg text-slate-600 mt-2">Let's set up your brand voice and generate your content.</p>
+  </div>
+
+  <main class="relative max-w-7xl mx-auto p-6 grid lg:grid-cols-[1fr,400px] gap-8">
+    <!-- Main Content Area -->
+    <div class="space-y-6">
+      <!-- Welcome Header -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent mb-2">
+              Let's set up your voice
+            </h1>
+            <p class="text-slate-600 text-lg">Friendly questions. Clear choices. Amazing results.</p>
+          </div>
+          <div class="steps hidden md:flex items-center gap-2" id="steps">
+            <span class="step active">1</span>
+            <div class="bar"></div>
+            <span class="step">2</span>
+            <div class="bar"></div>
+            <span class="step">3</span>
+            <div class="bar"></div>
+            <span class="step">4</span>
+            <div class="bar"></div>
+            <span class="step">5</span>
+            <div class="bar"></div>
+            <span class="step">6</span>
+          </div>
+        </div>
+
+        <!-- Mobile Steps -->
+        <div class="steps md:hidden flex items-center justify-center gap-2 mb-6" id="steps-mobile">
+          <span class="step active">1</span>
+          <div class="bar"></div>
+          <span class="step">2</span>
+          <div class="bar"></div>
+          <span class="step">3</span>
+          <div class="bar"></div>
+          <span class="step">4</span>
+          <div class="bar"></div>
+          <span class="step">5</span>
+          <div class="bar"></div>
+          <span class="step">6</span>
+        </div>
+
+        <!-- Progress Text and Bar -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-2">
+            <!-- Initial values; updated dynamically by showStep() in app.js -->
+            <p id="progress-text" class="text-sm font-semibold text-slate-700">Step 1 of 6</p>
+            <p id="step-title" class="text-sm font-medium text-purple-600">Choose your industry</p>
+          </div>
+          <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-gradient-to-r from-purple-500 to-blue-500 h-full rounded-full transition-all duration-300" style="width: 20%;"></div>
+          </div>
+        </div>
+
+        <!-- Pro Tips -->
+        <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-100">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-8 h-8 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+              </svg>
+            </div>
+            <h5 class="font-semibold text-slate-900">Pro Tips</h5>
+          </div>
+          <ul class="space-y-2 text-sm text-slate-700">
+            <li class="flex gap-2">
+              <span class="text-purple-500 mt-1">•</span>
+              <span>Choose keywords that match your brand voice</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-purple-500 mt-1">•</span>
+              <span>Include seasonal themes for timely content</span>
+            </li>
+            <li class="flex gap-2">
+              <span class="text-purple-500 mt-1">•</span>
+              <span>Review and customize generated content</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+  <!-- Tier Wizard (new) -->
+  <div id="tier-wizard-root" class="space-y-6"></div>
+
+  <!-- Form Steps (legacy, hidden when tier wizard enabled) -->
+  <div id="wiz" class="space-y-6">
+        <div class="step-panel bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="1">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 1</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Choose your industry</h2>
+              <p class="text-slate-600">Pick the closest match so we can load the right follow-up questions, tones, and sample keywords.</p>
+            </div>
+            <div>
+              <label class="block text-xl font-semibold mb-4 text-slate-900">What best describes your work?</label>
+              <div id="industries" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="2">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 2</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Brand Kit (Recommended)</h2>
+              <p class="text-slate-600 text-lg font-medium">This is how Eazeily writes posts that sound like YOUR business.</p>
+            </div>
+
+            <!-- Good/Better/Best Meter -->
+            <div class="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-semibold text-slate-900">Your Brand Kit Completeness</h3>
+                <span id="brand-kit-tier" class="px-3 py-1 rounded-full text-sm font-medium bg-slate-200 text-slate-700">Good</span>
+              </div>
+              <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden mb-3">
+                <div id="brand-kit-meter" class="bg-gradient-to-r from-yellow-400 to-yellow-500 h-full rounded-full transition-all duration-500" style="width: 0%;"></div>
+              </div>
+              <p id="brand-kit-helper" class="text-sm text-slate-700">Fill these 5 fields and you'll get posts you can copy/paste with your services and results included.</p>
+            </div>
+
+            <!-- Show me an example toggle -->
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <button type="button" id="show-example-toggle" class="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center gap-2">
+                <span>▶</span>
+                <span>Show me an example</span>
+              </button>
+              <div id="example-comparison" class="hidden mt-4 space-y-4">
+                <div class="space-y-2">
+                  <p class="text-xs uppercase tracking-wide text-slate-500 font-semibold">BEFORE (Good tier)</p>
+                  <div class="bg-slate-50 rounded-lg p-4 border border-slate-200 text-sm text-slate-700">
+                    "Ready to get started? We offer great services to help you succeed. Contact us today!"
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <p class="text-xs uppercase tracking-wide text-purple-600 font-semibold">AFTER (Best tier)</p>
+                  <div class="bg-purple-50 rounded-lg p-4 border border-purple-200 text-sm text-slate-700">
+                    "Ready to transform your online presence? As a trusted web design agency with 10+ years experience, we've helped 200+ businesses increase conversions by 40%. Our proven process: strategy first, beautiful design, ongoing support. Book your free consultation today → [link]"
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="brand-kit-form" class="space-y-6">
+              <!-- GOOD tier fields -->
+              <div class="space-y-5 p-5 rounded-xl border-2 border-green-200 bg-green-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-green-500 text-white">GOOD</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Minimum inputs (2 minutes)</h4>
+                </div>
+
+                <!-- 1. Business name -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Business name (optional)</label>
+                  <input type="text" id="bk-business-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" style="">
+                </div>
+
+                <!-- 2. Services (pick 3-5) -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Services (pick 3-5)</label>
+                  <p class="text-xs text-slate-500">What do you offer?</p>
+                  <div id="bk-services-chips" class="flex flex-wrap gap-2 mb-2"></div>
+                  <input type="text" id="bk-services-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" style="">
+                  <button type="button" class="text-xs text-purple-600 hover:text-purple-700 font-medium" data-suggestion-target="bk-services-input" data-suggestions="[&quot;Consultation&quot;,&quot;Custom Design&quot;,&quot;Installation&quot;,&quot;Training&quot;,&quot;Support&quot;]">Not sure? Use a suggestion</button>
+                </div>
+
+                <!-- 3. Who you help -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Who you help (audience)</label>
+                  <p class="text-xs text-slate-500">Who is your target customer?</p>
+                  <input type="text" id="bk-audience" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., busy professionals, first-time homebuyers" style="">
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="busy professionals">busy professionals</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="small business owners">small business owners</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-audience" data-value="families">families</button>
+                  </div>
+                </div>
+
+                <!-- 4. What problem you solve -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">What problem you solve (pain)</label>
+                  <p class="text-xs text-slate-500">What challenge do your customers face?</p>
+                  <input type="text" id="bk-pain" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., wasting time on manual tasks" style="">
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="wasting time">wasting time</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="feeling overwhelmed">feeling overwhelmed</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-pain" data-value="not seeing results">not seeing results</button>
+                  </div>
+                </div>
+
+                <!-- 5. Result you deliver -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">The result you deliver (outcome)</label>
+                  <p class="text-xs text-slate-500">What transformation do they get?</p>
+                  <input type="text" id="bk-outcome" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., save 10 hours per week" style="">
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="save time">save time</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="increase revenue">increase revenue</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-outcome" data-value="feel confident">feel confident</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chip Selection Section (Good tier defaults) -->
+              <div id="chip-selection-section" class="hidden space-y-5 p-5 rounded-xl border-2 border-green-200 bg-green-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-green-500 text-white">GOOD</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Your Business Defaults</h4>
+                </div>
+                <p class="text-sm text-slate-600">Pick a few options—this is what makes your posts sound like your business.</p>
+
+                <!-- Focus Topics -->
+                <div id="chip-group-focus-topics"></div>
+
+                <!-- Audience -->
+                <div id="chip-group-audience"></div>
+
+                <!-- Offers -->
+                <div id="chip-group-offers"></div>
+
+                <!-- Proof -->
+                <div id="chip-group-proof"></div>
+
+                <!-- CTA Intent -->
+                <div id="chip-group-cta"></div>
+              </div>
+
+              <!-- BETTER tier fields -->
+              <div class="space-y-5 p-5 rounded-xl border-2 border-blue-200 bg-blue-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-blue-500 text-white">BETTER</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Better inputs (add 2 more)</h4>
+                  <p class="text-sm text-slate-600">Add 2 more and your posts will feel more credible (we'll include proof and why someone should choose you).</p>
+                </div>
+
+                <!-- 6. Differentiators -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Differentiators (pick 1-3)</label>
+                  <p class="text-xs text-slate-500">What makes you unique?</p>
+                  <div id="bk-differentiators-chips" class="flex flex-wrap gap-2 mb-2"></div>
+                  <input type="text" id="bk-differentiators-input" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter" style="">
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Fast turnaround">Fast turnaround</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Personalized service">Personalized service</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Family-owned">Family-owned</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-differentiators-input" data-value="Certified experts">Certified experts</button>
+                  </div>
+                </div>
+
+                <!-- 7. Proof -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Proof (credentials, experience)</label>
+                  <p class="text-xs text-slate-500">Years in business, certifications, #clients, testimonial snippet</p>
+                  <input type="text" id="bk-proof" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., 10+ years experience, 500+ happy clients" style="">
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="10+ years experience">10+ years experience</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Licensed &amp; insured">Licensed &amp; insured</button>
+                    <button type="button" class="chip-suggestion text-xs px-2 py-1 rounded-full bg-white border border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition" data-target="bk-proof" data-value="Award-winning">Award-winning</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- BEST tier fields -->
+              <div class="space-y-5 p-5 rounded-xl border-2 border-purple-200 bg-purple-50/30">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="px-2 py-1 rounded-md text-xs font-bold bg-purple-600 text-white">BEST</span>
+                  <h4 class="text-lg font-semibold text-slate-900">Best inputs (optional)</h4>
+                  <p class="text-sm text-slate-600">Add business details once and we'll also generate ready-to-send emails and quote templates.</p>
+                </div>
+
+                <!-- 8. Email signature defaults -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Email signature (name/title/contact)</label>
+                  <input type="text" id="bk-email-name" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Your name" style="">
+                  <input type="text" id="bk-email-title" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Your title" style="">
+                  <input type="text" id="bk-email-contact" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Email or phone" style="">
+                </div>
+
+                <!-- 9. Quote defaults -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Quote defaults</label>
+                  <input type="text" id="bk-deposit" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Deposit % (e.g., 50%)" style="">
+                  <input type="text" id="bk-turnaround" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Turnaround time (e.g., 2-3 weeks)" style="">
+                  <input type="text" id="bk-validity" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Quote validity (e.g., 30 days)" style="">
+                  <input type="text" id="bk-payment-methods" class="w-full input text-sm py-2 px-3 rounded-lg border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Payment methods (e.g., Cash, Venmo, PayPal)" style="">
+                </div>
+
+                <!-- 10. Logo upload -->
+                <div class="space-y-2">
+                  <label class="block text-sm font-semibold text-slate-900">Logo upload (optional)</label>
+                  <p class="text-xs text-slate-500">PNG, JPG, or WebP • Max 2MB • Max 2000x2000px</p>
+                  <input type="file" id="bk-logo-upload" accept="image/png,image/jpeg,image/webp" class="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" style="">
+                  <p id="bk-logo-error" class="text-xs text-red-600 hidden"></p>
+                  <p id="bk-logo-success" class="text-xs text-green-600 hidden"></p>
+                </div>
+              </div>
+
+              <!-- Skip option -->
+              <div class="text-center pt-4">
+                <button type="button" id="skip-brand-kit" class="text-sm text-slate-500 hover:text-slate-700 underline">Skip for now (you can add this later in Settings)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="3">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 3</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Add quick context</h2>
+              <p class="text-slate-600">Answer any follow-up questions so we can highlight the right goals, locations, and reel styles. If your industry doesn’t need this, we’ll skip ahead automatically.</p>
+            </div>
+            <div>
+              <label class="block text-xl font-semibold mb-4 text-slate-900">A few quick details</label>
+              <div id="step-2-empty" class="hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-600 text-sm p-4">
+                This industry skips extra questions. We'll fast-forward you to tone + platforms.
+              </div>
+              <div id="industry-questions" class="grid gap-4"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="4">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 4</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Dial in your tone and channels</h2>
+              <p class="text-slate-600">Choose how your brand should sound and where we should publish. Tone and platform selections stay visible side-by-side so you can tweak both without leaving the step.</p>
+            </div>
+            <div class="grid gap-6 lg:grid-cols-2">
+              <section class="space-y-4 p-5 rounded-2xl border border-slate-200 bg-slate-50/60">
+                <div>
+                  <p class="text-sm font-semibold text-purple-700">Tone</p>
+                  <p class="text-xl font-semibold text-slate-900">Pick your tone</p>
+                </div>
+                <div id="tones" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+
+                <div class="mt-6 pt-6 border-t border-slate-200 space-y-6">
+                  <h4 class="font-semibold text-slate-900">Fine-tune your voice</h4>
+                  
+                  <div class="space-y-3">
+                    <div class="flex justify-between text-sm font-medium text-slate-700">
+                      <span>Creativity</span>
+                      <span class="text-purple-600" id="creativity-val">Balanced</span>
+                    </div>
+                    <input type="range" id="voice-creativity" min="1" max="5" value="3" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600" style="">
+                    <div class="flex justify-between text-xs text-slate-500">
+                      <span>Conservative</span>
+                      <span>Wildly Creative</span>
+                    </div>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="flex justify-between text-sm font-medium text-slate-700">
+                      <span>Tone Intensity</span>
+                      <span class="text-purple-600" id="intensity-val">Moderate</span>
+                    </div>
+                    <input type="range" id="voice-intensity" min="1" max="5" value="3" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-purple-600" style="">
+                    <div class="flex justify-between text-xs text-slate-500">
+                      <span>Subtle</span>
+                      <span>Strong</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+              <section class="space-y-4 p-5 rounded-2xl border border-slate-200 bg-slate-50/60">
+                <div>
+                  <p class="text-sm font-semibold text-purple-700">Platforms</p>
+                  <p class="text-xl font-semibold text-slate-900">Choose your channels</p>
+                </div>
+                <div id="platforms" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="5">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 5</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Brand Inspiration (Optional)</h2>
+              <p class="text-slate-600">Name 3–4 brands whose content you admire. We'll use them for tone and structure—not to copy wording.</p>
+            </div>
+            
+            <!-- Helper copy -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+              <p><strong>How we use this:</strong> We analyze these brands for tone, structure, and style cues. We never copy or imitate specific slogans or brand phrases.</p>
+            </div>
+
+            <div class="space-y-6">
+              <!-- Brand inspirations -->
+              <div class="space-y-4">
+                <label class="block text-lg font-semibold text-slate-900">Brands You Like</label>
+                <div id="wizard-brand-inspirations" class="space-y-3">
+                  <!-- Dynamic brand inputs will go here -->
+                </div>
+                <button id="wizard-add-brand-btn" type="button" class="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
+                  <span>+ Add brand</span>
+                </button>
+              </div>
+
+              <!-- Anti-inspirations -->
+              <div class="space-y-4">
+                <label class="block text-lg font-semibold text-slate-900">Brands to Avoid (Optional)</label>
+                <p class="text-sm text-slate-500">Any brands you do NOT want to sound like?</p>
+                <div id="wizard-brand-anti-inspirations" class="space-y-3">
+                  <!-- Dynamic anti-inspiration inputs will go here -->
+                </div>
+                <button id="wizard-add-anti-brand-btn" type="button" class="text-sm text-slate-600 hover:text-slate-700 font-medium flex items-center gap-1">
+                  <span>+ Add brand to avoid</span>
+                </button>
+              </div>
+
+              <!-- Vibe presets fallback -->
+              <div class="space-y-4 pt-6 border-t border-slate-200">
+                <p class="text-lg font-semibold text-slate-900">Or pick a vibe instead:</p>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="friendly_modern">
+                    Friendly &amp; Modern
+                  </button>
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="premium_minimal">
+                    Premium &amp; Minimal
+                  </button>
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="clinical_trustworthy">
+                    Clinical &amp; Trustworthy
+                  </button>
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="playful_bold">
+                    Playful &amp; Bold
+                  </button>
+                  <button type="button" class="wizard-vibe-preset-btn px-4 py-3 rounded-xl border-2 border-slate-200 hover:border-indigo-500 text-sm font-medium text-slate-700 hover:text-indigo-700 transition" data-vibe="no_emojis_direct">
+                    No Emojis / Direct
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel hidden bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-slate-200" data-step="6">
+          <div class="space-y-6">
+            <div class="space-y-2">
+              <p class="text-xs uppercase tracking-[0.3em] text-slate-400">STEP 6</p>
+              <h2 class="text-2xl font-semibold text-slate-900">Lock in keywords &amp; notes</h2>
+              <p class="text-slate-600">Pick the themes you want us to emphasize, then leave a quick note or promo so your first draft feels current.</p>
+            </div>
+            <div class="grid md:grid-cols-2 gap-6">
+              <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                  <label class="block text-lg font-semibold text-slate-900">Suggested keywords</label>
+                  <button id="clear-keywords" class="text-sm text-slate-500 hover:text-slate-700 underline" type="button">Clear all</button>
+                </div>
+                <div id="suggested-keywords" class="flex flex-wrap gap-2 mb-4"></div>
+                <label class="block text-lg font-semibold text-slate-900">Add more keywords (optional)</label>
+                <input id="extra-keywords" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="Type and press Enter or separate with commas" style="">
+                <p class="text-sm text-slate-500 mt-2">Select suggested keywords or type your own. We'll include them in your plan.</p>
+              </div>
+              <div class="space-y-4">
+                <label class="block text-lg font-semibold text-slate-900">Monthly focus or promo (optional)</label>
+                <input id="note" autocomplete="off" spellcheck="false" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Spring sale, workshop, new menu launch" style="">
+                <label class="block text-lg font-semibold text-slate-900">Company / Business name (optional)</label>
+                <input id="company" class="w-full input text-base py-3 px-4 rounded-xl border-slate-300 focus:border-purple-500 focus:ring-purple-500" placeholder="e.g., Laura's Bakery" style="">
+                <div id="error-company" class="text-sm text-red-600 mt-2 hidden" aria-live="polite"></div>
+              </div>
+            </div>
+
+            <!-- Train your voice (Moved to Step 4) -->
+            <div class="mt-8 pt-8 border-t border-slate-200">
+              <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h4 class="text-lg font-semibold text-slate-900">Train your voice (Optional)</h4>
+                  <p class="text-slate-600">Paste 5–10 posts you’ve already published. We’ll mirror cadence, tone, and vocab.</p>
+                </div>
+              </div>
+              <div class="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                <textarea id="wizard-voice-samples" class="w-full input text-sm mb-3 p-3 rounded-lg border-slate-300" rows="5" placeholder="Paste your best posts here (one per line)..." style=""></textarea>
+                <div class="flex items-center justify-between gap-4">
+                  <p id="wizard-voice-helper" class="text-sm text-slate-500">Between 5 and 10 samples works best.</p>
+                  <button id="wizard-train-voice" class="btn-secondary text-sm py-2 px-4 rounded-lg whitespace-nowrap">Save voice samples</button>
+                </div>
+                <p id="wizard-voice-toast" class="text-sm text-slate-600 mt-2 font-medium"></p>
+              </div>
+            </div>
+
+          </div>
+          <div id="error-form" class="text-lg text-red-600 mt-4 hidden p-4 bg-red-50 rounded-xl border border-red-200" aria-live="polite"></div>
+          <div id="finish-status" class="finish-status hidden" role="status" aria-live="polite">
+            <div id="finish-status-icon" class="finish-status__icon">⏳</div>
+            <div>
+              <p id="finish-status-title" class="finish-status__title"></p>
+              <p id="finish-status-detail" class="finish-status__detail"></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <input id="include_images" type="checkbox" checked="" class="w-5 h-5 text-purple-600 bg-slate-100 border-slate-300 rounded focus:ring-purple-500" style="">
+            <label for="include_images" class="text-slate-700 font-medium">Suggest image ideas</label>
+          </div>
+          <div class="mt-6 space-y-3 text-sm text-slate-600 bg-slate-50 rounded-xl border border-slate-200 p-4 hidden" id="preview-cta">
+            <p id="preview-hint">We’ll drop a sample plan below once you save. Give it a quick look before heading to your dashboard.</p>
+            <div class="flex flex-wrap gap-3">
+              <button type="button" id="jump-to-preview" class="btn-secondary text-base py-2 px-4 rounded-xl">Jump to preview</button>
+              <a id="generate-after-preview" href="/generate" class="btn-primary text-base py-2 px-4 rounded-xl hidden">Open Generate dashboard</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="sticky bottom-0 -mb-6 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-lg rounded-t-2xl p-6 z-10">
+          <div class="flex justify-between items-center">
+            <button id="prev" class="btn-secondary text-base py-3 px-6 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed" disabled="">Back</button>
+            <button id="next" class="btn-primary text-base py-3 pr-10 pl-6 rounded-xl">
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+    <!-- Sidebar -->
+    <aside class="space-y-6">
+      <!-- Setup Summary -->
+      <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-slate-200 sticky top-6">
+        <h4 class="text-lg font-semibold mb-4 text-slate-900">Setup progress</h4>
+        <p class="text-slate-600 mb-4">Click any section to jump back and edit it.</p>
+        <div class="mb-4">
+          <ul id="modal-summary" class="text-slate-700 space-y-3"></ul>
+          <div class="text-sm text-slate-500 mt-3">Content pack: <span id="modal-content-version">loading…</span></div>
+        </div>
+
+        <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-slate-200 mb-4 hidden">
+          <!-- Voice training moved to Step 4 -->
+        </div>
+
+        <!-- Generate Buttons - Prominent placement -->
+        <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl p-6 border border-purple-100">
+          <h4 class="text-lg font-semibold mb-4 text-slate-900 text-center">Ready to generate your content?</h4>
+          <div class="text-center">
+            <a href="/generate" class="btn-primary text-base py-3 px-6 rounded-xl inline-block">
+              🚀 Go to Generate Page
+            </a>
+          </div>
+          <p class="text-sm text-slate-500 mt-4 text-center">Generate your personalized content plan on the dedicated dashboard.</p>
+        </div>
+      </div>
+    </aside>
+    <!-- Preview Section Removed -->
+  </main>
+
+  <footer class="relative mt-16 bg-white/80 backdrop-blur-sm border-t border-slate-200">
+    <div class="max-w-6xl mx-auto px-6 py-8">
+      <div class="text-center">
+        <div class="flex items-center justify-center gap-3 mb-4">
+          <img src="/static/logo.svg" alt="Eazeily icon" class="w-6 h-6">
+          <span class="font-semibold text-slate-900">Eazeily</span>
+        </div>
+        <p class="text-slate-600 mb-4">Made with care for small businesses everywhere</p>
+        <p class="text-sm text-slate-500">Simple, smart social media that sounds like you</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/static/js/chip_group.js"></script>
+  <script src="/static/app.js"></script>
+  <script src="/static/tier_wizard.js"></script>
+
+<!-- Auth modal (signup / login / password reset) -->
+<div id="auth-modal" class="fixed inset-0 bg-black/40 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="auth-title" data-auth-view="login">
+  <div class="absolute top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-6 shadow-2xl space-y-5" tabindex="-1">
+    <div class="flex items-start justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-[0.3em] text-slate-400">Eazeily account</p>
+        <h3 id="auth-title" class="text-2xl font-semibold text-slate-900 mt-1">Sign in</h3>
+        <p id="auth-subtitle" class="text-sm text-slate-500 mt-1">Access your saved brand voice and content plans.</p>
+      </div>
+      <button id="auth-close" class="text-slate-500 hover:text-slate-900" aria-label="Close">✕</button>
+    </div>
+
+    <div class="flex gap-1 bg-slate-100 rounded-full p-1" role="tablist">
+      <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-600 auth-tab bg-white shadow auth-tab--active" data-auth-tab="login" aria-selected="true">Sign in</button>
+      <button type="button" class="flex-1 py-2 rounded-full text-sm font-semibold text-slate-500 auth-tab" data-auth-tab="signup" aria-selected="false">Create account</button>
+    </div>
+
+    <div id="auth-message" class="hidden rounded-xl px-4 py-3 text-sm font-medium" role="status" aria-live="polite"></div>
+
+    <div id="auth-forms" class="space-y-6">
+      <form id="login-form" class="space-y-4">
+        <div class="space-y-1">
+          <label for="auth-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="auth-email" type="email" class="w-full input" placeholder="you@business.com" required="" autocomplete="email" aria-describedby="auth-message" data-autofocus="" style="">
+        </div>
+        <div class="space-y-1">
+          <label for="auth-password" class="text-sm font-medium text-slate-700">Password</label>
+          <input id="auth-password" type="password" class="w-full input" placeholder="••••••••" required="" autocomplete="current-password" aria-describedby="auth-message" style="">
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Continue</button>
+        <div class="flex items-center justify-between text-sm text-slate-500">
+          <button type="button" class="text-brand hover:underline" data-auth-action="reset">Forgot password?</button>
+          <button type="button" class="text-slate-600 hover:text-brand" data-auth-action="signup">Create account</button>
+        </div>
+      </form>
+
+      <form id="signup-form" class="hidden space-y-4">
+        <div class="space-y-1">
+          <label for="signup-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="signup-email" type="email" class="w-full input" placeholder="you@business.com" required="" autocomplete="email" aria-describedby="auth-message" data-autofocus="" style="">
+        </div>
+        <div class="space-y-1">
+          <label for="signup-password" class="text-sm font-medium text-slate-700">Password</label>
+          <input id="signup-password" type="password" class="w-full input" placeholder="At least 6 characters" required="" minlength="6" autocomplete="new-password" aria-describedby="auth-message" style="">
+          <p class="text-xs text-slate-500">You'll use this to sign in next time.</p>
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Create free account</button>
+        <p class="text-sm text-center text-slate-500">Already signed up? <button type="button" class="text-brand hover:underline" data-auth-action="login">Sign in</button></p>
+      </form>
+
+      <form id="reset-form" class="hidden space-y-4">
+        <p class="text-sm text-slate-500">We'll email you reset instructions and show the token here for dev builds.</p>
+        <div class="space-y-1">
+          <label for="reset-email" class="text-sm font-medium text-slate-700">Email</label>
+          <input id="reset-email" type="email" class="w-full input" placeholder="you@business.com" required="" autocomplete="email" aria-describedby="auth-message" data-autofocus="" style="">
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Send reset link</button>
+        <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
+      </form>
+
+      <form id="confirm-reset-form" class="hidden space-y-4">
+        <p class="text-sm text-slate-500">Paste the token we sent (or use the dev token below) and choose a new password.</p>
+        <div class="space-y-1">
+          <label for="confirm-token" class="text-sm font-medium text-slate-700">Reset token</label>
+          <input id="confirm-token" class="w-full input" placeholder="xxxx-xxxx" aria-describedby="auth-message" data-autofocus="" style="">
+        </div>
+        <div class="space-y-1">
+          <label for="confirm-password" class="text-sm font-medium text-slate-700">New password</label>
+          <input id="confirm-password" type="password" class="w-full input" placeholder="••••••••" aria-describedby="auth-message" autocomplete="new-password" style="">
+        </div>
+        <button type="submit" class="btn-primary w-full py-3 rounded-xl">Set new password</button>
+        <button type="button" class="w-full text-sm text-slate-500 hover:text-brand" data-auth-action="login">Back to sign in</button>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- Shared paywall modal used across app, landing, and dashboard pages -->
+<div id="paywall-modal" class="fixed inset-0 bg-slate-900/60 hidden z-50" role="dialog" aria-modal="true" aria-labelledby="paywall-title">
+  <div class="absolute top-1/2 left-1/2 w-full max-w-3xl -translate-x-1/2 -translate-y-1/2 bg-white rounded-3xl shadow-2xl p-8 space-y-6" data-paywall-surface="">
+    <div class="flex items-start justify-between gap-6">
+      <div>
+        <p class="text-xs uppercase tracking-[0.35em] text-slate-400">Upgrade plan</p>
+        <h3 id="paywall-title" class="text-2xl font-semibold text-slate-900 mt-1">Unlock the full content planner</h3>
+        <p id="paywall-price-desc" class="text-sm text-slate-500 mt-2">Creator plan — reels, multi-day calendars, review replies</p>
+      </div>
+      <button type="button" class="text-slate-400 hover:text-slate-700" data-paywall-close="" aria-label="Close subscription modal">✕</button>
+    </div>
+
+    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">All-in monthly price</p>
+        <p id="paywall-price" class="text-3xl font-bold text-slate-900 mt-1">$9/mo</p>
+        <p class="text-xs text-slate-500">7-day trial • Cancel anytime</p>
+      </div>
+      <ul class="text-sm text-slate-600 space-y-1">
+        <li>• 30 tailored posts + reels each month</li>
+        <li>• AI-powered review replies &amp; image prompts</li>
+        <li>• Queue and regenerate from the dashboard</li>
+      </ul>
+    </div>
+
+    <div id="paywall-message" class="hidden rounded-xl px-4 py-3 text-sm font-medium" role="status" aria-live="polite"></div>
+
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <label for="paywall-email" class="text-sm font-semibold text-slate-700">Work email</label>
+          <input id="paywall-email" type="email" class="input w-full" placeholder="you@business.com" autocomplete="email" data-autofocus="" style="">
+        </div>
+        <div class="space-y-1">
+          <label for="paywall-password" class="text-sm font-semibold text-slate-700">Create password</label>
+          <input id="paywall-password" type="password" class="input w-full" placeholder="At least 6 characters" autocomplete="new-password" minlength="6" style="">
+        </div>
+        <p class="text-xs text-slate-500">Already have an account? <button type="button" id="paywall-signin-link" class="text-brand font-semibold hover:underline">Sign in instead</button></p>
+        <p id="paywall-signup-error" class="text-sm text-red-600 hidden" aria-live="polite"></p>
+      </div>
+      <div class="space-y-4">
+        <div class="space-y-2">
+          <label class="text-sm font-semibold text-slate-700">Card details</label>
+          <div id="stripe-elements-wrap" class="hidden space-y-2">
+            <div id="card-element" class="p-3 border border-slate-200 rounded-xl"></div>
+            <p id="card-errors" class="text-sm text-red-600 hidden" aria-live="polite"></p>
+          </div>
+          <p class="text-xs text-slate-500">Payments are securely processed by Stripe. We never see or store your card.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 p-4 bg-white">
+          <p class="text-sm font-semibold text-slate-800 mb-2">What you get</p>
+          <ul class="text-sm text-slate-600 space-y-1">
+            <li>• Fresh prompts mapped to your tone &amp; industry</li>
+            <li>• Platform-specific formatting &amp; hashtags</li>
+            <li>• Priority roadmap access &amp; email support</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <p class="text-xs text-slate-500">Need purchasing help? Email <a href="mailto:hello@swelly.app" class="text-brand font-semibold">hello@swelly.app</a>.</p>
+      <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+        <button type="button" class="btn-ghost w-full sm:w-auto py-3 px-4 rounded-xl" id="paywall-cancel">Maybe later</button>
+        <button type="button" class="btn-primary w-full sm:w-auto py-3 px-6 rounded-xl" id="paywall-subscribe" data-loading-text="Processing…">Start subscription</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script defer="" src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015" integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ==" data-cf-beacon="{&quot;version&quot;:&quot;2024.11.0&quot;,&quot;token&quot;:&quot;7789b45a2e4d4a318f82f78f3422ca9e&quot;,&quot;r&quot;:1,&quot;server_timing&quot;:{&quot;name&quot;:{&quot;cfCacheStatus&quot;:true,&quot;cfEdge&quot;:true,&quot;cfExtPri&quot;:true,&quot;cfL4&quot;:true,&quot;cfOrigin&quot;:true,&quot;cfSpeedBrain&quot;:true},&quot;location_startswith&quot;:null}}" crossorigin="anonymous"></script>
+
+</body></html>

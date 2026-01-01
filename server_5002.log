@@ -1,0 +1,127 @@
+/Users/daniellejones/Documents/togetherly_v2/services/generation/gemini_client.py:11: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  import google.generativeai as genai
+2025-12-23 00:09:44,305 INFO GenerationService initialized (OpenAI: disabled, Gemini: disabled, PromptCompiler: disabled)
+2025-12-23 00:09:44,315 INFO Starting dev server on 127.0.0.1:5002
+2025-12-23 00:09:44,446 INFO Registered routes:
+/
+/__dev__/create_user
+/__dev__/create_user
+/__dev__/ping
+/__dev__/ping
+/__dev__/queue-test
+/__dev__/queue-test
+/__dev__/routes
+/__dev__/trends
+/account
+/admin
+/api/account
+/api/account/upgrade
+/api/admin/team-members
+/api/admin/team-members/<int:member_id>
+/api/admin/users
+/api/brand_kit
+/api/cancel-subscription
+/api/confirm-password-reset
+/api/content
+/api/create-checkout-session
+/api/create-subscription
+/api/current_user
+/api/debug/gemini-status
+/api/debug/health
+/api/debug/openai-status
+/api/drafts/<draft_id>/undo-template
+/api/feedback
+/api/feedback/report
+/api/generate
+/api/generate-review-response
+/api/generate-variants
+/api/generate/reels
+/api/generate/reviews
+/api/generate/social
+/api/industry_packs/<industry_id>/chips
+/api/industry_packs/<industry_id>/good_defaults
+/api/login
+/api/logout
+/api/preview-templates
+/api/preview-templates/<channel>
+/api/preview-templates/<channel>/<template_id>
+/api/profile
+/api/profile_v2
+/api/reconcile-job
+/api/reconcile-jobs/<job_id>
+/api/reconcile-subscriptions
+/api/request-password-reset
+/api/signup
+/api/stripe-webhook
+/api/team/approvals
+/api/team/approvals/<approval_id>/transition
+/api/templates
+/api/templates/<template_id>
+/api/templates/<template_id>/apply
+/api/user_chip_selections
+/api/user_chip_selections
+/api/version
+/api/voice-profile
+/api/voice/analyze
+/api/voice/save
+/api/voice/scrape
+/api/waitlist
+/app
+/brand-inspiration-setup
+/drafts/<draft_id>
+/generate
+/generate/reels
+/generate/reviews
+/generate/social
+/health
+/healthz
+/inbox
+/launch
+/planner
+/preview-demo
+/quality-builder
+/readyz
+/review-response
+/settings
+/static/<path:filename>
+/voice-setup
+ * Serving Flask app 'app'
+ * Debug mode: off
+2025-12-23 00:09:44,449 INFO [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5002
+2025-12-23 00:09:44,450 INFO [33mPress CTRL+C to quit[0m
+2025-12-23 00:10:03,974 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "GET /__dev__/ping HTTP/1.1" 200 -
+2025-12-23 00:10:03,976 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "GET /__dev__/ping HTTP/1.1" 200 -
+2025-12-23 00:10:03,977 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "GET /__dev__/routes HTTP/1.1" 200 -
+2025-12-23 00:10:03,980 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "POST /__dev__/create_user HTTP/1.1" 200 -
+2025-12-23 00:10:03,982 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "GET /api/current_user HTTP/1.1" 200 -
+2025-12-23 00:10:03,985 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "POST /api/profile HTTP/1.1" 200 -
+2025-12-23 00:10:03,986 INFO profile.fetch
+2025-12-23 00:10:03,987 INFO profile.loaded
+2025-12-23 00:10:03,987 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "GET /api/profile HTTP/1.1" 200 -
+2025-12-23 00:10:03,989 INFO generator.request
+2025-12-23 00:10:03,989 INFO generator.blocked
+2025-12-23 00:10:03,989 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "[31m[1mPOST /api/generate HTTP/1.1[0m" 403 -
+2025-12-23 00:10:03,992 INFO 127.0.0.1 - - [23/Dec/2025 00:10:03] "POST /api/request-password-reset HTTP/1.1" 200 -
+2025-12-23 00:10:04,069 INFO 127.0.0.1 - - [23/Dec/2025 00:10:04] "POST /api/confirm-password-reset HTTP/1.1" 200 -
+2025-12-23 00:10:04,071 INFO 127.0.0.1 - - [23/Dec/2025 00:10:04] "POST /api/logout HTTP/1.1" 200 -
+2025-12-23 00:10:04,144 INFO 127.0.0.1 - - [23/Dec/2025 00:10:04] "POST /api/login HTTP/1.1" 200 -
+2025-12-23 00:10:58,268 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /app HTTP/1.1" 200 -
+2025-12-23 00:10:58,274 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /static/styles.css HTTP/1.1" 200 -
+2025-12-23 00:10:58,275 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /static/eazeily-logo.svg HTTP/1.1" 200 -
+2025-12-23 00:10:58,275 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /static/logo.svg HTTP/1.1" 200 -
+2025-12-23 00:10:58,275 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /static/eazeily-theme.css HTTP/1.1" 200 -
+2025-12-23 00:10:58,277 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /static/js/chip_group.js HTTP/1.1" 200 -
+2025-12-23 00:10:58,287 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /static/tier_wizard.js HTTP/1.1" 200 -
+2025-12-23 00:10:58,293 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /static/app.js HTTP/1.1" 200 -
+2025-12-23 00:10:58,610 INFO 127.0.0.1 - - [23/Dec/2025 00:10:58] "GET /api/version HTTP/1.1" 200 -
+2025-12-23 00:10:59,195 INFO profile.fetch
+2025-12-23 00:10:59,195 INFO profile.loaded
+2025-12-23 00:10:59,196 INFO 127.0.0.1 - - [23/Dec/2025 00:10:59] "GET /api/profile HTTP/1.1" 200 -
