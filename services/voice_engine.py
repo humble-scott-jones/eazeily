@@ -24,18 +24,18 @@ class VoiceEngine:
 
     def analyze_style(self, raw_text):
         """
-        Analyzes raw text to extract a style guide and examples.
-        Returns a JSON object with 'style_guide' and 'examples'.
+        Analyzes raw text to extract a style summary and examples.
+        Returns a JSON object with 'style_summary' and 'examples'.
         """
         if not self.model:
             logger.error("VoiceEngine model is not initialized.")
-            return {"style_guide": "Error: AI model not available.", "examples": []}
+            return {"style_summary": "Error: AI model not available.", "style_guide": "Error: AI model not available.", "examples": []}
 
         prompt = """
         You are an expert content strategist. Analyze the following text to create a Voice Profile.
         
         Output strictly valid JSON with two keys:
-        1. "style_guide": A concise paragraph describing the tone, sentence structure, and vocabulary.
+        1. "style_summary": A concise paragraph describing the tone, sentence structure, and vocabulary.
         2. "examples": A list of 3-5 direct quotes from the text that best exemplify this style.
         
         Text to analyze:
@@ -46,40 +46,48 @@ class VoiceEngine:
             response = self.model.generate_content(prompt.format(text=raw_text[:10000])) # Limit context if needed
             # Clean up potential markdown code blocks
             text_response = response.text.replace('```json', '').replace('```', '').strip()
-            return json.loads(text_response)
+            result = json.loads(text_response)
+            # Add style_guide as an alias for backward compatibility
+            if 'style_summary' in result and 'style_guide' not in result:
+                result['style_guide'] = result['style_summary']
+            return result
         except Exception as e:
             logger.error(f"Error in analyze_style: {e}")
-            return {"style_guide": "Default professional tone (Error during analysis).", "examples": []}
+            return {"style_summary": "Default professional tone (Error during analysis).", "style_guide": "Default professional tone (Error during analysis).", "examples": []}
 
     def generate_post(self, profile, topic):
         """
         Generates a post based on the profile and topic using Few-Shot Prompting.
+        Must check if profile.examples exists before using it.
         """
         if not self.model:
             logger.error("VoiceEngine model is not initialized.")
             return "Error: AI model not available."
 
-        examples = profile.get_examples()
-        style_guide = profile.style_guide
+        # Check if profile has examples (user's uploaded past work)
+        examples = profile.get_examples() if hasattr(profile, 'get_examples') else []
         
-        prompt = f"""
-        You are a ghostwriter mimicking a specific voice.
-        
-        Style Guide:
-        {style_guide}
-        
-        Here are examples of my previous writing:
-        """
-        
-        for ex in examples:
-            prompt += f"- {ex}\n"
-            
-        prompt += f"""
-        
-        Task: Write a new social media post about: "{topic}".
-        Keep it under 280 characters unless specified otherwise.
-        Match the style and tone of the examples exactly.
-        """
+        if not examples:
+            # Fallback: generate without few-shot examples
+            logger.warning("No examples found in profile. Generating post without few-shot learning.")
+            style_guide = getattr(profile, 'style_guide', 'Professional tone')
+            prompt = f"""
+            You are a content writer. Write a social media post about: "{topic}".
+            Style: {style_guide}
+            Keep it under 280 characters unless specified otherwise.
+            """
+        else:
+            # Use Few-Shot prompting with examples
+            examples_to_use = examples[:3]
+            num_examples = len(examples_to_use)
+            examples_text = "\n\n".join([f"Example {i+1}: {ex}" for i, ex in enumerate(examples_to_use)])
+            prompt = f"""
+Here are {num_examples} examples of the user's past writing style. Study the sentence length, vocabulary, and tone.
+
+{examples_text}
+
+Now write a new post about {topic} MIMICKING this style exactly.
+"""
         
         try:
             response = self.model.generate_content(prompt)
