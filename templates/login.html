@@ -63,7 +63,9 @@
             if (response.ok) {
                 window.location.href = '/dashboard';
             } else {
-                alert('Error: ' + (data.error || 'Login failed'));
+                const errorMsg = data.error || 'Login failed';
+                const errorDetails = data.details ? `\nDetails: ${data.details}` : '';
+                alert(`Error: ${errorMsg}${errorDetails}`);
                 btn.disabled = false;
                 btn.textContent = 'Sign In';
             }
