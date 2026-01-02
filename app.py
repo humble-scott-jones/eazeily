@@ -88,6 +88,11 @@ def create_app():
     def up_check():
         return "OK", 200
 
+    @app.errorhandler(500)
+    def internal_error(error):
+        logger.error(f"Server Error: {error}")
+        return jsonify({"error": "Internal Server Error", "details": str(error)}), 500
+
     return app
 
 app = create_app()

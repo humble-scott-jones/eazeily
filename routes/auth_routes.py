@@ -10,6 +10,9 @@ def signup():
         return render_template('signup.html')
 
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON data"}), 400
+        
     email = data.get('email')
     password = data.get('password')
 
@@ -35,6 +38,9 @@ def login():
         return render_template('login.html')
 
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON data"}), 400
+
     email = data.get('email')
     password = data.get('password')
 
