@@ -119,6 +119,30 @@ def create_app():
 
 app = create_app()
 
+# CLI Commands
+import click
+from flask.cli import with_appcontext
+
+@app.cli.command("create-admin")
+@click.argument("email")
+@click.argument("password")
+@with_appcontext
+def create_admin(email, password):
+    """Creates a new admin user."""
+    # Check if user exists
+    existing = User.query.filter_by(email=email).first()
+    if existing:
+        print(f"User {email} already exists.")
+        return
+
+    # Create new user
+    hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
+    user = User(email=email, password_hash=hashed_pw)
+
+    db.session.add(user)
+    db.session.commit()
+    print(f"Successfully created admin: {email}")
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
