@@ -2,6 +2,7 @@ import os
 import logging
 from flask import Flask, render_template, jsonify
 from flask_login import LoginManager
+from sqlalchemy import inspect
 from whitenoise import WhiteNoise
 from models import db, User, bcrypt
 
@@ -31,11 +32,32 @@ def create_app():
         try:
             db.create_all()
             logger.info("Database tables created successfully")
-            
+
+            # Runtime schema fix: ensure common columns exist (helps recover older DBs)
+            try:
+                inspector = inspect(db.engine)
+                if 'user' in inspector.get_table_names():
+                    user_columns = [c['name'] for c in inspector.get_columns('user')]
+                    if 'created_at' not in user_columns:
+                        dialect = db.engine.dialect.name
+                        logger.info(f"Adding missing column created_at to 'user' table for dialect {dialect}")
+                        if dialect == 'postgresql':
+                            db.session.execute('ALTER TABLE "user" ADD COLUMN created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now();')
+                        elif dialect == 'sqlite':
+                            # SQLite supports adding a column but without NOT NULL constraints if table already exists
+                            db.session.execute('ALTER TABLE user ADD COLUMN created_at DATETIME;')
+                        else:
+                            # Fallback: try a generic TIMESTAMP column
+                            db.session.execute('ALTER TABLE "user" ADD COLUMN created_at TIMESTAMP;')
+                        db.session.commit()
+            except Exception as se:
+                # Log and continue; schema fixes are best-effort in staging/dev only
+                logger.warning(f"Runtime schema check failed: {se}")
+
             # Seed Admin Users
             admin_emails = [e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()]
             dev_pw = os.environ.get('DEV_ADMIN_PW')
-            
+
             if admin_emails and dev_pw:
                 for email in admin_emails:
                     if not User.query.filter_by(email=email).first():
