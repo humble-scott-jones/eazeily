@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 from models import db, User
@@ -6,8 +6,11 @@ from models import db, User
 auth_bp = Blueprint('auth', __name__)
 bcrypt = Bcrypt()
 
-@auth_bp.route('/auth/signup', methods=['POST'])
+@auth_bp.route('/auth/signup', methods=['GET', 'POST'])
 def signup():
+    if request.method == 'GET':
+        return render_template('signup.html')
+
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
@@ -28,8 +31,11 @@ def signup():
     login_user(new_user)
     return jsonify({"message": "User created and logged in", "user": {"id": new_user.id, "email": new_user.email}}), 201
 
-@auth_bp.route('/auth/login', methods=['POST'])
+@auth_bp.route('/auth/login', methods=['GET', 'POST'])
 def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
