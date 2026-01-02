@@ -56,6 +56,15 @@ class VoiceEngine:
     def generate_post(self, user_profile, topic, platform="LinkedIn"):
         """
         Generates a post based on the profile and topic using Few-Shot Prompting.
+        
+        Args:
+            user_profile: VoiceProfile object or compatible object with industry, 
+                         get_defaults(), and get_examples() methods
+            topic: The topic to generate content about
+            platform: Target platform (default: LinkedIn)
+            
+        Returns:
+            str: Generated post content or error message
         """
         if not self.model:
             logger.error("VoiceEngine model is not initialized.")
