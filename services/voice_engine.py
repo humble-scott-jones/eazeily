@@ -3,6 +3,7 @@ import json
 import logging
 import google.generativeai as genai
 from dotenv import load_dotenv
+from services.industry_packs import IndustryPackLoader
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -18,24 +19,25 @@ class VoiceEngine:
     def __init__(self):
         try:
             self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.pack_loader = IndustryPackLoader()
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model: {e}")
             self.model = None
 
     def analyze_style(self, raw_text):
         """
-        Analyzes raw text to extract a style summary and examples.
-        Returns a JSON object with 'style_summary' and 'examples'.
+        Analyzes raw text to extract a style guide and examples.
+        Returns a JSON object with 'style_guide' and 'examples'.
         """
         if not self.model:
             logger.error("VoiceEngine model is not initialized.")
-            return {"style_summary": "Error: AI model not available.", "style_guide": "Error: AI model not available.", "examples": []}
+            return {"style_guide": "Error: AI model not available.", "examples": []}
 
         prompt = """
         You are an expert content strategist. Analyze the following text to create a Voice Profile.
         
         Output strictly valid JSON with two keys:
-        1. "style_summary": A concise paragraph describing the tone, sentence structure, and vocabulary.
+        1. "style_guide": A concise paragraph describing the tone, sentence structure, and vocabulary.
         2. "examples": A list of 3-5 direct quotes from the text that best exemplify this style.
         
         Text to analyze:
@@ -46,52 +48,69 @@ class VoiceEngine:
             response = self.model.generate_content(prompt.format(text=raw_text[:10000])) # Limit context if needed
             # Clean up potential markdown code blocks
             text_response = response.text.replace('```json', '').replace('```', '').strip()
-            result = json.loads(text_response)
-            # Add style_guide as an alias for backward compatibility
-            if 'style_summary' in result and 'style_guide' not in result:
-                result['style_guide'] = result['style_summary']
-            return result
+            return json.loads(text_response)
         except Exception as e:
             logger.error(f"Error in analyze_style: {e}")
-            return {"style_summary": "Default professional tone (Error during analysis).", "style_guide": "Default professional tone (Error during analysis).", "examples": []}
+            return {"style_guide": "Default professional tone (Error during analysis).", "examples": []}
 
-    def generate_post(self, profile, topic):
+    def generate_post(self, user_profile, topic, platform="LinkedIn"):
         """
         Generates a post based on the profile and topic using Few-Shot Prompting.
-        Must check if profile.examples exists before using it.
         """
         if not self.model:
             logger.error("VoiceEngine model is not initialized.")
             return "Error: AI model not available."
 
-        # Check if profile has examples (user's uploaded past work)
-        examples = profile.get_examples() if hasattr(profile, 'get_examples') else []
+        # 1. Load Context: Industry Defaults + User Profile Overrides
+        industry = getattr(user_profile, 'industry', 'general') or 'general'
+        pack = self.pack_loader.get_defaults(industry)
         
+        # Fallback to pack defaults if user profile is empty
+        style_guide = getattr(user_profile, 'style_guide', None) or pack.get('defaults', {}).get('style_guide', '')
+        examples = user_profile.get_examples() if hasattr(user_profile, 'get_examples') else []
         if not examples:
-            # Fallback: generate without few-shot examples
-            logger.warning("No examples found in profile. Generating post without few-shot learning.")
-            style_guide = getattr(profile, 'style_guide', 'Professional tone')
-            prompt = f"""
-            You are a content writer. Write a social media post about: "{topic}".
-            Style: {style_guide}
-            Keep it under 280 characters unless specified otherwise.
-            """
-        else:
-            # Use Few-Shot prompting with examples
-            examples_to_use = examples[:3]
-            num_examples = len(examples_to_use)
-            examples_text = "\n\n".join([f"Example {i+1}: {ex}" for i, ex in enumerate(examples_to_use)])
-            prompt = f"""
-Here are {num_examples} examples of the user's past writing style. Study the sentence length, vocabulary, and tone.
+            examples = pack.get('defaults', {}).get('examples', [])
 
-{examples_text}
-
-Now write a new post about {topic} MIMICKING this style exactly.
-"""
+        # 2. Construct Prompt
+        prompt = f"""
+        Role: You are an expert Social Media Manager for a {pack.get('industry', 'General Business')}.
+        Platform: {platform}
+        Topic: {topic}
         
-        try:
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
-        except Exception as e:
-            logger.error(f"Error in generate_post: {e}")
-            return "Error generating content."
+        Style Guide:
+        {style_guide}
+        
+        Constraint: Output final copy only. No preamble. No "Sure!", "Here is", or "Title:".
+        """
+        
+        if examples:
+            prompt += "\nFew-Shot Examples (Mimic this writing style):\n"
+            for ex in examples:
+                prompt += f"- {ex}\n"
+            
+        prompt += f"""
+        
+        Task: Write a new social media post about: "{topic}".
+        Keep it appropriate for {platform}.
+        """
+        
+        # 3. Call Model & 4. Guardrail
+        for attempt in range(2):
+            try:
+                response = self.model.generate_content(prompt)
+                content = response.text.strip()
+                
+                # Guardrail check
+                lower_content = content.lower()
+                if lower_content.startswith("sure") or lower_content.startswith("here is") or lower_content.startswith("title:"):
+                    logger.warning(f"Guardrail triggered on attempt {attempt+1}. Retrying...")
+                    prompt += "\n\nCRITICAL: Do NOT include any conversational filler like 'Sure' or 'Here is'. Just the post text."
+                    continue
+                
+                return content
+            except Exception as e:
+                logger.error(f"Error in generate_post (attempt {attempt+1}): {e}")
+                if attempt == 1:
+                    return "Error generating content. Please try again."
+        
+        return "Error generating content after retries."

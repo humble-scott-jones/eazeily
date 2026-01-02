@@ -1,0 +1,12 @@
+{
+    "industry": "Dentist",
+    "tone": "Professional, reassuring, and friendly",
+    "defaults": {
+        "style_guide": "Use clear, simple language. Focus on patient comfort and oral health education. Avoid jargon.",
+        "examples": [
+            "Don't let a toothache ruin your day! Schedule a checkup with us today.",
+            "Did you know flossing daily can save you from gum disease? Keep smiling!",
+            "We love seeing our patients leave with a brighter smile. Book your whitening session now."
+        ]
+    }
+}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold mb-6 text-gray-800">Generate Content</h2>
+    
+    <form id="generateForm" class="space-y-6">
+        <div>
+            <label for="topic" class="block text-sm font-medium text-gray-700">Topic</label>
+            <input type="text" id="topic" name="topic" required
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                   placeholder="e.g., New summer collection launch">
+        </div>
+
+        <div>
+            <label for="platform" class="block text-sm font-medium text-gray-700">Platform</label>
+            <select id="platform" name="platform"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="Instagram">Instagram</option>
+                <option value="Facebook">Facebook</option>
+                <option value="Twitter">Twitter</option>
+            </select>
+        </div>
+
+        <button type="submit" id="generateBtn"
+                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <span id="btnText">Generate Post</span>
+            <svg id="loadingSpinner" class="animate-spin ml-2 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </button>
+    </form>
+
+    <div id="resultBox" class="mt-8 hidden">
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Generated Post:</h3>
+        <div class="bg-gray-50 p-4 rounded-md border border-gray-200 relative">
+            <pre id="postContent" class="whitespace-pre-wrap text-gray-700 font-sans"></pre>
+            <button onclick="copyToClipboard()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('generateForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const topic = document.getElementById('topic').value;
+        const platform = document.getElementById('platform').value;
+        const btn = document.getElementById('generateBtn');
+        const btnText = document.getElementById('btnText');
+        const spinner = document.getElementById('loadingSpinner');
+        const resultBox = document.getElementById('resultBox');
+        const postContent = document.getElementById('postContent');
+
+        // Loading State
+        btn.disabled = true;
+        btnText.textContent = 'Generating...';
+        spinner.classList.remove('hidden');
+        resultBox.classList.add('hidden');
+
+        try {
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ topic, platform })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                postContent.textContent = data.content;
+                resultBox.classList.remove('hidden');
+            } else {
+                alert('Error: ' + (data.error || 'Failed to generate post'));
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An unexpected error occurred.');
+        } finally {
+            // Reset State
+            btn.disabled = false;
+            btnText.textContent = 'Generate Post';
+            spinner.classList.add('hidden');
+        }
+    });
+
+    function copyToClipboard() {
+        const text = document.getElementById('postContent').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Copied to clipboard!');
+        });
+    }
+</script>
+{% endblock %}

@@ -49,9 +49,11 @@ def create_app():
     # Register Blueprints
     from routes.wizard import wizard_bp, dashboard_bp
     from routes.auth_routes import auth_bp
+    from routes.generate_routes import generate_bp
     app.register_blueprint(wizard_bp)
     app.register_blueprint(auth_bp)
-    app.register_blueprint(dashboard_bp)
+    # app.register_blueprint(dashboard_bp) # Replaced by generate_bp's dashboard
+    app.register_blueprint(generate_bp)
 
     # Root route and health endpoint so the staging domain has content and Railway healthchecks succeed
     @app.route('/')

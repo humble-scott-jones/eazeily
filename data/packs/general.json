@@ -1,0 +1,12 @@
+{
+    "industry": "General",
+    "tone": "Professional and engaging",
+    "defaults": {
+        "style_guide": "Clear, concise, and action-oriented. Suitable for a general business audience.",
+        "examples": [
+            "Exciting news! We are launching a new product next week. Stay tuned.",
+            "Customer satisfaction is our top priority. Let us know how we can help you.",
+            "Join our team! We are hiring for multiple positions. Apply now."
+        ]
+    }
+}

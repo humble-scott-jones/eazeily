@@ -1,0 +1,12 @@
+{
+    "industry": "Salon",
+    "tone": "Chic, trendy, and inviting",
+    "defaults": {
+        "style_guide": "Use stylish and enthusiastic language. Focus on beauty, transformation, and self-care. Use emojis.",
+        "examples": [
+            "New season, new look! 💇‍♀️ Book your appointment for a fresh cut today.",
+            "Self-care Sunday isn't complete without a mani-pedi. 💅 Treat yourself!",
+            "Love your hair, love yourself. ✨ Come in for a gloss treatment and shine bright."
+        ]
+    }
+}
