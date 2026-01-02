@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask
+from flask import Flask, render_template, jsonify
 from flask_login import LoginManager
 from whitenoise import WhiteNoise
 from models import db, User
@@ -46,9 +46,20 @@ def create_app():
     # WhiteNoise for Static Files
     app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='static/')
 
-    # Register Blueprints
-    from routes.wizard import wizard_bp
+    # Register Blueprints (wizard, auth, dashboard are minimal blueprints defined in routes/wizard.py)
+    from routes.wizard import wizard_bp, auth_bp, dashboard_bp
     app.register_blueprint(wizard_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(dashboard_bp)
+
+    # Root route and health endpoint so the staging domain has content and Railway healthchecks succeed
+    @app.route('/')
+    def index():
+        return render_template('base.html', content='Welcome to Eazeily — Gemini Native')
+
+    @app.route('/healthz')
+    def healthz():
+        return jsonify(status='ok'), 200
 
     # Health check endpoints for Railway
     @app.route('/healthz')
