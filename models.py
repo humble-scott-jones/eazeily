@@ -1,9 +1,11 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
+from flask_bcrypt import Bcrypt
 from datetime import datetime
 import json
 
 db = SQLAlchemy()
+bcrypt = Bcrypt()
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)

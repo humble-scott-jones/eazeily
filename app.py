@@ -2,9 +2,8 @@ import os
 import logging
 from flask import Flask, render_template, jsonify
 from flask_login import LoginManager
-from flask_bcrypt import Bcrypt
 from whitenoise import WhiteNoise
-from models import db, User
+from models import db, User, bcrypt
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +24,7 @@ def create_app():
 
     # Initialize Extensions
     db.init_app(app)
+    bcrypt.init_app(app)
     
     # Auto-create tables (safe - only creates if they don't exist)
     with app.app_context():
@@ -37,7 +37,6 @@ def create_app():
             dev_pw = os.environ.get('DEV_ADMIN_PW')
             
             if admin_emails and dev_pw:
-                bcrypt = Bcrypt(app)
                 for email in admin_emails:
                     if not User.query.filter_by(email=email).first():
                         hashed_pw = bcrypt.generate_password_hash(dev_pw).decode('utf-8')
