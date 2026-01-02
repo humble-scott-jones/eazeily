@@ -56,6 +56,15 @@ class VoiceEngine:
     def generate_post(self, user_profile, topic, platform="LinkedIn"):
         """
         Generates a post based on the profile and topic using Few-Shot Prompting.
+        
+        Args:
+            user_profile: VoiceProfile object or compatible object with industry, 
+                         get_defaults(), and get_examples() methods
+            topic: The topic to generate content about
+            platform: Target platform (default: LinkedIn)
+            
+        Returns:
+            str: Generated post content or error message
         """
         if not self.model:
             logger.error("VoiceEngine model is not initialized.")
@@ -66,7 +75,9 @@ class VoiceEngine:
         pack = self.pack_loader.get_defaults(industry)
         
         # Fallback to pack defaults if user profile is empty
-        style_guide = getattr(user_profile, 'style_guide', None) or pack.get('defaults', {}).get('style_guide', '')
+        # Check if profile has defaults with style_guide
+        profile_defaults = user_profile.get_defaults() if hasattr(user_profile, 'get_defaults') else {}
+        style_guide = profile_defaults.get('style_guide') or pack.get('defaults', {}).get('style_guide', '')
         examples = user_profile.get_examples() if hasattr(user_profile, 'get_examples') else []
         if not examples:
             examples = pack.get('defaults', {}).get('examples', [])

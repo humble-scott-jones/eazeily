@@ -43,3 +43,18 @@ class VoiceProfile(db.Model):
 
     def get_examples(self):
         return json.loads(self.examples) if self.examples else []
+    
+    @property
+    def style_guide(self):
+        """
+        Get style_guide from defaults for compatibility.
+        
+        Returns the 'style_guide' value from the defaults JSON field.
+        This property provides backward compatibility for code that expects
+        direct attribute access to style_guide.
+        
+        Returns:
+            str or None: The style guide text if present in defaults, None otherwise.
+        """
+        defaults = self.get_defaults()
+        return defaults.get('style_guide') if defaults else None
