@@ -95,7 +95,7 @@ def create_app():
     # Root route and health endpoint so the staging domain has content and Railway healthchecks succeed
     @app.route('/')
     def index():
-        return render_template('base.html', content='Welcome to Eazeily — Gemini Native')
+        return render_template('index.html')
 
     @app.route('/healthz')
     def healthz():
