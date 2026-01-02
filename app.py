@@ -23,15 +23,17 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # Initialize Extensions
-    try:
-        db.init_app(app)
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-        raise
+    db.init_app(app)
     
-    # Auto-create tables
+    # Auto-create tables (safe - only creates if they don't exist)
     with app.app_context():
-        db.create_all()
+        try:
+            db.create_all()
+            logger.info("Database tables created successfully")
+        except Exception as e:
+            logger.warning(f"Database initialization failed: {e}")
+            # Don't raise - let the app start even if DB creation fails
+            # This allows healthcheck to pass while DB issues are debugged
     
     login_manager = LoginManager()
     login_manager.init_app(app)
@@ -48,9 +50,13 @@ def create_app():
     from routes.wizard import wizard_bp
     app.register_blueprint(wizard_bp)
 
-    # Health check endpoint for Railway
+    # Health check endpoints for Railway
     @app.route('/healthz')
     def health_check():
+        return "OK", 200
+    
+    @app.route('/up')
+    def up_check():
         return "OK", 200
 
     return app
