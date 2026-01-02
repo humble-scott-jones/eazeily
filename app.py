@@ -46,8 +46,9 @@ def create_app():
     # WhiteNoise for Static Files
     app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='static/')
 
-    # Register Blueprints (wizard, auth, dashboard are minimal blueprints defined in routes/wizard.py)
-    from routes.wizard import wizard_bp, auth_bp, dashboard_bp
+    # Register Blueprints
+    from routes.wizard import wizard_bp, dashboard_bp
+    from routes.auth_routes import auth_bp
     app.register_blueprint(wizard_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
