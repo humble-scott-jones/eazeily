@@ -14,6 +14,13 @@ class User(UserMixin, db.Model):
     # Relationship
     voice_profile = db.relationship('VoiceProfile', backref='user', uselist=False)
 
+    @property
+    def is_admin(self):
+        import os
+        admin_emails = [e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()]
+        return self.email.lower() in admin_emails
+
+
 class VoiceProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

@@ -2,6 +2,7 @@ import os
 import logging
 from flask import Flask, render_template, jsonify
 from flask_login import LoginManager
+from flask_bcrypt import Bcrypt
 from whitenoise import WhiteNoise
 from models import db, User
 
@@ -30,6 +31,21 @@ def create_app():
         try:
             db.create_all()
             logger.info("Database tables created successfully")
+            
+            # Seed Admin Users
+            admin_emails = [e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()]
+            dev_pw = os.environ.get('DEV_ADMIN_PW')
+            
+            if admin_emails and dev_pw:
+                bcrypt = Bcrypt(app)
+                for email in admin_emails:
+                    if not User.query.filter_by(email=email).first():
+                        hashed_pw = bcrypt.generate_password_hash(dev_pw).decode('utf-8')
+                        admin_user = User(email=email, password_hash=hashed_pw)
+                        db.session.add(admin_user)
+                        logger.info(f"Created admin user: {email}")
+                db.session.commit()
+                
         except Exception as e:
             logger.warning(f"Database initialization failed: {e}")
             # Don't raise - let the app start even if DB creation fails
