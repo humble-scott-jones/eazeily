@@ -43,3 +43,9 @@ class VoiceProfile(db.Model):
 
     def get_examples(self):
         return json.loads(self.examples) if self.examples else []
+    
+    @property
+    def style_guide(self):
+        """Get style_guide from defaults for compatibility"""
+        defaults = self.get_defaults()
+        return defaults.get('style_guide') if defaults else None
