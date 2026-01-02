@@ -37,20 +37,38 @@ def login():
     if request.method == 'GET':
         return render_template('login.html')
 
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Invalid JSON data"}), 400
+    try:
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"error": "Invalid JSON data or empty body"}), 400
 
-    email = data.get('email')
-    password = data.get('password')
+        email = data.get('email')
+        password = data.get('password')
 
-    user = User.query.filter_by(email=email).first()
-    
-    if user and bcrypt.check_password_hash(user.password_hash, password):
-        login_user(user)
-        return jsonify({"message": "Logged in successfully", "user": {"id": user.id, "email": user.email}}), 200
-    
-    return jsonify({"error": "Invalid credentials"}), 401
+        if not email or not password:
+            return jsonify({"error": "Email and password required"}), 400
+
+        # Debug logging
+        print(f"Attempting login for: {email}")
+
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            print(f"User not found: {email}")
+            return jsonify({"error": "Invalid credentials"}), 401
+
+        if bcrypt.check_password_hash(user.password_hash, password):
+            login_user(user)
+            print(f"Login successful for: {email}")
+            return jsonify({"message": "Logged in successfully", "user": {"id": user.id, "email": user.email}}), 200
+        
+        print(f"Password check failed for: {email}")
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": "Login failed", "details": str(e)}), 500
 
 @auth_bp.route('/auth/logout', methods=['GET'])
 @login_required
