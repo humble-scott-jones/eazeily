@@ -48,9 +48,13 @@ def create_app():
     from routes.wizard import wizard_bp
     app.register_blueprint(wizard_bp)
 
-    # Health check endpoint for Railway
+    # Health check endpoints for Railway
     @app.route('/healthz')
     def health_check():
+        return "OK", 200
+    
+    @app.route('/up')
+    def up_check():
         return "OK", 200
 
     return app
