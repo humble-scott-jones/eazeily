@@ -8,6 +8,7 @@ db = SQLAlchemy()
 bcrypt = Bcrypt()
 
 class User(UserMixin, db.Model):
+    __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
@@ -25,7 +26,7 @@ class User(UserMixin, db.Model):
 
 class VoiceProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     industry = db.Column(db.String(100))
     business_name = db.Column(db.String(100))
     defaults = db.Column(db.Text) # Storing JSON as Text
