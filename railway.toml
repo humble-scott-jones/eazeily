@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --threads 8 --timeout 60 app:app"
+# Railway will use the CMD from Dockerfile when builder is DOCKERFILE
 # Use the liveness endpoint so Railway considers the process up as soon as
 # the WSGI server is running. Readiness (`/readyz`) still reports dependency
 # health (DB, Stripe) but is not used for the basic deploy liveness probe.
