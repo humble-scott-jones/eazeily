@@ -31,7 +31,7 @@ def create_app():
             db.create_all()
             logger.info("Database tables created successfully")
         except Exception as e:
-            logger.warning(f"Database table creation failed (may already exist): {e}")
+            logger.warning(f"Database initialization failed: {e}")
             # Don't raise - let the app start even if DB creation fails
             # This allows healthcheck to pass while DB issues are debugged
     
