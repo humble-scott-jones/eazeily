@@ -7,12 +7,12 @@ generate_bp = Blueprint('generate', __name__)
 voice_engine = VoiceEngine()
 
 @generate_bp.route('/dashboard', methods=['GET'])
-# @login_required  # Temporarily disabled for public testing (TEMP-OPEN-GATES-006)
+@login_required
 def dashboard():
     return render_template('dashboard.html')
 
 @generate_bp.route('/api/generate', methods=['POST'])
-# @login_required  # Temporarily disabled for public testing (TEMP-OPEN-GATES-006)
+@login_required
 def generate():
     data = request.get_json()
     topic = data.get('topic')

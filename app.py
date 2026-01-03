@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from flask_login import LoginManager
 from sqlalchemy import inspect
 from whitenoise import WhiteNoise
@@ -109,6 +109,18 @@ def create_app():
     @app.route('/up')
     def up_check():
         return "OK", 200
+
+    # Database reset route (for development/staging use only)
+    @app.route('/nuke-db')
+    def nuke_db():
+        # Simple safety lock
+        if request.args.get('key') != 'reset-me-now':
+            return "Unauthorized", 403
+
+        # The Nuclear Option
+        db.drop_all()
+        db.create_all()
+        return "💥 Database wiped and recreated. <a href='/auth/signup'>Go Sign Up</a>"
 
     @app.errorhandler(500)
     def internal_error(error):
