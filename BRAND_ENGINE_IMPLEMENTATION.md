@@ -121,22 +121,80 @@ def generate_expert_content(user_profile, topic, task_type, platform=None):
 
 ## Lazy Mode Defaults
 
-Industry defaults for instant setup:
+Industry defaults for instant setup (12 industries):
 
 ```javascript
-'Real Estate': {
-    audience: "Local families looking to upsize or first-time buyers",
+'Realtor / Real Estate': {
+    audience: "Local families looking to upsize or first-time buyers seeking guidance",
     voice: "Professional, reassuring, and expert-level",
     offer: "Free Home Valuation Report"
 }
 
-'Pottery': {
-    audience: "Creative hobbyists looking for screen-free escape",
-    voice: "Inspirational, earthy, and encouraging",
-    offer: "10% off your first 4-week workshop"
+'Restaurant / Café': {
+    audience: "Food lovers and families seeking authentic dining experiences",
+    voice: "Warm, inviting, and mouth-watering",
+    offer: "15% off your first visit or complimentary appetizer"
 }
 
-// + Fitness, Restaurant, Consulting
+'Retail / Boutique': {
+    audience: "Style-conscious shoppers looking for unique finds",
+    voice: "Friendly, trendy, and approachable",
+    offer: "10% off your first purchase"
+}
+
+'Fitness / Wellness': {
+    audience: "Busy professionals looking to build sustainable fitness habits",
+    voice: "Motivating, energetic, and supportive",
+    offer: "Free 7-day trial membership"
+}
+
+'Artisan / Maker': {
+    audience: "Creative hobbyists and conscious consumers",
+    voice: "Inspirational, earthy, and authentic",
+    offer: "10% off your first handcrafted piece"
+}
+
+'Coach / Consultant': {
+    audience: "Business leaders seeking strategic guidance",
+    voice: "Authoritative, insightful, and results-driven",
+    offer: "Free 30-minute strategy session"
+}
+
+'Nonprofit / Community': {
+    audience: "Community members passionate about local impact",
+    voice: "Heartfelt, inspiring, and mission-focused",
+    offer: "Join our next volunteer event"
+}
+
+'Home Services': {
+    audience: "Homeowners looking for reliable, quality service",
+    voice: "Trustworthy, professional, and helpful",
+    offer: "Free estimate or 10% off first service"
+}
+
+'Healthcare': {
+    audience: "Patients and families seeking quality healthcare",
+    voice: "Caring, professional, and informative",
+    offer: "New patient consultation available"
+}
+
+'Church': {
+    audience: "Community members seeking spiritual growth",
+    voice: "Welcoming, uplifting, and encouraging",
+    offer: "Join us this Sunday"
+}
+
+'House Host / Vacation Rental': {
+    audience: "Travelers seeking authentic, comfortable stays",
+    voice: "Warm, hospitable, and detail-oriented",
+    offer: "10% off your first booking"
+}
+
+'Other / Custom': {
+    audience: "Your target customers or community",
+    voice: "Authentic and true to your brand",
+    offer: "Your special offer or value proposition"
+}
 ```
 
 ## API Examples

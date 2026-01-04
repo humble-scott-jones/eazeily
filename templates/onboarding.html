@@ -20,12 +20,18 @@
             <select id="industry" name="industry" onchange="prefill()" required
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
                 <option value="">Select your industry...</option>
-                <option value="Real Estate">Real Estate</option>
-                <option value="Pottery">Pottery</option>
-                <option value="Fitness">Fitness</option>
-                <option value="Restaurant">Restaurant</option>
-                <option value="Consulting">Consulting</option>
-                <option value="Other">Other</option>
+                <option value="Realtor / Real Estate">🏡 Realtor / Real Estate</option>
+                <option value="Restaurant / Café">🍽️ Restaurant / Café</option>
+                <option value="Retail / Boutique">🛍️ Retail / Boutique</option>
+                <option value="Fitness / Wellness">💪 Fitness / Wellness</option>
+                <option value="Artisan / Maker">🎨 Artisan / Maker</option>
+                <option value="Coach / Consultant">🧭 Coach / Consultant</option>
+                <option value="Nonprofit / Community">🤝 Nonprofit / Community</option>
+                <option value="Home Services">🛠️ Home Services</option>
+                <option value="Healthcare">🩺 Healthcare</option>
+                <option value="Church">⛪ Church</option>
+                <option value="House Host / Vacation Rental">🏠 House Host / Vacation Rental</option>
+                <option value="Other / Custom">✨ Other / Custom</option>
             </select>
         </div>
 
@@ -98,30 +104,65 @@ Looking to sell? Let's chat about what your home is worth in today's market."></
 <script>
 // Industry defaults for "Lazy Mode" prefilling
 const defaults = {
-    'Real Estate': {
+    'Realtor / Real Estate': {
         audience: "Local families looking to upsize or first-time buyers seeking guidance.",
         voice: "Professional, reassuring, and expert-level.",
         offer: "Free Home Valuation Report."
     },
-    'Pottery': {
-        audience: "Creative hobbyists looking for a tactile, screen-free escape.",
-        voice: "Inspirational, earthy, and encouraging.",
-        offer: "10% off your first 4-week workshop."
+    'Restaurant / Café': {
+        audience: "Food lovers and families seeking authentic dining experiences.",
+        voice: "Warm, inviting, and mouth-watering.",
+        offer: "15% off your first visit or complimentary appetizer."
     },
-    'Fitness': {
+    'Retail / Boutique': {
+        audience: "Style-conscious shoppers looking for unique finds and personalized service.",
+        voice: "Friendly, trendy, and approachable.",
+        offer: "10% off your first purchase or early access to new arrivals."
+    },
+    'Fitness / Wellness': {
         audience: "Busy professionals looking to build sustainable fitness habits.",
         voice: "Motivating, energetic, and supportive.",
         offer: "Free 7-day trial membership."
     },
-    'Restaurant': {
-        audience: "Food lovers and families seeking authentic dining experiences.",
-        voice: "Warm, inviting, and mouth-watering.",
-        offer: "15% off your first visit."
+    'Artisan / Maker': {
+        audience: "Creative hobbyists and conscious consumers seeking handmade quality.",
+        voice: "Inspirational, earthy, and authentic.",
+        offer: "10% off your first handcrafted piece or free shipping."
     },
-    'Consulting': {
-        audience: "Business leaders seeking strategic guidance and proven frameworks.",
+    'Coach / Consultant': {
+        audience: "Business leaders and professionals seeking strategic guidance and proven frameworks.",
         voice: "Authoritative, insightful, and results-driven.",
         offer: "Free 30-minute strategy session."
+    },
+    'Nonprofit / Community': {
+        audience: "Community members passionate about making a local impact.",
+        voice: "Heartfelt, inspiring, and mission-focused.",
+        offer: "Join us at our next volunteer event or learn how your donation helps."
+    },
+    'Home Services': {
+        audience: "Homeowners looking for reliable, quality service and maintenance.",
+        voice: "Trustworthy, professional, and helpful.",
+        offer: "Free estimate or 10% off first service."
+    },
+    'Healthcare': {
+        audience: "Patients and families seeking compassionate, quality healthcare.",
+        voice: "Caring, professional, and informative.",
+        offer: "New patient consultation or same-day appointments available."
+    },
+    'Church': {
+        audience: "Community members seeking spiritual growth and fellowship.",
+        voice: "Welcoming, uplifting, and encouraging.",
+        offer: "Join us this Sunday or explore our community groups."
+    },
+    'House Host / Vacation Rental': {
+        audience: "Travelers seeking authentic, comfortable, and memorable stays.",
+        voice: "Warm, hospitable, and detail-oriented.",
+        offer: "10% off your first booking or free local activity guide."
+    },
+    'Other / Custom': {
+        audience: "Your target customers or community.",
+        voice: "Authentic and true to your brand.",
+        offer: "Your special offer or value proposition."
     }
 };
 
