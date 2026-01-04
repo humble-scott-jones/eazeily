@@ -211,8 +211,14 @@
         <a href="#features" class="text-slate-600 hover:text-brand transition">Features</a>
         <a href="#how-it-works" class="text-slate-600 hover:text-brand transition">How It Works</a>
         <a href="#faq" class="text-slate-600 hover:text-brand transition">FAQ</a>
-        <a href="{{ url_for('auth.login') }}" class="text-slate-600 hover:text-brand transition">Sign In</a>
-        <a href="{{ url_for('generate.dashboard') }}" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition">Get Started</a>
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('generate.dashboard') }}" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition">
+            Go to Dashboard
+          </a>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="text-slate-600 hover:text-brand transition">Sign In</a>
+          <a href="{{ url_for('auth.signup') }}" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition">Get Started</a>
+        {% endif %}
       </nav>
       <button id="mobile-menu-toggle" class="md:hidden text-slate-600">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -226,8 +232,14 @@
         <a href="#features" class="text-slate-600 hover:text-brand transition py-2">Features</a>
         <a href="#how-it-works" class="text-slate-600 hover:text-brand transition py-2">How It Works</a>
         <a href="#faq" class="text-slate-600 hover:text-brand transition py-2">FAQ</a>
-        <a href="{{ url_for('auth.login') }}" class="text-slate-600 hover:text-brand transition py-2">Sign In</a>
-        <a href="{{ url_for('generate.dashboard') }}" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition text-center">Get Started</a>
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('generate.dashboard') }}" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition text-center">
+            Go to Dashboard
+          </a>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="text-slate-600 hover:text-brand transition py-2">Sign In</a>
+          <a href="{{ url_for('auth.signup') }}" class="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition text-center">Get Started</a>
+        {% endif %}
       </nav>
     </div>
   </header>
@@ -247,8 +259,8 @@
           <!-- Left column - Content -->
           <div class="text-center lg:text-left">
             <div class="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-full px-4 py-2 text-sm font-medium text-slate-700 mb-8">
-              <span class="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
-              Launching Soon - Join the Waitlist
+              <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              Now Available - Start Creating Today
             </div>
 
             <h1 class="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-tight">
@@ -262,31 +274,20 @@
             </h1>
 
             <p class="text-xl md:text-2xl text-slate-600 mb-8 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-              Stop wasting hours creating content. Get early access to Eazeily—the AI-powered platform that generates authentic, brand-perfect social media posts in minutes, not hours.
+              Stop wasting hours creating content. Try Eazeily—the AI-powered platform that generates authentic, brand-perfect social media posts in minutes, not hours.
             </p>
 
-            <!-- Email Collection Form -->
-            <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-slate-200 shadow-lg mb-8">
-              <h3 class="text-2xl font-bold mb-4 text-center lg:text-left">Get Early Access</h3>
-              <p class="text-slate-600 mb-6 text-center lg:text-left">Be among the first to try Eazeily. Join our exclusive waitlist.</p>
-
-              <form id="launch-waitlist-form" action="https://formspree.io/f/mkgprydj" method="POST">
-                <div class="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="email"
-                    name="email"
-                    id="launch-email"
-                    placeholder="Enter your email address"
-                    required
-                    class="input flex-1 text-lg py-4 px-4"
-                    aria-label="Email address for launch waitlist"
-                  />
-                  <button type="submit" class="btn-primary whitespace-nowrap py-4 px-6 text-lg font-semibold">
-                    Join Waitlist
-                  </button>
-                </div>
-                <div id="launch-message" class="hidden text-sm mt-3" role="status" aria-live="polite"></div>
-              </form>
+            <!-- Smart Hero CTA -->
+            <div class="flex flex-col sm:flex-row gap-4 mb-8">
+              {% if current_user.is_authenticated %}
+                <a href="{{ url_for('generate.dashboard') }}" class="btn-primary whitespace-nowrap py-4 px-8 text-lg font-semibold inline-block text-center">
+                  Generate Post &rarr;
+                </a>
+              {% else %}
+                <a href="{{ url_for('auth.signup') }}" class="btn-primary whitespace-nowrap py-4 px-8 text-lg font-semibold inline-block text-center">
+                  Start for Free &rarr;
+                </a>
+              {% endif %}
             </div>
 
             <div class="flex items-center justify-center lg:justify-start gap-6 text-sm text-slate-500">
@@ -343,9 +344,9 @@
                 </div>
 
                 <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100">
-                  <p class="text-slate-700 mb-3">Join our waitlist for early access! Founding members get exclusive pricing and first look at new features. Link in bio to sign up! 🔗</p>
+                  <p class="text-slate-700 mb-3">Join our community for early access! Be among the first to try our powerful AI tools. Get started today! 🔗</p>
                   <div class="flex gap-2 text-sm text-indigo-600">
-                    <span>#Waitlist</span>
+                    <span>#LiveNow</span>
                     <span>#Beta</span>
                     <span>#EarlyAccess</span>
                   </div>
@@ -488,16 +489,15 @@
   <section class="px-6 py-16">
     <div class="max-w-6xl mx-auto">
       <div class="text-center mb-12">
-        <h3 class="text-3xl md:text-4xl font-bold mb-4">Join the Waitlist</h3>
-        <p class="text-xl text-slate-600">Be among the first to experience Eazeily when we launch</p>
+        <h3 class="text-3xl md:text-4xl font-bold mb-4">Start Creating Today</h3>
+        <p class="text-xl text-slate-600">Experience the power of AI-driven social media content</p>
       </div>
 
       <div class="max-w-2xl mx-auto text-center">
         <div class="card">
           <div class="text-6xl mb-4">🚀</div>
-          <h4 class="text-2xl font-bold mb-4">Launching Soon</h4>
-          <p class="text-slate-600 mb-6">We're working hard to bring you the simplest way to create authentic social media content. Join our waitlist to get early access and exclusive founding member benefits.</p>
-          <div class="text-sm text-slate-500">Expected launch: Early 2025</div>
+          <h4 class="text-2xl font-bold mb-4">Ready When You Are</h4>
+          <p class="text-slate-600 mb-6">We're here to help you create authentic social media content effortlessly. Sign up now and start generating content that resonates with your audience.</p>
         </div>
       </div>
     </div>
@@ -518,7 +518,7 @@
 
         <details class="card cursor-pointer">
           <summary class="font-semibold text-lg">What will Eazeily cost?</summary>
-          <p class="mt-3 text-slate-600">We're keeping pricing simple and affordable for small businesses. Founding members (that's you!) will get exclusive lifetime pricing starting at just $9/month.</p>
+          <p class="mt-3 text-slate-600">We're keeping it simple and affordable for small businesses. Sign up to learn more about our plans and features.</p>
         </details>
 
         <details class="card cursor-pointer">
@@ -548,24 +548,20 @@
   <section class="px-6 py-16">
     <div class="max-w-4xl mx-auto">
       <div class="card text-center">
-        <h3 class="text-3xl md:text-4xl font-bold mb-4">Don't Miss the Launch</h3>
-        <p class="text-xl text-slate-600 mb-8">Join our waitlist today and be the first to know when Eazeily launches. Founding members get exclusive perks and pricing.</p>
+        <h3 class="text-3xl md:text-4xl font-bold mb-4">Ready to Get Started?</h3>
+        <p class="text-xl text-slate-600 mb-8">Join Eazeily today and start creating amazing social media content with AI.</p>
 
-        <form id="final-waitlist-form" action="https://formspree.io/f/mkgprydj" method="POST">
-          <div class="flex flex-col sm:flex-row gap-3 mb-4">
-            <input
-              type="email"
-              name="email"
-              id="final-email"
-              placeholder="Enter your email"
-              required
-              class="input flex-1"
-              aria-label="Email address"
-            />
-            <button type="submit" class="btn-primary whitespace-nowrap">Join Waitlist</button>
-          </div>
-          <div id="final-message" class="hidden text-sm" role="status" aria-live="polite"></div>
-        </form>
+        <div class="flex justify-center">
+          {% if current_user.is_authenticated %}
+            <a href="{{ url_for('generate.dashboard') }}" class="btn-primary py-4 px-8 text-lg font-semibold inline-block">
+              Generate Post &rarr;
+            </a>
+          {% else %}
+            <a href="{{ url_for('auth.signup') }}" class="btn-primary py-4 px-8 text-lg font-semibold inline-block">
+              Start for Free &rarr;
+            </a>
+          {% endif %}
+        </div>
       </div>
     </div>
   </section>
@@ -621,34 +617,6 @@
       const menu = document.getElementById('mobile-menu');
       menu.classList.toggle('hidden');
     });
-
-    // Form submission handling
-    function handleFormSubmit(formId, messageId) {
-      const form = document.getElementById(formId);
-      if (!form) return;
-
-      form.addEventListener('submit', function(e) {
-        const messageEl = document.getElementById(messageId);
-        const submitBtn = form.querySelector('button[type="submit"]');
-        const originalText = submitBtn.textContent;
-
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Joining...';
-
-        // Show success message immediately (Formspree will handle the actual submission)
-        setTimeout(() => {
-          messageEl.className = 'p-3 bg-green-50 text-green-800 rounded-lg text-sm';
-          messageEl.textContent = '🎉 Success! You\'re on the list. Check your email for confirmation!';
-          messageEl.classList.remove('hidden');
-          submitBtn.disabled = false;
-          submitBtn.textContent = originalText;
-        }, 1000);
-      });
-    }
-
-    // Initialize both forms
-    handleFormSubmit('launch-waitlist-form', 'launch-message');
-    handleFormSubmit('final-waitlist-form', 'final-message');
 
     // Smooth scrolling for anchor links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
