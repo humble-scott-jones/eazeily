@@ -23,9 +23,7 @@ def generate():
         return jsonify({"error": "Topic is required"}), 400
 
     # Get user profile
-    profile = None
-    if current_user.is_authenticated:
-        profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+    profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
     
     # If no profile exists, create a temporary/default one
     if not profile:
@@ -37,22 +35,13 @@ def generate():
             brand_voice = 'Professional and friendly'
             key_offer = ''
             voice_rules = ''
-            def get_defaults(self): 
-                return {'style_guide': None}
-            def get_examples(self): 
-                return []
             def get_writing_samples(self):
                 return []
         profile = DummyProfile()
 
     try:
-        # Use new multi-task generation if profile has Secret Sauce fields
-        if hasattr(profile, 'target_audience') and profile.target_audience:
-            content = voice_engine.generate_expert_content(profile, topic, task_type, platform)
-        else:
-            # Fallback to old generation method for backward compatibility
-            content = voice_engine.generate_post(profile, topic, platform)
-        
+        # Use the expert content generation with role-based prompting
+        content = voice_engine.generate_expert_content(profile, topic, task_type, platform)
         return jsonify({"content": content, "status": "success"})
     except Exception as e:
         return jsonify({"error": str(e), "status": "error"}), 500

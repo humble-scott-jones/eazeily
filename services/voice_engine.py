@@ -129,11 +129,12 @@ class VoiceEngine:
     def generate_expert_content(self, user_profile, topic, task_type, platform=None):
         """
         Generate expert content using the "Secret Sauce" approach with Few-Shot prompting.
+        Uses role-based system instructions tailored to each task type.
         
         Args:
             user_profile: VoiceProfile object with brand fields
             topic: The topic or content to generate about
-            task_type: Type of content ('ad', 'email', 'review', 'post')
+            task_type: Type of content ('ad', 'email', 'review', 'post', 'proposal', 'newsletter', 'blog', 'script', 'caption')
             platform: Target platform (for posts)
             
         Returns:
@@ -159,9 +160,24 @@ class VoiceEngine:
         
         samples_text = "\n---\n".join(writing_samples) if writing_samples else ""
         
-        # Build system instruction with the "Secret Sauce"
+        # Define role-based system instructions for different task types
+        roles = {
+            "post": f"Social Media Manager for {business_name}",
+            "ad": f"Advertising Copywriter for {business_name}",
+            "email": f"Email Marketing Specialist for {business_name}",
+            "review": f"Customer Service Manager for {business_name}",
+            "proposal": f"Business Development Manager for {business_name}",
+            "newsletter": f"Content Marketing Lead for {business_name}",
+            "blog": f"Content Writer and SEO Specialist for {business_name}",
+            "script": f"Video Content Creator for {business_name}",
+            "caption": f"Social Media Content Specialist for {business_name}"
+        }
+        
+        role = roles.get(task_type, f"Marketing Professional for {business_name}")
+        
+        # Build system instruction with the "Secret Sauce" and role-based context
         system_instruction = f"""
-You are the Marketing Lead for {business_name}.
+You are the {role}.
 
 AUDIENCE: {target_audience}
 VOICE: {brand_voice}
@@ -172,12 +188,17 @@ STYLE EXAMPLES (Mimic the rhythm and vocabulary of these):
 {samples_text}
 """
         
-        # Define task-specific prompts
+        # Define task-specific prompts with role-appropriate instructions
         tasks = {
-            "ad": f"Write a high-converting ad for {topic}. Focus on the hook and the offer: {key_offer}.",
-            "email": f"Write a warm outreach email about {topic}. Include a clever subject line.",
-            "review": f"Draft a brand-aligned response to this customer feedback: {topic}.",
-            "post": f"Write a {platform or 'social media'} post about {topic}."
+            "ad": f"Write a high-converting Facebook/Instagram ad for {topic}. Focus on the hook, value proposition, and clear CTA with the offer: {key_offer}. Keep it punchy and scroll-stopping.",
+            "email": f"Write a warm, personalized outreach email about {topic}. Include an attention-grabbing subject line. Make it conversational and focus on building relationship, not just selling.",
+            "review": f"Draft a professional, empathetic response to this customer review: {topic}. Show appreciation, address any concerns, and reinforce your brand values.",
+            "post": f"Write an engaging {platform or 'social media'} post about {topic}. Make it platform-appropriate, shareable, and include a call-to-action.",
+            "proposal": f"Write a professional business proposal for {topic}. Include: project overview, deliverables, timeline, pricing structure, and value proposition. Be clear, detailed, and persuasive.",
+            "newsletter": f"Write an engaging newsletter section about {topic}. Include a catchy headline, valuable content, and a clear next step for readers. Keep the tone informative yet personal.",
+            "blog": f"Write an informative, SEO-friendly blog post about {topic}. Include: engaging introduction, key points with subheadings, actionable takeaways, and a conclusion with CTA. Aim for 600-800 words.",
+            "script": f"Write a video script for {topic}. Include: hook (first 3 seconds), main content with visual cues, and strong CTA. Format with timestamps and shot descriptions. Keep it authentic and engaging.",
+            "caption": f"Write a compelling social media caption for this image: {topic}. Capture attention, add context, and include relevant hashtags. Keep it authentic to your brand voice."
         }
         
         task_prompt = tasks.get(task_type, tasks['post'])

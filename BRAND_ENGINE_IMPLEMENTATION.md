@@ -35,7 +35,8 @@ class VoiceProfile(db.Model):
 #### 2. Generate Routes (`routes/generate_routes.py`)  
 - `POST /api/generate` - Multi-task content generation
   - Parameters: `topic`, `platform`, `task_type`
-  - Task types: `post`, `ad`, `email`, `review`
+  - Task types: `post`, `ad`, `email`, `review`, `proposal`, `newsletter`, `blog`, `script`, `caption`
+  - Uses role-based system instructions tailored to each task type
 
 #### 3. Admin Routes (`app.py`)
 - `GET /reset-brand-engine` - Reset database schema (auth required)
@@ -56,7 +57,9 @@ class VoiceProfile(db.Model):
 
 #### 2. Dashboard (`templates/dashboard.html`)
 **Features:**
-- Task selector with 4 icon buttons
+#### 2. Dashboard (`templates/dashboard.html`)
+**Features:**
+- Task selector with 9 icon buttons (Social Post, Facebook Ad, Email, Review Reply, Proposal, Newsletter, Blog Post, Video Script, Image Caption)
 - Dynamic form labels based on task type
 - Platform dropdown (shown only for posts)
 - Enhanced copy button with feedback
@@ -73,12 +76,12 @@ class VoiceProfile(db.Model):
 ```python
 def generate_expert_content(user_profile, topic, task_type, platform=None):
     """
-    Generate content using Secret Sauce approach.
+    Generate content using Secret Sauce approach with role-based prompting.
     
     Args:
         user_profile: VoiceProfile with Secret Sauce fields
         topic: Content topic/input
-        task_type: 'post', 'ad', 'email', or 'review'
+        task_type: 'post', 'ad', 'email', 'review', 'proposal', 'newsletter', 'blog', 'script', 'caption'
         platform: Target platform (for posts)
     
     Returns:
@@ -86,11 +89,23 @@ def generate_expert_content(user_profile, topic, task_type, platform=None):
     """
 ```
 
+**Role-Based System Instructions:**
+Each task type gets a specialized role for better content:
+- `post` → Social Media Manager
+- `ad` → Advertising Copywriter
+- `email` → Email Marketing Specialist
+- `review` → Customer Service Manager
+- `proposal` → Business Development Manager
+- `newsletter` → Content Marketing Lead
+- `blog` → Content Writer and SEO Specialist
+- `script` → Video Content Creator
+- `caption` → Social Media Content Specialist
+
 **Prompt Structure:**
-1. System instruction with business context
+1. Role-based system instruction with business context
 2. Audience, voice, constraints, and offer
 3. Few-shot examples (writing samples)
-4. Task-specific prompt
+4. Task-specific prompt with role-appropriate guidance
 5. Guardrails against conversational filler
 
 ## Usage Flow
