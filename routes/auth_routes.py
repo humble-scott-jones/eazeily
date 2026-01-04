@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
 from flask_login import login_user, logout_user, login_required, current_user
 from models import db, User, bcrypt
 
@@ -40,12 +40,15 @@ def login():
     try:
         data = request.get_json(silent=True)
         if not data:
+            flash('Invalid request data', 'error')
             return jsonify({"error": "Invalid JSON data or empty body"}), 400
 
         email = data.get('email')
         password = data.get('password')
+        remember = data.get('remember', False)
 
         if not email or not password:
+            flash('Email and password are required', 'error')
             return jsonify({"error": "Email and password required"}), 400
 
         # Debug logging
@@ -53,22 +56,35 @@ def login():
 
         user = User.query.filter_by(email=email).first()
         
+        # The "Gold Standard" Check - separate user not found vs bad password
         if not user:
             print(f"User not found: {email}")
+            flash('Please check your login details and try again.', 'error')
             return jsonify({"error": "Invalid credentials"}), 401
 
         # Use User.check_password() method - do NOT hash password here
-        if user.check_password(password):
-            login_user(user)
-            print(f"Login successful for: {email}")
-            return jsonify({"message": "Logged in successfully", "user": {"id": user.id, "email": user.email}}), 200
+        if not user.check_password(password):
+            print(f"Password check failed for: {email}")
+            flash('Please check your login details and try again.', 'error')
+            return jsonify({"error": "Invalid credentials"}), 401
         
-        print(f"Password check failed for: {email}")
-        return jsonify({"error": "Invalid credentials"}), 401
+        # Success
+        login_user(user, remember=remember)
+        print(f"Login successful for: {email}")
+        flash(f'Welcome back, {user.email}!', 'success')
+        
+        # Smart Redirect (Go back to where they tried to access)
+        next_page = request.args.get('next')
+        return jsonify({
+            "message": "Logged in successfully", 
+            "user": {"id": user.id, "email": user.email},
+            "next": next_page
+        }), 200
 
     except Exception as e:
         import traceback
         traceback.print_exc()
+        flash('Login failed. Please try again.', 'error')
         return jsonify({"error": "Login failed", "details": str(e)}), 500
 
 @auth_bp.route('/auth/logout', methods=['GET'])
