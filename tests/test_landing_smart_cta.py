@@ -36,7 +36,9 @@ def test_landing_page_shows_now_available(client):
     response = client.get('/')
     assert response.status_code == 200
     assert b'Now Available' in response.data
-    assert b'Launching Soon' not in response.data or b'Join the Waitlist' not in response.data
+    # Ensure old messaging is not present
+    assert b'Launching Soon' not in response.data
+    assert b'Join the Waitlist' not in response.data
 
 
 def test_landing_page_has_generate_post_cta(client):
