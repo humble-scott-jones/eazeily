@@ -1,8 +1,15 @@
 from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
 from flask_login import login_user, logout_user, login_required, current_user
+from urllib.parse import urlparse, urljoin
 from models import db, User, bcrypt
 
 auth_bp = Blueprint('auth', __name__)
+
+def is_safe_url(target):
+    """Check if the target URL is safe for redirect (prevents open redirect attacks)."""
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
 
 @auth_bp.route('/auth/signup', methods=['GET', 'POST'])
 def signup():
@@ -73,12 +80,17 @@ def login():
         print(f"Login successful for: {email}")
         flash(f'Welcome back, {user.email}!', 'success')
         
-        # Smart Redirect (Go back to where they tried to access)
+        # Smart Redirect (Go back to where they tried to access) with security check
         next_page = request.args.get('next')
+        if next_page and is_safe_url(next_page):
+            validated_next = next_page
+        else:
+            validated_next = None
+        
         return jsonify({
             "message": "Logged in successfully", 
             "user": {"id": user.id, "email": user.email},
-            "next": next_page
+            "next": validated_next
         }), 200
 
     except Exception as e:
