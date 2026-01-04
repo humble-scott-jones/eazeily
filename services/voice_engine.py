@@ -125,3 +125,80 @@ class VoiceEngine:
                     return "Error generating content. Please try again."
         
         return "Error generating content after retries."
+    
+    def generate_expert_content(self, user_profile, topic, task_type, platform=None):
+        """
+        Generate expert content using the "Secret Sauce" approach with Few-Shot prompting.
+        
+        Args:
+            user_profile: VoiceProfile object with brand fields
+            topic: The topic or content to generate about
+            task_type: Type of content ('ad', 'email', 'review', 'post')
+            platform: Target platform (for posts)
+            
+        Returns:
+            str: Generated content or error message
+        """
+        if not self.model:
+            logger.error("VoiceEngine model is not initialized.")
+            return "Error: AI model not available."
+        
+        # Extract "Secret Sauce" fields from profile
+        business_name = getattr(user_profile, 'business_name', 'Your Business')
+        target_audience = getattr(user_profile, 'target_audience', '')
+        brand_voice = getattr(user_profile, 'brand_voice', 'Professional and friendly')
+        key_offer = getattr(user_profile, 'key_offer', '')
+        voice_rules = getattr(user_profile, 'voice_rules', '')
+        
+        # Get writing samples - try new field first, then fallback to old examples field
+        writing_samples = []
+        if hasattr(user_profile, 'get_writing_samples'):
+            writing_samples = user_profile.get_writing_samples()
+        if not writing_samples and hasattr(user_profile, 'get_examples'):
+            writing_samples = user_profile.get_examples()
+        
+        samples_text = "\n---\n".join(writing_samples) if writing_samples else ""
+        
+        # Build system instruction with the "Secret Sauce"
+        system_instruction = f"""
+You are the Marketing Lead for {business_name}.
+
+AUDIENCE: {target_audience}
+VOICE: {brand_voice}
+CONSTRAINTS: {voice_rules}
+MAIN OFFER: {key_offer}
+
+STYLE EXAMPLES (Mimic the rhythm and vocabulary of these):
+{samples_text}
+"""
+        
+        # Define task-specific prompts
+        tasks = {
+            "ad": f"Write a high-converting ad for {topic}. Focus on the hook and the offer: {key_offer}.",
+            "email": f"Write a warm outreach email about {topic}. Include a clever subject line.",
+            "review": f"Draft a brand-aligned response to this customer feedback: {topic}.",
+            "post": f"Write a {platform or 'social media'} post about {topic}."
+        }
+        
+        task_prompt = tasks.get(task_type, tasks['post'])
+        task_prompt += "\n\nOutput final copy only. No preamble. No 'Sure!', 'Here is', or 'Title:'."
+        
+        try:
+            # Use system instruction for better context
+            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+            response = model.generate_content(task_prompt)
+            content = response.text.strip()
+            
+            # Guardrail check
+            lower_content = content.lower()
+            if lower_content.startswith("sure") or lower_content.startswith("here is") or lower_content.startswith("title:"):
+                # Retry once with stronger instruction
+                task_prompt += "\n\nCRITICAL: Do NOT include any conversational filler. Just the final copy."
+                response = model.generate_content(task_prompt)
+                content = response.text.strip()
+            
+            return content
+        except Exception as e:
+            logger.error(f"Error in generate_expert_content: {e}")
+            return "Error generating content. Please try again."
+

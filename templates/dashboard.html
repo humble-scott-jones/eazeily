@@ -2,17 +2,59 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
-    <h2 class="text-2xl font-bold mb-6 text-gray-800">Generate Content</h2>
+    <h2 class="text-2xl font-bold mb-6 text-gray-800">Co-Pilot Content Generator</h2>
+    
+    <!-- Task Selector -->
+    <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-3">What would you like to create?</label>
+        <div class="grid grid-cols-2 gap-4">
+            <button type="button" onclick="selectTask('post')" id="task-post" 
+                    class="task-btn flex flex-col items-center p-4 border-2 border-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                <svg class="w-8 h-8 mb-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+                </svg>
+                <span class="font-medium text-gray-700">Social Post</span>
+            </button>
+            
+            <button type="button" onclick="selectTask('ad')" id="task-ad" 
+                    class="task-btn flex flex-col items-center p-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                <svg class="w-8 h-8 mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path>
+                </svg>
+                <span class="font-medium text-gray-700">Facebook Ad</span>
+            </button>
+            
+            <button type="button" onclick="selectTask('email')" id="task-email" 
+                    class="task-btn flex flex-col items-center p-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                <svg class="w-8 h-8 mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                <span class="font-medium text-gray-700">Email</span>
+            </button>
+            
+            <button type="button" onclick="selectTask('review')" id="task-review" 
+                    class="task-btn flex flex-col items-center p-4 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                <svg class="w-8 h-8 mb-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                </svg>
+                <span class="font-medium text-gray-700">Review Reply</span>
+            </button>
+        </div>
+    </div>
     
     <form id="generateForm" class="space-y-6">
+        <input type="hidden" id="task_type" name="task_type" value="post">
+        
+        <!-- Dynamic Topic Label -->
         <div>
-            <label for="topic" class="block text-sm font-medium text-gray-700">Topic</label>
-            <input type="text" id="topic" name="topic" required
+            <label for="topic" id="topicLabel" class="block text-sm font-medium text-gray-700">What is this post about?</label>
+            <textarea id="topic" name="topic" rows="3" required
                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                   placeholder="e.g., New summer collection launch">
+                   placeholder="e.g., New summer collection launch"></textarea>
         </div>
 
-        <div>
+        <!-- Platform selector (only for posts) -->
+        <div id="platformSection">
             <label for="platform" class="block text-sm font-medium text-gray-700">Platform</label>
             <select id="platform" name="platform"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
@@ -34,25 +76,75 @@
     </form>
 
     <div id="resultBox" class="mt-8 hidden">
-        <h3 class="text-lg font-medium text-gray-900 mb-2">Generated Post:</h3>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Generated Content:</h3>
         <div class="bg-gray-50 p-4 rounded-md border border-gray-200 relative">
             <pre id="postContent" class="whitespace-pre-wrap text-gray-700 font-sans"></pre>
-            <button onclick="copyToClipboard()" class="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-                </svg>
+            <button onclick="copyToClipboard()" class="absolute top-2 right-2 bg-white px-3 py-1 rounded border border-gray-300 text-gray-600 hover:text-gray-800 hover:border-gray-400 text-sm">
+                📋 Copy
             </button>
         </div>
     </div>
 </div>
 
 <script>
+    let currentTask = 'post';
+    
+    const taskConfig = {
+        'post': {
+            label: 'What is this post about?',
+            placeholder: 'e.g., New summer collection launch',
+            buttonText: 'Generate Post',
+            showPlatform: true
+        },
+        'ad': {
+            label: 'What is this ad promoting?',
+            placeholder: 'e.g., 20% off all pottery classes this month',
+            buttonText: 'Generate Ad',
+            showPlatform: false
+        },
+        'email': {
+            label: 'What is the email about?',
+            placeholder: 'e.g., Following up on our recent conversation about home staging',
+            buttonText: 'Generate Email',
+            showPlatform: false
+        },
+        'review': {
+            label: 'Paste the review here:',
+            placeholder: 'e.g., Great experience! The agent was very helpful and responsive.',
+            buttonText: 'Generate Reply',
+            showPlatform: false
+        }
+    };
+    
+    function selectTask(taskType) {
+        currentTask = taskType;
+        document.getElementById('task_type').value = taskType;
+        
+        // Update UI
+        const config = taskConfig[taskType];
+        document.getElementById('topicLabel').textContent = config.label;
+        document.getElementById('topic').placeholder = config.placeholder;
+        document.getElementById('btnText').textContent = config.buttonText;
+        document.getElementById('platformSection').style.display = config.showPlatform ? 'block' : 'none';
+        
+        // Update task button styles
+        document.querySelectorAll('.task-btn').forEach(btn => {
+            btn.classList.remove('border-blue-600', 'bg-blue-50');
+            btn.classList.add('border-gray-300');
+        });
+        document.getElementById('task-' + taskType).classList.remove('border-gray-300');
+        document.getElementById('task-' + taskType).classList.add('border-blue-600', 'bg-blue-50');
+        
+        // Clear result
+        document.getElementById('resultBox').classList.add('hidden');
+    }
+    
     document.getElementById('generateForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
         const topic = document.getElementById('topic').value;
         const platform = document.getElementById('platform').value;
+        const taskType = document.getElementById('task_type').value;
         const btn = document.getElementById('generateBtn');
         const btnText = document.getElementById('btnText');
         const spinner = document.getElementById('loadingSpinner');
@@ -71,7 +163,11 @@
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ topic, platform })
+                body: JSON.stringify({ 
+                    topic, 
+                    platform,
+                    task_type: taskType
+                })
             });
 
             const data = await response.json();
@@ -80,7 +176,7 @@
                 postContent.textContent = data.content;
                 resultBox.classList.remove('hidden');
             } else {
-                alert('Error: ' + (data.error || 'Failed to generate post'));
+                alert('Error: ' + (data.error || 'Failed to generate content'));
             }
         } catch (error) {
             console.error('Error:', error);
@@ -88,7 +184,7 @@
         } finally {
             // Reset State
             btn.disabled = false;
-            btnText.textContent = 'Generate Post';
+            btnText.textContent = taskConfig[taskType].buttonText;
             spinner.classList.add('hidden');
         }
     });
@@ -96,7 +192,12 @@
     function copyToClipboard() {
         const text = document.getElementById('postContent').textContent;
         navigator.clipboard.writeText(text).then(() => {
-            alert('Copied to clipboard!');
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
         });
     }
 </script>

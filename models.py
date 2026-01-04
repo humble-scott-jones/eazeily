@@ -43,10 +43,16 @@ class User(UserMixin, db.Model):
 class VoiceProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    industry = db.Column(db.String(100))
-    business_name = db.Column(db.String(100))
+    industry = db.Column(db.String(255))
+    business_name = db.Column(db.String(255))
     defaults = db.Column(db.Text) # Storing JSON as Text
     examples = db.Column(db.Text) # Storing JSON as Text
+    # New "Secret Sauce" fields
+    target_audience = db.Column(db.Text)       # The "Who"
+    brand_voice = db.Column(db.String(255))    # The "Vibe"
+    key_offer = db.Column(db.Text)             # The "Hook"
+    voice_rules = db.Column(db.Text)           # The "Constraints" (e.g., "No emojis")
+    writing_samples = db.Column(db.Text)       # The "Rhythm" (Few-shot examples) - stored as JSON
     
     def set_defaults(self, defaults_dict):
         self.defaults = json.dumps(defaults_dict)
@@ -59,6 +65,14 @@ class VoiceProfile(db.Model):
 
     def get_examples(self):
         return json.loads(self.examples) if self.examples else []
+    
+    def set_writing_samples(self, samples_list):
+        """Set writing samples from a list."""
+        self.writing_samples = json.dumps(samples_list)
+    
+    def get_writing_samples(self):
+        """Get writing samples as a list."""
+        return json.loads(self.writing_samples) if self.writing_samples else []
     
     @property
     def style_guide(self):

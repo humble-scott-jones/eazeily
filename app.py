@@ -87,10 +87,12 @@ def create_app():
     from routes.wizard import wizard_bp, dashboard_bp
     from routes.auth_routes import auth_bp
     from routes.generate_routes import generate_bp
+    from routes.onboarding_routes import onboarding_bp
     app.register_blueprint(wizard_bp)
     app.register_blueprint(auth_bp)
     # app.register_blueprint(dashboard_bp) # Replaced by generate_bp's dashboard
     app.register_blueprint(generate_bp)
+    app.register_blueprint(onboarding_bp)
 
     # Root route and health endpoint so the staging domain has content and Railway healthchecks succeed
     @app.route('/')
@@ -121,6 +123,16 @@ def create_app():
         db.drop_all()
         db.create_all()
         return "💥 Database wiped and recreated. <a href='/auth/signup'>Go Sign Up</a>"
+    
+    # Brand Engine Reset Route
+    @app.route('/reset-brand-engine')
+    def reset_brand_engine():
+        from flask_login import current_user
+        if not current_user.is_authenticated:
+            return "Unauthorized", 403
+        db.drop_all()
+        db.create_all()
+        return "✅ Engine Reset. <a href='/onboarding'>Start Onboarding</a>"
 
     # Emergency Hatch Route - for staging recovery
     @app.route('/emergency-hatch')
