@@ -23,8 +23,8 @@ def signup():
     if existing_user:
         return jsonify({"error": "User already exists"}), 400
 
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_user = User(email=email, password_hash=hashed_password)
+    new_user = User(email=email, password_hash='')  # Temporary value
+    new_user.set_password(password)  # Use the set_password method
     
     db.session.add(new_user)
     db.session.commit()
@@ -57,7 +57,8 @@ def login():
             print(f"User not found: {email}")
             return jsonify({"error": "Invalid credentials"}), 401
 
-        if bcrypt.check_password_hash(user.password_hash, password):
+        # Use User.check_password() method - do NOT hash password here
+        if user.check_password(password):
             login_user(user)
             print(f"Login successful for: {email}")
             return jsonify({"message": "Logged in successfully", "user": {"id": user.id, "email": user.email}}), 200

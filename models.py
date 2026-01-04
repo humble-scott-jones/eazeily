@@ -17,6 +17,21 @@ class User(UserMixin, db.Model):
     # Relationship
     voice_profile = db.relationship('VoiceProfile', backref='user', uselist=False)
 
+    def set_password(self, password):
+        """Hash and set the user's password."""
+        self.password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+
+    def check_password(self, password):
+        """Check if the provided password matches the stored hash.
+        
+        Args:
+            password: Plain text password to check
+            
+        Returns:
+            bool: True if password matches, False otherwise
+        """
+        return bcrypt.check_password_hash(self.password_hash, password)
+
     @property
     def is_admin(self):
         import os

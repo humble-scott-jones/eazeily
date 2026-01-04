@@ -61,8 +61,8 @@ def create_app():
             if admin_emails and dev_pw:
                 for email in admin_emails:
                     if not User.query.filter_by(email=email).first():
-                        hashed_pw = bcrypt.generate_password_hash(dev_pw).decode('utf-8')
-                        admin_user = User(email=email, password_hash=hashed_pw)
+                        admin_user = User(email=email, password_hash='')  # Temporary value
+                        admin_user.set_password(dev_pw)
                         db.session.add(admin_user)
                         logger.info(f"Created admin user: {email}")
                 db.session.commit()
@@ -135,10 +135,8 @@ def create_app():
             db.create_all()
 
             # 3. The Admin Creation
-            hashed_pw = bcrypt.generate_password_hash("password123").decode('utf-8')
-
-            # Creating specific user
-            admin = User(email="hi.scott.jones@gmail.com", password_hash=hashed_pw)
+            admin = User(email="hi.scott.jones@gmail.com", password_hash='')  # Temporary value
+            admin.set_password("password123")
 
             db.session.add(admin)
             db.session.commit()
@@ -158,6 +156,44 @@ def create_app():
             """
         except Exception as e:
             return f"<h1 style='color: red;'>Error: {str(e)}</h1>"
+
+    @app.route('/reset-password-tool', methods=['GET', 'POST'])
+    def reset_password_tool():
+        """Admin password reset tool - allows resetting any user's password.
+        
+        Note: Uses simple security key as specified in requirements.
+        For production, consider environment variable or OAuth.
+        """
+        # Simple security key to prevent public abuse (as specified in requirements)
+        if request.args.get('key') != 'fix-my-auth':
+            return "Unauthorized", 403
+
+        if request.method == 'POST':
+            email = request.form.get('email')
+            new_pass = request.form.get('password')
+
+            if not email or not new_pass:
+                return "Email and password required", 400
+
+            user = User.query.filter_by(email=email).first()
+
+            if not user:
+                return "User not found", 404
+
+            # Uses the FIXED logic from User model
+            user.set_password(new_pass)
+            db.session.commit()
+
+            return f"Password for {email} has been reset. <a href='/auth/login'>Login Now</a>"
+
+        return """
+        <form method="POST">
+            <h3>Admin Password Reset</h3>
+            <input type="email" name="email" placeholder="User Email" required style="display:block; margin: 10px 0;">
+            <input type="password" name="password" placeholder="New Password" required style="display:block; margin: 10px 0;">
+            <button type="submit">Reset Password</button>
+        </form>
+        """
 
     @app.errorhandler(500)
     def internal_error(error):
@@ -185,8 +221,8 @@ def create_admin(email, password):
         return
 
     # Create new user
-    hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
-    user = User(email=email, password_hash=hashed_pw)
+    user = User(email=email, password_hash='')  # Temporary value
+    user.set_password(password)
 
     db.session.add(user)
     db.session.commit()
