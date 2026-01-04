@@ -122,6 +122,43 @@ def create_app():
         db.create_all()
         return "💥 Database wiped and recreated. <a href='/auth/signup'>Go Sign Up</a>"
 
+    # Emergency Hatch Route - for staging recovery
+    @app.route('/emergency-hatch')
+    def emergency_hatch():
+        # 1. Simple Security Lock
+        if request.args.get('key') != 'let-me-in':
+            return "Unauthorized", 403
+
+        # 2. The Wipe
+        try:
+            db.drop_all()
+            db.create_all()
+
+            # 3. The Admin Creation
+            hashed_pw = bcrypt.generate_password_hash("password123").decode('utf-8')
+
+            # Creating specific user
+            admin = User(email="hi.scott.jones@gmail.com", password_hash=hashed_pw)
+
+            db.session.add(admin)
+            db.session.commit()
+
+            return """
+            <div style='font-family: sans-serif; padding: 20px;'>
+                <h1 style='color: green;'>✅ System Reset Successful</h1>
+                <p>The database has been wiped and restored.</p>
+                <p><strong>Your Login Credentials:</strong></p>
+                <ul>
+                    <li>Email: <b>hi.scott.jones@gmail.com</b></li>
+                    <li>Password: <b>password123</b></li>
+                </ul>
+                <br>
+                <a href='/auth/login' style='background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;'>Go to Login</a>
+            </div>
+            """
+        except Exception as e:
+            return f"<h1 style='color: red;'>Error: {str(e)}</h1>"
+
     @app.errorhandler(500)
     def internal_error(error):
         logger.error(f"Server Error: {error}")
