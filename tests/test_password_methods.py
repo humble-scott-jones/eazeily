@@ -44,6 +44,12 @@ def test_password_methods_integration(app):
         # Ensure tables exist
         db.create_all()
         
+        # Clean up if user exists
+        existing = User.query.filter_by(email='integration@example.com').first()
+        if existing:
+            db.session.delete(existing)
+            db.session.commit()
+        
         # Create a user with set_password
         user = User(email='integration@example.com', password_hash='')
         user.set_password('test1234')
@@ -64,6 +70,12 @@ def test_password_change(app):
     with app.app_context():
         # Ensure tables exist
         db.create_all()
+        
+        # Clean up if user exists
+        existing = User.query.filter_by(email='change@example.com').first()
+        if existing:
+            db.session.delete(existing)
+            db.session.commit()
         
         user = User(email='change@example.com', password_hash='')
         user.set_password('oldpassword')

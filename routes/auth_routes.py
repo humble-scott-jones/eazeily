@@ -58,7 +58,7 @@ def login():
             return jsonify({"error": "Invalid credentials"}), 401
 
         # Use User.check_password() method - do NOT hash password here
-        if user and user.check_password(password):
+        if user.check_password(password):
             login_user(user)
             print(f"Login successful for: {email}")
             return jsonify({"message": "Logged in successfully", "user": {"id": user.id, "email": user.email}}), 200

@@ -159,8 +159,12 @@ def create_app():
 
     @app.route('/reset-password-tool', methods=['GET', 'POST'])
     def reset_password_tool():
-        """Admin password reset tool - allows resetting any user's password."""
-        # Simple security key to prevent public abuse
+        """Admin password reset tool - allows resetting any user's password.
+        
+        Note: Uses simple security key as specified in requirements.
+        For production, consider environment variable or OAuth.
+        """
+        # Simple security key to prevent public abuse (as specified in requirements)
         if request.args.get('key') != 'fix-my-auth':
             return "Unauthorized", 403
 
@@ -186,7 +190,7 @@ def create_app():
         <form method="POST">
             <h3>Admin Password Reset</h3>
             <input type="email" name="email" placeholder="User Email" required style="display:block; margin: 10px 0;">
-            <input type="text" name="password" placeholder="New Password" required style="display:block; margin: 10px 0;">
+            <input type="password" name="password" placeholder="New Password" required style="display:block; margin: 10px 0;">
             <button type="submit">Reset Password</button>
         </form>
         """
