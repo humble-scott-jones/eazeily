@@ -195,6 +195,30 @@ def create_app():
         </form>
         """
 
+    @app.route('/fix-my-account')
+    def fix_my_account():
+        """Emergency account fix route - rebuilds database with proper schema.
+        
+        WARNING: This deletes all data. Only use in staging/development.
+        """
+        # Only for authorized users
+        if request.args.get('key') != 'fix-it-now':
+            return "403 Forbidden", 403
+
+        # 1. Reset DB Schema (Safe-ish way to ensure column types are right)
+        # WARNING: This deletes data. If you have production data, do not run drop_all.
+        # For Staging: It is the only way to fix the column type 'String' vs 'Text' issue.
+        db.drop_all()
+        db.create_all()
+
+        # 2. Create Fresh Admin
+        user = User(email="hi.scott.jones@gmail.com")
+        user.set_password("password123")  # Uses the NEW robust logic
+        db.session.add(user)
+        db.session.commit()
+
+        return "✅ Database rebuilt. User 'hi.scott.jones@gmail.com' password set to 'password123'. <a href='/auth/login'>Login</a>"
+
     @app.errorhandler(500)
     def internal_error(error):
         logger.error(f"Server Error: {error}")
