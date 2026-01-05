@@ -17,37 +17,31 @@ def generate():
     data = request.get_json()
     topic = data.get('topic')
     platform = data.get('platform', 'LinkedIn')
+    task_type = data.get('task_type', 'post')
     
     if not topic:
         return jsonify({"error": "Topic is required"}), 400
 
-    # Get user profile (handle anonymous users)
-    profile = None
-    if current_user.is_authenticated:
-        profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
-    else:
-        # Anonymous user - will use default profile
-        profile = None
+    # Get user profile
+    profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
     
-    # If no profile exists, create a temporary/default one wrapper or handle in engine
-    # The engine handles empty profiles by falling back to industry defaults.
-    # We pass the profile object (or None/mock if strictly needed, but engine expects object with attributes)
-    
+    # If no profile exists, create a temporary/default one
     if not profile:
-        # Create a dummy object or handle gracefully. 
-        # For anonymous users or users without profiles, use a generic default.
-        # The engine expects an object with get_defaults() and get_examples() methods.
+        # Create a dummy object with default values
         class DummyProfile:
             industry = 'general'
-            style_guide = None
-            def get_defaults(self): 
-                return {'style_guide': None}
-            def get_examples(self): 
+            business_name = 'Your Business'
+            target_audience = 'General audience'
+            brand_voice = 'Professional and friendly'
+            key_offer = ''
+            voice_rules = ''
+            def get_writing_samples(self):
                 return []
         profile = DummyProfile()
 
     try:
-        content = voice_engine.generate_post(profile, topic, platform)
+        # Use the expert content generation with role-based prompting
+        content = voice_engine.generate_expert_content(profile, topic, task_type, platform)
         return jsonify({"content": content, "status": "success"})
     except Exception as e:
         return jsonify({"error": str(e), "status": "error"}), 500

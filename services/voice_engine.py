@@ -125,3 +125,101 @@ class VoiceEngine:
                     return "Error generating content. Please try again."
         
         return "Error generating content after retries."
+    
+    def generate_expert_content(self, user_profile, topic, task_type, platform=None):
+        """
+        Generate expert content using the "Secret Sauce" approach with Few-Shot prompting.
+        Uses role-based system instructions tailored to each task type.
+        
+        Args:
+            user_profile: VoiceProfile object with brand fields
+            topic: The topic or content to generate about
+            task_type: Type of content ('ad', 'email', 'review', 'post', 'proposal', 'newsletter', 'blog', 'script', 'caption')
+            platform: Target platform (for posts)
+            
+        Returns:
+            str: Generated content or error message
+        """
+        if not self.model:
+            logger.error("VoiceEngine model is not initialized.")
+            return "Error: AI model not available."
+        
+        # Extract "Secret Sauce" fields from profile
+        business_name = getattr(user_profile, 'business_name', 'Your Business')
+        target_audience = getattr(user_profile, 'target_audience', '')
+        brand_voice = getattr(user_profile, 'brand_voice', 'Professional and friendly')
+        key_offer = getattr(user_profile, 'key_offer', '')
+        voice_rules = getattr(user_profile, 'voice_rules', '')
+        
+        # Get writing samples - try new field first, then fallback to old examples field
+        writing_samples = []
+        if hasattr(user_profile, 'get_writing_samples'):
+            writing_samples = user_profile.get_writing_samples()
+        if not writing_samples and hasattr(user_profile, 'get_examples'):
+            writing_samples = user_profile.get_examples()
+        
+        samples_text = "\n---\n".join(writing_samples) if writing_samples else ""
+        
+        # Define role-based system instructions for different task types
+        roles = {
+            "post": f"Social Media Manager for {business_name}",
+            "ad": f"Advertising Copywriter for {business_name}",
+            "email": f"Email Marketing Specialist for {business_name}",
+            "review": f"Customer Service Manager for {business_name}",
+            "proposal": f"Business Development Manager for {business_name}",
+            "newsletter": f"Content Marketing Lead for {business_name}",
+            "blog": f"Content Writer and SEO Specialist for {business_name}",
+            "script": f"Video Content Creator for {business_name}",
+            "caption": f"Social Media Content Specialist for {business_name}"
+        }
+        
+        role = roles.get(task_type, f"Marketing Professional for {business_name}")
+        
+        # Build system instruction with the "Secret Sauce" and role-based context
+        system_instruction = f"""
+You are the {role}.
+
+AUDIENCE: {target_audience}
+VOICE: {brand_voice}
+CONSTRAINTS: {voice_rules}
+MAIN OFFER: {key_offer}
+
+STYLE EXAMPLES (Mimic the rhythm and vocabulary of these):
+{samples_text}
+"""
+        
+        # Define task-specific prompts with role-appropriate instructions
+        tasks = {
+            "ad": f"Write a high-converting Facebook/Instagram ad for {topic}. Focus on the hook, value proposition, and clear CTA with the offer: {key_offer}. Keep it punchy and scroll-stopping.",
+            "email": f"Write a warm, personalized outreach email about {topic}. Include an attention-grabbing subject line. Make it conversational and focus on building relationship, not just selling.",
+            "review": f"Draft a professional, empathetic response to this customer review: {topic}. Show appreciation, address any concerns, and reinforce your brand values.",
+            "post": f"Write an engaging {platform or 'social media'} post about {topic}. Make it platform-appropriate, shareable, and include a call-to-action.",
+            "proposal": f"Write a professional business proposal for {topic}. Include: project overview, deliverables, timeline, pricing structure, and value proposition. Be clear, detailed, and persuasive.",
+            "newsletter": f"Write an engaging newsletter section about {topic}. Include a catchy headline, valuable content, and a clear next step for readers. Keep the tone informative yet personal.",
+            "blog": f"Write an informative, SEO-friendly blog post about {topic}. Include: engaging introduction, key points with subheadings, actionable takeaways, and a conclusion with CTA. Aim for 600-800 words.",
+            "script": f"Write a video script for {topic}. Include: hook (first 3 seconds), main content with visual cues, and strong CTA. Format with timestamps and shot descriptions. Keep it authentic and engaging.",
+            "caption": f"Write a compelling social media caption for this image: {topic}. Capture attention, add context, and include relevant hashtags. Keep it authentic to your brand voice."
+        }
+        
+        task_prompt = tasks.get(task_type, tasks['post'])
+        task_prompt += "\n\nOutput final copy only. No preamble. No 'Sure!', 'Here is', or 'Title:'."
+        
+        try:
+            # Use system instruction for better context
+            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+            response = model.generate_content(task_prompt)
+            content = response.text.strip()
+            
+            # Guardrail check
+            lower_content = content.lower()
+            if lower_content.startswith("sure") or lower_content.startswith("here is") or lower_content.startswith("title:"):
+                # Retry once with stronger instruction
+                task_prompt += "\n\nCRITICAL: Do NOT include any conversational filler. Just the final copy."
+                response = model.generate_content(task_prompt)
+                content = response.text.strip()
+            
+            return content
+        except Exception as e:
+            logger.error(f"Error in generate_expert_content: {e}")
+            return "Error generating content. Please try again."
+

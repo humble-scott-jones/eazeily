@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md">
+    <h2 class="text-3xl font-bold mb-2 text-gray-800">Build Your Brand Brain</h2>
+    <p class="text-gray-600 mb-6">Let's capture your business identity in seconds with our "Lazy Mode" onboarding.</p>
+    
+    <form id="onboardingForm" method="POST" action="/onboarding" class="space-y-6">
+        <!-- Business Name -->
+        <div>
+            <label for="business_name" class="block text-sm font-medium text-gray-700">Business Name</label>
+            <input type="text" id="business_name" name="business_name" required
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                   placeholder="e.g., Smith Real Estate">
+        </div>
+
+        <!-- Industry Dropdown -->
+        <div>
+            <label for="industry" class="block text-sm font-medium text-gray-700">Industry</label>
+            <select id="industry" name="industry" onchange="prefill()" required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                <option value="">Select your industry...</option>
+                <option value="Realtor / Real Estate">🏡 Realtor / Real Estate</option>
+                <option value="Restaurant / Café">🍽️ Restaurant / Café</option>
+                <option value="Retail / Boutique">🛍️ Retail / Boutique</option>
+                <option value="Fitness / Wellness">💪 Fitness / Wellness</option>
+                <option value="Artisan / Maker">🎨 Artisan / Maker</option>
+                <option value="Coach / Consultant">🧭 Coach / Consultant</option>
+                <option value="Nonprofit / Community">🤝 Nonprofit / Community</option>
+                <option value="Home Services">🛠️ Home Services</option>
+                <option value="Healthcare">🩺 Healthcare</option>
+                <option value="Church">⛪ Church</option>
+                <option value="House Host / Vacation Rental">🏠 House Host / Vacation Rental</option>
+                <option value="Other / Custom">✨ Other / Custom</option>
+            </select>
+        </div>
+
+        <!-- Target Audience -->
+        <div>
+            <label for="audience" class="block text-sm font-medium text-gray-700">
+                Target Audience <span class="text-gray-500">(The "Who")</span>
+            </label>
+            <textarea id="audience" name="target_audience" rows="3" required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                      placeholder="e.g., Local families looking to upsize..."></textarea>
+        </div>
+
+        <!-- Brand Voice -->
+        <div>
+            <label for="voice" class="block text-sm font-medium text-gray-700">
+                Brand Voice <span class="text-gray-500">(The "Vibe")</span>
+                <button type="button" onclick="assistVoice()" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
+                    ✨ Help me describe my voice
+                </button>
+            </label>
+            <input type="text" id="voice" name="brand_voice" required
+                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                   placeholder="e.g., Professional, reassuring, and expert-level">
+        </div>
+
+        <!-- Key Offer -->
+        <div>
+            <label for="offer" class="block text-sm font-medium text-gray-700">
+                Key Offer <span class="text-gray-500">(The "Hook")</span>
+            </label>
+            <textarea id="offer" name="key_offer" rows="2" required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                      placeholder="e.g., Free Home Valuation Report"></textarea>
+        </div>
+
+        <!-- Voice Rules -->
+        <div>
+            <label for="rules" class="block text-sm font-medium text-gray-700">
+                Voice Rules/Constraints <span class="text-gray-500">(The "Constraints")</span>
+            </label>
+            <textarea id="rules" name="voice_rules" rows="3"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                      placeholder="e.g., Use 'y'all', No exclamation points, Keep it under 280 characters"></textarea>
+        </div>
+
+        <!-- Writing Samples -->
+        <div>
+            <label for="samples" class="block text-sm font-medium text-gray-700">
+                Writing Samples <span class="text-gray-500">(The "Rhythm")</span>
+            </label>
+            <textarea id="samples" name="writing_samples" rows="6" required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border font-mono text-sm"
+                      placeholder="Paste 2-3 examples of your past writing here. Separate each sample with a blank line.
+
+Example:
+Just closed on another dream home in Brookside! 🏡 Congrats to the Martinez family!
+
+Looking to sell? Let's chat about what your home is worth in today's market."></textarea>
+            <p class="mt-1 text-xs text-gray-500">Paste 2-3 examples of your past writing. The AI will learn your rhythm and vocabulary.</p>
+        </div>
+
+        <button type="submit" id="submitBtn"
+                class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Save Brand Profile
+        </button>
+    </form>
+</div>
+
+<script>
+// Industry defaults for "Lazy Mode" prefilling
+const defaults = {
+    'Realtor / Real Estate': {
+        audience: "Local families looking to upsize or first-time buyers seeking guidance.",
+        voice: "Professional, reassuring, and expert-level.",
+        offer: "Free Home Valuation Report."
+    },
+    'Restaurant / Café': {
+        audience: "Food lovers and families seeking authentic dining experiences.",
+        voice: "Warm, inviting, and mouth-watering.",
+        offer: "15% off your first visit or complimentary appetizer."
+    },
+    'Retail / Boutique': {
+        audience: "Style-conscious shoppers looking for unique finds and personalized service.",
+        voice: "Friendly, trendy, and approachable.",
+        offer: "10% off your first purchase or early access to new arrivals."
+    },
+    'Fitness / Wellness': {
+        audience: "Busy professionals looking to build sustainable fitness habits.",
+        voice: "Motivating, energetic, and supportive.",
+        offer: "Free 7-day trial membership."
+    },
+    'Artisan / Maker': {
+        audience: "Creative hobbyists and conscious consumers seeking handmade quality.",
+        voice: "Inspirational, earthy, and authentic.",
+        offer: "10% off your first handcrafted piece or free shipping."
+    },
+    'Coach / Consultant': {
+        audience: "Business leaders and professionals seeking strategic guidance and proven frameworks.",
+        voice: "Authoritative, insightful, and results-driven.",
+        offer: "Free 30-minute strategy session."
+    },
+    'Nonprofit / Community': {
+        audience: "Community members passionate about making a local impact.",
+        voice: "Heartfelt, inspiring, and mission-focused.",
+        offer: "Join us at our next volunteer event or learn how your donation helps."
+    },
+    'Home Services': {
+        audience: "Homeowners looking for reliable, quality service and maintenance.",
+        voice: "Trustworthy, professional, and helpful.",
+        offer: "Free estimate or 10% off first service."
+    },
+    'Healthcare': {
+        audience: "Patients and families seeking compassionate, quality healthcare.",
+        voice: "Caring, professional, and informative.",
+        offer: "New patient consultation or same-day appointments available."
+    },
+    'Church': {
+        audience: "Community members seeking spiritual growth and fellowship.",
+        voice: "Welcoming, uplifting, and encouraging.",
+        offer: "Join us this Sunday or explore our community groups."
+    },
+    'House Host / Vacation Rental': {
+        audience: "Travelers seeking authentic, comfortable, and memorable stays.",
+        voice: "Warm, hospitable, and detail-oriented.",
+        offer: "10% off your first booking or free local activity guide."
+    },
+    'Other / Custom': {
+        audience: "Your target customers or community.",
+        voice: "Authentic and true to your brand.",
+        offer: "Your special offer or value proposition."
+    }
+};
+
+function prefill() {
+    const industry = document.getElementById('industry').value;
+    if (defaults[industry]) {
+        document.getElementById('audience').value = defaults[industry].audience;
+        document.getElementById('voice').value = defaults[industry].voice;
+        document.getElementById('offer').value = defaults[industry].offer;
+    }
+}
+
+async function assistVoice() {
+    const businessName = document.getElementById('business_name').value;
+    const industry = document.getElementById('industry').value;
+    
+    if (!businessName || !industry) {
+        alert('Please fill in your business name and industry first.');
+        return;
+    }
+    
+    const voiceField = document.getElementById('voice');
+    voiceField.value = 'Generating...';
+    voiceField.disabled = true;
+    
+    try {
+        const response = await fetch('/onboarding/assist-voice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ business_name: businessName, industry: industry })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            voiceField.value = data.brand_voice;
+        } else {
+            voiceField.value = '';
+            alert('Error: ' + (data.error || 'Failed to generate voice description'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        voiceField.value = '';
+        alert('An unexpected error occurred.');
+    } finally {
+        voiceField.disabled = false;
+    }
+}
+</script>
+{% endblock %}
