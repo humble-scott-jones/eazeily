@@ -20,6 +20,7 @@
             <select id="industry" name="industry" onchange="prefill()" required
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
                 <option value="">Select your industry...</option>
+                <option value="Software / Tech / Startup">💻 Software / Tech / Startup</option>
                 <option value="Realtor / Real Estate">🏡 Realtor / Real Estate</option>
                 <option value="Restaurant / Café">🍽️ Restaurant / Café</option>
                 <option value="Retail / Boutique">🛍️ Retail / Boutique</option>
@@ -49,13 +50,38 @@
         <div>
             <label for="voice" class="block text-sm font-medium text-gray-700">
                 Brand Voice <span class="text-gray-500">(The "Vibe")</span>
-                <button type="button" onclick="assistVoice()" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
-                    ✨ Help me describe my voice
+                <button type="button" onclick="startVoiceChat()" class="ml-2 text-blue-600 hover:text-blue-800 text-xs">
+                    💬 Build with AI Chat
                 </button>
             </label>
             <input type="text" id="voice" name="brand_voice" required
                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
                    placeholder="e.g., Professional, reassuring, and expert-level">
+            
+            <!-- AI Chat Interface (hidden by default) -->
+            <div id="voiceChatInterface" style="display: none;" class="mt-3 border border-gray-300 rounded-lg bg-white shadow-sm">
+                <!-- Chat Messages Container -->
+                <div id="chatMessages" class="p-4 max-h-96 overflow-y-auto space-y-3">
+                    <!-- Messages will be added here dynamically -->
+                </div>
+                
+                <!-- Chat Input Area -->
+                <div class="border-t border-gray-200 p-3 bg-gray-50">
+                    <div class="flex items-start space-x-2">
+                        <textarea id="chatInput" rows="2"
+                                  class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border resize-none"
+                                  placeholder="Type your response..."></textarea>
+                        <button type="button" onclick="sendChatMessage()" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm h-full">
+                            Send
+                        </button>
+                    </div>
+                    <button type="button" onclick="closeVoiceChat()" 
+                            class="mt-2 text-xs text-gray-600 hover:text-gray-800">
+                        ✕ Close chat
+                    </button>
+                </div>
+            </div>
         </div>
 
         <!-- Key Offer -->
@@ -104,6 +130,11 @@ Looking to sell? Let's chat about what your home is worth in today's market."></
 <script>
 // Industry defaults for "Lazy Mode" prefilling
 const defaults = {
+    'Software / Tech / Startup': {
+        audience: "Businesses, developers, and teams seeking innovative software solutions to improve efficiency and scalability.",
+        voice: "Clear, innovative, and results-driven with a focus on solving real problems.",
+        offer: "Free trial or live demo of our platform."
+    },
     'Realtor / Real Estate': {
         audience: "Local families looking to upsize or first-time buyers seeking guidance.",
         voice: "Professional, reassuring, and expert-level.",
@@ -175,7 +206,14 @@ function prefill() {
     }
 }
 
-async function assistVoice() {
+// Voice Chat Interface
+let chatState = {
+    stage: 'initial', // initial, analyzing_links, asking_questions, complete
+    collectedData: {},
+    conversationHistory: []
+};
+
+function startVoiceChat() {
     const businessName = document.getElementById('business_name').value;
     const industry = document.getElementById('industry').value;
     
@@ -184,34 +222,178 @@ async function assistVoice() {
         return;
     }
     
-    const voiceField = document.getElementById('voice');
-    voiceField.value = 'Generating...';
-    voiceField.disabled = true;
+    const chatInterface = document.getElementById('voiceChatInterface');
+    const chatMessages = document.getElementById('chatMessages');
     
+    // Reset chat state
+    chatState = {
+        stage: 'initial',
+        collectedData: { business_name: businessName, industry: industry },
+        conversationHistory: []
+    };
+    
+    // Clear previous messages
+    chatMessages.innerHTML = '';
+    
+    // Show chat interface
+    chatInterface.style.display = 'block';
+    
+    // Add initial AI message
+    addAIMessage(
+        "Hi! I'm here to help build your brand voice profile. 🎨\n\n" +
+        "To get started, please share any links where I can see your brand's voice - like your website, Facebook page, Instagram, LinkedIn, or any social media profiles.\n\n" +
+        "Just paste the URLs below (one per line or separated by spaces):"
+    );
+}
+
+function addAIMessage(message) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'flex items-start space-x-2';
+    messageDiv.innerHTML = `
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm">
+            AI
+        </div>
+        <div class="flex-1 bg-gray-100 rounded-lg p-3 text-sm" style="white-space: pre-wrap;">${escapeHtml(message)}</div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addUserMessage(message) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'flex items-start space-x-2 flex-row-reverse';
+    messageDiv.innerHTML = `
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+            You
+        </div>
+        <div class="flex-1 bg-blue-600 text-white rounded-lg p-3 text-sm" style="white-space: pre-wrap;">${escapeHtml(message)}</div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function addLoadingMessage() {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageDiv = document.createElement('div');
+    messageDiv.id = 'loadingMessage';
+    messageDiv.className = 'flex items-start space-x-2';
+    messageDiv.innerHTML = `
+        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm">
+            AI
+        </div>
+        <div class="flex-1 bg-gray-100 rounded-lg p-3 text-sm">
+            <span class="inline-block animate-pulse">●</span>
+            <span class="inline-block animate-pulse" style="animation-delay: 0.2s;">●</span>
+            <span class="inline-block animate-pulse" style="animation-delay: 0.4s;">●</span>
+        </div>
+    `;
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function removeLoadingMessage() {
+    const loadingMsg = document.getElementById('loadingMessage');
+    if (loadingMsg) {
+        loadingMsg.remove();
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function sendChatMessage() {
+    const chatInput = document.getElementById('chatInput');
+    const userMessage = chatInput.value.trim();
+    
+    if (!userMessage) {
+        return;
+    }
+    
+    // Add user message to chat
+    addUserMessage(userMessage);
+    chatInput.value = '';
+    
+    // Add to conversation history
+    chatState.conversationHistory.push({ role: 'user', message: userMessage });
+    
+    // Show loading indicator
+    addLoadingMessage();
+    
+    // Send to backend for processing
     try {
-        const response = await fetch('/onboarding/assist-voice', {
+        const response = await fetch('/onboarding/voice-chat', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ business_name: businessName, industry: industry })
+            body: JSON.stringify({
+                business_name: chatState.collectedData.business_name,
+                industry: chatState.collectedData.industry,
+                user_message: userMessage,
+                conversation_history: chatState.conversationHistory,
+                stage: chatState.stage
+            })
         });
+        
+        removeLoadingMessage();
         
         const data = await response.json();
         
         if (response.ok) {
-            voiceField.value = data.brand_voice;
+            // Add AI response
+            addAIMessage(data.ai_message);
+            
+            // Update chat state
+            chatState.stage = data.stage;
+            chatState.conversationHistory.push({ role: 'ai', message: data.ai_message });
+            
+            // If we have a brand voice result, fill it in
+            if (data.brand_voice) {
+                document.getElementById('voice').value = data.brand_voice;
+            }
+            
+            // If we have target audience, fill it in
+            if (data.target_audience) {
+                document.getElementById('audience').value = data.target_audience;
+            }
+            
+            // If chat is complete, show success message and option to close
+            if (data.stage === 'complete') {
+                setTimeout(() => {
+                    addAIMessage("✅ All done! Your brand voice profile has been filled in. You can close this chat or continue to refine the details.");
+                }, 1000);
+            }
         } else {
-            voiceField.value = '';
-            alert('Error: ' + (data.error || 'Failed to generate voice description'));
+            addAIMessage('Sorry, I encountered an error: ' + (data.error || 'Please try again.'));
         }
     } catch (error) {
         console.error('Error:', error);
-        voiceField.value = '';
-        alert('An unexpected error occurred.');
-    } finally {
-        voiceField.disabled = false;
+        removeLoadingMessage();
+        addAIMessage('Sorry, something went wrong. Please try again.');
     }
 }
+
+function closeVoiceChat() {
+    const chatInterface = document.getElementById('voiceChatInterface');
+    chatInterface.style.display = 'none';
+}
+
+// Allow Enter key to send message (Shift+Enter for new line)
+document.addEventListener('DOMContentLoaded', function() {
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+    }
+});
 </script>
 {% endblock %}
