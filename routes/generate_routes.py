@@ -45,6 +45,7 @@ def generate():
     
     # If no profile exists, create a temporary/default one
     if not profile:
+        logger.info(f"User {current_user.id} generating content without a brand profile, using defaults")
         # Create a dummy object with default values
         class DummyProfile:
             industry = 'general'
@@ -71,7 +72,7 @@ def generate():
             
         return jsonify({"content": content, "status": "success"})
     except Exception as e:
-        logger.error(f"Exception during content generation: {str(e)}")
+        logger.error(f"Exception during content generation: {str(e)}", exc_info=True)
         return jsonify({
             "error": f"An error occurred while generating content: {str(e)}",
             "status": "error"

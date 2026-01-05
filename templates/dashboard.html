@@ -246,7 +246,14 @@
                 postContent.textContent = data.content;
                 resultBox.classList.remove('hidden');
             } else {
-                alert('Error: ' + (data.error || 'Failed to generate content'));
+                const errorMsg = data.error || 'Failed to generate content';
+                alert('Error: ' + errorMsg);
+                // If backend suggests a redirect, offer to navigate
+                if (data.redirect) {
+                    if (confirm('Would you like to set up your brand profile now?')) {
+                        window.location.href = data.redirect;
+                    }
+                }
             }
         } catch (error) {
             console.error('Error:', error);
