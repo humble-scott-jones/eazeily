@@ -108,3 +108,58 @@ def assist_voice():
     except Exception as e:
         logger.error(f"Error generating brand voice: {e}")
         return jsonify({"error": "Failed to generate brand voice description"}), 500
+
+
+@onboarding_bp.route('/onboarding/interview-voice', methods=['POST'])
+@login_required
+def interview_voice():
+    """Interview-style AI assistant to extract brand voice from user's natural description.
+    
+    This endpoint takes a paragraph-style response from the user describing their brand
+    and uses AI to extract structured brand voice characteristics.
+    """
+    try:
+        import google.generativeai as genai
+        import os
+        
+        # Configure Gemini
+        api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            return jsonify({"error": "AI service not configured"}), 503
+        
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        data = request.get_json()
+        business_name = data.get('business_name', '')
+        industry = data.get('industry', '')
+        user_response = data.get('user_response', '')
+        
+        if not business_name or not industry or not user_response:
+            return jsonify({"error": "All fields are required"}), 400
+        
+        # Use AI to analyze the user's response and extract brand voice
+        prompt = f"""
+        You are a brand strategist conducting a voice profile interview. A business owner has shared the following about their brand:
+        
+        Business Name: {business_name}
+        Industry: {industry}
+        
+        Their Response: "{user_response}"
+        
+        Based on their natural description, write a concise 2-3 sentence Brand Voice profile that captures the tone and personality they should use in marketing. Extract the essence of their communication style and values from what they shared.
+        
+        Output only the brand voice description. No preamble, no "Based on your response", just the refined description.
+        Focus on specific adjectives that describe tone (e.g., professional, friendly, authoritative, conversational, warm, technical).
+        """
+        
+        response = model.generate_content(prompt)
+        brand_voice = response.text.strip()
+        
+        return jsonify({"brand_voice": brand_voice})
+        
+    except ImportError:
+        return jsonify({"error": "AI service not available"}), 503
+    except Exception as e:
+        logger.error(f"Error analyzing voice interview: {e}")
+        return jsonify({"error": "Failed to analyze your response"}), 500
