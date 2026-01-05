@@ -20,6 +20,7 @@
             <select id="industry" name="industry" onchange="prefill()" required
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
                 <option value="">Select your industry...</option>
+                <option value="Software / Tech / Startup">💻 Software / Tech / Startup</option>
                 <option value="Realtor / Real Estate">🏡 Realtor / Real Estate</option>
                 <option value="Restaurant / Café">🍽️ Restaurant / Café</option>
                 <option value="Retail / Boutique">🛍️ Retail / Boutique</option>
@@ -104,6 +105,11 @@ Looking to sell? Let's chat about what your home is worth in today's market."></
 <script>
 // Industry defaults for "Lazy Mode" prefilling
 const defaults = {
+    'Software / Tech / Startup': {
+        audience: "Businesses, developers, and teams seeking innovative software solutions to improve efficiency and scalability.",
+        voice: "Clear, innovative, and results-driven with a focus on solving real problems.",
+        offer: "Free trial or live demo of our platform."
+    },
     'Realtor / Real Estate': {
         audience: "Local families looking to upsize or first-time buyers seeking guidance.",
         voice: "Professional, reassuring, and expert-level.",

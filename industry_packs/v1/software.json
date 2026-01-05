@@ -1,0 +1,450 @@
+{
+  "id": "software",
+  "display_name": "Software / Tech / Startup",
+  "icon": "💻",
+  "primary_customer_goal": "signups",
+  "version": "1.0.0",
+  
+  "business_profile_fields": {
+    "required": ["services_offered", "service_area"],
+    "optional": ["hours", "booking_method", "pricing_style"],
+    "example_values": {
+      "services_offered": "SaaS products, software development, tech consulting",
+      "service_area": "Online/Global",
+      "hours": "24/7 support available"
+    }
+  },
+  
+  "default_channel_strategy": {
+    "default_platforms": ["linkedin", "twitter", "producthunt"],
+    "content_cadence": "3-5 posts/week",
+    "best_performing_types": [
+      "product updates",
+      "technical tutorials",
+      "customer success stories",
+      "thought leadership",
+      "behind-the-scenes development",
+      "industry insights"
+    ]
+  },
+  
+  "keyword_banks": {
+    "seed_keywords": [
+      "innovation",
+      "technology",
+      "software",
+      "automation",
+      "efficiency",
+      "scalable",
+      "cloud",
+      "API",
+      "integration",
+      "platform",
+      "solution",
+      "product",
+      "startup",
+      "agile",
+      "developer",
+      "enterprise",
+      "SaaS",
+      "digital transformation",
+      "cutting-edge",
+      "modern tech stack"
+    ],
+    "topic_clusters": [
+      {
+        "name": "product_features",
+        "intent": "awareness",
+        "examples": ["new features", "product updates", "capabilities", "use cases"]
+      },
+      {
+        "name": "technical_content",
+        "intent": "education",
+        "examples": ["how-to guides", "API documentation", "best practices", "tutorials"]
+      },
+      {
+        "name": "customer_success",
+        "intent": "conversion",
+        "examples": ["case studies", "testimonials", "ROI stories", "implementation wins"]
+      },
+      {
+        "name": "thought_leadership",
+        "intent": "awareness",
+        "examples": ["industry trends", "technical insights", "innovation", "future of tech"]
+      },
+      {
+        "name": "company_culture",
+        "intent": "retention",
+        "examples": ["team spotlights", "engineering blog", "company values", "hiring"]
+      }
+    ],
+    "seasonal_hooks": [
+      "New Year product launches (January)",
+      "Spring feature releases (March-April)",
+      "Summer product updates (June-July)",
+      "Back to business season (September)",
+      "Year-end reviews and roadmap (November-December)"
+    ]
+  },
+  
+  "cta_library": {
+    "booking_ctas": [
+      "Book a demo",
+      "Schedule a call",
+      "Request a consultation",
+      "Get started today",
+      "Talk to our team"
+    ],
+    "inquiry_ctas": [
+      "Learn more",
+      "Contact sales",
+      "Ask a question",
+      "Get in touch",
+      "Chat with us"
+    ],
+    "review_referral_ctas": [
+      "Share your experience",
+      "Write a review",
+      "Refer a friend",
+      "Join our community",
+      "Become an advocate"
+    ],
+    "offer_ctas": [
+      "Start free trial",
+      "Get early access",
+      "Sign up now",
+      "Try it free",
+      "Limited beta access"
+    ]
+  },
+  
+  "compliance_safety_rules": {
+    "forbidden_claims": [
+      "guaranteed uptime without SLA",
+      "absolute security claims",
+      "comparison with competitors without proof",
+      "unrealistic ROI promises"
+    ],
+    "privacy_constraints": [
+      "comply with GDPR and data privacy regulations",
+      "never share customer data without explicit permission",
+      "respect user privacy in all communications"
+    ],
+    "regulated_language_notes": [
+      "include appropriate disclaimers for performance claims",
+      "respect intellectual property and licensing",
+      "follow platform terms of service"
+    ],
+    "do_not_generate": [
+      "code with security vulnerabilities",
+      "misleading performance benchmarks",
+      "false compatibility claims",
+      "unverified technical specifications"
+    ]
+  },
+  
+  "content_templates": {
+    "social_templates": {
+      "post_structures": [
+        "problem statement → solution approach → product benefit → CTA",
+        "customer pain point → our feature → results achieved → CTA",
+        "industry insight → our take → how we solve it → CTA"
+      ],
+      "reel_structures": [
+        "hook (problem/question) → feature demo → value delivery → CTA",
+        "before/after → product walkthrough → results → CTA",
+        "quick tip → implementation → benefits → CTA"
+      ],
+      "content_angles": [
+        "product feature highlights",
+        "technical tutorials",
+        "customer success stories",
+        "industry trends and insights",
+        "behind-the-scenes development",
+        "team and culture",
+        "integration showcases",
+        "performance metrics"
+      ]
+    },
+    "email_templates": {
+      "scenarios": [
+        {
+          "name": "demo_followup",
+          "required_fields": ["contact_name", "demo_date"],
+          "recommended_tone": "professional, helpful",
+          "constraints": ["reference specific demo points", "clear next steps", "technical resources"],
+          "suggested_cta": "Schedule implementation call"
+        },
+        {
+          "name": "product_update",
+          "required_fields": ["feature_name", "release_date"],
+          "recommended_tone": "excited, informative",
+          "constraints": ["highlight key benefits", "link to documentation", "support resources"],
+          "suggested_cta": "Try the new feature"
+        }
+      ]
+    },
+    "quote_scaffolds": {
+      "applicable": true,
+      "quote_line_item_categories": [
+        "subscription tiers",
+        "professional services",
+        "implementation",
+        "training",
+        "support packages"
+      ],
+      "assumptions_defaults": [
+        "pricing subject to usage and tier selection",
+        "quotes valid for 30 days",
+        "enterprise pricing available on request"
+      ],
+      "warranty_policy_boilerplate": "Service Level Agreement (SLA) terms provided in contract. Uptime guarantees and support response times vary by plan."
+    },
+    "review_reply_guidelines": {
+      "channel_specific": {
+        "producthunt": "respond promptly, thank for feedback, address technical questions",
+        "twitter": "engage publicly, be helpful, provide quick support",
+        "linkedin": "professional tone, detailed responses, offer to connect"
+      },
+      "empathy_patterns": [
+        "Thank you for the feedback",
+        "We appreciate your support",
+        "Glad to hear it's working well for you",
+        "Thanks for being part of our community"
+      ],
+      "compliance_notes": [
+        "maintain professional tone",
+        "don't share proprietary information",
+        "escalate technical issues to support privately"
+      ]
+    }
+  },
+  
+  "example_outputs": {
+    "social_post": {
+      "caption": "Tired of manual data entry eating up your team's time? 🤖\n\nWe built our automation engine to solve exactly this problem. Now you can:\n✅ Sync data across platforms automatically\n✅ Reduce errors by 95%\n✅ Save 20+ hours per week\n\nOur customers report ROI within the first month.\n\nReady to automate your workflow?\n\n👉 Start your free trial\n\n#SaaS #Automation #Productivity #TechSolutions #BusinessEfficiency",
+      "platform": "linkedin",
+      "pillar": "product_features"
+    },
+    "reel_script": {
+      "hook": "Here's how we cut data processing time from hours to minutes...",
+      "beats": [
+        "0-3s: Hook with problem statement",
+        "3-8s: Show old manual process",
+        "8-13s: Introduce automation feature",
+        "13-18s: Demo the solution in action",
+        "18-25s: Show time/cost savings",
+        "25-30s: CTA with trial offer"
+      ],
+      "cta": "Link in bio to start your free trial",
+      "shot_list": "Screen recordings, data visualizations, before/after comparisons, product UI",
+      "platform": "instagram",
+      "length_seconds": 30
+    },
+    "email": {
+      "subject": "Re: Demo Follow-up - Next Steps",
+      "body": "Hi [Name],\n\nThanks for taking the time to explore [Product] with us yesterday. I hope the demo helped clarify how our platform can streamline [specific use case].\n\nBased on our conversation, I think the [Tier] plan would be a great fit for your team's needs. Here's what's included:\n\n• [Feature 1]\n• [Feature 2]\n• [Feature 3]\n\nI've attached our implementation guide and a custom quote based on your requirements.\n\nWould you like to schedule a technical deep-dive with our engineering team? I have availability [days/times].\n\nLooking forward to helping you get started!\n\nBest,\n[Name]\n[Contact Info]",
+      "scenario": "demo_followup",
+      "tone": "professional, helpful"
+    },
+    "review_reply": {
+      "review_text": "Great product! The API integration was seamless and support team was very helpful.",
+      "response": "Thank you so much for the positive feedback! We're thrilled to hear the API integration went smoothly. Our team works hard to make the developer experience as seamless as possible. If you ever need anything or have suggestions for improvements, we're always here to help!",
+      "channel": "producthunt",
+      "sentiment": "positive"
+    }
+  },
+  
+  "prompt_integration_hooks": {
+    "industry_pack_id": "software",
+    "constraints_for_model": [
+      "DO: Use clear, precise technical language",
+      "DO: Focus on concrete benefits and ROI",
+      "DO: Include specific features and capabilities",
+      "DO: Emphasize reliability and scalability",
+      "DON'T: Make unrealistic performance claims",
+      "DON'T: Use buzzwords without substance",
+      "DON'T: Overpromise on capabilities or uptime"
+    ],
+    "default_do_dont_list": {
+      "do": [
+        "focus on solving real customer problems",
+        "use data and metrics to back up claims",
+        "be transparent about limitations",
+        "provide helpful technical resources",
+        "maintain authentic, developer-friendly tone"
+      ],
+      "dont": [
+        "make absolute security guarantees",
+        "promise guaranteed results without context",
+        "use excessive technical jargon",
+        "claim superiority without proof",
+        "ignore compliance and privacy concerns"
+      ]
+    }
+  },
+  
+  "good_defaults": {
+    "audience": {
+      "who": "Businesses, developers, and teams seeking innovative software solutions to improve efficiency and scalability",
+      "pain_points": [
+        "Manual processes consuming too much time",
+        "Difficulty integrating multiple systems",
+        "Scaling challenges with legacy software",
+        "Lack of real-time data insights",
+        "High cost of custom development",
+        "Security and compliance concerns"
+      ],
+      "desired_outcomes": [
+        "Automated workflows and reduced manual work",
+        "Seamless integrations across platforms",
+        "Scalable, reliable infrastructure",
+        "Clear ROI and business value",
+        "Strong security and compliance",
+        "Excellent support and documentation"
+      ]
+    },
+    "offers": {
+      "common_services": [
+        "Free trial or demo",
+        "Freemium tier",
+        "Implementation support",
+        "API access",
+        "Custom integrations",
+        "Training and onboarding",
+        "24/7 technical support",
+        "Enterprise solutions"
+      ],
+      "ctas": [
+        "Start your free trial",
+        "Book a demo",
+        "Get started today",
+        "Request early access",
+        "Talk to our team",
+        "See pricing"
+      ]
+    },
+    "proof": {
+      "common_proof_points": [
+        "Trusted by [X] companies worldwide",
+        "[X]% reduction in processing time",
+        "[X] hours saved per week",
+        "99.9% uptime guarantee",
+        "5-star reviews on G2/Capterra",
+        "ISO/SOC2 certified",
+        "Used by Fortune 500 companies",
+        "Award-winning product"
+      ]
+    },
+    "content_angles": [
+      {
+        "key": "product_update",
+        "label": "Product Updates",
+        "when_to_use": "Announce new features, improvements, or releases"
+      },
+      {
+        "key": "technical_tutorial",
+        "label": "Technical Tutorial",
+        "when_to_use": "Educate users on implementation and best practices"
+      },
+      {
+        "key": "customer_story",
+        "label": "Customer Success",
+        "when_to_use": "Showcase real results and ROI from customers"
+      },
+      {
+        "key": "thought_leadership",
+        "label": "Industry Insights",
+        "when_to_use": "Share expertise on trends and innovations"
+      },
+      {
+        "key": "behind_scenes",
+        "label": "Behind the Scenes",
+        "when_to_use": "Show development process and team culture"
+      },
+      {
+        "key": "integration_showcase",
+        "label": "Integration Showcase",
+        "when_to_use": "Highlight platform integrations and compatibility"
+      },
+      {
+        "key": "performance_metrics",
+        "label": "Performance & Metrics",
+        "when_to_use": "Share data on reliability, speed, and efficiency"
+      },
+      {
+        "key": "comparison",
+        "label": "Product Comparison",
+        "when_to_use": "Show advantages over manual processes or alternatives"
+      }
+    ],
+    "do_say": [
+      "Designed for [specific use case]",
+      "Based on feedback from [X] users",
+      "Our customers report [specific metric]",
+      "Built with [modern technology]",
+      "Here's what you can expect",
+      "Trusted by teams at [notable companies]"
+    ],
+    "dont_say": [
+      "Revolutionary (overused)",
+      "Guaranteed 10x growth (unrealistic)",
+      "Best software ever (unprovable)",
+      "Zero bugs (impossible claim)",
+      "Works with everything (too broad)",
+      "Unbreakable security (absolute claim)"
+    ],
+    "chip_presets": {
+      "focus_topics": [
+        "Automation",
+        "API integration",
+        "Cloud infrastructure",
+        "Data analytics",
+        "Scalability",
+        "Security",
+        "Developer tools",
+        "Workflow optimization",
+        "Real-time sync",
+        "Custom solutions",
+        "Performance",
+        "Compliance"
+      ],
+      "audience_chips": [
+        "Developers",
+        "Product managers",
+        "CTOs",
+        "Engineering teams",
+        "Startups",
+        "Enterprises",
+        "SMBs",
+        "Tech-savvy users",
+        "Operations teams",
+        "IT departments"
+      ],
+      "offer_chips": [
+        "Free trial",
+        "Live demo",
+        "API access",
+        "Free tier",
+        "Implementation support",
+        "Custom integrations",
+        "24/7 support",
+        "Enterprise plan",
+        "Developer resources",
+        "Migration assistance"
+      ],
+      "proof_chips": [
+        "99.9% uptime",
+        "SOC2 certified",
+        "ISO compliant",
+        "Trusted by Fortune 500",
+        "5-star reviews",
+        "Award-winning",
+        "VC-backed",
+        "Years of experience",
+        "Active community",
+        "Regular updates"
+      ]
+    }
+  }
+}
