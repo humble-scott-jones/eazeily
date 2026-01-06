@@ -1,8 +1,8 @@
-# Swelly Hosting Guide
+# Eazeily Hosting Guide
 
 ## Your Flask App Needs a Server
 
-Your Swelly application is a **full Flask web application** with:
+Your Eazeily application is a **full Flask web application** with:
 - User authentication & accounts
 - Database (SQLite)
 - Payment processing (Stripe)

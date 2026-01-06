@@ -1,4 +1,4 @@
-# Google Cloud Platform Deployment for Swelly
+# Google Cloud Platform Deployment for Eazeily
 
 ## Quick Google App Engine Setup
 

@@ -16,7 +16,7 @@ def test_index_renders_marketing_page(client):
     """Test that the root route renders the marketing page."""
     response = client.get('/')
     assert response.status_code == 200
-    assert b'Swelly' in response.data
+    assert b'Eazeily' in response.data
     assert b'Social Media' in response.data
     assert b'Made Simple' in response.data
 

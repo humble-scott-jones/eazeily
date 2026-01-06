@@ -18,7 +18,7 @@ else:
 class VoiceEngine:
     def __init__(self):
         try:
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('models/gemini-1.5-flash')
             self.pack_loader = IndustryPackLoader()
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model: {e}")

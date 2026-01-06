@@ -1,5 +1,5 @@
 #!/bin/bash
-echo "🚀 Deploying Swelly Landing Page to Railway..."
+echo "🚀 Deploying Eazeily Landing Page to Railway..."
 
 # Check if railway CLI is installed
 if ! command -v railway &> /dev/null; then
