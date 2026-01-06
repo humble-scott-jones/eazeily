@@ -49,8 +49,7 @@ def run_migrations_offline() -> None:
     """
     url = os.getenv("DATABASE_URL")
     if not url:
-        # Fallback to sqlite for local dev if not set
-        url = "sqlite:///togetherly.db"
+        url = "postgresql://localhost/togetherly_v2"
         
     context.configure(
         url=url,
@@ -74,7 +73,7 @@ def run_migrations_online() -> None:
     # Handle DATABASE_URL from environment
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        db_url = "sqlite:///togetherly.db"
+        db_url = "postgresql://localhost/togetherly_v2"
 
     # If using postgres, ensure the driver is correct (e.g. postgresql+psycopg://)
     # But usually DATABASE_URL provided by platforms is postgres:// which sqlalchemy might need fixing for
