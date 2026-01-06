@@ -373,6 +373,16 @@ async function sendChatMessage() {
                 document.getElementById('audience').value = data.target_audience;
             }
             
+            // If we have key offer, fill it in
+            if (data.key_offer) {
+                document.getElementById('offer').value = data.key_offer;
+            }
+            
+            // If we have voice rules, fill it in
+            if (data.voice_rules) {
+                document.getElementById('rules').value = data.voice_rules;
+            }
+            
             // If chat is complete, show success message and option to close
             if (data.stage === 'complete') {
                 setTimeout(() => {

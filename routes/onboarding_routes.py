@@ -182,9 +182,12 @@ I have successfully scraped the text from their website(s). Here is the content:
 {combined_content}
 
 Your task:
-1. Analyze this scraped content to identify their brand voice, tone, and value proposition directly.
+1. Analyze this scraped content to identify:
+   - Brand Voice & Tone
+   - Value Proposition
+   - Key Offer (Call to Action)
 2. Acknowledge that you have "read" their website.
-3. Ask 1 crucial follow-up question to confirm your analysis or get the 'feeling' behind the brand that text alone might miss.
+3. Ask 1 crucial follow-up question to confirm your analysis or get the 'feeling' (or specific constraints/rules) that text alone might miss.
 
 Keep your response conversational, friendly, and under 150 words. Move to stage 'gathering_info'."""
             
@@ -195,7 +198,7 @@ Keep your response conversational, friendly, and under 150 words. Move to stage 
 The user has provided these URLs: {', '.join(urls)}
 
 I attempted to read them but couldn't retrieve the text (maybe they are behind a login or blocked). 
-Acknowledge the links, but explain you couldn't access them directly. Ask them to describe their brand voice instead or paste some text.
+Acknowledge the links, but explain you couldn't access them directly. Ask them to describe their brand voice and key offer instead.
 
 Keep your response conversational, friendly, and under 150 words. Move to stage 'gathering_info'."""
             
@@ -214,8 +217,8 @@ Keep your response conversational, friendly, and under 150 words. Move to stage 
             prompt = f"""{conversation_context}
 
 The user responded but didn't provide any URLs. Based on their response, either:
-1. If they seem confused, gently remind them they can share links OR just answer questions about their brand
-2. If they're describing their brand, acknowledge it and ask 1-2 follow-up questions about their brand voice
+1. If they seem confused, gently remind them they can share links OR just answer questions about their brand.
+2. If they're describing their brand, acknowledge it and ask 1-2 follow-up questions about their brand voice, key offer, or any specific writing rules.
 
 Keep it friendly and conversational (under 100 words). Move to stage 'gathering_info'."""
             
@@ -234,17 +237,18 @@ Keep it friendly and conversational (under 100 words). Move to stage 'gathering_
             prompt = f"""{conversation_context}
 
 Analyze the conversation. You need to extract:
-1. Brand Voice/Tone (how they sound: friendly, professional, casual, authoritative, etc.)
+1. Brand Voice/Tone (e.g. friendly, professional)
 2. Target Audience (who they're speaking to)
+3. Key Offer (main product/service or "hook", e.g. "Free Consultation")
+4. Voice Rules (constraints, e.g. "No emojis", "Always be punchy", or "None")
 
-If you have enough information from the conversation to confidently describe both:
-- Generate a concise 2-3 sentence Brand Voice description
-- Generate a 1-2 sentence Target Audience description
+If you have enough information from the conversation to confidently describe all four:
+- Generate a summary for each field.
 - Respond with: "Based on our conversation, here's what I've gathered: [summary]. Does this sound right?"
 - Set stage to 'confirming'
 
 If you need more information:
-- Ask 1-2 specific follow-up questions about what's missing
+- Ask 1-2 specific follow-up questions about what's missing (especially offer or rules).
 - Keep stage as 'gathering_info'
 - Keep response under 100 words
 
@@ -253,6 +257,8 @@ Format your response as JSON with these fields:
     "message": "your conversational response",
     "brand_voice": "brand voice description or null",
     "target_audience": "target audience description or null",
+    "key_offer": "key offer description or null",
+    "voice_rules": "voice rules description or null",
     "next_stage": "gathering_info or confirming",
     "has_enough_info": true or false
 }}
@@ -276,7 +282,9 @@ Only output valid JSON, nothing else."""
                     "ai_message": result.get('message', 'Let me help you with that...'),
                     "stage": result.get('next_stage', 'gathering_info'),
                     "brand_voice": result.get('brand_voice'),
-                    "target_audience": result.get('target_audience')
+                    "target_audience": result.get('target_audience'),
+                    "key_offer": result.get('key_offer'),
+                    "voice_rules": result.get('voice_rules')
                 })
             except json.JSONDecodeError as e:
                 logger.warning(f"Failed to parse JSON response from AI: {e}. Response: {response_text[:200]}")
@@ -285,7 +293,9 @@ Only output valid JSON, nothing else."""
                     "ai_message": response_text,
                     "stage": "gathering_info",
                     "brand_voice": None,
-                    "target_audience": None
+                    "target_audience": None,
+                    "key_offer": None,
+                    "voice_rules": None
                 })
                 
         elif current_stage == 'confirming':
@@ -295,16 +305,18 @@ Only output valid JSON, nothing else."""
             if any(word in user_message_lower for word in ['yes', 'correct', 'right', 'good', 'perfect', 'great', 'sounds good']):
                 # User confirmed - we're done!
                 return jsonify({
-                    "ai_message": "Perfect! I've filled in your brand voice and target audience. Feel free to adjust them in the form if needed. ✨",
+                    "ai_message": "Perfect! I've filled in your brand voice, audience, and key offer details. Feel free to adjust them in the form if needed. ✨",
                     "stage": "complete",
                     "brand_voice": None,  # Already set
-                    "target_audience": None  # Already set
+                    "target_audience": None,  # Already set
+                    "key_offer": None,
+                    "voice_rules": None
                 })
             else:
                 # User wants to refine - go back to gathering info
                 prompt = f"""{conversation_context}
 
-The user wants to refine the brand voice profile. Based on their feedback, ask 1-2 specific questions to better understand what they want to change. Keep it conversational and under 100 words."""
+The user wants to refine the brand voice profile. Based on their feedback, ask 1-2 specific questions to better understand what they want to change about the voice, audience, offer, or rules. Keep it conversational and under 100 words."""
                 
                 response = model.generate_content(prompt)
                 ai_message = response.text.strip()
@@ -313,7 +325,9 @@ The user wants to refine the brand voice profile. Based on their feedback, ask 1
                     "ai_message": ai_message,
                     "stage": "gathering_info",
                     "brand_voice": None,
-                    "target_audience": None
+                    "target_audience": None,
+                    "key_offer": None,
+                    "voice_rules": None
                 })
         
         # Default fallback
@@ -321,7 +335,9 @@ The user wants to refine the brand voice profile. Based on their feedback, ask 1
             "ai_message": "I'm here to help! Can you tell me more about your brand?",
             "stage": "gathering_info",
             "brand_voice": None,
-            "target_audience": None
+            "target_audience": None,
+            "key_offer": None,
+            "voice_rules": None
         })
         
     except ImportError as e:
