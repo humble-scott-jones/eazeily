@@ -26,7 +26,8 @@ def upgrade() -> None:
         )
     elif dialect == 'sqlite':
         # SQLite: ALTER TABLE supports adding a column; ignore if already exists by checking pragma
-        cols = [c['name'] for c in bind.execute("PRAGMA table_info('users')").fetchall()]
+        from sqlalchemy import text
+        cols = [c[1] for c in bind.execute(text("PRAGMA table_info('users')")).fetchall()]
         if 'created_at' not in cols:
             op.execute("ALTER TABLE users ADD COLUMN created_at DATETIME;")
     else:

@@ -10,3 +10,4 @@ gunicorn
 whitenoise
 psycopg2-binary
 google-generativeai==0.8.6
+beautifulsoup4==4.12.3

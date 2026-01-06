@@ -163,14 +163,39 @@ Conversation so far:
         # Determine next step based on stage and user input
         if current_stage == 'initial' and urls:
             # User provided links - analyze them
-            prompt = f"""{conversation_context}
+            from services.scraper_service import scrape_url
+            
+            scraped_data = []
+            for url in urls[:2]: # Limit to first 2 URLs to save time/tokens
+                content = scrape_url(url)
+                if content:
+                    scraped_data.append(f"--- Content from {url} ---\n{content[:2000]}") # Truncate per site
+            
+            if scraped_data:
+                # We have actual content!
+                combined_content = "\n\n".join(scraped_data)
+                prompt = f"""{conversation_context}
 
 The user has provided these URLs: {', '.join(urls)}
 
-Since you cannot actually fetch these URLs, acknowledge them and explain that you'll help build their brand voice profile through conversation instead. Ask 2-3 specific questions to understand their brand voice, such as:
-- How do they want their customers to feel when reading their content?
-- What makes their brand different from competitors?
-- Do they have any examples of content they've written that represents their voice well?
+I have successfully scraped the text from their website(s). Here is the content:
+{combined_content}
+
+Your task:
+1. Analyze this scraped content to identify their brand voice, tone, and value proposition directly.
+2. Acknowledge that you have "read" their website.
+3. Ask 1 crucial follow-up question to confirm your analysis or get the 'feeling' behind the brand that text alone might miss.
+
+Keep your response conversational, friendly, and under 150 words. Move to stage 'gathering_info'."""
+            
+            else:
+                # Scraping failed or no text found
+                prompt = f"""{conversation_context}
+
+The user has provided these URLs: {', '.join(urls)}
+
+I attempted to read them but couldn't retrieve the text (maybe they are behind a login or blocked). 
+Acknowledge the links, but explain you couldn't access them directly. Ask them to describe their brand voice instead or paste some text.
 
 Keep your response conversational, friendly, and under 150 words. Move to stage 'gathering_info'."""
             
