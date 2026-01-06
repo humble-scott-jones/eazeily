@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Swelly Deployment Script
+# Eazeily Deployment Script
 # Run this to deploy to Heroku
 
-echo "🚀 Swelly Deployment Script"
+echo "🚀 Eazeily Deployment Script"
 echo "=========================="
 
 # Check if Heroku CLI is installed

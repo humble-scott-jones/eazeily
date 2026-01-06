@@ -48,7 +48,7 @@ def test_landing_page_smoke():
             browser = pw.chromium.launch(headless=True)
             page = browser.new_page()
             page.goto(BASE, wait_until="networkidle")
-            assert "Swelly" in page.title()
+            assert "Eazeily" in page.title()
             generate_link = page.query_selector('a[href="/generate"]')
             assert generate_link is not None
             browser.close()
