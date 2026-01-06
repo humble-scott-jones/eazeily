@@ -18,7 +18,8 @@ else:
 class VoiceEngine:
     def __init__(self):
         try:
-            self.model = genai.GenerativeModel('models/gemini-1.5-flash')
+            # Try specific version alias to avoid 404s on the generic alias
+            self.model = genai.GenerativeModel('gemini-1.5-flash-001')
             self.pack_loader = IndustryPackLoader()
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model: {e}")
@@ -206,7 +207,7 @@ STYLE EXAMPLES (Mimic the rhythm and vocabulary of these):
         
         try:
             # Use system instruction for better context
-            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+            model = genai.GenerativeModel('gemini-1.5-flash-001', system_instruction=system_instruction)
             response = model.generate_content(task_prompt)
             content = response.text.strip()
             
