@@ -18,7 +18,7 @@ else:
 class VoiceEngine:
     def __init__(self):
         try:
-            self.model = genai.GenerativeModel('models/gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-1.5-flash-001')
             self.pack_loader = IndustryPackLoader()
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model: {e}")
@@ -48,7 +48,13 @@ class VoiceEngine:
             response = self.model.generate_content(prompt.format(text=raw_text[:10000])) # Limit context if needed
             # Clean up potential markdown code blocks
             text_response = response.text.replace('```json', '').replace('```', '').strip()
-            return json.loads(text_response)
+            result = json.loads(text_response)
+            
+            # Backward compatibility: Ensure style_guide exists if style_summary is returned
+            if 'style_summary' in result and 'style_guide' not in result:
+                result['style_guide'] = result['style_summary']
+                
+            return result
         except Exception as e:
             logger.error(f"Error in analyze_style: {e}")
             return {"style_guide": "Default professional tone (Error during analysis).", "examples": []}
@@ -96,7 +102,7 @@ class VoiceEngine:
         
         if examples:
             prompt += "\nFew-Shot Examples (Mimic this writing style):\n"
-            for ex in examples:
+            for ex in examples[:3]:
                 prompt += f"- {ex}\n"
             
         prompt += f"""
@@ -206,7 +212,7 @@ STYLE EXAMPLES (Mimic the rhythm and vocabulary of these):
         
         try:
             # Use system instruction for better context
-            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+            model = genai.GenerativeModel('gemini-1.5-flash-001', system_instruction=system_instruction)
             response = model.generate_content(task_prompt)
             content = response.text.strip()
             
