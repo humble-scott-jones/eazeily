@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, render_template, redirect, url_fo
 from flask_login import login_required, current_user
 from models import db, VoiceProfile
 import logging
+import json
 
 onboarding_bp = Blueprint('onboarding', __name__)
 logger = logging.getLogger(__name__)
@@ -26,7 +27,9 @@ def onboarding():
             
             # Validate required fields
             if not all([business_name, industry, target_audience, brand_voice, key_offer, writing_samples_raw]):
-                return jsonify({"error": "All required fields must be filled"}), 400
+                from flask import flash
+                flash("All required fields must be filled", "error")
+                return render_template('onboarding.html'), 400
             
             # Split writing samples by double newline (blank line separator)
             # Filter out empty strings
@@ -59,9 +62,11 @@ def onboarding():
             return redirect(url_for('generate.dashboard'))
             
         except Exception as e:
-            logger.error(f"Error saving brand profile: {e}")
+            logger.error(f"Error saving brand profile: {e}", exc_info=True)
             db.session.rollback()
-            return jsonify({"error": "Failed to save brand profile"}), 500
+            from flask import flash
+            flash(f"Failed to save brand profile: {str(e)}", "error")
+            return render_template('onboarding.html'), 500
 
 
 @onboarding_bp.route('/onboarding/assist-voice', methods=['POST'])
@@ -248,7 +253,7 @@ Only output valid JSON, nothing else."""
                 elif '```' in response_text:
                     response_text = response_text.split('```')[1].split('```')[0].strip()
                 
-                result = eval(response_text)  # Using eval cautiously for JSON parsing
+                result = json.loads(response_text)
                 
                 return jsonify({
                     "ai_message": result.get('message', 'Let me help you with that...'),
@@ -256,7 +261,8 @@ Only output valid JSON, nothing else."""
                     "brand_voice": result.get('brand_voice'),
                     "target_audience": result.get('target_audience')
                 })
-            except:
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse JSON response from AI: {e}. Response: {response_text[:200]}")
                 # Fallback if JSON parsing fails
                 return jsonify({
                     "ai_message": response_text,
@@ -301,11 +307,12 @@ The user wants to refine the brand voice profile. Based on their feedback, ask 1
             "target_audience": None
         })
         
-    except ImportError:
-        return jsonify({"error": "AI service not available"}), 503
+    except ImportError as e:
+        logger.error(f"ImportError in voice chat: {e}")
+        return jsonify({"error": "AI service not available. Please ensure google-generativeai is installed."}), 503
     except Exception as e:
-        logger.error(f"Error in voice chat: {e}")
-        return jsonify({"error": "Failed to process your message"}), 500
+        logger.error(f"Error in voice chat: {e}", exc_info=True)
+        return jsonify({"error": f"Failed to process your message: {str(e)}"}), 500
 
 
 @onboarding_bp.route('/onboarding/interview-voice', methods=['POST'])
