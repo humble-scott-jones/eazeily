@@ -74,16 +74,12 @@ def onboarding():
 def assist_voice():
     """AI assistant to help describe brand voice based on business name and industry."""
     try:
-        import google.generativeai as genai
-        import os
+        from services.ai_service import get_generative_model
         
         # Configure Gemini
-        api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not api_key:
+        model = get_generative_model()
+        if not model:
             return jsonify({"error": "AI service not configured"}), 503
-        
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
         
         data = request.get_json()
         business_name = data.get('business_name', '')
@@ -127,17 +123,13 @@ def voice_chat():
     4. AI generates final brand voice profile
     """
     try:
-        import google.generativeai as genai
-        import os
+        from services.ai_service import get_generative_model
         import re
         
         # Configure Gemini
-        api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not api_key:
+        model = get_generative_model()
+        if not model:
             return jsonify({"error": "AI service not configured"}), 503
-        
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
         
         data = request.get_json()
         business_name = data.get('business_name', '')
@@ -324,16 +316,12 @@ def interview_voice():
     and uses AI to extract structured brand voice characteristics.
     """
     try:
-        import google.generativeai as genai
-        import os
+        from services.ai_service import get_generative_model
         
         # Configure Gemini
-        api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-        if not api_key:
+        model = get_generative_model()
+        if not model:
             return jsonify({"error": "AI service not configured"}), 503
-        
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
         
         data = request.get_json()
         business_name = data.get('business_name', '')

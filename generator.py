@@ -135,10 +135,11 @@ def fetch_trend_context(industry: str, ttl_hours: int = 6) -> list[dict[str, Any
 
     # Initialize GenerationService for trend fetching
     # Use a faster, cheaper Gemini model for trends
+    from services.ai_service import get_best_available_model
     trend_generation_service = GenerationService(
         enable_openai=False, # Disable OpenAI for this specialized service
         enable_gemini=True,
-        gemini_model=os.getenv('GEMINI_TRENDS_MODEL', 'gemini-1.5-flash') # Use a fast model
+        gemini_model=os.getenv('GEMINI_TRENDS_MODEL', get_best_available_model()) # Use a fast model
     )
 
     try:
@@ -1187,5 +1188,36 @@ def generate_posts(
             })
 
     return posts
+
+class Generator:
+    def __init__(self, openai_api_key: Optional[str] = None):
+        self.openai_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+        self.gemini_key = os.getenv('GENAI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+        self.gemini_model = None
+        
+        # Configure Gemini if key is present
+        if self.gemini_model is None and self.gemini_key:
+            from services.ai_service import get_best_available_model
+            self.gemini_model = get_best_available_model()
+            
+    # Legacy method signature compatibility
+    def set_openai_client(self, client):
+        pass
+
+    def generate_concepts(self,
+                          industry: str,
+                          pillar_set: str = 'default',
+                          n: int = 5,
+                          temperature: float = 0.7,
+                          gemini_model: Optional[str] = None) -> Sequence[Mapping[str, Any]]: # Use dynamic model
+        """
+        Generates content concepts (title + rationale).
+        Prioritizes Gemini if available, otherwise falls back to templates.
+        """
+        # Resolve model if needed, though this method is currently a stub
+        if not gemini_model and self.gemini_model:
+             gemini_model = self.gemini_model
+        
+        pass
 
 

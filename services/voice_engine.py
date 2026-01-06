@@ -4,6 +4,7 @@ import logging
 import google.generativeai as genai
 from dotenv import load_dotenv
 from services.industry_packs import IndustryPackLoader
+from services.ai_service import get_generative_model, get_best_available_model
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ else:
 class VoiceEngine:
     def __init__(self):
         try:
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = get_generative_model()
             self.pack_loader = IndustryPackLoader()
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model: {e}")
@@ -212,7 +213,7 @@ STYLE EXAMPLES (Mimic the rhythm and vocabulary of these):
         
         try:
             # Use system instruction for better context
-            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_instruction)
+            model = get_generative_model(model_name=get_best_available_model(), system_instruction=system_instruction)
             response = model.generate_content(task_prompt)
             content = response.text.strip()
             
