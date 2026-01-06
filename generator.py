@@ -43,8 +43,6 @@ _CACHE_DIR = Path(os.getenv('TREND_CACHE_DIR') or (Path(__file__).resolve().pare
 _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-
-
 def _slugify_industry(industry: str) -> str:
     if not industry:
         return 'general'
@@ -140,7 +138,7 @@ def fetch_trend_context(industry: str, ttl_hours: int = 6) -> list[dict[str, Any
     trend_generation_service = GenerationService(
         enable_openai=False, # Disable OpenAI for this specialized service
         enable_gemini=True,
-        gemini_model=os.getenv('GEMINI_TRENDS_MODEL', 'gemini-1.5-flash') # Use a fast model
+        gemini_model=os.getenv('GEMINI_TRENDS_MODEL', 'gemini-1.5-flash-001') # Use a fast model
     )
 
     try:

@@ -83,7 +83,7 @@ def assist_voice():
             return jsonify({"error": "AI service not configured"}), 503
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-001')
         
         data = request.get_json()
         business_name = data.get('business_name', '')
@@ -137,7 +137,7 @@ def voice_chat():
             return jsonify({"error": "AI service not configured"}), 503
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-001')
         
         data = request.get_json()
         business_name = data.get('business_name', '')
@@ -333,7 +333,7 @@ def interview_voice():
             return jsonify({"error": "AI service not configured"}), 503
         
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-001')
         
         data = request.get_json()
         business_name = data.get('business_name', '')

@@ -86,7 +86,7 @@ def test_api_connection():
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-001')
         
         # Test with a simple prompt
         print("Sending test prompt to Gemini API...")
@@ -122,7 +122,7 @@ def test_voice_helper():
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash-001')
         
         # Simulate the voice helper prompt
         business_name = "TechCorp"
