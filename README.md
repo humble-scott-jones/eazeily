@@ -182,7 +182,32 @@ To reproduce, run the commands in sections 1, 3, and 7 in sequence.
 
 If anything in these instructions doesn't work on your machine, paste the failing command and its output and I'll help fix it.
 
-## OpenAI integration: ChatGPT vs API
+## AI Integration: Google Gemini API (Required)
+
+**Important**: Eazeily now uses Google Gemini for AI-powered features including content generation and brand voice assistance.
+
+### Quick Setup
+
+1. Get an API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+2. Add to your `.env` file:
+   ```bash
+   GENAI_API_KEY=your_api_key_here
+   ```
+3. Verify setup:
+   ```bash
+   python3 scripts/test_gemini_api.py
+   ```
+
+**Features that require Gemini API:**
+- Content generation (social posts, emails, ads, etc.)
+- AI voice helper (interactive brand voice builder)
+- Brand voice analysis
+
+**📖 Full setup guide**: See [docs/GEMINI_SETUP.md](docs/GEMINI_SETUP.md) for detailed instructions, troubleshooting, and best practices.
+
+**Free tier**: Gemini offers a free tier with 15 requests/minute - sufficient for development and testing.
+
+## OpenAI integration: ChatGPT vs API (Optional)
 
 You don’t need a ChatGPT subscription in the app. Togetherly uses the OpenAI API when configured. If an API key isn’t set, it falls back to the built‑in generator.
 
