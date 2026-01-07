@@ -127,6 +127,14 @@ curl http://127.0.0.1:5001/__dev__/ping
 - `POST /api/generate` — request content generation (reels will be gated to paid users)
 - `GET /api/stripe-price` — returns authoritative Stripe price metadata for paywall copy
 
+### Generation task registry & aliases
+
+- All dashboard tiles use `POST /api/generate` (alias: `POST /api/generate/<task_type>`).
+- Supported `task_type` values: `post`, `caption`, `script`, `email`, `proposal`, `ad`, `review`, `blog`, `newsletter`.
+- Task definitions (role, prompt template, platform requirement) live in `services/task_registry.py` and are consumed by `VoiceEngine`.
+- Validation: `topic` required for all; `platform` required for `post`. Missing API key returns 503 with `error.code = "missing_api_key"`.
+- If the caller has no saved profile, responses include `redirect: "/onboarding"` so the UI can nudge profile setup.
+
 ## 7) Running tests (pytest) — reproduce CI behavior
 
 The CI collects a junit xml and captures logs. Replicate that locally:

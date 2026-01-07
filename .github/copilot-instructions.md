@@ -1,7 +1,7 @@
 # Togetherly - GitHub Copilot Instructions
 
 ## Architecture & Core Patterns
-- **Framework**: Flask (Python 3.10+) with SQLite (`togetherly.db`) and Vanilla JS frontend.
+- **Framework**: Flask (Python 3.10+) with PostgreSQL (`togetherly_v2`) and Vanilla JS frontend.
 - **Service Boundaries**:
   - `app.py`: Routes, auth, DB management, and business logic orchestration.
   - `generator.py`: Pure logic for content generation (posts, captions, hashtags). Decoupled from Flask context where possible.
@@ -9,8 +9,8 @@
   - `static/content/flags.json`: Client-side feature flags.
 - **Database Access**:
   - Use `get_db()` context manager pattern (implied in `app.py`).
-  - Prefer `sqlite3.Row` for dictionary-like access.
-  - **Constraint**: SQLite is the only DB. No ORM (raw SQL with parameterized queries).
+  - Prefer `psycopg2` or `SQLAlchemy` for dictionary-like access.
+  - **Constraint**: PostgreSQL is the only DB. No SQLite.
 
 ## Development Workflow
 - **Environment**: Always activate venv: `source .venv/bin/activate`.
@@ -21,7 +21,7 @@
 - **Runner**: `pytest`.
 - **Command**: `PYTHONPATH=. pytest -q` or use `./run_tests.sh`.
 - **UI Smoke Tests**: Gated by env var. Run with `RUN_UI_SMOKE=1 PYTHONPATH=. pytest -q`.
-- **Fixtures**: Defined in `tests/conftest.py`. Each test gets an isolated temporary SQLite DB.
+- **Fixtures**: Defined in `tests/conftest.py`. Each test gets an isolated temporary DB.
 - **Best Practice**: When adding features, add a corresponding test file in `tests/` following the `test_*.py` pattern.
 
 ## Project Specifics
