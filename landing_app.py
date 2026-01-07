@@ -1,5 +1,6 @@
 import os
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import uuid
 from flask import Flask, request, jsonify, render_template, g
 from flask_cors import CORS
@@ -11,12 +12,13 @@ app.secret_key = os.getenv("SECRET_KEY", "dev-secret-change-me")
 CORS(app)
 
 # Database setup
-DB_PATH = os.path.join(os.path.dirname(__file__), "swelly.db")
+# Default to local postgres if not set
+DB_URL = os.environ.get("DATABASE_URL", "postgresql://localhost/togetherly_v2")
 
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
+        g.db = psycopg2.connect(DB_URL, cursor_factory=RealDictCursor)
+        g.db.autocommit = True
     return g.db
 
 @app.teardown_appcontext
@@ -27,19 +29,20 @@ def close_db(exc):
 
 def init_db():
     db = get_db()
-    db.execute("""
-        CREATE TABLE IF NOT EXISTS waitlist (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE,
-            confirmed INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    db.commit()
+    with db.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS waitlist (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE,
+                confirmed INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
 @app.before_request
 def ensure_db():
-    init_db()
+    # In production, migrate properly. For now, init if needed.
+    pass # Disabling auto-init on every request for Postgres performance
 
 @app.get("/")
 def landing():
@@ -57,12 +60,13 @@ def api_waitlist():
             return jsonify({'ok': False, 'error': 'Invalid email address'}), 400
 
         db = get_db()
-        db.execute("INSERT INTO waitlist (email) VALUES (?)", (email,))
-        db.commit()
+        with db.cursor() as cur:
+             cur.execute("INSERT INTO waitlist (email) VALUES (%s)", (email,))
+        # autocommit is on
 
         return jsonify({'ok': True, 'message': 'Successfully added to waitlist'})
 
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
         return jsonify({'ok': False, 'error': 'Email already registered'}), 400
     except Exception as e:
         return jsonify({'ok': False, 'error': 'Server error'}), 500

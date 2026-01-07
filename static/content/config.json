@@ -1,0 +1,23 @@
+{
+  "industries": [
+    {"key": "artisan", "label": "Artisan"},
+    {"key": "church", "label": "Church"},
+    {"key": "cleaner", "label": "Cleaner"},
+    {"key": "coach", "label": "Coach"},
+    {"key": "dentist", "label": "Dentist"},
+    {"key": "fitness", "label": "Fitness"},
+    {"key": "general", "label": "General"},
+    {"key": "gym", "label": "Gym"},
+    {"key": "healthcare", "label": "Healthcare"},
+    {"key": "home_services", "label": "Home Services"},
+    {"key": "house_host", "label": "House Host"},
+    {"key": "nonprofit", "label": "Nonprofit"},
+    {"key": "realtor", "label": "Realtor"},
+    {"key": "restaurant", "label": "Restaurant"},
+    {"key": "retail", "label": "Retail"},
+    {"key": "salon", "label": "Salon"},
+    {"key": "software", "label": "Software"},
+    {"key": "other", "label": "Other"}
+  ],
+  "questions": {}
+}

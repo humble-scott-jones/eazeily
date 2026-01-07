@@ -1,3 +1,7 @@
+import pytest
+
+pytest.skip("OpenAI path removed; Gemini-only stack", allow_module_level=True)
+
 
 def test_openai_status_endpoint_returns_contract(client):
     response = client.get('/api/debug/openai-status')

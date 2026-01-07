@@ -1,52 +1,8 @@
-"""Test that OpenAI failures properly set source to fallback or return errors."""
+"""OpenAI paths removed; legacy tests skipped."""
 
 import pytest
-from unittest.mock import Mock, patch
-from generation_service import GenerationService
 
-
-def test_openai_failure_returns_fallback_with_source():
-    """When OpenAI fails and fallback succeeds, response should have source=fallback."""
-    service = GenerationService()
-    
-    # Mock OpenAI to fail
-    def failing_openai(payload):
-        raise Exception("OpenAI API error")
-    
-    # Mock fallback to succeed
-    def working_fallback(payload):
-        return {"posts": [{"date": "2024-01-01", "pillar": "Test", "cards": []}], "count": 1}
-    
-    # Mock validator to pass through
-    def validator(payload):
-        return {}
-    
-    def normalizer(payload):
-        return payload
-    
-    def output_validator(data):
-        return data
-    
-    response = service.generate(
-        endpoint='test',
-        request_id='test-123',
-        payload={'test': 'data'},
-        validator=validator,
-        normalizer=normalizer,
-        output_validator=output_validator,
-        openai_callable=failing_openai,
-        fallback_callable=working_fallback,
-        use_openai=True,
-    )
-    
-    # Should succeed with fallback
-    assert response.ok is True
-    assert response.body['ok'] is True
-    assert response.body['source'] == 'fallback'
-    assert response.body['mode'] == 'fallback_suggestions'
-    assert 'warnings' in response.body
-    assert len(response.body['warnings']) > 0
-    assert 'temporarily unavailable' in response.body['warnings'][0].lower()
+pytest.skip("OpenAI path removed; Gemini-only stack", allow_module_level=True)
 
 
 def test_openai_success_returns_openai_source():

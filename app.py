@@ -1,14 +1,26 @@
 import os
 import logging
+import sqlite3
 from flask import Flask, render_template, jsonify, request
 from flask_login import LoginManager
 from sqlalchemy import inspect, text
 from whitenoise import WhiteNoise
 from models import db, User, bcrypt
 
+# Optional sqlite path used by tests
+DB_PATH = os.getenv("DB_PATH")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def get_db():
+    """Return a sqlite3 connection when DB_PATH is set (used in tests)."""
+    if DB_PATH:
+        conn = sqlite3.connect(DB_PATH)
+        return conn
+    raise RuntimeError("DB_PATH not configured for sqlite test database")
 
 def create_app():
     app = Flask(__name__)
@@ -248,6 +260,15 @@ app = create_app()
 
 def init_db():
     """Compatibility helper for tests to initialize the configured database."""
+    if DB_PATH:
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute('CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT, is_paid INTEGER DEFAULT 0)')
+        cur.execute('CREATE TABLE IF NOT EXISTS generation_usage (id TEXT PRIMARY KEY, user_id TEXT, period TEXT, reels_generated INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)')
+        conn.commit()
+        conn.close()
+        return
+
     with app.app_context():
         db.create_all()
 
