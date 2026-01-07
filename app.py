@@ -2,7 +2,7 @@ import os
 import logging
 from flask import Flask, render_template, jsonify, request
 from flask_login import LoginManager
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from whitenoise import WhiteNoise
 from models import db, User, bcrypt
 
@@ -20,7 +20,14 @@ def create_app():
     db_url = os.environ.get("DATABASE_URL")
     if db_url and db_url.startswith("postgres://"):
         db_url = db_url.replace("postgres://", "postgresql://", 1)
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_url or 'sqlite:///local.db'
+    
+    # Enforce Postgres - fail if not configured, or default to local postgres
+    if not db_url:
+         # Default to local postgres for development if not specified
+         db_url = 'postgresql://localhost/togetherly_v2'
+         logger.warning(f"DATABASE_URL not set, defaulting to {db_url}")
+         
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
     # Initialize Extensions
@@ -41,15 +48,13 @@ def create_app():
                     if 'created_at' not in user_columns:
                         dialect = db.engine.dialect.name
                         logger.info(f"Adding missing column created_at to 'user' table for dialect {dialect}")
-                        if dialect == 'postgresql':
-                            db.session.execute('ALTER TABLE "user" ADD COLUMN created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now();')
-                        elif dialect == 'sqlite':
-                            # SQLite supports adding a column but without NOT NULL constraints if table already exists
-                            db.session.execute('ALTER TABLE user ADD COLUMN created_at DATETIME;')
-                        else:
-                            # Fallback: try a generic TIMESTAMP column
-                            db.session.execute('ALTER TABLE "user" ADD COLUMN created_at TIMESTAMP;')
-                        db.session.commit()
+                        # Postgres specific DDL as default
+                        try:
+                            db.session.execute(text('ALTER TABLE "user" ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now();'))
+                            db.session.commit()
+                        except Exception as e:
+                            logger.error(f"Failed to add column: {e}")
+                            db.session.rollback()
             except Exception as se:
                 # Log and continue; schema fixes are best-effort in staging/dev only
                 logger.warning(f"Runtime schema check failed: {se}")
@@ -239,6 +244,12 @@ def create_app():
     return app
 
 app = create_app()
+
+
+def init_db():
+    """Compatibility helper for tests to initialize the configured database."""
+    with app.app_context():
+        db.create_all()
 
 # CLI Commands
 import click

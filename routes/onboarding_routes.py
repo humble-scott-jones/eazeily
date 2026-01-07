@@ -3,6 +3,11 @@ from flask_login import login_required, current_user
 from models import db, VoiceProfile
 import logging
 import json
+import re
+from urllib.parse import urlparse
+
+import requests
+from bs4 import BeautifulSoup
 
 onboarding_bp = Blueprint('onboarding', __name__)
 logger = logging.getLogger(__name__)
@@ -346,6 +351,208 @@ The user wants to refine the brand voice profile. Based on their feedback, ask 1
     except Exception as e:
         logger.error(f"Error in voice chat: {e}", exc_info=True)
         return jsonify({"error": f"Failed to process your message: {str(e)}"}), 500
+
+
+def _extract_samples_from_html(html: str, max_samples: int = 5) -> list:
+    """Pull short text snippets from a social page to use as samples."""
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # Try obvious places first
+    meta_desc = soup.find('meta', attrs={'property': 'og:description'}) or soup.find('meta', attrs={'name': 'description'})
+    candidates = []
+    if meta_desc and meta_desc.get('content'):
+        candidates.append(meta_desc.get('content'))
+
+    # Collect paragraph-like text blocks
+    for tag in soup.find_all(['p', 'span', 'div', 'li']):
+        text = tag.get_text(" ", strip=True)
+        if not text:
+            continue
+        # Filter out navigation and extremely short/long blobs
+        if 20 <= len(text) <= 400:
+            candidates.append(text)
+
+    # Deduplicate and trim
+    samples = []
+    seen = set()
+    for raw in candidates:
+        cleaned = " ".join(raw.split())
+        lowered = cleaned.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        samples.append(cleaned[:280])
+        if len(samples) >= max_samples:
+            break
+
+    return samples
+
+
+def _infer_style(samples: list) -> dict:
+    """Compute simple heuristics (emoji density, hashtags, sentence length) and map to tone cues."""
+    if not samples:
+        return {
+            "tones": ["friendly", "approachable"],
+            "notes": "Defaulted to approachable tone; no samples available.",
+            "emoji_density": 0,
+            "avg_sentence_length": 0,
+            "hashtags": 0
+        }
+
+    full_text = " ".join(samples)
+    emoji_pattern = re.compile(r"[\U0001F300-\U0001FAFF\u2600-\u27BF]")
+    emoji_count = len(emoji_pattern.findall(full_text))
+    word_count = max(len(full_text.split()), 1)
+    emoji_density = emoji_count / word_count
+
+    sentences = re.split(r"[.!?]", full_text)
+    sent_lengths = [len(s.split()) for s in sentences if len(s.strip()) > 0]
+    avg_sentence_length = sum(sent_lengths) / len(sent_lengths) if sent_lengths else 0
+
+    hashtags = len(re.findall(r"#\w+", full_text))
+
+    tones = []
+    if emoji_density > 0.02:
+        tones.append("playful")
+    elif emoji_density > 0.005:
+        tones.append("warm")
+    else:
+        tones.append("professional")
+
+    if avg_sentence_length >= 18:
+        tones.append("thoughtful")
+    elif avg_sentence_length <= 10:
+        tones.append("punchy")
+
+    if hashtags >= 4:
+        tones.append("social-first")
+
+    return {
+        "tones": tones,
+        "notes": "Emoji density {:.2f}, avg sentence length {:.1f} words, {} hashtags.".format(emoji_density, avg_sentence_length, hashtags),
+        "emoji_density": emoji_density,
+        "avg_sentence_length": avg_sentence_length,
+        "hashtags": hashtags
+    }
+
+
+def _build_suggestions(samples: list, style: dict, business_name: str = "") -> dict:
+    tone_phrase = ", ".join(style.get("tones", []) or ["approachable"])
+    top_sample = samples[0] if samples else ""
+
+    brand_voice = f"{tone_phrase} with { 'emoji-friendly, ' if style.get('emoji_density', 0) > 0.02 else ''}clear, social-ready phrasing."
+
+    tagline = "" if not business_name else f"{business_name}: {tone_phrase.title()} stories that convert."
+    if not tagline and top_sample:
+        tagline = top_sample[:90] + ("…" if len(top_sample) > 90 else "")
+
+    voice_rules = []
+    if style.get("emoji_density", 0) > 0.02:
+        voice_rules.append("Include a couple emojis to keep it upbeat.")
+    if style.get("avg_sentence_length", 0) > 18:
+        voice_rules.append("Prefer concise sentences (<18 words).")
+    else:
+        voice_rules.append("Keep sentences punchy and easy to skim.")
+    if style.get("hashtags", 0) >= 4:
+        voice_rules.append("Use 2-3 focused hashtags at the end.")
+
+    sample_copy = samples[:3] if samples else []
+
+    return {
+        "brand_voice": brand_voice,
+        "tagline": tagline,
+        "voice_rules": "; ".join(voice_rules) if voice_rules else "",
+        "sample_copy": sample_copy
+    }
+
+
+@onboarding_bp.route('/onboarding/social-style', methods=['POST'])
+@login_required
+def social_style():
+    """Fetch content from a provided URL. For FB/IG, only surface rhythm samples; for websites, infer broader suggestions."""
+    try:
+        from services.scraper_service import scrape_url
+
+        data = request.get_json() or {}
+        raw_url = (data.get('url') or '').strip()
+        consent = bool(data.get('consent'))
+        business_name = (data.get('business_name') or '').strip()
+
+        if not raw_url:
+            return jsonify({"error": "A URL is required"}), 400
+        if not consent:
+            return jsonify({"error": "Consent is required before scraping"}), 400
+
+        parsed = urlparse(raw_url if '://' in raw_url else f"https://{raw_url}")
+        host = (parsed.hostname or '').lower()
+        social_hosts = {'facebook.com', 'www.facebook.com', 'm.facebook.com', 'fb.com', 'instagram.com', 'www.instagram.com'}
+        normalized_url = parsed.geturl()
+
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0 Safari/537.36'
+        }
+
+        # Social path: only provide rhythm samples
+        if host in social_hosts:
+            try:
+                resp = requests.get(normalized_url, headers=headers, timeout=10)
+                resp.raise_for_status()
+            except requests.HTTPError as http_err:
+                status = http_err.response.status_code if http_err.response else 500
+                if status == 429:
+                    return jsonify({"error": "Rate limited by the social platform. Please retry later."}), 429
+                return jsonify({"error": f"Failed to fetch the page (status {status})."}), status
+            except Exception as e:
+                logger.error(f"Error fetching social URL {normalized_url}: {e}")
+                return jsonify({"error": "Could not reach that URL. Double-check it and try again."}), 500
+
+            samples = _extract_samples_from_html(resp.text)
+            style = _infer_style(samples)
+            # For socials, restrict suggestions to rhythm/writing samples only
+            suggestions = {
+                "brand_voice": None,
+                "tagline": None,
+                "voice_rules": None,
+                "sample_copy": samples[:3]
+            }
+
+            return jsonify({
+                "samples": samples,
+                "style": style,
+                "suggestions": suggestions,
+                "source": "social"
+            })
+
+        # Website path: use scraper_service to get visible text, then derive samples and suggestions
+        scraped_text = scrape_url(normalized_url, max_length=6000)
+        if not scraped_text:
+            return jsonify({"error": "Could not read that page (maybe it is blocked or empty)."}), 400
+
+        # Derive samples from the text (split into sentences/paragraphs)
+        sentences = re.split(r"(?<=[.!?])\s+", scraped_text)
+        samples = []
+        for s in sentences:
+            cleaned = s.strip()
+            if 40 <= len(cleaned) <= 280:
+                samples.append(cleaned)
+            if len(samples) >= 5:
+                break
+        if not samples:
+            samples = [scraped_text[:240]]
+
+        style = _infer_style(samples)
+        suggestions = _build_suggestions(samples, style, business_name)
+
+        return jsonify({
+            "samples": samples,
+            "style": style,
+            "suggestions": suggestions,
+            "source": "website"
+        })
+
+    except Exception as e:
+        logger.error(f"Error in social_style: {e}", exc_info=True)
+        return jsonify({"error": "Failed to analyze the link."}), 500
 
 
 @onboarding_bp.route('/onboarding/interview-voice', methods=['POST'])
