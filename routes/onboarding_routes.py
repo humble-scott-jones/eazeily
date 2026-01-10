@@ -583,8 +583,10 @@ def social_style():
         suggestions["business_name"] = business_info.get("business_name")
         suggestions["industry"] = business_info.get("industry")
         suggestions["key_customers"] = business_info.get("key_customers")
+        suggestions["brand_keywords"] = business_info.get("brand_keywords", [])
+        suggestions["niche_keywords"] = business_info.get("niche_keywords", [])
         
-        logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}")
+        logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}, brand_keywords={suggestions.get('brand_keywords')}, niche_keywords={suggestions.get('niche_keywords')}")
 
         return jsonify({
             "samples": samples,

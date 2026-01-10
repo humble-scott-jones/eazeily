@@ -56,6 +56,18 @@ class VoiceProfile(db.Model):
     voice_rules = db.Column(db.Text)           # The "Constraints" (e.g., "No emojis")
     writing_samples = db.Column(db.Text)       # The "Rhythm" (Few-shot examples) - stored as JSON
     
+    # Additional profile fields for brand profile wizard
+    tone = db.Column(db.String(255))           # Tone/vibe (alias for brand_voice in some contexts)
+    platforms = db.Column(db.Text)             # List of platforms (stored as JSON)
+    timezone = db.Column(db.String(100))       # User timezone
+    brand_keywords = db.Column(db.Text)        # Brand keywords (stored as JSON)
+    niche_keywords = db.Column(db.Text)        # Niche keywords (stored as JSON)
+    goals = db.Column(db.Text)                 # User goals (stored as JSON)
+    brand_inspirations = db.Column(db.Text)    # Brand inspirations (stored as JSON)
+    brand_anti_inspirations = db.Column(db.Text) # Brand anti-inspirations (stored as JSON)
+    vibe_preset = db.Column(db.String(255))    # Selected vibe preset
+    include_images = db.Column(db.Boolean, default=False) # Whether to include images
+    
     def set_defaults(self, defaults_dict):
         self.defaults = json.dumps(defaults_dict)
 
@@ -75,6 +87,54 @@ class VoiceProfile(db.Model):
     def get_writing_samples(self):
         """Get writing samples as a list."""
         return json.loads(self.writing_samples) if self.writing_samples else []
+    
+    def set_platforms(self, platforms_list):
+        """Set platforms from a list."""
+        self.platforms = json.dumps(platforms_list)
+    
+    def get_platforms(self):
+        """Get platforms as a list."""
+        return json.loads(self.platforms) if self.platforms else []
+    
+    def set_brand_keywords(self, keywords_list):
+        """Set brand keywords from a list."""
+        self.brand_keywords = json.dumps(keywords_list)
+    
+    def get_brand_keywords(self):
+        """Get brand keywords as a list."""
+        return json.loads(self.brand_keywords) if self.brand_keywords else []
+    
+    def set_niche_keywords(self, keywords_list):
+        """Set niche keywords from a list."""
+        self.niche_keywords = json.dumps(keywords_list)
+    
+    def get_niche_keywords(self):
+        """Get niche keywords as a list."""
+        return json.loads(self.niche_keywords) if self.niche_keywords else []
+    
+    def set_goals(self, goals_list):
+        """Set goals from a list."""
+        self.goals = json.dumps(goals_list)
+    
+    def get_goals(self):
+        """Get goals as a list."""
+        return json.loads(self.goals) if self.goals else []
+    
+    def set_brand_inspirations(self, inspirations_list):
+        """Set brand inspirations from a list."""
+        self.brand_inspirations = json.dumps(inspirations_list)
+    
+    def get_brand_inspirations(self):
+        """Get brand inspirations as a list."""
+        return json.loads(self.brand_inspirations) if self.brand_inspirations else []
+    
+    def set_brand_anti_inspirations(self, anti_inspirations_list):
+        """Set brand anti-inspirations from a list."""
+        self.brand_anti_inspirations = json.dumps(anti_inspirations_list)
+    
+    def get_brand_anti_inspirations(self):
+        """Get brand anti-inspirations as a list."""
+        return json.loads(self.brand_anti_inspirations) if self.brand_anti_inspirations else []
     
     @property
     def style_guide(self):

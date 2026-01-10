@@ -105,11 +105,13 @@ def create_app():
     from routes.auth_routes import auth_bp
     from routes.generate_routes import generate_bp
     from routes.onboarding_routes import onboarding_bp
+    from routes.profile_routes import profile_bp
     app.register_blueprint(wizard_bp)
     app.register_blueprint(auth_bp)
     # app.register_blueprint(dashboard_bp) # Replaced by generate_bp's dashboard
     app.register_blueprint(generate_bp)
     app.register_blueprint(onboarding_bp)
+    app.register_blueprint(profile_bp)
 
     # Root route and health endpoint so the staging domain has content and Railway healthchecks succeed
     @app.route('/')
