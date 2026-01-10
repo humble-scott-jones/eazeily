@@ -131,7 +131,7 @@ Return only valid JSON, no markdown formatting, no explanations."""
             "key_customers": extracted_data.get("key_customers") or None
         }
         
-        logger.info("Successfully extracted business info from scraped text")
+        logger.debug("Successfully extracted business info from scraped text")
         return result
         
     except json.JSONDecodeError as e:
