@@ -4100,6 +4100,38 @@ function collectAccountFormProfile(){
   };
 }
 
+async function saveProfile() {
+  const snapshot = collectAccountFormProfile();
+  
+  const profileData = {
+    company: snapshot.company,
+    industry: snapshot.industry_key || snapshot.industry,
+    tone: snapshot.tone,
+    platforms: snapshot.platforms || []
+  };
+
+  const response = await fetch('/api/profile', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    credentials: 'include',
+    body: JSON.stringify(profileData)
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Failed to save profile');
+  }
+
+  const data = await response.json();
+  if (!data.ok) {
+    throw new Error(data.error?.message || 'Failed to save profile');
+  }
+
+  return data;
+}
+
 function getPreferredGeneratorPlatforms() {
   if (platformPresetState.lastPlan && Array.isArray(platformPresetState.lastPlan.platforms) && platformPresetState.lastPlan.platforms.length) {
     return dedupePlatforms(platformPresetState.lastPlan.platforms);
