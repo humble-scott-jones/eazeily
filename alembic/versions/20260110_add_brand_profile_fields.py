@@ -1,7 +1,7 @@
 """Add brand profile fields to voice_profile table.
 
 Revision ID: 20260110_add_brand_profile_fields
-Revises: 20251211_01_fix_profiles
+Revises: 52aa10327b5a
 Create Date: 2026-01-10
 """
 
@@ -11,7 +11,7 @@ from sqlalchemy.engine.reflection import Inspector
 
 # revision identifiers, used by Alembic.
 revision = "20260110_add_brand_profile_fields"
-down_revision = "20251211_01_fix_profiles"
+down_revision = "52aa10327b5a"
 branch_labels = None
 depends_on = None
 
@@ -30,6 +30,9 @@ def upgrade():
     columns = [c['name'] for c in inspector.get_columns('voice_profile')]
     
     # Add new columns if they don't exist
+    # Note: brand_inspirations, brand_anti_inspirations, and vibe_preset 
+    # were already added in 20251214_01_add_brand_inspirations migration
+    
     if 'tone' not in columns:
         op.add_column('voice_profile', sa.Column('tone', sa.String(255)))
     
@@ -48,6 +51,8 @@ def upgrade():
     if 'goals' not in columns:
         op.add_column('voice_profile', sa.Column('goals', sa.Text()))
     
+    # These fields are already added by 20251214_01_add_brand_inspirations
+    # but we check anyway for safety
     if 'brand_inspirations' not in columns:
         op.add_column('voice_profile', sa.Column('brand_inspirations', sa.Text()))
     
