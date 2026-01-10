@@ -113,6 +113,7 @@
                         </label>
                         <input type="text" id="business_name" name="business_name" required aria-required="true"
                                placeholder="e.g., Smith Real Estate"
+                               value="{{ business_name or '' }}"
                                class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
                     </div>
 
@@ -123,19 +124,19 @@
                         <select id="industry" name="industry" required onchange="prefillDefaults()" aria-required="true"
                                 class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
                             <option value="">Select your industry...</option>
-                            <option value="Software / Tech / Startup">💻 Software / Tech / Startup</option>
-                            <option value="Realtor / Real Estate">🏡 Realtor / Real Estate</option>
-                            <option value="Restaurant / Café">🍽️ Restaurant / Café</option>
-                            <option value="Retail / Boutique">🛍️ Retail / Boutique</option>
-                            <option value="Fitness / Wellness">💪 Fitness / Wellness</option>
-                            <option value="Artisan / Maker">🎨 Artisan / Maker</option>
-                            <option value="Coach / Consultant">🧭 Coach / Consultant</option>
-                            <option value="Nonprofit / Community">🤝 Nonprofit / Community</option>
-                            <option value="Home Services">🛠️ Home Services</option>
-                            <option value="Healthcare">🩺 Healthcare</option>
-                            <option value="Church">⛪ Church</option>
-                            <option value="House Host / Vacation Rental">🏠 House Host / Vacation Rental</option>
-                            <option value="Other / Custom">✨ Other / Custom</option>
+                            <option value="Software / Tech / Startup" {% if industry == "Software / Tech / Startup" %}selected{% endif %}>💻 Software / Tech / Startup</option>
+                            <option value="Realtor / Real Estate" {% if industry == "Realtor / Real Estate" %}selected{% endif %}>🏡 Realtor / Real Estate</option>
+                            <option value="Restaurant / Café" {% if industry == "Restaurant / Café" %}selected{% endif %}>🍽️ Restaurant / Café</option>
+                            <option value="Retail / Boutique" {% if industry == "Retail / Boutique" %}selected{% endif %}>🛍️ Retail / Boutique</option>
+                            <option value="Fitness / Wellness" {% if industry == "Fitness / Wellness" %}selected{% endif %}>💪 Fitness / Wellness</option>
+                            <option value="Artisan / Maker" {% if industry == "Artisan / Maker" %}selected{% endif %}>🎨 Artisan / Maker</option>
+                            <option value="Coach / Consultant" {% if industry == "Coach / Consultant" %}selected{% endif %}>🧭 Coach / Consultant</option>
+                            <option value="Nonprofit / Community" {% if industry == "Nonprofit / Community" %}selected{% endif %}>🤝 Nonprofit / Community</option>
+                            <option value="Home Services" {% if industry == "Home Services" %}selected{% endif %}>🛠️ Home Services</option>
+                            <option value="Healthcare" {% if industry == "Healthcare" %}selected{% endif %}>🩺 Healthcare</option>
+                            <option value="Church" {% if industry == "Church" %}selected{% endif %}>⛪ Church</option>
+                            <option value="House Host / Vacation Rental" {% if industry == "House Host / Vacation Rental" %}selected{% endif %}>🏠 House Host / Vacation Rental</option>
+                            <option value="Other / Custom" {% if industry == "Other / Custom" %}selected{% endif %}>✨ Other / Custom</option>
                         </select>
                     </div>
 
@@ -145,7 +146,7 @@
                         </label>
                         <textarea id="audience" name="target_audience" rows="3" required aria-required="true"
                                   placeholder="e.g., Local families looking to upsize, first-time home buyers..."
-                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base"></textarea>
+                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">{{ target_audience or '' }}</textarea>
                         <p class="mt-1 text-sm text-gray-500">Describe your ideal customer in 1-2 sentences</p>
                     </div>
 
@@ -155,6 +156,7 @@
                         </label>
                         <input type="text" id="voice" name="brand_voice" required aria-required="true"
                                placeholder="e.g., Professional, reassuring, and expert-level"
+                               value="{{ brand_voice or '' }}"
                                class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
                         <p class="mt-1 text-sm text-gray-500">Describe the tone and personality (3-5 adjectives)</p>
                     </div>
@@ -165,7 +167,7 @@
                         </label>
                         <textarea id="offer" name="key_offer" rows="2" required aria-required="true"
                                   placeholder="e.g., Free Home Valuation Report, 10% Off First Visit"
-                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base"></textarea>
+                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">{{ key_offer or '' }}</textarea>
                         <p class="mt-1 text-sm text-gray-500">Your main call-to-action or value proposition</p>
                     </div>
 
@@ -175,7 +177,7 @@
                         </label>
                         <textarea id="rules" name="voice_rules" rows="2"
                                   placeholder="e.g., No exclamation points, Always use 'y'all', Keep under 280 characters"
-                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base"></textarea>
+                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">{{ voice_rules or '' }}</textarea>
                         <p class="mt-1 text-sm text-gray-500">Any specific dos and don'ts for your brand</p>
                     </div>
 
@@ -185,7 +187,7 @@
                         </label>
                         <textarea id="samples" name="writing_samples" rows="6" required aria-required="true"
                                   placeholder="Paste 2-3 examples of your past writing. Separate each with a blank line."
-                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base font-mono text-sm"></textarea>
+                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base font-mono text-sm">{{ writing_samples or '' }}</textarea>
                         <p class="mt-1 text-sm text-gray-500">
                             <strong>Example format:</strong><br>
                             Just closed on another dream home! 🏡 Congrats to the Martinez family!<br>
@@ -417,28 +419,55 @@ async function fetchAndPrefillData() {
         if (response.ok && data.suggestions) {
             aiSuggestionsData = data.suggestions;
             
+            // Log what we received for debugging
+            console.log('Received suggestions:', data.suggestions);
+            
             // Auto-fill fields in step 2
+            let fieldsPopulated = 0;
+            
             if (data.suggestions.business_name) {
                 document.getElementById('business_name').value = data.suggestions.business_name;
+                fieldsPopulated++;
+                console.log('Populated business_name:', data.suggestions.business_name);
             }
             if (data.suggestions.industry) {
-                document.getElementById('industry').value = data.suggestions.industry;
+                const industrySelect = document.getElementById('industry');
+                industrySelect.value = data.suggestions.industry;
+                // Verify the industry value was set
+                if (industrySelect.value === data.suggestions.industry) {
+                    fieldsPopulated++;
+                    console.log('Populated industry:', data.suggestions.industry);
+                } else {
+                    console.warn('Industry value not found in select options:', data.suggestions.industry);
+                }
             }
             if (data.suggestions.key_customers) {
                 document.getElementById('audience').value = data.suggestions.key_customers;
+                fieldsPopulated++;
+                console.log('Populated audience:', data.suggestions.key_customers);
             }
             if (data.suggestions.brand_voice) {
                 document.getElementById('voice').value = data.suggestions.brand_voice;
+                fieldsPopulated++;
+                console.log('Populated brand_voice:', data.suggestions.brand_voice);
             }
             if (data.suggestions.tagline) {
                 document.getElementById('offer').value = data.suggestions.tagline;
+                fieldsPopulated++;
+                console.log('Populated offer:', data.suggestions.tagline);
             }
             if (data.suggestions.voice_rules) {
                 document.getElementById('rules').value = data.suggestions.voice_rules;
+                fieldsPopulated++;
+                console.log('Populated voice_rules:', data.suggestions.voice_rules);
             }
             if (data.suggestions.sample_copy && data.suggestions.sample_copy.length > 0) {
                 document.getElementById('samples').value = data.suggestions.sample_copy.join('\n\n');
+                fieldsPopulated++;
+                console.log('Populated samples:', data.suggestions.sample_copy.length, 'samples');
             }
+            
+            console.log('Total fields populated:', fieldsPopulated);
             
             // Show success and move to step 2
             fetchResult.classList.remove('hidden');
