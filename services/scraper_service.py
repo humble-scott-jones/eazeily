@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 import re
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -48,3 +49,83 @@ def scrape_url(url: str, max_length: int = 5000) -> str:
     except Exception as e:
         logger.error(f"Failed to scrape {url}: {e}")
         return None
+
+
+def extract_business_info(scraped_text: str, url: str = "") -> dict:
+    """
+    Uses AI to extract business name, industry, and key customers from scraped text.
+    
+    Args:
+        scraped_text (str): The text content from the webpage.
+        url (str): The URL of the webpage (optional, for context).
+        
+    Returns:
+        dict: Contains business_name, industry, and key_customers fields.
+              Returns None values if extraction fails or AI is unavailable.
+    """
+    try:
+        from services.ai_service import get_generative_model
+        
+        model = get_generative_model()
+        if not model:
+            logger.warning("AI service not available for business info extraction")
+            return {
+                "business_name": None,
+                "industry": None,
+                "key_customers": None
+            }
+        
+        # Limit text length for AI processing
+        text_sample = scraped_text[:3000] if len(scraped_text) > 3000 else scraped_text
+        
+        prompt = f"""Analyze the following website content and extract business information. Return ONLY a JSON object with these exact keys:
+
+- business_name: The company/business name (string, or null if not found)
+- industry: The business industry category - pick ONE that best matches from this list: "Software / Tech / Startup", "Realtor / Real Estate", "Restaurant / Café", "Retail / Boutique", "Fitness / Wellness", "Artisan / Maker", "Coach / Consultant", "Nonprofit / Community", "Home Services", "Healthcare", "Church", "House Host / Vacation Rental", "Other / Custom" (string, or null if not clear)
+- key_customers: A brief description of the target audience/customers in 1-2 sentences (string, or null if not found)
+
+Website content:
+{text_sample}
+
+Return only valid JSON, no markdown formatting, no explanations."""
+
+        response = model.generate_content(prompt)
+        response_text = response.text.strip()
+        
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
+        # Parse JSON response
+        extracted_data = json.loads(response_text)
+        
+        # Validate and clean the extracted data
+        result = {
+            "business_name": extracted_data.get("business_name") or None,
+            "industry": extracted_data.get("industry") or None,
+            "key_customers": extracted_data.get("key_customers") or None
+        }
+        
+        logger.info(f"Successfully extracted business info: {result}")
+        return result
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse AI response as JSON: {e}")
+        logger.debug(f"AI response was: {response_text[:500]}")
+        return {
+            "business_name": None,
+            "industry": None,
+            "key_customers": None
+        }
+    except Exception as e:
+        logger.error(f"Failed to extract business info: {e}")
+        return {
+            "business_name": None,
+            "industry": None,
+            "key_customers": None
+        }

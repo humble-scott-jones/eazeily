@@ -418,6 +418,15 @@ async function fetchAndPrefillData() {
             aiSuggestionsData = data.suggestions;
             
             // Auto-fill fields in step 2
+            if (data.suggestions.business_name) {
+                document.getElementById('business_name').value = data.suggestions.business_name;
+            }
+            if (data.suggestions.industry) {
+                document.getElementById('industry').value = data.suggestions.industry;
+            }
+            if (data.suggestions.key_customers) {
+                document.getElementById('audience').value = data.suggestions.key_customers;
+            }
             if (data.suggestions.brand_voice) {
                 document.getElementById('voice').value = data.suggestions.brand_voice;
             }
