@@ -174,14 +174,18 @@
         }
         
         // Close sidebar when clicking a link on mobile
-        if (window.innerWidth < 768) {
-            const navLinks = sidebar.querySelectorAll('a');
-            navLinks.forEach(link => {
-                link.addEventListener('click', () => {
-                    closeSidebar();
-                });
-            });
+        const navLinks = sidebar.querySelectorAll('a');
+        const mediaQuery = window.matchMedia('(max-width: 767px)');
+        
+        function handleNavClick() {
+            if (mediaQuery.matches) {
+                closeSidebar();
+            }
         }
+        
+        navLinks.forEach(link => {
+            link.addEventListener('click', handleNavClick);
+        });
 
         // Handle logout
         async function handleLogout(event) {

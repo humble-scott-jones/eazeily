@@ -15,7 +15,11 @@ logger = logging.getLogger(__name__)
 @onboarding_bp.route('/onboarding', methods=['GET', 'POST'])
 @login_required
 def onboarding():
-    """Handle the Brand Brain onboarding process with mobile-optimized wizard."""
+    """Handle the Brand Brain onboarding process.
+    
+    Serves the mobile-optimized wizard by default. 
+    For the advanced full-feature view, see /onboarding/advanced.
+    """
     if request.method == 'GET':
         # Use mobile-optimized wizard by default
         return render_template('onboarding_wizard.html')

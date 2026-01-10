@@ -36,18 +36,18 @@
                 <div class="space-y-5">
                     <div>
                         <label for="business_name" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Business Name <span class="text-red-500">*</span>
+                            Business Name <span class="text-red-500" aria-label="required">*</span>
                         </label>
-                        <input type="text" id="business_name" name="business_name" required
+                        <input type="text" id="business_name" name="business_name" required aria-required="true"
                                placeholder="e.g., Smith Real Estate"
                                class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
                     </div>
 
                     <div>
                         <label for="industry" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Industry <span class="text-red-500">*</span>
+                            Industry <span class="text-red-500" aria-label="required">*</span>
                         </label>
-                        <select id="industry" name="industry" required onchange="prefillDefaults()"
+                        <select id="industry" name="industry" required onchange="prefillDefaults()" aria-required="true"
                                 class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
                             <option value="">Select your industry...</option>
                             <option value="Software / Tech / Startup">💻 Software / Tech / Startup</option>
@@ -68,9 +68,9 @@
 
                     <div>
                         <label for="audience" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Who are your customers? <span class="text-red-500">*</span>
+                            Who are your customers? <span class="text-red-500" aria-label="required">*</span>
                         </label>
-                        <textarea id="audience" name="target_audience" rows="3" required
+                        <textarea id="audience" name="target_audience" rows="3" required aria-required="true"
                                   placeholder="e.g., Local families looking to upsize, first-time home buyers..."
                                   class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base"></textarea>
                         <p class="mt-1 text-sm text-gray-500">Describe your ideal customer in 1-2 sentences</p>
@@ -108,8 +108,8 @@
                                placeholder="https://yourbusiness.com or https://instagram.com/yourbrand"
                                class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
                         
-                        <div class="mt-3 flex items-center space-x-2">
-                            <input type="checkbox" id="website_consent" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <div class="mt-3 flex items-start space-x-2">
+                            <input type="checkbox" id="website_consent" class="h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0 mt-0.5">
                             <label for="website_consent" class="text-sm text-gray-600">I give permission to fetch public content from this URL</label>
                         </div>
                     </div>
@@ -160,9 +160,9 @@
                 <div class="space-y-5">
                     <div>
                         <label for="voice" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Brand Voice <span class="text-red-500">*</span>
+                            Brand Voice <span class="text-red-500" aria-label="required">*</span>
                         </label>
-                        <input type="text" id="voice" name="brand_voice" required
+                        <input type="text" id="voice" name="brand_voice" required aria-required="true"
                                placeholder="e.g., Professional, reassuring, and expert-level"
                                class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
                         <p class="mt-1 text-sm text-gray-500">Describe the tone and personality (3-5 adjectives)</p>
@@ -170,9 +170,9 @@
 
                     <div>
                         <label for="offer" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Key Offer / Hook <span class="text-red-500">*</span>
+                            Key Offer / Hook <span class="text-red-500" aria-label="required">*</span>
                         </label>
-                        <textarea id="offer" name="key_offer" rows="2" required
+                        <textarea id="offer" name="key_offer" rows="2" required aria-required="true"
                                   placeholder="e.g., Free Home Valuation Report, 10% Off First Visit"
                                   class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base"></textarea>
                         <p class="mt-1 text-sm text-gray-500">Your main call-to-action or value proposition</p>
@@ -190,18 +190,17 @@
 
                     <div>
                         <label for="samples" class="block text-sm font-semibold text-gray-700 mb-2">
-                            Writing Samples <span class="text-red-500">*</span>
+                            Writing Samples <span class="text-red-500" aria-label="required">*</span>
                         </label>
-                        <textarea id="samples" name="writing_samples" rows="6" required
-                                  placeholder="Paste 2-3 examples of your past writing. Separate with a blank line.
-
-Example 1:
-Just closed on another dream home! 🏡 Congrats to the Martinez family!
-
-Example 2:
-Looking to sell? Let's chat about what your home is worth in today's market."
+                        <textarea id="samples" name="writing_samples" rows="6" required aria-required="true"
+                                  placeholder="Paste 2-3 examples of your past writing. Separate each with a blank line."
                                   class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base font-mono text-sm"></textarea>
-                        <p class="mt-1 text-sm text-gray-500">Paste 2-3 examples so AI learns your writing rhythm</p>
+                        <p class="mt-1 text-sm text-gray-500">
+                            <strong>Example format:</strong><br>
+                            Just closed on another dream home! 🏡 Congrats to the Martinez family!<br>
+                            <br>
+                            Looking to sell? Let's chat about what your home is worth in today's market.
+                        </p>
                     </div>
                 </div>
 
