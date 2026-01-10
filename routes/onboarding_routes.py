@@ -42,7 +42,16 @@ def onboarding():
                 logger.warning(f"Onboarding validation failed for user {current_user.id}: missing required fields")
                 from flask import flash
                 flash("All required fields must be filled", "error")
-                return render_template('onboarding_wizard.html'), 400
+                # Return form data so user doesn't lose their input
+                return render_template('onboarding_wizard.html', 
+                    business_name=business_name,
+                    industry=industry,
+                    target_audience=target_audience,
+                    brand_voice=brand_voice,
+                    key_offer=key_offer,
+                    voice_rules=voice_rules,
+                    writing_samples=writing_samples_raw
+                ), 400
             
             # Split writing samples by double newline (blank line separator)
             # Filter out empty strings
@@ -552,6 +561,8 @@ def social_style():
         # Extract business information using AI
         from services.scraper_service import extract_business_info
         business_info = extract_business_info(scraped_text, normalized_url)
+        
+        logger.info(f"Extracted business info from {normalized_url}: {business_info}")
 
         # Derive samples from the text (split into sentences/paragraphs)
         sentences = re.split(r"(?<=[.!?])\s+", scraped_text)
@@ -572,6 +583,8 @@ def social_style():
         suggestions["business_name"] = business_info.get("business_name")
         suggestions["industry"] = business_info.get("industry")
         suggestions["key_customers"] = business_info.get("key_customers")
+        
+        logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}")
 
         return jsonify({
             "samples": samples,
