@@ -3,6 +3,13 @@ from app import app
 
 
 def test_profile_api_contract(client):
+    # Create a user first
+    signup_response = client.post('/api/signup', json={
+        'email': 'contract_test@example.com',
+        'password': 'testpass123'
+    })
+    assert signup_response.status_code in (200, 201)
+    
     payload = {
         'company': 'Contract Co',
         'tone': 'playful',
@@ -34,6 +41,13 @@ def test_profile_api_contract(client):
 
 
 def test_profile_missing_fields_are_defaults(client):
+    # Create a user first
+    signup_response = client.post('/api/signup', json={
+        'email': 'defaults_test@example.com',
+        'password': 'testpass123'
+    })
+    assert signup_response.status_code in (200, 201)
+    
     resp = client.get('/api/profile')
     assert resp.status_code == 200
     body = resp.get_json()

@@ -29,16 +29,24 @@ def create_app():
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
     
     # Database Configuration
-    db_url = os.environ.get("DATABASE_URL")
-    if db_url and db_url.startswith("postgres://"):
-        db_url = db_url.replace("postgres://", "postgresql://", 1)
-    
-    # Enforce Postgres - fail if not configured, or default to local postgres
-    if not db_url:
-         # Default to local postgres for development if not specified
-         db_url = 'postgresql://localhost/togetherly_v2'
-         logger.warning(f"DATABASE_URL not set, defaulting to {db_url}")
-         
+    # Check if we're in test mode (DB_PATH env var or module variable is set by tests)
+    test_db_path = os.getenv('TEST_DB_PATH') or DB_PATH
+    if test_db_path:
+        # Use SQLite for tests
+        db_url = f'sqlite:///{test_db_path}'
+        logger.info(f"Using SQLite test database: {db_url}")
+    else:
+        # Use PostgreSQL for production/development
+        db_url = os.environ.get("DATABASE_URL")
+        if db_url and db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        
+        # Enforce Postgres - fail if not configured, or default to local postgres
+        if not db_url:
+             # Default to local postgres for development if not specified
+             db_url = 'postgresql://localhost/togetherly_v2'
+             logger.warning(f"DATABASE_URL not set, defaulting to {db_url}")
+          
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
