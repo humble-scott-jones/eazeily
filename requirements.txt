@@ -3,13 +3,12 @@ flask-sqlalchemy
 flask-login
 flask-bcrypt
 flask-migrate
-google-generativeai
+google-genai==0.3.0
 python-dotenv
 requests
 gunicorn
 whitenoise
 psycopg2-binary
-google-generativeai==0.8.6
 beautifulsoup4==4.12.3
 psycopg>=3.1.8
 psycopg-binary>=3.1.8

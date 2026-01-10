@@ -2,7 +2,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Dict, Mapping, Optional, cast
 from services.generation.output_schemas import build_success_response, build_error_response
 
 JsonDict = Dict[str, Any]
@@ -18,10 +18,26 @@ class GenerationResponse:
 
 
 class GenerationService:
-    def __init__(self, *, logger: Optional[logging.Logger] = None, timeout_seconds: float = 15.0):
+    def __init__(
+        self,
+        *,
+        logger: Optional[logging.Logger] = None,
+        timeout_seconds: float = 15.0,
+        enable_openai: bool | None = None,
+    ):
+        """
+        Backward-compatible initializer.
+
+        Args:
+            logger: Optional logger.
+            timeout_seconds: Timeout for generation tasks.
+            enable_openai: Legacy flag; ignored (Gemini-only posture).
+        """
         self.logger = logger or logging.getLogger(__name__)
         self.timeout_seconds = timeout_seconds
         self._executor = ThreadPoolExecutor(max_workers=4)
+        # Legacy flag retained for API compatibility; no effect.
+        self.enable_openai = bool(enable_openai) if enable_openai is not None else False
 
     def _run_with_timeout(self, func: Callable[[], Any]):
         future = self._executor.submit(func)
@@ -51,9 +67,15 @@ class GenerationService:
             source=source,
             details=None,
             gemini_used=gemini_used,
-            openai_used=(source == 'openai')
+            openai_used=False,
         )
-        return GenerationResponse(ok=False, status=status, body=body, gemini_used=gemini_used, outcome=outcome)
+        return GenerationResponse(
+            ok=False,
+            status=status,
+            body=cast(JsonDict, body),
+            gemini_used=gemini_used,
+            outcome=outcome,
+        )
 
     def generate(
         self,
@@ -65,10 +87,8 @@ class GenerationService:
         normalizer: Callable[[Mapping[str, Any]], Mapping[str, Any]],
         output_validator: Callable[[Any], Any],
         gemini_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
-        openai_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
         fallback_callable: Optional[Callable[[Mapping[str, Any]], Any]] = None,
-        use_gemini: bool = False,
-        use_openai: bool = False,
+        use_gemini: bool = True,
         disable_fallback: bool = False,
     ) -> GenerationResponse:
         start_ts = time.time()
@@ -101,15 +121,12 @@ class GenerationService:
         data = None
         error_code = "unknown"
 
-        # Decide which AI callable to use: Gemini or (legacy) OpenAI alias
+        # Decide which AI callable to use: Gemini only
         ai_callable = None
         ai_source = None
         if use_gemini and gemini_callable:
             ai_callable = gemini_callable
             ai_source = 'gemini'
-        elif use_openai and openai_callable:
-            ai_callable = openai_callable
-            ai_source = 'openai'
 
         if ai_callable:
             try:
@@ -227,22 +244,23 @@ class GenerationService:
         )
 
         # Build canonical success response
-        openai_used = (source == 'openai')
         resp_body = build_success_response(
             request_id=request_id,
             data=validated_data,
             gemini_used=gemini_used,
-            openai_used=openai_used,
+            openai_used=False,
             summary=None,
             warnings=( ["AI generation temporarily unavailable - showing template suggestions"] if source == 'fallback' else None ),
             used_signals=None,
-            source=source
+            source=source or "fallback",
+            mode=("generated" if source == "gemini" else "fallback_suggestions"),
+            fallback_used=(source == 'fallback')
         )
 
         return GenerationResponse(
             ok=True,
             status=200,
-            body=resp_body,
+            body=cast(JsonDict, resp_body),
             gemini_used=gemini_used,
             outcome="success",
         )

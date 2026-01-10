@@ -4,7 +4,7 @@ Test script to verify Gemini API configuration and functionality.
 
 This script checks:
 1. API key is configured
-2. google.generativeai package is installed
+2. google.genai package is installed
 3. API key is valid and can generate content
 4. Voice helper and content generation work
 
@@ -52,26 +52,16 @@ def test_api_key():
     return True
 
 def test_import():
-    """Test importing google.generativeai."""
-    print_section("2. Checking google.generativeai Package")
+    """Test importing google.genai."""
+    print_section("2. Checking google.genai Package")
     try:
-        import google.generativeai as genai
-        print("✅ PASS: google.generativeai imported successfully")
-        
-        # Check for deprecation warning
-        import warnings
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            import google.generativeai
-            if w and any("deprecated" in str(warning.message).lower() for warning in w):
-                print("⚠️  WARNING: google.generativeai is deprecated")
-                print("   Consider migrating to google.genai in the future")
-        
+        import google.genai as genai  # type: ignore
+        print("✅ PASS: google.genai imported successfully")
         return True
     except ImportError as e:
-        print(f"❌ FAIL: Cannot import google.generativeai: {e}")
+        print(f"❌ FAIL: Cannot import google.genai: {e}")
         print("\nTo fix this:")
-        print("  pip install google-generativeai")
+        print("  pip install google-genai")
         return False
 
 def test_api_connection():
@@ -84,18 +74,22 @@ def test_api_connection():
         return None
     
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash-001')
+        import google.genai as genai  # type: ignore
+        client = genai.Client(api_key=api_key)
         
         # Test with a simple prompt
         print("Sending test prompt to Gemini API...")
         prompt = "Say 'Hello from Gemini!' in one sentence."
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt,
+        )
         
-        if response and response.text:
+        text = getattr(response, "text", "") or getattr(response, "candidates", None)
+        if response and text:
+            output_text = response.text if hasattr(response, "text") else str(text)
             print("✅ PASS: Successfully generated content from Gemini API")
-            print(f"   Response: {response.text.strip()}")
+            print(f"   Response: {output_text.strip() if isinstance(output_text, str) else output_text}")
             return True
         else:
             print("❌ FAIL: No content generated")
@@ -120,9 +114,8 @@ def test_voice_helper():
         return None
     
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash-001')
+        import google.genai as genai  # type: ignore
+        client = genai.Client(api_key=api_key)
         
         # Simulate the voice helper prompt
         business_name = "TechCorp"
@@ -138,9 +131,12 @@ Focus on adjectives that describe the tone (e.g., professional, friendly, author
 """
         
         print(f"Testing voice helper for: {business_name} ({industry})")
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt,
+        )
         
-        if response and response.text:
+        if response and getattr(response, "text", ""):
             print("✅ PASS: AI voice helper generated brand voice")
             print(f"   Generated voice: {response.text.strip()[:100]}...")
             return True
@@ -184,18 +180,20 @@ def test_content_generation():
         topic = "New product launch"
         platform = "LinkedIn"
         
-        # Use generate_post if generate_expert_content doesn't exist
-        if hasattr(engine, 'generate_expert_content'):
-            content = engine.generate_expert_content(TestProfile(), topic, 'post', platform)
+        # Prefer generate_expert_content when present and callable
+        expert_fn = getattr(engine, "generate_expert_content", None)
+        if callable(expert_fn):
+            content = expert_fn(TestProfile(), topic, 'post', platform)
         else:
             content = engine.generate_post(TestProfile(), topic, platform)
         
-        if content and not content.startswith("Error"):
+        content_text = content if isinstance(content, str) else str(content)
+        if content and not content_text.startswith("Error"):
             print("✅ PASS: Content generation successful")
-            print(f"   Generated content: {content[:100]}...")
+            print(f"   Generated content: {content_text[:100]}...")
             return True
         else:
-            print(f"❌ FAIL: Content generation returned error: {content}")
+            print(f"❌ FAIL: Content generation returned error: {content_text}")
             return False
             
     except Exception as e:
@@ -251,7 +249,7 @@ def main():
         print("\nQuick Start:")
         print("1. Get API key: https://aistudio.google.com/app/apikey")
         print("2. Add to .env file: GENAI_API_KEY=your_key_here")
-        print("3. Install package: pip install google-generativeai")
+        print("3. Install package: pip install google-genai")
         print("4. Run this test again")
         return 1
     elif skipped == len(results):

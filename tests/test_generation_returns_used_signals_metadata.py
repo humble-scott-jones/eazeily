@@ -11,7 +11,8 @@ def test_generation_response_includes_used_signals_structure():
     response: SuccessResponse = {
         'ok': True,
         'request_id': 'test123',
-        'openai_used': True,
+        'openai_used': False,
+        'gemini_used': True,
         'fallback_used': False,
         'data': {'posts': []},
         'summary': None,
@@ -58,17 +59,18 @@ def test_success_response_includes_source_field():
     response: SuccessResponse = {
         'ok': True,
         'request_id': 'abc123',
-        'openai_used': True,
+        'openai_used': False,
+        'gemini_used': True,
         'fallback_used': False,
         'data': {},
         'summary': None,
         'warnings': None,
-        'used_signals': None,
-        'source': 'openai'
+        'used_signals': {},
+        'source': 'gemini'
     }
     
     assert 'source' in response
-    assert response['source'] == 'openai'
+    assert response['source'] == 'gemini'
 
 
 def test_warnings_included_when_brand_kit_missing():
@@ -86,7 +88,7 @@ def test_warnings_included_when_brand_kit_missing():
             'Brand Kit incomplete: Add services to improve results',
             'Brand Kit missing audience data: Add pain/outcome for better targeting'
         ],
-        'used_signals': None,
+        'used_signals': {},
         'source': 'fallback'
     }
     
@@ -103,16 +105,17 @@ def test_used_signals_can_be_none():
     response: SuccessResponse = {
         'ok': True,
         'request_id': 'test789',
-        'openai_used': True,
+        'openai_used': False,
+        'gemini_used': True,
         'fallback_used': False,
         'data': {},
         'summary': None,
         'warnings': None,
-        'used_signals': None,
-        'source': 'openai'
+        'used_signals': {},
+        'source': 'gemini'
     }
     
-    assert response['used_signals'] is None
+    assert response['used_signals'] == {}
 
 
 def test_used_signals_empty_lists():

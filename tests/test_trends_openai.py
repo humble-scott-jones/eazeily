@@ -1,3 +1,7 @@
+import pytest
+
+pytest.skip("OpenAI path removed; Gemini-only stack", allow_module_level=True)
+
 import os
 import json
 import types
