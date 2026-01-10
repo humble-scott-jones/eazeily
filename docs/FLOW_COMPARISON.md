@@ -1,124 +1,81 @@
 # Mobile Onboarding Flow Comparison
 
-## Before (Original Flow)
+## Before (Original 3-Step Flow)
 
 ```
 ┌─────────────────────────────────────┐
-│  Signup Page with Sidebar          │
-│  - Email                            │
-│  - Password                         │
-│  - [Sidebar taking up space] ──┐   │
-│                                 │   │
-└─────────────────────────────────┼───┘
-                                  │
-                                  ↓
-┌─────────────────────────────────┼───┐
-│  Single Long Onboarding Form   │   │
-│  [Sidebar still visible] ───────┘   │
-│                                     │
+│  Step 1: Business Basics            │
 │  - Business Name                    │
 │  - Industry                         │
 │  - Target Audience                  │
-│  - Brand Voice (with AI chat?)      │
+└─────────────────────────────────────┘
+                ↓
+┌─────────────────────────────────────┐
+│  Step 2: Website (Optional)         │
+│  - URL input buried                 │
+│  - AI suggestions unclear           │
+└─────────────────────────────────────┘
+                ↓
+┌─────────────────────────────────────┐
+│  Step 3: Brand Voice & Details      │
+│  - Brand Voice                      │
 │  - Key Offer                        │
 │  - Voice Rules                      │
 │  - Writing Samples                  │
-│  [AI Helper in sidebar, not clear]  │
-│  [Website URL buried in sidebar]    │
-│                                     │
-│  [Save Button at bottom]            │
+│  - Clickable AI suggestions         │
 └─────────────────────────────────────┘
 
 Issues:
-❌ Sidebar wastes screen space
-❌ Overwhelming - all fields at once
-❌ No sense of progress
-❌ Website input hard to find
-❌ Scroll fatigue on mobile
+❌ Manual entry first (intimidating)
+❌ URL scraper not prominent
+❌ No auto-fill, just suggestions
+❌ 3 steps feels long
 ```
 
-## After (Improved Flow)
+## After (NEW 2-Step Flow - URL Scraper First!)
 
 ```
 ┌─────────────────────────────────────┐
-│  Clean Signup Page (No Sidebar)    │
-│                                     │
-│  📱  Create Your Account            │
-│                                     │
-│  Email:    [____________]           │
-│  Password: [____________]           │
-│                                     │
-│  [Create Account Button - Large]    │
-│                                     │
-│  Already have an account? → Link    │
-└─────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────┐
-│  Onboarding Wizard                  │
-│  Progress: [████░░░] Step 1 of 3    │
-│                                     │
-│  📝 Let's start with the basics     │
-│                                     │
-│  Business Name: [____________]      │
-│  Industry: [Dropdown ▼]             │
-│  Target Audience: [____________]    │
-│  [____________]                     │
-│                                     │
-│  [Next: Add Website →]              │
-└─────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────┐
-│  Onboarding Wizard                  │
-│  Progress: [████████░] Step 2 of 3  │
-│                                     │
-│  🌐 Add your website (optional)     │
-│                                     │
-│  ✨ Save time with AI              │
-│  Paste your website URL and we'll   │
-│  automatically suggest your brand   │
-│  voice, messaging, and style        │
-│                                     │
-│  Website URL:                       │
-│  [https://yourbusiness.com____]     │
-│  ☑ I give permission to fetch       │
-│                                     │
-│  [🔍 Analyze Website - Large]       │
-│                                     │
-│  [← Back]  [Next: Brand Voice →]    │
-└─────────────────────────────────────┘
-                    ↓
-┌─────────────────────────────────────┐
-│  Onboarding Wizard                  │
-│  Progress: [████████████] Step 3 of 3│
-│                                     │
-│  🎨 Define your brand voice         │
-│                                     │
-│  💡 AI Suggestions (Click to Apply) │
+│  Step 1: 🚀 Add Your Content        │
 │  ┌─────────────────────────────┐   │
-│  │ Brand Voice: Professional.. │   │
-│  ├─────────────────────────────┤   │
-│  │ Key Offer: Free consult...  │   │
+│  │  BIG URL INPUT FIELD         │   │
+│  │  Paste any link:             │   │
+│  │  • Website                   │   │
+│  │  • Instagram/Facebook        │   │
+│  │  • Airbnb/VRBO/OpenTable     │   │
+│  │  • Proposals/Ads/Portfolio   │   │
 │  └─────────────────────────────┘   │
 │                                     │
-│  Brand Voice: [____________]        │
-│  Key Offer: [____________]          │
-│  Voice Rules: [____________]        │
-│  Writing Samples: [____________]    │
-│  [____________]                     │
-│  [____________]                     │
+│  [🔍 Analyze & Auto-Fill Profile]   │
 │                                     │
-│  [← Back] [Save & Continue ✓]       │
+│  Skip - I'll enter manually →       │
+└─────────────────────────────────────┘
+                ↓
+         AI ANALYZES
+                ↓
+┌─────────────────────────────────────┐
+│  Step 2: ✏️ Review & Edit           │
+│  ✅ Fields auto-filled from your    │
+│     content - make light edits      │
+│                                     │
+│  - Business Name: [Auto-filled]     │
+│  - Industry: [Auto-filled]          │
+│  - Target Audience: [Auto-filled]   │
+│  - Brand Voice: [Auto-filled]       │
+│  - Key Offer: [Auto-filled]         │
+│  - Voice Rules: [Auto-filled]       │
+│  - Writing Samples: [Auto-filled]   │
+│                                     │
+│  [← Back]  [Save & Continue ✓]      │
 └─────────────────────────────────────┘
 
 Benefits:
-✅ Clean auth pages (no sidebar)
-✅ Step-by-step progression
-✅ Clear progress indicator
-✅ Website input is prominent
-✅ AI suggestions are actionable
-✅ Less overwhelming
-✅ Mobile-optimized touch targets
-✅ Industry prefilling speeds setup
+✅ URL scraper FIRST and prominent
+✅ Auto-fills ALL fields (not just suggestions)
+✅ Reduces input fear
+✅ Reuses existing content
+✅ 2 steps instead of 3
+✅ Faster completion (<3 min vs <5 min)
 ```
 
 ## Key Improvements Summary
