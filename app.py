@@ -126,18 +126,19 @@ def create_app():
     def index():
         return render_template('index.html')
 
+    # Health check endpoints for Railway and CI
     @app.route('/healthz')
     def healthz():
         return jsonify(status='ok'), 200
-
-    # Health check endpoints for Railway
-    @app.route('/healthz')
-    def health_check():
-        return "OK", 200
     
     @app.route('/up')
     def up_check():
         return "OK", 200
+    
+    @app.route('/__dev__/ping')
+    def dev_ping():
+        """Development/CI health check endpoint."""
+        return "pong", 200
 
     # Database reset route (for development/staging use only)
     @app.route('/nuke-db')
