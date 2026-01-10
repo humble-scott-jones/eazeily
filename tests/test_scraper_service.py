@@ -1,10 +1,10 @@
 """Tests for scraper_service.py"""
 import json
+from services.scraper_service import extract_business_info
 
 
 def test_extract_business_info_with_ai(monkeypatch):
     """Test extract_business_info function with mocked AI."""
-    from services.scraper_service import extract_business_info
     
     # Mock the AI model
     class FakeModel:
@@ -33,7 +33,6 @@ def test_extract_business_info_with_ai(monkeypatch):
 
 def test_extract_business_info_without_ai(monkeypatch):
     """Test extract_business_info when AI is unavailable."""
-    from services.scraper_service import extract_business_info
     
     # Mock AI service to return None
     monkeypatch.setattr('services.ai_service.get_generative_model', lambda: None)
@@ -49,7 +48,6 @@ def test_extract_business_info_without_ai(monkeypatch):
 
 def test_extract_business_info_handles_json_error(monkeypatch):
     """Test extract_business_info handles invalid JSON from AI."""
-    from services.scraper_service import extract_business_info
     
     # Mock the AI model to return invalid JSON
     class FakeModel:
@@ -74,7 +72,6 @@ def test_extract_business_info_handles_json_error(monkeypatch):
 
 def test_extract_business_info_strips_markdown(monkeypatch):
     """Test that extract_business_info strips markdown code blocks from AI response."""
-    from services.scraper_service import extract_business_info
     
     # Mock the AI model to return JSON wrapped in markdown
     class FakeModel:
