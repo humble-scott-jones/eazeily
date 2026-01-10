@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eazeily - Gemini Native</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Mobile-optimized auth pages */
+        @media (max-width: 768px) {
+            .auth-container {
+                padding: 1rem;
+                margin-top: 2rem;
+            }
+            
+            .auth-card {
+                padding: 1.5rem !important;
+                margin-top: 0 !important;
+            }
+            
+            input, button {
+                font-size: 16px !important; /* Prevents iOS zoom on focus */
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-50 font-sans antialiased min-h-screen">
+    
+    <!-- Simple header for auth pages -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <h1 class="text-2xl font-bold text-blue-600">Eazeily</h1>
+                {% block header_actions %}{% endblock %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content - No sidebar -->
+    <main class="auth-container">
+        <div class="container mx-auto max-w-md">
+            {% block content %}
+            <div class="auth-card bg-white p-8 rounded-lg shadow-md">
+                <h2 class="text-xl font-semibold mb-4">Welcome</h2>
+                <p class="text-gray-600">{{ content if content else "Content goes here..." }}</p>
+            </div>
+            {% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 pb-8 text-center text-sm text-gray-500">
+        <p>&copy; 2024 Eazeily. All rights reserved.</p>
+    </footer>
+
+</body>
+</html>

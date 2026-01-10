@@ -5,85 +5,132 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Eazeily - Gemini Native</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Mobile navigation improvements */
+        @media (max-width: 768px) {
+            /* Ensure sidebar stays hidden by default on mobile */
+            #sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease-in-out;
+            }
+            
+            #sidebar.show {
+                transform: translateX(0);
+            }
+            
+            /* Overlay for closing sidebar */
+            #sidebar-overlay {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background-color: rgba(0, 0, 0, 0.5);
+                z-index: 30;
+            }
+            
+            #sidebar-overlay.show {
+                display: block;
+            }
+            
+            /* Larger touch targets */
+            #mobile-menu-button {
+                min-width: 44px;
+                min-height: 44px;
+            }
+            
+            nav a {
+                padding: 12px 16px;
+                min-height: 44px;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased">
 
     <div class="min-h-screen flex">
         <!-- Mobile Menu Toggle Button -->
-        <button id="mobile-menu-button" class="md:hidden fixed top-4 left-4 z-50 bg-white p-2 rounded-md shadow-lg">
+        <button id="mobile-menu-button" class="md:hidden fixed top-4 left-4 z-50 bg-white p-3 rounded-lg shadow-lg hover:bg-gray-50 transition-colors" aria-label="Toggle menu">
             <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
             </svg>
         </button>
 
+        <!-- Overlay for mobile -->
+        <div id="sidebar-overlay" class="md:hidden"></div>
+
         <!-- Sidebar -->
-        <aside id="sidebar" class="w-72 bg-white shadow-md hidden md:block fixed md:relative h-full z-40 overflow-y-auto">
-            <div class="p-6 flex items-center justify-between">
+        <aside id="sidebar" class="w-72 bg-white shadow-md fixed md:relative h-full z-40 overflow-y-auto">
+            <div class="p-6 flex items-center justify-between border-b border-gray-200">
                 <h1 class="text-2xl font-bold text-blue-600">Eazeily</h1>
+                <!-- Close button for mobile -->
+                <button id="sidebar-close" class="md:hidden p-2 hover:bg-gray-100 rounded-lg" aria-label="Close menu">
+                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
             </div>
-            <nav class="mt-4 space-y-6 text-sm text-slate-700">
+            <nav class="mt-4 space-y-6 text-sm text-slate-700 pb-8">
                 <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Getting Started</p>
-                    <a href="/dashboard" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>🏁</span><span>Overview / Checklist</span>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Getting Started</p>
+                    <a href="/dashboard" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🏁</span><span>Overview / Checklist</span>
                     </a>
                 </div>
 
                 <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Brand</p>
-                    <a href="/onboarding" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>🎨</span><span>Brand Profile</span>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Brand</p>
+                    <a href="/onboarding" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🎨</span><span>Brand Profile</span>
                     </a>
-                    <a href="/setup/voice" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>🎤</span><span>Voice & Tone</span>
-                    </a>
-                </div>
-
-                <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Content AI</p>
-                    <a href="/onboarding#ai-helper" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>🤖</span><span>AI Helper</span>
-                    </a>
-                    <a href="/onboarding#social-url" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>🔗</span><span>Social Inputs</span>
-                    </a>
-                    <a href="/dashboard" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>📄</span><span>Generated Assets</span>
+                    <a href="/setup/voice" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🎤</span><span>Voice & Tone</span>
                     </a>
                 </div>
 
                 <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Channels</p>
-                    <a href="/dashboard" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>🗓️</span><span>Publishing / Scheduling</span>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Content AI</p>
+                    <a href="/onboarding#ai-helper" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🤖</span><span>AI Helper</span>
                     </a>
-                    <a href="/settings" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>🔌</span><span>Integrations</span>
+                    <a href="/onboarding#social-url" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🔗</span><span>Social Inputs</span>
+                    </a>
+                    <a href="/dashboard" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">📄</span><span>Generated Assets</span>
                     </a>
                 </div>
 
                 <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Settings</p>
-                    <a href="/settings" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>👤</span><span>Account & Billing</span>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Channels</p>
+                    <a href="/dashboard" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🗓️</span><span>Publishing / Scheduling</span>
                     </a>
-                    <a href="/settings" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span>🧑‍🤝‍🧑</span><span>Team & Roles</span>
+                    <a href="/settings" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🔌</span><span>Integrations</span>
                     </a>
-                    <a href="/settings" class="block py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600 flex items-center space-x-2">
-                        <span>🧪</span><span>Feature Flags / Labs</span>
+                </div>
+
+                <div>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Settings</p>
+                    <a href="/settings" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">👤</span><span>Account & Billing</span>
+                    </a>
+                    <a href="/settings" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🧑‍🤝‍🧑</span><span>Team & Roles</span>
+                    </a>
+                    <a href="/settings" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span class="text-xl">🧪</span><span>Feature Flags / Labs</span>
                     </a>
                 </div>
 
                 <hr class="mx-4 border-gray-200">
-                <a href="/auth/logout" onclick="handleLogout(event)" class="block py-2 px-4 rounded transition duration-150 hover:bg-red-50 hover:text-red-600 text-gray-700 flex items-center space-x-2">
-                    <span>🚪</span><span>Logout</span>
+                <a href="/auth/logout" onclick="handleLogout(event)" class="flex items-center space-x-3 py-3 px-4 mx-2 rounded transition duration-150 hover:bg-red-50 hover:text-red-600 text-gray-700">
+                    <span class="text-xl">🚪</span><span>Logout</span>
                 </a>
             </nav>
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 p-6">
+        <main class="flex-1 p-4 md:p-6 mt-16 md:mt-0">
             <div class="container mx-auto">
                 {% block content %}
                 <div class="bg-white p-8 rounded-lg shadow-md">
@@ -96,13 +143,43 @@
     </div>
 
     <script>
-        // Mobile menu toggle
+        // Mobile menu toggle with improved UX
         const mobileMenuButton = document.getElementById('mobile-menu-button');
-    const sidebar = document.getElementById('sidebar');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarClose = document.getElementById('sidebar-close');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        
+        function openSidebar() {
+            sidebar.classList.add('show');
+            sidebarOverlay.classList.add('show');
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
+        }
+        
+        function closeSidebar() {
+            sidebar.classList.remove('show');
+            sidebarOverlay.classList.remove('show');
+            document.body.style.overflow = ''; // Restore scrolling
+        }
         
         if (mobileMenuButton) {
-            mobileMenuButton.addEventListener('click', function() {
-                sidebar.classList.toggle('hidden');
+            mobileMenuButton.addEventListener('click', openSidebar);
+        }
+        
+        if (sidebarClose) {
+            sidebarClose.addEventListener('click', closeSidebar);
+        }
+        
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', closeSidebar);
+        }
+        
+        // Close sidebar when clicking a link on mobile
+        if (window.innerWidth < 768) {
+            const navLinks = sidebar.querySelectorAll('a');
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    closeSidebar();
+                });
             });
         }
 

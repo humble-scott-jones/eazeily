@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 @onboarding_bp.route('/onboarding', methods=['GET', 'POST'])
 @login_required
 def onboarding():
-    """Handle the Brand Brain onboarding process."""
+    """Handle the Brand Brain onboarding process with mobile-optimized wizard."""
     if request.method == 'GET':
-        return render_template('onboarding.html')
+        # Use mobile-optimized wizard by default
+        return render_template('onboarding_wizard.html')
     
     if request.method == 'POST':
         try:
@@ -34,7 +35,7 @@ def onboarding():
             if not all([business_name, industry, target_audience, brand_voice, key_offer, writing_samples_raw]):
                 from flask import flash
                 flash("All required fields must be filled", "error")
-                return render_template('onboarding.html'), 400
+                return render_template('onboarding_wizard.html'), 400
             
             # Split writing samples by double newline (blank line separator)
             # Filter out empty strings
@@ -71,7 +72,14 @@ def onboarding():
             db.session.rollback()
             from flask import flash
             flash(f"Failed to save brand profile: {str(e)}", "error")
-            return render_template('onboarding.html'), 500
+            return render_template('onboarding_wizard.html'), 500
+
+
+@onboarding_bp.route('/onboarding/advanced', methods=['GET'])
+@login_required
+def onboarding_advanced():
+    """Advanced onboarding with all features visible (for power users)."""
+    return render_template('onboarding.html')
 
 
 @onboarding_bp.route('/onboarding/assist-voice', methods=['POST'])
