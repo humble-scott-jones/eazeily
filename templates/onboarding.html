@@ -7,13 +7,13 @@
         <button type="button" onclick="document.getElementById('ai-helper').scrollIntoView({ behavior: 'smooth' });" class="text-blue-600 text-sm font-semibold">Jump to helper</button>
     </div>
 
-    <div class="grid lg:grid-cols-[360px,1fr] gap-6">
-        <aside id="ai-helper" class="sticky top-4 h-max bg-white border border-slate-200 rounded-xl shadow-sm p-4 space-y-3">
+    <div class="grid lg:grid-cols-[320px,1fr] gap-6">
+        <aside id="ai-helper" class="sticky top-4 h-fit max-h-[80vh] overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm p-4 space-y-3">
             <div class="flex items-start justify-between">
                 <div>
                     <p class="text-xs uppercase tracking-wide text-blue-600 font-semibold">AI Helper</p>
-                    <h2 class="text-xl font-bold text-slate-800">Always-on onboarding guide</h2>
-                    <p class="text-sm text-slate-600">Start with your website link — we'll pull the bulk of your voice, offer, and rules. Add FB/IG only to inform writing rhythm and samples. Helper stays on unless you switch it off.</p>
+                    <h2 class="text-xl font-bold text-slate-800">Chat-style assistant</h2>
+                    <p class="text-sm text-slate-600">Start with your website link for full profile fills. Add FB/IG to capture rhythm for samples.</p>
                 </div>
                 <div class="flex items-center space-x-2">
                     <span class="text-xs text-slate-500">Suggestions</span>
@@ -26,7 +26,7 @@
 
             <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 flex items-start space-x-2">
                 <span class="text-lg">🔒</span>
-                <p>We only read the public page you share, show samples, and let you apply suggestions. Nothing is posted back to your socials.</p>
+                <p>We read the public page you share to suggest copy. Nothing is posted back.</p>
             </div>
 
             <div class="space-y-2">
@@ -34,7 +34,7 @@
                 <input id="social-url" type="url" placeholder="https://yourbrand.com or https://www.instagram.com/yourbrand" class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500">
                 <div class="flex items-center space-x-2 text-xs text-slate-600">
                     <input type="checkbox" id="social-consent" class="h-4 w-4" checked>
-                    <label for="social-consent">I give permission to fetch public posts for suggestions.</label>
+                    <label for="social-consent">I give permission to fetch public content.</label>
                 </div>
                 <div class="flex items-center space-x-3">
                     <button type="button" onclick="fetchSocialStyle()" class="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
@@ -44,15 +44,15 @@
                     <button type="button" onclick="clearSocialSuggestions()" class="text-sm text-slate-600 hover:text-slate-800">Clear</button>
                 </div>
                 <p id="social-error" class="text-xs text-red-600 hidden"></p>
-                <p class="text-xs text-slate-500">Handles rate limits & private pages gracefully. We’ll show loading and errors inline.</p>
+                <p class="text-xs text-slate-500">If nothing shows, ensure the link is public or try another URL.</p>
             </div>
 
-            <div id="social-samples" class="space-y-2">
+            <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                    <h3 class="text-sm font-semibold text-slate-800">Sample posts</h3>
+                    <h3 class="text-sm font-semibold text-slate-800">Samples</h3>
                     <span id="sample-count" class="text-xs text-slate-500">0 shown</span>
                 </div>
-                <div id="sample-list" class="space-y-2"></div>
+                <div id="sample-list" class="space-y-2 max-h-40 overflow-y-auto border border-slate-100 rounded-md p-2 bg-slate-50"></div>
             </div>
 
             <div id="style-cues" class="hidden space-y-2">
@@ -66,34 +66,46 @@
             <div id="suggestions" class="hidden space-y-3">
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-slate-800">Apply suggestions</h3>
-                    <span class="text-xs text-slate-500">Non-destructive • click to fill</span>
+                    <span class="text-xs text-slate-500">Non-destructive • apply/undo</span>
                 </div>
                 <div class="space-y-2">
                     <div class="border border-slate-200 rounded-md p-2">
                         <div class="flex items-start justify-between">
                             <p class="text-sm font-medium text-slate-700">Brand voice</p>
-                            <button type="button" class="text-xs text-blue-600 hover:underline" onclick="applySuggestion('voice')">Apply</button>
+                            <div class="space-x-2 text-xs">
+                                <button type="button" class="text-blue-600 hover:underline" onclick="applySuggestion('voice')">Apply</button>
+                                <button type="button" class="text-slate-500 hover:underline" onclick="undoSuggestion('voice')">Undo</button>
+                            </div>
                         </div>
                         <p id="suggest-voice" class="text-sm text-slate-700"></p>
                     </div>
                     <div class="border border-slate-200 rounded-md p-2">
                         <div class="flex items-start justify-between">
                             <p class="text-sm font-medium text-slate-700">Hook / Tagline → fills Key Offer</p>
-                            <button type="button" class="text-xs text-blue-600 hover:underline" onclick="applySuggestion('tagline')">Apply</button>
+                            <div class="space-x-2 text-xs">
+                                <button type="button" class="text-blue-600 hover:underline" onclick="applySuggestion('tagline')">Apply</button>
+                                <button type="button" class="text-slate-500 hover:underline" onclick="undoSuggestion('tagline')">Undo</button>
+                            </div>
                         </div>
                         <p id="suggest-tagline" class="text-sm text-slate-700"></p>
                     </div>
                     <div class="border border-slate-200 rounded-md p-2">
                         <div class="flex items-start justify-between">
                             <p class="text-sm font-medium text-slate-700">Voice rules</p>
-                            <button type="button" class="text-xs text-blue-600 hover:underline" onclick="applySuggestion('rules')">Apply</button>
+                            <div class="space-x-2 text-xs">
+                                <button type="button" class="text-blue-600 hover:underline" onclick="applySuggestion('rules')">Apply</button>
+                                <button type="button" class="text-slate-500 hover:underline" onclick="undoSuggestion('rules')">Undo</button>
+                            </div>
                         </div>
                         <p id="suggest-rules" class="text-sm text-slate-700"></p>
                     </div>
                     <div class="border border-slate-200 rounded-md p-2">
                         <div class="flex items-start justify-between">
                             <p class="text-sm font-medium text-slate-700">Sample copy → fills Writing Samples</p>
-                            <button type="button" class="text-xs text-blue-600 hover:underline" onclick="applySuggestion('samples')">Apply</button>
+                            <div class="space-x-2 text-xs">
+                                <button type="button" class="text-blue-600 hover:underline" onclick="applySuggestion('samples')">Apply</button>
+                                <button type="button" class="text-slate-500 hover:underline" onclick="undoSuggestion('samples')">Undo</button>
+                            </div>
                         </div>
                         <ul id="suggest-samples" class="list-disc pl-4 text-sm text-slate-700 space-y-1"></ul>
                     </div>
@@ -159,36 +171,40 @@
 
                 <!-- Brand Voice -->
                 <div>
-                    <label for="voice" class="block text-sm font-medium text-gray-700 flex items-center space-x-2">
-                        <span>Brand Voice <span class="text-gray-500">(The "Vibe")</span></span>
-                        <button type="button" onclick="startVoiceChat()" class="text-blue-600 hover:text-blue-800 text-xs">💬 Build with AI Chat</button>
-                    </label>
-                    <input type="text" id="voice" name="brand_voice" required
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
-                           placeholder="e.g., Professional, reassuring, and expert-level">
-                    
-                    <!-- AI Chat Interface (hidden by default) -->
-                    <div id="voiceChatInterface" style="display: none;" class="mt-3 border border-gray-300 rounded-lg bg-white shadow-sm">
-                        <!-- Chat Messages Container -->
-                        <div id="chatMessages" class="p-4 max-h-96 overflow-y-auto space-y-3">
-                            <!-- Messages will be added here dynamically -->
+                    <div class="md:grid md:grid-cols-2 md:gap-4 md:items-start">
+                        <div>
+                            <label for="voice" class="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                                <span>Brand Voice <span class="text-gray-500">(The "Vibe")</span></span>
+                                <button type="button" onclick="startVoiceChat()" class="text-blue-600 hover:text-blue-800 text-xs">💬 Build with AI Chat</button>
+                            </label>
+                            <input type="text" id="voice" name="brand_voice" required
+                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border"
+                                   placeholder="e.g., Professional, reassuring, and expert-level">
                         </div>
-                        
-                        <!-- Chat Input Area -->
-                        <div class="border-t border-gray-200 p-3 bg-gray-50">
-                            <div class="flex items-start space-x-2">
-                                <textarea id="chatInput" rows="2"
-                                          class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border resize-none"
-                                          placeholder="Type your response..."></textarea>
-                                <button type="button" onclick="sendChatMessage()" 
-                                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm h-full">
-                                    Send
+
+                        <!-- AI Chat Interface (hidden by default) -->
+                        <div id="voiceChatInterface" class="hidden md:mt-0 mt-3 border border-gray-300 rounded-lg bg-white shadow-sm md:h-full">
+                            <!-- Chat Messages Container -->
+                            <div id="chatMessages" class="p-4 max-h-96 overflow-y-auto space-y-3">
+                                <!-- Messages will be added here dynamically -->
+                            </div>
+                            
+                            <!-- Chat Input Area -->
+                            <div class="border-t border-gray-200 p-3 bg-gray-50">
+                                <div class="flex items-start space-x-2">
+                                    <textarea id="chatInput" rows="2"
+                                              class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border resize-none"
+                                              placeholder="Type your response..."></textarea>
+                                    <button type="button" onclick="sendChatMessage()" 
+                                            class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm h-full">
+                                        Send
+                                    </button>
+                                </div>
+                                <button type="button" onclick="closeVoiceChat()" 
+                                        class="mt-2 text-xs text-gray-600 hover:text-gray-800">
+                                    ✕ Close chat
                                 </button>
                             </div>
-                            <button type="button" onclick="closeVoiceChat()" 
-                                    class="mt-2 text-xs text-gray-600 hover:text-gray-800">
-                                ✕ Close chat
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -517,7 +533,8 @@ function startVoiceChat() {
     chatMessages.innerHTML = '';
     
     // Show chat interface
-    chatInterface.style.display = 'block';
+    chatInterface.classList.remove('hidden');
+    chatInterface.classList.add('block');
     
     // Add initial AI message
     addAIMessage(
@@ -671,7 +688,8 @@ async function sendChatMessage() {
 
 function closeVoiceChat() {
     const chatInterface = document.getElementById('voiceChatInterface');
-    chatInterface.style.display = 'none';
+    chatInterface.classList.add('hidden');
+    chatInterface.classList.remove('block');
 }
 
 // Allow Enter key to send message (Shift+Enter for new line)

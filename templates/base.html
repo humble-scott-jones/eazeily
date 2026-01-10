@@ -17,26 +17,67 @@
         </button>
 
         <!-- Sidebar -->
-        <aside id="sidebar" class="w-64 bg-white shadow-md hidden md:block fixed md:relative h-full z-40">
-            <div class="p-6">
+        <aside id="sidebar" class="w-72 bg-white shadow-md hidden md:block fixed md:relative h-full z-40 overflow-y-auto">
+            <div class="p-6 flex items-center justify-between">
                 <h1 class="text-2xl font-bold text-blue-600">Eazeily</h1>
             </div>
-            <nav class="mt-6">
-                <a href="/dashboard" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-blue-50 hover:text-blue-600">
-                    📊 Dashboard
-                </a>
-                <a href="/onboarding" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-blue-50 hover:text-blue-600">
-                    🎨 Brand Setup
-                </a>
-                <a href="/setup/voice" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-blue-50 hover:text-blue-600">
-                    🎤 Voice Setup
-                </a>
-                <a href="/settings" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-blue-50 hover:text-blue-600">
-                    ⚙️ Settings
-                </a>
-                <hr class="my-4 mx-4 border-gray-200">
-                <a href="/auth/logout" onclick="handleLogout(event)" class="block py-2.5 px-4 rounded transition duration-200 hover:bg-red-50 hover:text-red-600 text-gray-700">
-                    🚪 Logout
+            <nav class="mt-4 space-y-6 text-sm text-slate-700">
+                <div>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Getting Started</p>
+                    <a href="/dashboard" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>🏁</span><span>Overview / Checklist</span>
+                    </a>
+                </div>
+
+                <div>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Brand</p>
+                    <a href="/onboarding" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>🎨</span><span>Brand Profile</span>
+                    </a>
+                    <a href="/setup/voice" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>🎤</span><span>Voice & Tone</span>
+                    </a>
+                </div>
+
+                <div>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Content AI</p>
+                    <a href="/onboarding#ai-helper" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>🤖</span><span>AI Helper</span>
+                    </a>
+                    <a href="/onboarding#social-url" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>🔗</span><span>Social Inputs</span>
+                    </a>
+                    <a href="/dashboard" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>📄</span><span>Generated Assets</span>
+                    </a>
+                </div>
+
+                <div>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Channels</p>
+                    <a href="/dashboard" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>🗓️</span><span>Publishing / Scheduling</span>
+                    </a>
+                    <a href="/settings" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>🔌</span><span>Integrations</span>
+                    </a>
+                </div>
+
+                <div>
+                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500">Settings</p>
+                    <a href="/settings" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>👤</span><span>Account & Billing</span>
+                    </a>
+                    <a href="/settings" class="flex items-center space-x-2 py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                        <span>🧑‍🤝‍🧑</span><span>Team & Roles</span>
+                    </a>
+                    <a href="/settings" class="block py-2 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600 flex items-center space-x-2">
+                        <span>🧪</span><span>Feature Flags / Labs</span>
+                    </a>
+                </div>
+
+                <hr class="mx-4 border-gray-200">
+                <a href="/auth/logout" onclick="handleLogout(event)" class="block py-2 px-4 rounded transition duration-150 hover:bg-red-50 hover:text-red-600 text-gray-700 flex items-center space-x-2">
+                    <span>🚪</span><span>Logout</span>
                 </a>
             </nav>
         </aside>
@@ -57,7 +98,7 @@
     <script>
         // Mobile menu toggle
         const mobileMenuButton = document.getElementById('mobile-menu-button');
-        const sidebar = document.getElementById('sidebar');
+    const sidebar = document.getElementById('sidebar');
         
         if (mobileMenuButton) {
             mobileMenuButton.addEventListener('click', function() {
