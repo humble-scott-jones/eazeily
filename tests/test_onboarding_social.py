@@ -79,3 +79,42 @@ def test_social_style_social_only(monkeypatch, client):
     assert data['source'] == 'social'
     assert data['suggestions']['sample_copy']
     assert data['suggestions']['brand_voice'] is None
+
+
+def test_social_style_extracts_business_info(monkeypatch, client):
+    """Test that the scraper extracts business name, industry, and key customers."""
+    _login(client)
+
+    # Mock the scrape_url function
+    monkeypatch.setattr('services.scraper_service.scrape_url', 
+                       lambda url, max_length=6000: "Welcome to Acme Real Estate. We help local families find their dream homes. Our team specializes in residential properties in the downtown area. First-time buyers and families looking to upgrade love working with us.")
+
+    # Mock the extract_business_info function to return test data
+    def fake_extract_business_info(scraped_text, url=""):
+        return {
+            "business_name": "Acme Real Estate",
+            "industry": "Realtor / Real Estate",
+            "key_customers": "Local families looking to upsize or first-time home buyers seeking guidance."
+        }
+    
+    monkeypatch.setattr('routes.onboarding_routes.extract_business_info', fake_extract_business_info)
+
+    resp = client.post('/onboarding/social-style', json={
+        'url': 'https://acmerealestate.com',
+        'consent': True,
+        'business_name': ''
+    })
+    
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['source'] == 'website'
+    
+    # Verify that business info was extracted
+    suggestions = data['suggestions']
+    assert suggestions['business_name'] == "Acme Real Estate"
+    assert suggestions['industry'] == "Realtor / Real Estate"
+    assert suggestions['key_customers'] == "Local families looking to upsize or first-time home buyers seeking guidance."
+    
+    # Verify other fields still work
+    assert suggestions['brand_voice']
+    assert suggestions['sample_copy']
