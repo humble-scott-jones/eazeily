@@ -1,0 +1,465 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+    <!-- Progress Indicator -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">Step <span id="currentStep">1</span> of 2</span>
+            <span class="text-sm text-gray-500" id="stepTitle">Add Your Content</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 50%"></div>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="mb-4 p-4 rounded-lg {% if category == 'error' %}bg-red-50 border border-red-200 text-red-800{% else %}bg-green-50 border border-green-200 text-green-800{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Wizard Container -->
+    <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+        <form id="onboardingForm" method="POST" action="/onboarding" class="space-y-6">
+            
+            <!-- Step 1: URL Scraper (Front and Center) -->
+            <div id="step1" class="wizard-step">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">🚀 Start with what you already have</h2>
+                <p class="text-gray-600 mb-6">Share any existing content and we'll auto-fill your profile to save you time</p>
+
+                <div class="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
+                    <div class="flex items-start space-x-3">
+                        <span class="text-3xl">✨</span>
+                        <div class="flex-1">
+                            <h3 class="font-bold text-blue-900 mb-2">Let AI do the heavy lifting</h3>
+                            <p class="text-sm text-blue-900 mb-3">Paste a link to any of these and we'll extract your brand voice, messaging, and writing style:</p>
+                            <ul class="text-sm text-blue-800 space-y-1 ml-5 list-disc">
+                                <li><strong>Website</strong> - Your company site or landing page</li>
+                                <li><strong>Social Media</strong> - Instagram, Facebook, LinkedIn profiles</li>
+                                <li><strong>Booking Pages</strong> - Airbnb, VRBO, OpenTable listings</li>
+                                <li><strong>Previous Work</strong> - Proposals, ads, marketing materials (if public)</li>
+                                <li><strong>Portfolio Sites</strong> - Behance, Dribbble, personal portfolio</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-5">
+                    <div>
+                        <label for="website_url" class="block text-base font-bold text-gray-900 mb-2">
+                            📎 Paste your link here
+                        </label>
+                        <input type="url" id="website_url"
+                               placeholder="https://yourbusiness.com"
+                               class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-4 text-lg">
+                        <p class="mt-2 text-sm text-gray-500">Examples: yoursite.com, instagram.com/yourbrand, airbnb.com/rooms/12345</p>
+                        
+                        <div class="mt-3 flex items-start space-x-2">
+                            <input type="checkbox" id="website_consent" checked class="h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0 mt-0.5">
+                            <label for="website_consent" class="text-sm text-gray-600">I give permission to fetch public content from this URL</label>
+                        </div>
+                    </div>
+
+                    <button type="button" onclick="fetchAndPrefillData()" id="fetchBtn"
+                            class="w-full px-8 py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white text-lg font-bold rounded-lg hover:from-green-700 hover:to-blue-700 transition-all shadow-lg flex items-center justify-center">
+                        <span id="fetchBtnText">🔍 Analyze & Auto-Fill My Profile</span>
+                        <span id="fetchLoading" class="hidden ml-2 animate-spin">⏳</span>
+                    </button>
+
+                    <div id="fetchResult" class="hidden">
+                        <div class="border-2 border-green-200 bg-green-50 rounded-lg p-4">
+                            <h4 class="font-semibold text-green-900 mb-2">✅ Analysis Complete!</h4>
+                            <p class="text-sm text-green-800 mb-3">We've pre-filled your profile with content from your link. Review and edit in the next step.</p>
+                        </div>
+                    </div>
+
+                    <div id="fetchError" class="hidden">
+                        <div class="border-2 border-yellow-200 bg-yellow-50 rounded-lg p-4">
+                            <p class="text-sm text-yellow-800">Couldn't analyze that URL. No worries - you can fill in the details manually in the next step.</p>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <button type="button" onclick="skipToManualEntry()" class="text-sm text-gray-600 hover:text-gray-800 underline">
+                            Skip - I'll enter everything manually →
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Review & Edit Pre-filled Profile -->
+            <div id="step2" class="wizard-step hidden">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Review & edit your profile</h2>
+                <p class="text-gray-600 mb-6">We've pre-filled these fields based on your content. Make any edits you'd like.</p>
+
+                <!-- AI Suggestions Notice (if available) -->
+                <div id="aiNotice" class="hidden mb-6 p-4 bg-green-50 border-2 border-green-200 rounded-lg">
+                    <div class="flex items-start space-x-2">
+                        <span class="text-xl">✅</span>
+                        <p class="text-sm text-green-800">Fields below have been auto-filled from your content. Feel free to edit or keep as-is.</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-5">
+                    <div>
+                        <label for="business_name" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Business Name <span class="text-red-500" aria-label="required">*</span>
+                        </label>
+                        <input type="text" id="business_name" name="business_name" required aria-required="true"
+                               placeholder="e.g., Smith Real Estate"
+                               class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
+                    </div>
+
+                    <div>
+                        <label for="industry" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Industry <span class="text-red-500" aria-label="required">*</span>
+                        </label>
+                        <select id="industry" name="industry" required onchange="prefillDefaults()" aria-required="true"
+                                class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
+                            <option value="">Select your industry...</option>
+                            <option value="Software / Tech / Startup">💻 Software / Tech / Startup</option>
+                            <option value="Realtor / Real Estate">🏡 Realtor / Real Estate</option>
+                            <option value="Restaurant / Café">🍽️ Restaurant / Café</option>
+                            <option value="Retail / Boutique">🛍️ Retail / Boutique</option>
+                            <option value="Fitness / Wellness">💪 Fitness / Wellness</option>
+                            <option value="Artisan / Maker">🎨 Artisan / Maker</option>
+                            <option value="Coach / Consultant">🧭 Coach / Consultant</option>
+                            <option value="Nonprofit / Community">🤝 Nonprofit / Community</option>
+                            <option value="Home Services">🛠️ Home Services</option>
+                            <option value="Healthcare">🩺 Healthcare</option>
+                            <option value="Church">⛪ Church</option>
+                            <option value="House Host / Vacation Rental">🏠 House Host / Vacation Rental</option>
+                            <option value="Other / Custom">✨ Other / Custom</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="audience" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Who are your customers? <span class="text-red-500" aria-label="required">*</span>
+                        </label>
+                        <textarea id="audience" name="target_audience" rows="3" required aria-required="true"
+                                  placeholder="e.g., Local families looking to upsize, first-time home buyers..."
+                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base"></textarea>
+                        <p class="mt-1 text-sm text-gray-500">Describe your ideal customer in 1-2 sentences</p>
+                    </div>
+
+                    <div>
+                        <label for="voice" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Brand Voice <span class="text-red-500" aria-label="required">*</span>
+                        </label>
+                        <input type="text" id="voice" name="brand_voice" required aria-required="true"
+                               placeholder="e.g., Professional, reassuring, and expert-level"
+                               class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base">
+                        <p class="mt-1 text-sm text-gray-500">Describe the tone and personality (3-5 adjectives)</p>
+                    </div>
+
+                    <div>
+                        <label for="offer" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Key Offer / Hook <span class="text-red-500" aria-label="required">*</span>
+                        </label>
+                        <textarea id="offer" name="key_offer" rows="2" required aria-required="true"
+                                  placeholder="e.g., Free Home Valuation Report, 10% Off First Visit"
+                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base"></textarea>
+                        <p class="mt-1 text-sm text-gray-500">Your main call-to-action or value proposition</p>
+                    </div>
+
+                    <div>
+                        <label for="rules" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Voice Rules (Optional)
+                        </label>
+                        <textarea id="rules" name="voice_rules" rows="2"
+                                  placeholder="e.g., No exclamation points, Always use 'y'all', Keep under 280 characters"
+                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base"></textarea>
+                        <p class="mt-1 text-sm text-gray-500">Any specific dos and don'ts for your brand</p>
+                    </div>
+
+                    <div>
+                        <label for="samples" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Writing Samples <span class="text-red-500" aria-label="required">*</span>
+                        </label>
+                        <textarea id="samples" name="writing_samples" rows="6" required aria-required="true"
+                                  placeholder="Paste 2-3 examples of your past writing. Separate each with a blank line."
+                                  class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-3 text-base font-mono text-sm"></textarea>
+                        <p class="mt-1 text-sm text-gray-500">
+                            <strong>Example format:</strong><br>
+                            Just closed on another dream home! 🏡 Congrats to the Martinez family!<br>
+                            <br>
+                            Looking to sell? Let's chat about what your home is worth in today's market.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-8 flex justify-between">
+                    <button type="button" onclick="prevStep()" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors">
+                        ← Back
+                    </button>
+                    <button type="submit" id="submitBtn"
+                            class="px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center">
+                        <span>Save & Continue to Dashboard</span>
+                        <span class="ml-2">✓</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Help Text -->
+    <div class="mt-6 text-center">
+        <p class="text-sm text-gray-500">
+            Need help? <a href="#" class="text-blue-600 hover:text-blue-800">Watch a quick tutorial</a> or <a href="#" class="text-blue-600 hover:text-blue-800">contact support</a>
+        </p>
+    </div>
+</div>
+
+<script>
+// Wizard State
+let currentStep = 1;
+const totalSteps = 2;
+let aiSuggestionsData = null;
+
+// Industry defaults for prefilling
+const industryDefaults = {
+    'Software / Tech / Startup': {
+        audience: "Businesses, developers, and teams seeking innovative software solutions to improve efficiency and scalability.",
+        voice: "Clear, innovative, and results-driven with a focus on solving real problems.",
+        offer: "Free trial or live demo of our platform."
+    },
+    'Realtor / Real Estate': {
+        audience: "Local families looking to upsize or first-time buyers seeking guidance.",
+        voice: "Professional, reassuring, and expert-level.",
+        offer: "Free Home Valuation Report."
+    },
+    'Restaurant / Café': {
+        audience: "Food lovers and families seeking authentic dining experiences.",
+        voice: "Warm, inviting, and mouth-watering.",
+        offer: "15% off your first visit or complimentary appetizer."
+    },
+    'Retail / Boutique': {
+        audience: "Style-conscious shoppers looking for unique finds and personalized service.",
+        voice: "Friendly, trendy, and approachable.",
+        offer: "10% off your first purchase or early access to new arrivals."
+    },
+    'Fitness / Wellness': {
+        audience: "Busy professionals looking to build sustainable fitness habits.",
+        voice: "Motivating, energetic, and supportive.",
+        offer: "Free 7-day trial membership."
+    },
+    'Artisan / Maker': {
+        audience: "Creative hobbyists and conscious consumers seeking handmade quality.",
+        voice: "Inspirational, earthy, and authentic.",
+        offer: "10% off your first handcrafted piece or free shipping."
+    },
+    'Coach / Consultant': {
+        audience: "Business leaders and professionals seeking strategic guidance and proven frameworks.",
+        voice: "Authoritative, insightful, and results-driven.",
+        offer: "Free 30-minute strategy session."
+    },
+    'Nonprofit / Community': {
+        audience: "Community members passionate about making a local impact.",
+        voice: "Heartfelt, inspiring, and mission-focused.",
+        offer: "Join us at our next volunteer event or learn how your donation helps."
+    },
+    'Home Services': {
+        audience: "Homeowners looking for reliable, quality service and maintenance.",
+        voice: "Trustworthy, professional, and helpful.",
+        offer: "Free estimate or 10% off first service."
+    },
+    'Healthcare': {
+        audience: "Patients and families seeking compassionate, quality healthcare.",
+        voice: "Caring, professional, and informative.",
+        offer: "New patient consultation or same-day appointments available."
+    },
+    'Church': {
+        audience: "Community members seeking spiritual growth and fellowship.",
+        voice: "Welcoming, uplifting, and encouraging.",
+        offer: "Join us this Sunday or explore our community groups."
+    },
+    'House Host / Vacation Rental': {
+        audience: "Travelers seeking authentic, comfortable, and memorable stays.",
+        voice: "Warm, hospitable, and detail-oriented.",
+        offer: "10% off your first booking or free local activity guide."
+    },
+    'Other / Custom': {
+        audience: "Your target customers or community.",
+        voice: "Authentic and true to your brand.",
+        offer: "Your special offer or value proposition."
+    }
+};
+
+function prefillDefaults() {
+    const industry = document.getElementById('industry').value;
+    const defaults = industryDefaults[industry];
+    if (defaults && currentStep === 2) {
+        // Prefill on step 2 when manually entering
+        if (!document.getElementById('audience').value) {
+            document.getElementById('audience').value = defaults.audience;
+        }
+        if (!document.getElementById('voice').value) {
+            document.getElementById('voice').value = defaults.voice;
+        }
+        if (!document.getElementById('offer').value) {
+            document.getElementById('offer').value = defaults.offer;
+        }
+    }
+}
+
+function updateProgress() {
+    const percent = (currentStep / totalSteps) * 100;
+    document.getElementById('progressBar').style.width = percent + '%';
+    document.getElementById('currentStep').textContent = currentStep;
+    
+    const titles = ['Add Your Content', 'Review & Edit'];
+    document.getElementById('stepTitle').textContent = titles[currentStep - 1];
+}
+
+function showStep(stepNum) {
+    // Hide all steps
+    for (let i = 1; i <= totalSteps; i++) {
+        document.getElementById('step' + i).classList.add('hidden');
+    }
+    // Show current step
+    document.getElementById('step' + stepNum).classList.remove('hidden');
+    currentStep = stepNum;
+    updateProgress();
+    
+    // Scroll to top on mobile
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // If moving to step 2, show AI notice if we have data
+    if (stepNum === 2 && aiSuggestionsData) {
+        document.getElementById('aiNotice').classList.remove('hidden');
+    }
+}
+
+function validateStep(stepNum) {
+    // No validation on step 1 - URL is optional
+    if (stepNum === 2) {
+        const businessName = document.getElementById('business_name').value.trim();
+        const industry = document.getElementById('industry').value;
+        const audience = document.getElementById('audience').value.trim();
+        const voice = document.getElementById('voice').value.trim();
+        const offer = document.getElementById('offer').value.trim();
+        const samples = document.getElementById('samples').value.trim();
+        
+        if (!businessName || !industry || !audience || !voice || !offer || !samples) {
+            alert('Please fill in all required fields before saving.');
+            return false;
+        }
+    }
+    return true;
+}
+
+function nextStep() {
+    if (!validateStep(currentStep)) {
+        return;
+    }
+    
+    if (currentStep < totalSteps) {
+        showStep(currentStep + 1);
+    }
+}
+
+function prevStep() {
+    if (currentStep > 1) {
+        showStep(currentStep - 1);
+    }
+}
+
+function skipToManualEntry() {
+    // Move to step 2 without fetching
+    showStep(2);
+}
+
+async function fetchAndPrefillData() {
+    const url = document.getElementById('website_url').value.trim();
+    const consent = document.getElementById('website_consent').checked;
+    
+    if (!url) {
+        alert('Please enter a URL to analyze');
+        return;
+    }
+    
+    if (!consent) {
+        alert('Please check the consent box to analyze the content');
+        return;
+    }
+    
+    const fetchBtn = document.getElementById('fetchBtn');
+    const fetchBtnText = document.getElementById('fetchBtnText');
+    const fetchLoading = document.getElementById('fetchLoading');
+    const fetchResult = document.getElementById('fetchResult');
+    const fetchError = document.getElementById('fetchError');
+    
+    // Hide previous results
+    fetchResult.classList.add('hidden');
+    fetchError.classList.add('hidden');
+    
+    // Show loading
+    fetchBtn.disabled = true;
+    fetchBtnText.textContent = 'Analyzing...';
+    fetchLoading.classList.remove('hidden');
+    
+    try {
+        const response = await fetch('/onboarding/social-style', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, consent, business_name: '' })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.suggestions) {
+            aiSuggestionsData = data.suggestions;
+            
+            // Auto-fill fields in step 2
+            if (data.suggestions.brand_voice) {
+                document.getElementById('voice').value = data.suggestions.brand_voice;
+            }
+            if (data.suggestions.tagline) {
+                document.getElementById('offer').value = data.suggestions.tagline;
+            }
+            if (data.suggestions.voice_rules) {
+                document.getElementById('rules').value = data.suggestions.voice_rules;
+            }
+            if (data.suggestions.sample_copy && data.suggestions.sample_copy.length > 0) {
+                document.getElementById('samples').value = data.suggestions.sample_copy.join('\n\n');
+            }
+            
+            // Show success and move to step 2
+            fetchResult.classList.remove('hidden');
+            setTimeout(() => {
+                showStep(2);
+            }, 1500);
+        } else {
+            // Show error but still allow moving forward
+            fetchError.classList.remove('hidden');
+            setTimeout(() => {
+                showStep(2);
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error fetching website data:', error);
+        fetchError.classList.remove('hidden');
+        // Still allow moving forward
+        setTimeout(() => {
+            showStep(2);
+        }, 2000);
+    } finally {
+        fetchBtn.disabled = false;
+        fetchBtnText.textContent = '🔍 Analyze & Auto-Fill My Profile';
+        fetchLoading.classList.add('hidden');
+    }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    showStep(1);
+});
+</script>
+{% endblock %}
