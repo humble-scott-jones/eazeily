@@ -158,9 +158,100 @@
             </button>
         </div>
     </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
+    let currentTask = 'post';
+    
+    // Task button selection (lightweight, needed for UI updates)
+    
+    const taskConfig = {
+        'post': {
+            label: 'What is this post about?',
+            placeholder: 'e.g., New summer collection launch',
+            buttonText: 'Generate Post',
+            showPlatform: true
+        },
+        'ad': {
+            label: 'What is this ad promoting?',
+            placeholder: 'e.g., 20% off all pottery classes this month',
+            buttonText: 'Generate Ad',
+            showPlatform: false
+        },
+        'email': {
+            label: 'What is the email about?',
+            placeholder: 'e.g., Following up on our recent conversation about home staging',
+            buttonText: 'Generate Email',
+            showPlatform: false
+        },
+        'review': {
+            label: 'Paste the review here:',
+            placeholder: 'e.g., Great experience! The agent was very helpful and responsive.',
+            buttonText: 'Generate Reply',
+            showPlatform: false
+        },
+        'proposal': {
+            label: 'What service/project is this proposal for?',
+            placeholder: 'e.g., Complete kitchen remodel for 3-bedroom home',
+            buttonText: 'Generate Proposal',
+            showPlatform: false
+        },
+        'newsletter': {
+            label: 'What is the theme of this newsletter?',
+            placeholder: 'e.g., Monthly wellness tips and upcoming class schedule',
+            buttonText: 'Generate Newsletter',
+            showPlatform: false
+        },
+        'blog': {
+            label: 'What is the blog post topic?',
+            placeholder: 'e.g., 5 tips for first-time homebuyers in today\'s market',
+            buttonText: 'Generate Blog',
+            showPlatform: false
+        },
+        'script': {
+            label: 'What is this video about?',
+            placeholder: 'e.g., Studio tour and pottery-making process for Reels',
+            buttonText: 'Generate Script',
+            showPlatform: false
+        },
+        'caption': {
+            label: 'Describe the image:',
+            placeholder: 'e.g., Photo of newly listed Victorian home with sunset lighting',
+            buttonText: 'Generate Caption',
+            showPlatform: false
+        }
+    };
+    
+    function selectTask(taskType) {
+        currentTask = taskType;
+        document.getElementById('task_type').value = taskType;
+        
+        // Update UI
+        const config = taskConfig[taskType];
+        document.getElementById('topicLabel').textContent = config.label;
+        document.getElementById('topic').placeholder = config.placeholder;
+        document.getElementById('btnText').textContent = config.buttonText;
+        document.getElementById('platformSection').style.display = config.showPlatform ? 'block' : 'none';
+        
+        // Update task button styles
+        document.querySelectorAll('.task-btn').forEach(btn => {
+            btn.classList.remove('border-blue-600', 'bg-blue-50');
+            btn.classList.add('border-gray-300');
+        });
+        document.getElementById('task-' + taskType).classList.remove('border-gray-300');
+        document.getElementById('task-' + taskType).classList.add('border-blue-600', 'bg-blue-50');
+        
+        // Clear result
+        document.getElementById('resultBox').classList.add('hidden');
+    }
+    
+<script>
+    // Task button selection (lightweight, needed for UI updates)
     let currentTask = 'post';
     
     const taskConfig = {
@@ -243,114 +334,121 @@
         document.getElementById('resultBox').classList.add('hidden');
     }
     
-    // Toast overlay container
-    const toastContainerId = 'generator-toast-container';
-
-    function ensureToastContainer() {
-        let c = document.getElementById(toastContainerId);
-        if (c) return c;
-        c = document.createElement('div');
-        c.id = toastContainerId;
-        c.className = 'fixed inset-0 pointer-events-none flex flex-col items-center mt-6 space-y-2 z-50';
-        document.body.appendChild(c);
-        return c;
-    }
-
+    // Toast notification system
     function showToast(message, tone = 'info', durationMs = 3500) {
-        const container = ensureToastContainer();
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'fixed inset-0 pointer-events-none flex flex-col items-center mt-6 space-y-2 z-50';
+            document.body.appendChild(container);
+        }
+        
         const toneClasses = {
             info: 'bg-slate-900/90 text-white border border-slate-800',
             error: 'bg-red-600/90 text-white border border-red-500',
             success: 'bg-emerald-600/90 text-white border border-emerald-500'
         };
+        
         const toast = document.createElement('div');
         toast.className = `pointer-events-auto rounded-lg px-4 py-3 shadow-lg text-sm font-medium ${toneClasses[tone] || toneClasses.info}`;
         toast.textContent = message;
         container.appendChild(toast);
+        
         setTimeout(() => {
             toast.classList.add('opacity-0', 'translate-y-1', 'transition', 'duration-200');
             setTimeout(() => toast.remove(), 220);
         }, durationMs);
     }
-
+    
     function clearStatus() {
-        // no-op for toasts
+        const statusEl = document.getElementById('generator-status-banner');
+        if (statusEl) {
+            statusEl.classList.add('hidden');
+            statusEl.textContent = '';
+        }
     }
+    
+    // Form submission handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('generateForm');
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const topic = document.getElementById('topic').value;
+                const platform = document.getElementById('platform').value;
+                const taskType = document.getElementById('task_type').value;
+                const btn = document.getElementById('generateBtn');
+                const btnText = document.getElementById('btnText');
+                const spinner = document.getElementById('loadingSpinner');
+                const resultBox = document.getElementById('resultBox');
+                const postContent = document.getElementById('postContent');
 
-    document.getElementById('generateForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const topic = document.getElementById('topic').value;
-        const platform = document.getElementById('platform').value;
-        const taskType = document.getElementById('task_type').value;
-        const btn = document.getElementById('generateBtn');
-        const btnText = document.getElementById('btnText');
-        const spinner = document.getElementById('loadingSpinner');
-        const resultBox = document.getElementById('resultBox');
-        const postContent = document.getElementById('postContent');
+                // Loading State
+                btn.disabled = true;
+                btnText.textContent = 'Generating...';
+                spinner.classList.remove('hidden');
+                resultBox.classList.add('hidden');
 
-        // Loading State
-        btn.disabled = true;
-        btnText.textContent = 'Generating...';
-        spinner.classList.remove('hidden');
-        resultBox.classList.add('hidden');
+                // Minimal client-side validation to match backend contract
+                clearStatus();
 
-        // Minimal client-side validation to match backend contract
-        clearStatus();
-
-        if (!topic || !topic.trim()) {
-            showToast('Please enter a topic.', 'error');
-            btn.disabled = false;
-            btnText.textContent = taskConfig[taskType].buttonText;
-            spinner.classList.add('hidden');
-            return;
-        }
-        if (taskType === 'post' && (!platform || !platform.trim())) {
-            showToast('Please select a platform for posts.', 'error');
-            btn.disabled = false;
-            btnText.textContent = taskConfig[taskType].buttonText;
-            spinner.classList.add('hidden');
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/generate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    topic, 
-                    platform,
-                    task_type: taskType
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.status === 'success') {
-                postContent.textContent = data.content;
-                resultBox.classList.remove('hidden');
-                showToast('Generated successfully.', 'success');
-            } else {
-                const code = data?.error?.code || 'unknown_error';
-                const message = data?.error?.message || data?.error || 'Failed to generate content';
-                showToast(`Error (${code}): ${message}`, 'error');
-                if (data && data.redirect) {
-                    if (confirm('Would you like to set up your brand profile now?')) {
-                        window.location.href = data.redirect;
-                        return;
-                    }
+                if (!topic || !topic.trim()) {
+                    showToast('Please enter a topic.', 'error');
+                    btn.disabled = false;
+                    btnText.textContent = taskConfig[taskType].buttonText;
+                    spinner.classList.add('hidden');
+                    return;
                 }
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showToast('An unexpected error occurred.', 'error');
-        } finally {
-            // Reset State
-            btn.disabled = false;
-            btnText.textContent = taskConfig[taskType].buttonText;
-            spinner.classList.add('hidden');
+                if (taskType === 'post' && (!platform || !platform.trim())) {
+                    showToast('Please select a platform for posts.', 'error');
+                    btn.disabled = false;
+                    btnText.textContent = taskConfig[taskType].buttonText;
+                    spinner.classList.add('hidden');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/generate', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ 
+                            topic, 
+                            platform,
+                            task_type: taskType
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.status === 'success') {
+                        postContent.textContent = data.content;
+                        resultBox.classList.remove('hidden');
+                        showToast('Generated successfully.', 'success');
+                    } else {
+                        const code = data?.error?.code || 'unknown_error';
+                        const message = data?.error?.message || data?.error || 'Failed to generate content';
+                        showToast(`Error (${code}): ${message}`, 'error');
+                        if (data && data.redirect) {
+                            if (confirm('Would you like to set up your brand profile now?')) {
+                                window.location.href = data.redirect;
+                                return;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('An unexpected error occurred.', 'error');
+                } finally {
+                    // Reset State
+                    btn.disabled = false;
+                    btnText.textContent = taskConfig[taskType].buttonText;
+                    spinner.classList.add('hidden');
+                }
+            });
         }
     });
 
