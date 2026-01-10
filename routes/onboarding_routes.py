@@ -540,6 +540,10 @@ def social_style():
         if not scraped_text:
             return jsonify({"error": "Could not read that page (maybe it is blocked or empty)."}), 400
 
+        # Extract business information using AI
+        from services.scraper_service import extract_business_info
+        business_info = extract_business_info(scraped_text, normalized_url)
+
         # Derive samples from the text (split into sentences/paragraphs)
         sentences = re.split(r"(?<=[.!?])\s+", scraped_text)
         samples = []
@@ -553,7 +557,12 @@ def social_style():
             samples = [scraped_text[:240]]
 
         style = _infer_style(samples)
-        suggestions = _build_suggestions(samples, style, business_name)
+        suggestions = _build_suggestions(samples, style, business_info.get("business_name") or business_name)
+        
+        # Add extracted business info to suggestions
+        suggestions["business_name"] = business_info.get("business_name")
+        suggestions["industry"] = business_info.get("industry")
+        suggestions["key_customers"] = business_info.get("key_customers")
 
         return jsonify({
             "samples": samples,
