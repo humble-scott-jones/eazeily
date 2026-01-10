@@ -25,16 +25,27 @@ from tests.e2e.conftest import app
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv('ALLOW_DEV_DEBUG', '1')
     monkeypatch.delenv('ADMIN_EMAILS', raising=False)
+    monkeypatch.delenv('DATABASE_URL', raising=False)
     # Use a temporary database file for isolation
     db_file = tmp_path / "test_togetherly.db"
+    # Set TEST_DB_PATH env var BEFORE importing/creating the app
+    monkeypatch.setenv('TEST_DB_PATH', str(db_file))
+    
+    # Now set the module-level DB_PATH for compatibility
     togetherly_app.DB_PATH = str(db_file)
-    # Expose DB_PATH on the Flask app object for tests that reference client.application.DB_PATH
-    togetherly_app.app.DB_PATH = togetherly_app.DB_PATH  # type: ignore[attr-defined]
-    # ensure DB is initialized
-    with togetherly_app.app.app_context():
-        togetherly_app.init_db()
-    togetherly_app.app.config['TESTING'] = True
-    with togetherly_app.app.test_client() as client:
+    
+    # Create a fresh app instance with the test database
+    from app import create_app
+    test_app = create_app()
+    test_app.DB_PATH = str(db_file)  # type: ignore[attr-defined]
+    test_app.config['TESTING'] = True
+    
+    # Initialize the database with SQLAlchemy
+    with test_app.app_context():
+        from models import db
+        db.create_all()
+    
+    with test_app.test_client() as client:
         yield client
 
 

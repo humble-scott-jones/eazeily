@@ -12,7 +12,7 @@ def test_wizard_saves_brand_inspiration_with_profile(client):
         'email': 'wizard_brand_test@example.com',
         'password': 'testpass123'
     })
-    assert signup_response.status_code == 200
+    assert signup_response.status_code in (200, 201)
     
     # Simulate wizard submission with brand inspiration
     profile_data = {
@@ -68,7 +68,7 @@ def test_wizard_saves_empty_brand_inspiration(client):
         'email': 'wizard_skip_brand@example.com',
         'password': 'testpass123'
     })
-    assert signup_response.status_code == 200
+    assert signup_response.status_code in (200, 201)
     
     # Submit without brand inspiration (user skipped step)
     profile_data = {

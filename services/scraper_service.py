@@ -70,15 +70,15 @@ def scrape_url(url: str, max_length: int = 5000) -> str:
 
 def extract_business_info(scraped_text: str, url: str = "") -> dict:
     """
-    Uses AI to extract business name, industry, and key customers from scraped text.
+    Uses AI to extract business name, industry, key customers, and keywords from scraped text.
     
     Args:
         scraped_text (str): The text content from the webpage.
         url (str): The URL of the webpage (optional, for context).
         
     Returns:
-        dict: Contains business_name, industry, and key_customers fields.
-              Returns None values if extraction fails or AI is unavailable.
+        dict: Contains business_name, industry, key_customers, brand_keywords, and niche_keywords fields.
+              Returns None/empty values if extraction fails or AI is unavailable.
     """
     try:
         from services.ai_service import get_generative_model
@@ -89,7 +89,9 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
             return {
                 "business_name": None,
                 "industry": None,
-                "key_customers": None
+                "key_customers": None,
+                "brand_keywords": [],
+                "niche_keywords": []
             }
         
         # Limit text length for AI processing
@@ -103,6 +105,8 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
 - business_name: The company/business name (string, or null if not found)
 - industry: The business industry category - pick ONE that best matches from this list: {industries_list} (string, or null if not clear)
 - key_customers: A brief description of the target audience/customers in 1-2 sentences (string, or null if not found)
+- brand_keywords: A list of 3-5 key brand descriptors or values that represent this business (e.g., ["sustainable", "premium", "innovative"]) (array of strings)
+- niche_keywords: A list of 3-5 niche-specific terms or specializations for this business (e.g., ["organic coffee", "artisan roasted", "fair trade"]) (array of strings)
 
 Website content:
 {text_sample}
@@ -128,7 +132,9 @@ Return only valid JSON, no markdown formatting, no explanations."""
         result = {
             "business_name": extracted_data.get("business_name") or None,
             "industry": extracted_data.get("industry") or None,
-            "key_customers": extracted_data.get("key_customers") or None
+            "key_customers": extracted_data.get("key_customers") or None,
+            "brand_keywords": extracted_data.get("brand_keywords") or [],
+            "niche_keywords": extracted_data.get("niche_keywords") or []
         }
         
         logger.debug("Successfully extracted business info from scraped text")
@@ -139,12 +145,16 @@ Return only valid JSON, no markdown formatting, no explanations."""
         return {
             "business_name": None,
             "industry": None,
-            "key_customers": None
+            "key_customers": None,
+            "brand_keywords": [],
+            "niche_keywords": []
         }
     except Exception as e:
         logger.error(f"Failed to extract business info: {e}")
         return {
             "business_name": None,
             "industry": None,
-            "key_customers": None
+            "key_customers": None,
+            "brand_keywords": [],
+            "niche_keywords": []
         }
