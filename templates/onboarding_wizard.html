@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    /* Fallback CSS to ensure wizard steps work even if Tailwind doesn't load */
+    .hidden {
+        display: none !important;
+    }
+</style>
 <div class="max-w-4xl mx-auto px-4 py-6">
     <!-- Progress Indicator -->
     <div class="mb-8">
