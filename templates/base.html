@@ -68,64 +68,33 @@
                     </svg>
                 </button>
             </div>
-            <nav class="mt-4 space-y-6 text-sm text-slate-700 pb-8">
-                <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Getting Started</p>
-                    <a href="/dashboard" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">🏁</span><span>Overview / Checklist</span>
+            <nav class="mt-4 space-y-2 text-sm text-slate-700 pb-8">
+                <!-- Main Actions -->
+                <div class="px-2 mb-4">
+                    <a href="/dashboard" class="flex items-center space-x-3 py-3 px-4 rounded-lg transition duration-150 bg-blue-50 text-blue-600 font-medium hover:bg-blue-100" aria-label="Navigate to content creation dashboard">
+                        <span class="text-xl">✨</span><span>Create Content</span>
                     </a>
                 </div>
 
-                <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Brand</p>
-                    <a href="/onboarding" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                <!-- Brand Setup -->
+                <div class="px-2">
+                    <p class="px-2 text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">Brand Setup</p>
+                    <a href="/onboarding" class="flex items-center space-x-3 py-3 px-4 rounded-lg transition duration-150 hover:bg-blue-50 hover:text-blue-600">
                         <span class="text-xl">🎨</span><span>Brand Profile</span>
                     </a>
-                    <a href="/setup/voice" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
+                    <a href="/setup/voice" class="flex items-center space-x-3 py-3 px-4 rounded-lg transition duration-150 hover:bg-blue-50 hover:text-blue-600">
                         <span class="text-xl">🎤</span><span>Voice & Tone</span>
                     </a>
                 </div>
 
-                <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Content AI</p>
-                    <a href="/onboarding#ai-helper" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">🤖</span><span>AI Helper</span>
-                    </a>
-                    <a href="/onboarding#social-url" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">🔗</span><span>Social Inputs</span>
-                    </a>
-                    <a href="/dashboard" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">📄</span><span>Generated Assets</span>
+                <hr class="mx-4 my-4 border-gray-200">
+                
+                <!-- Account -->
+                <div class="px-2">
+                    <a href="/auth/logout" onclick="handleLogout(event)" class="flex items-center space-x-3 py-3 px-4 rounded-lg transition duration-150 hover:bg-red-50 hover:text-red-600 text-gray-700">
+                        <span class="text-xl">🚪</span><span>Logout</span>
                     </a>
                 </div>
-
-                <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Channels</p>
-                    <a href="/dashboard" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">🗓️</span><span>Publishing / Scheduling</span>
-                    </a>
-                    <a href="/settings" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">🔌</span><span>Integrations</span>
-                    </a>
-                </div>
-
-                <div>
-                    <p class="px-4 text-xs uppercase tracking-wide text-slate-500 font-semibold">Settings</p>
-                    <a href="/settings" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">👤</span><span>Account & Billing</span>
-                    </a>
-                    <a href="/settings" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">🧑‍🤝‍🧑</span><span>Team & Roles</span>
-                    </a>
-                    <a href="/settings" class="flex items-center space-x-3 py-3 px-4 rounded transition duration-150 hover:bg-blue-50 hover:text-blue-600">
-                        <span class="text-xl">🧪</span><span>Feature Flags / Labs</span>
-                    </a>
-                </div>
-
-                <hr class="mx-4 border-gray-200">
-                <a href="/auth/logout" onclick="handleLogout(event)" class="flex items-center space-x-3 py-3 px-4 mx-2 rounded transition duration-150 hover:bg-red-50 hover:text-red-600 text-gray-700">
-                    <span class="text-xl">🚪</span><span>Logout</span>
-                </a>
             </nav>
         </aside>
 
@@ -188,6 +157,9 @@
         });
 
         // Handle logout
+        // Note: Logout requires JavaScript. If JS is disabled, the /auth/logout endpoint
+        // will return JSON which isn't ideal UX. Consider adding a server-side redirect
+        // logout route in the future for better accessibility.
         async function handleLogout(event) {
             event.preventDefault();
             try {
