@@ -41,6 +41,8 @@ class User(UserMixin, db.Model):
 
 
 class VoiceProfile(db.Model):
+    __tablename__ = 'voice_profile'
+    
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     industry = db.Column(db.String(255))

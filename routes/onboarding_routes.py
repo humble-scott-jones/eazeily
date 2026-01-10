@@ -35,8 +35,11 @@ def onboarding():
             voice_rules = request.form.get('voice_rules', '')
             writing_samples_raw = request.form.get('writing_samples', '')
             
+            logger.info(f"Onboarding POST from user {current_user.id}: business_name={business_name}, industry={industry}")
+            
             # Validate required fields
             if not all([business_name, industry, target_audience, brand_voice, key_offer, writing_samples_raw]):
+                logger.warning(f"Onboarding validation failed for user {current_user.id}: missing required fields")
                 from flask import flash
                 flash("All required fields must be filled", "error")
                 return render_template('onboarding_wizard.html'), 400
@@ -49,11 +52,16 @@ def onboarding():
                 if sample.strip()
             ]
             
+            logger.info(f"Processing {len(writing_samples)} writing samples for user {current_user.id}")
+            
             # Get or create voice profile
             profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
             if not profile:
+                logger.info(f"Creating new VoiceProfile for user {current_user.id}")
                 profile = VoiceProfile(user_id=current_user.id)
                 db.session.add(profile)
+            else:
+                logger.info(f"Updating existing VoiceProfile (id={profile.id}) for user {current_user.id}")
             
             # Update profile fields
             profile.business_name = business_name
@@ -64,15 +72,16 @@ def onboarding():
             profile.voice_rules = voice_rules
             profile.set_writing_samples(writing_samples)
             
+            # Commit to database
             db.session.commit()
             
-            logger.info(f"Brand profile saved for user {current_user.id}")
+            logger.info(f"Brand profile saved successfully for user {current_user.id}, profile_id={profile.id}")
             
             # Redirect to dashboard
             return redirect(url_for('generate.dashboard'))
             
         except Exception as e:
-            logger.error(f"Error saving brand profile: {e}", exc_info=True)
+            logger.error(f"Error saving brand profile for user {current_user.id}: {e}", exc_info=True)
             db.session.rollback()
             from flask import flash
             flash(f"Failed to save brand profile: {str(e)}", "error")
