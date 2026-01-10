@@ -95,13 +95,13 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
         # Limit text length for AI processing
         text_sample = scraped_text[:3000] if len(scraped_text) > 3000 else scraped_text
         
-        # Format industry categories for the prompt
-        industries_str = '", "'.join(INDUSTRY_CATEGORIES)
+        # Format industry categories for the prompt (removes outer brackets)
+        industries_json = json.dumps(INDUSTRY_CATEGORIES)[1:-1]
         
         prompt = f"""Analyze the following website content and extract business information. Return ONLY a JSON object with these exact keys:
 
 - business_name: The company/business name (string, or null if not found)
-- industry: The business industry category - pick ONE that best matches from this list: "{industries_str}" (string, or null if not clear)
+- industry: The business industry category - pick ONE that best matches from this list: {industries_json} (string, or null if not clear)
 - key_customers: A brief description of the target audience/customers in 1-2 sentences (string, or null if not found)
 
 Website content:
