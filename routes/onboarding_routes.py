@@ -557,9 +557,7 @@ def social_style():
             samples = [scraped_text[:240]]
 
         style = _infer_style(samples)
-        # Use extracted business name if available, otherwise fallback to provided name
-        extracted_business_name = business_info.get("business_name") or business_name
-        suggestions = _build_suggestions(samples, style, extracted_business_name)
+        suggestions = _build_suggestions(samples, style, business_info.get("business_name") or business_name)
         
         # Add extracted business info to suggestions
         suggestions["business_name"] = business_info.get("business_name")

@@ -6,6 +6,23 @@ import json
 
 logger = logging.getLogger(__name__)
 
+# Industry categories that match the onboarding form options
+INDUSTRY_CATEGORIES = [
+    "Software / Tech / Startup",
+    "Realtor / Real Estate",
+    "Restaurant / Café",
+    "Retail / Boutique",
+    "Fitness / Wellness",
+    "Artisan / Maker",
+    "Coach / Consultant",
+    "Nonprofit / Community",
+    "Home Services",
+    "Healthcare",
+    "Church",
+    "House Host / Vacation Rental",
+    "Other / Custom"
+]
+
 def scrape_url(url: str, max_length: int = 5000) -> str:
     """
     Fetches the content of a URL and returns the visible text.
@@ -78,10 +95,13 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
         # Limit text length for AI processing
         text_sample = scraped_text[:3000] if len(scraped_text) > 3000 else scraped_text
         
+        # Format industry categories for the prompt
+        industries_str = '", "'.join(INDUSTRY_CATEGORIES)
+        
         prompt = f"""Analyze the following website content and extract business information. Return ONLY a JSON object with these exact keys:
 
 - business_name: The company/business name (string, or null if not found)
-- industry: The business industry category - pick ONE that best matches from this list: "Software / Tech / Startup", "Realtor / Real Estate", "Restaurant / Café", "Retail / Boutique", "Fitness / Wellness", "Artisan / Maker", "Coach / Consultant", "Nonprofit / Community", "Home Services", "Healthcare", "Church", "House Host / Vacation Rental", "Other / Custom" (string, or null if not clear)
+- industry: The business industry category - pick ONE that best matches from this list: "{industries_str}" (string, or null if not clear)
 - key_customers: A brief description of the target audience/customers in 1-2 sentences (string, or null if not found)
 
 Website content:
@@ -111,12 +131,11 @@ Return only valid JSON, no markdown formatting, no explanations."""
             "key_customers": extracted_data.get("key_customers") or None
         }
         
-        logger.info(f"Successfully extracted business info: {result}")
+        logger.info("Successfully extracted business info from scraped text")
         return result
         
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse AI response as JSON: {e}")
-        logger.debug(f"AI response was: {response_text[:500]}")
         return {
             "business_name": None,
             "industry": None,
