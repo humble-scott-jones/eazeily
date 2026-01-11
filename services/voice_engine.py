@@ -141,10 +141,20 @@ class VoiceEngine:
         # Get structured data from JSON fields
         writing_samples = []
         brand_keywords = []
+        niche_keywords = []
+        customers = []
+        scraped_meta = {}
+        
         if hasattr(user_profile, 'get_writing_samples'):
             writing_samples = user_profile.get_writing_samples()
         if hasattr(user_profile, 'get_brand_keywords'):
             brand_keywords = user_profile.get_brand_keywords()
+        if hasattr(user_profile, 'get_niche_keywords'):
+            niche_keywords = user_profile.get_niche_keywords()
+        if hasattr(user_profile, 'get_customers'):
+            customers = user_profile.get_customers()
+        if hasattr(user_profile, 'get_scraped_meta'):
+            scraped_meta = user_profile.get_scraped_meta()
         
         # Build comprehensive, structured prompt
         prompt_parts = [
@@ -161,6 +171,14 @@ class VoiceEngine:
         if key_offer:
             prompt_parts.append(f"Key Offering: {key_offer}")
         
+        # Add customer segments (from scraper or manual input)
+        if customers:
+            prompt_parts.extend([
+                "",
+                "## Customer Segments",
+                "Key audiences: " + ", ".join(customers[:5])
+            ])
+        
         # Add brand keywords for consistent terminology
         if brand_keywords:
             prompt_parts.extend([
@@ -168,6 +186,21 @@ class VoiceEngine:
                 "## Brand Keywords",
                 "Use these terms naturally: " + ", ".join(brand_keywords[:10])
             ])
+        
+        # Add niche keywords for specificity
+        if niche_keywords:
+            prompt_parts.extend([
+                "",
+                "## Niche Keywords",
+                "Industry-specific terms: " + ", ".join(niche_keywords[:10])
+            ])
+        
+        # Add scraped metadata insights if available
+        if scraped_meta:
+            if scraped_meta.get('key_customers'):
+                prompt_parts.append(f"Customer Profile: {scraped_meta['key_customers']}")
+            if scraped_meta.get('business_name'):
+                prompt_parts.append(f"Official Name: {scraped_meta['business_name']}")
         
         # Add voice rules/constraints
         if voice_rules:
@@ -210,6 +243,41 @@ class VoiceEngine:
             prompt_parts.append(f"Mood/Vibe: {context['mood']}")
         if context.get('video_length'):
             prompt_parts.append(f"Video Length: {context['video_length']} seconds")
+        
+        # Proposal-specific context
+        if context.get('proposal_type'):
+            prompt_parts.append(f"Proposal Type: {context['proposal_type']}")
+        if context.get('recipient'):
+            prompt_parts.append(f"Recipient: {context['recipient']}")
+        if context.get('key_benefits'):
+            prompt_parts.append(f"Key Benefits: {', '.join(context['key_benefits'])}")
+        if context.get('budget_range'):
+            prompt_parts.append(f"Budget Range: {context['budget_range']}")
+        
+        # Review reply-specific context
+        if context.get('review_source'):
+            prompt_parts.append(f"Review Platform: {context['review_source']}")
+        if context.get('star_rating'):
+            prompt_parts.append(f"Star Rating: {context['star_rating']}/5")
+        if context.get('sentiment'):
+            prompt_parts.append(f"Sentiment: {context['sentiment']}")
+        if context.get('issue_type'):
+            prompt_parts.append(f"Issue Type: {context['issue_type']}")
+        if context.get('desired_tone'):
+            prompt_parts.append(f"Desired Tone: {context['desired_tone']}")
+        if context.get('follow_up_action'):
+            prompt_parts.append(f"Follow-up Action: {context['follow_up_action']}")
+        
+        # Blog post-specific context
+        if context.get('post_type'):
+            prompt_parts.append(f"Blog Post Type: {context['post_type']}")
+        if context.get('desired_length'):
+            length_map = {'short': '400-600 words', 'medium': '750-1000 words', 'long': '1200-1500 words'}
+            prompt_parts.append(f"Target Length: {length_map.get(context['desired_length'], 'medium')}")
+        if context.get('audience'):
+            prompt_parts.append(f"Target Audience: {context['audience']}")
+        if context.get('seo_keywords'):
+            prompt_parts.append(f"SEO Keywords: {', '.join(context['seo_keywords'])}")
         
         # Add format-specific output instructions
         prompt_parts.extend([
@@ -271,14 +339,20 @@ class VoiceEngine:
             'blog': {
                 'default': "Write a blog post with: 1) SEO-optimized title, 2) Engaging introduction, 3) Well-structured sections with subheadings, 4) Conclusion with call-to-action."
             },
+            'blog_post': {
+                'default': "Write a comprehensive blog post with: 1) Three SEO-optimized title options, 2) Meta description (150-160 chars), 3) Outline with H2 headings, 4) Full article (750-1200 words), 5) Strong call-to-action."
+            },
             'caption': {
                 'default': "Write an engaging image caption that describes what's shown, adds context, and includes relevant hashtags."
             },
             'review': {
                 'default': "Write a warm, professional response that: 1) Thanks the reviewer, 2) Acknowledges specific feedback, 3) Reinforces brand values."
             },
+            'review_reply': {
+                'default': "Write a professional review response that: 1) Acknowledges and thanks the reviewer, 2) Addresses specific points mentioned, 3) Offers remedy or next steps if needed, 4) Maintains brand voice. Keep it concise and genuine."
+            },
             'proposal': {
-                'default': "Write a professional proposal with: 1) Clear scope, 2) Deliverables, 3) Timeline, 4) Pricing structure, 5) Next steps."
+                'default': "Write a professional business proposal with: 1) Three compelling title options, 2) Executive summary (3-4 bullet points), 3) Key benefits (bullet list), 4) Clear call-to-action, 5) Compelling subject line for outreach."
             },
             'newsletter': {
                 'default': "Write a newsletter with: 1) Catchy subject line, 2) Personal greeting, 3) Main content sections with headings, 4) Clear call-to-action."

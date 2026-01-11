@@ -120,6 +120,23 @@ def _handle_generate(task_type, data):
         'cta': lambda v: v[:100] if v else None,  # Limit length
         'mood': lambda v: v if v in ['inspiring', 'casual', 'educational', 'behind-the-scenes'] else None,
         'video_length': lambda v: v if v in ['15', '30', '60', '90'] else None,
+        # Proposal-specific fields
+        'proposal_type': lambda v: v if v in ['partnership', 'sponsorship', 'funding', 'rfp_response', 'collaboration'] else None,
+        'recipient': lambda v: v[:200] if v else None,
+        'key_benefits': lambda v: v if isinstance(v, list) else None,
+        'budget_range': lambda v: v[:100] if v else None,
+        # Review reply-specific fields
+        'review_source': lambda v: v[:100] if v else None,
+        'star_rating': lambda v: v if v in ['1', '2', '3', '4', '5'] else None,
+        'sentiment': lambda v: v if v in ['positive', 'neutral', 'negative'] else None,
+        'issue_type': lambda v: v if v in ['shipping', 'product', 'experience', 'service'] else None,
+        'desired_tone': lambda v: v if v in ['apologetic', 'grateful', 'professional', 'empathetic'] else None,
+        'follow_up_action': lambda v: v[:200] if v else None,
+        # Blog post-specific fields
+        'post_type': lambda v: v if v in ['listicle', 'how-to', 'announcement', 'thought-leadership', 'case-study'] else None,
+        'desired_length': lambda v: v if v in ['short', 'medium', 'long'] else None,
+        'audience': lambda v: v[:100] if v else None,
+        'seo_keywords': lambda v: v if isinstance(v, list) else None,
     }
     
     for field, processor in dynamic_field_processors.items():
