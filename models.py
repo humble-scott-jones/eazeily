@@ -68,6 +68,13 @@ class VoiceProfile(db.Model):
     vibe_preset = db.Column(db.String(255))    # Selected vibe preset
     include_images = db.Column(db.Boolean, default=False) # Whether to include images
     
+    # Scraper-related fields
+    scraped_url = db.Column(db.Text)           # URL that was scraped
+    scraped_meta = db.Column(db.Text)          # Metadata from scraping (stored as JSON)
+    customers = db.Column(db.Text)             # Target customers/audiences (stored as JSON)
+    scraped_at = db.Column(db.DateTime)        # When scraping was performed
+    scrape_status = db.Column(db.String(50), default='none')  # Status: none, pending, finished, failed
+    
     def set_defaults(self, defaults_dict):
         self.defaults = json.dumps(defaults_dict)
 
@@ -135,6 +142,22 @@ class VoiceProfile(db.Model):
     def get_brand_anti_inspirations(self):
         """Get brand anti-inspirations as a list."""
         return json.loads(self.brand_anti_inspirations) if self.brand_anti_inspirations else []
+    
+    def set_customers(self, customers_list):
+        """Set customers from a list."""
+        self.customers = json.dumps(customers_list)
+    
+    def get_customers(self):
+        """Get customers as a list."""
+        return json.loads(self.customers) if self.customers else []
+    
+    def set_scraped_meta(self, meta_dict):
+        """Set scraped metadata from a dict."""
+        self.scraped_meta = json.dumps(meta_dict)
+    
+    def get_scraped_meta(self):
+        """Get scraped metadata as a dict."""
+        return json.loads(self.scraped_meta) if self.scraped_meta else {}
     
     @property
     def style_guide(self):

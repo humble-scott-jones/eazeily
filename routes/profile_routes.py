@@ -64,7 +64,13 @@ def api_profile():
                         'brand_inspirations': [],
                         'brand_anti_inspirations': [],
                         'vibe_preset': None,
-                        'include_images': False
+                        'include_images': False,
+                        # Scraper fields
+                        'customers': [],
+                        'scraped_url': '',
+                        'scraped_meta': {},
+                        'scraped_at': None,
+                        'scrape_status': 'none'
                     }
                 }), 200
             
@@ -87,7 +93,13 @@ def api_profile():
                 'brand_inspirations': profile.get_brand_inspirations(),
                 'brand_anti_inspirations': profile.get_brand_anti_inspirations(),
                 'vibe_preset': profile.vibe_preset,
-                'include_images': profile.include_images or False
+                'include_images': profile.include_images or False,
+                # Scraper fields
+                'customers': profile.get_customers(),
+                'scraped_url': profile.scraped_url or '',
+                'scraped_meta': profile.get_scraped_meta(),
+                'scraped_at': profile.scraped_at.isoformat() if profile.scraped_at else None,
+                'scrape_status': profile.scrape_status or 'none'
             }
             
             return jsonify({
@@ -189,6 +201,38 @@ def api_profile():
                 if isinstance(anti_inspirations, list):
                     profile.set_brand_anti_inspirations(anti_inspirations)
             
+            # Update scraper-related fields
+            if 'customers' in data:
+                customers = data['customers']
+                if isinstance(customers, list):
+                    profile.set_customers(customers)
+                elif isinstance(customers, str):
+                    # If sent as a string, try to parse or treat as single item
+                    profile.set_customers([customers] if customers.strip() else [])
+            
+            if 'scraped_url' in data:
+                profile.scraped_url = data['scraped_url']
+            
+            if 'scraped_meta' in data:
+                meta = data['scraped_meta']
+                if isinstance(meta, dict):
+                    profile.set_scraped_meta(meta)
+                elif isinstance(meta, str):
+                    # If sent as JSON string, store directly
+                    profile.scraped_meta = meta
+            
+            if 'scraped_at' in data:
+                from datetime import datetime
+                scraped_at_val = data['scraped_at']
+                if scraped_at_val:
+                    if isinstance(scraped_at_val, str):
+                        profile.scraped_at = datetime.fromisoformat(scraped_at_val.replace('Z', '+00:00'))
+                    else:
+                        profile.scraped_at = scraped_at_val
+            
+            if 'scrape_status' in data:
+                profile.scrape_status = data['scrape_status']
+            
             # Commit changes
             db.session.commit()
             
@@ -254,7 +298,13 @@ def api_profile_v2():
             'brand_inspirations': profile.get_brand_inspirations(),
             'brand_anti_inspirations': profile.get_brand_anti_inspirations(),
             'vibe_preset': profile.vibe_preset,
-            'include_images': profile.include_images or False
+            'include_images': profile.include_images or False,
+            # Scraper fields
+            'customers': profile.get_customers(),
+            'scraped_url': profile.scraped_url or '',
+            'scraped_meta': profile.get_scraped_meta(),
+            'scraped_at': profile.scraped_at.isoformat() if profile.scraped_at else None,
+            'scrape_status': profile.scrape_status or 'none'
         }
         
         return jsonify({
