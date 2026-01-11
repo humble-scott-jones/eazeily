@@ -70,6 +70,7 @@ def api_profile():
             
             # Build profile response
             profile_data = {
+                'id': profile.id,
                 'company': profile.business_name or '',
                 'industry': profile.industry or '',
                 'tone': profile.tone or profile.brand_voice or '',
@@ -196,6 +197,7 @@ def api_profile():
             return jsonify({
                 'ok': True,
                 'request_id': request_id,
+                'id': profile.id,
                 'message': 'Profile saved successfully'
             }), 200
             
@@ -234,6 +236,7 @@ def api_profile_v2():
         
         # Build profile response similar to v1 but with all fields
         profile_data = {
+            'id': profile.id,
             'company': profile.business_name or '',
             'business_name': profile.business_name or '',
             'industry': profile.industry or '',

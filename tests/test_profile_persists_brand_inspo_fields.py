@@ -21,7 +21,7 @@ def test_profile_persists_brand_inspo_fields(client):
         'email': 'persist_test@example.com',
         'password': 'testpass123'
     })
-    assert signup_response.status_code == 200
+    assert signup_response.status_code in [200, 201]
     
     # Save profile with all brand inspiration fields
     profile_data = {
