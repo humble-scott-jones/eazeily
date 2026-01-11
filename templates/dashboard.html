@@ -463,8 +463,9 @@
     
     /**
      * Surprise Me - randomly populate inputs based on task type
+     * Note: Platform dropdown is static HTML, so no async config loading needed
      */
-    async function handleSurpriseMe() {
+    function handleSurpriseMe() {
         const taskType = document.getElementById('task_type').value;
         
         // Topic suggestions by task type
