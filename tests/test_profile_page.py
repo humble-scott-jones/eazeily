@@ -1,5 +1,5 @@
 import pytest
-from app import app
+
 
 def test_profile_page_requires_login(client):
     """Test that /profile requires authentication."""

@@ -396,10 +396,16 @@ document.getElementById('profile-form').addEventListener('submit', async functio
             formData.goals = goalsInput.split(',').map(g => g.trim()).filter(g => g);
         }
         
-        // Parse writing samples (newline-separated to array)
+        // Parse writing samples (split by double newlines or single newlines)
         const samplesInput = document.getElementById('writing_samples').value.trim();
         if (samplesInput) {
-            formData.writing_samples = samplesInput.split(/\n\n+/).map(s => s.trim()).filter(s => s);
+            // Split on double newlines first, then single if no doubles found
+            let samples = samplesInput.split(/\n\n+/);
+            if (samples.length === 1 && samples[0].length > 200) {
+                // If only one long block, try splitting by single newlines
+                samples = samplesInput.split(/\n/);
+            }
+            formData.writing_samples = samples.map(s => s.trim()).filter(s => s);
         }
         
         // Validate required fields
