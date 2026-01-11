@@ -595,18 +595,40 @@
                 const profile = data.profile;
                 
                 if (!profile) {
-                    // No profile - show warning
+                    // No profile - show warning (XSS-safe using DOM methods)
                     statusEl.className = 'mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm';
-                    statusEl.innerHTML = `
-                        <div class="flex items-start space-x-3">
-                            <span class="text-xl">⚠️</span>
-                            <div class="flex-1">
-                                <p class="font-semibold text-yellow-900">Brand profile not set up</p>
-                                <p class="text-yellow-800 mt-1">For best results, complete your brand profile first.</p>
-                                <a href="/onboarding" class="inline-block mt-2 text-sm font-medium text-yellow-900 underline hover:text-yellow-700">Set up profile →</a>
-                            </div>
-                        </div>
-                    `;
+                    
+                    const container = document.createElement('div');
+                    container.className = 'flex items-start space-x-3';
+                    
+                    const icon = document.createElement('span');
+                    icon.className = 'text-xl';
+                    icon.textContent = '⚠️';
+                    
+                    const content = document.createElement('div');
+                    content.className = 'flex-1';
+                    
+                    const title = document.createElement('p');
+                    title.className = 'font-semibold text-yellow-900';
+                    title.textContent = 'Brand profile not set up';
+                    
+                    const description = document.createElement('p');
+                    description.className = 'text-yellow-800 mt-1';
+                    description.textContent = 'For best results, complete your brand profile first.';
+                    
+                    const link = document.createElement('a');
+                    link.href = '/onboarding';
+                    link.className = 'inline-block mt-2 text-sm font-medium text-yellow-900 underline hover:text-yellow-700';
+                    link.textContent = 'Set up profile →';
+                    
+                    content.appendChild(title);
+                    content.appendChild(description);
+                    content.appendChild(link);
+                    container.appendChild(icon);
+                    container.appendChild(content);
+                    
+                    statusEl.innerHTML = '';  // Clear previous content
+                    statusEl.appendChild(container);
                     statusEl.classList.remove('hidden');
                 } else if (profile.business_name) {
                     // Profile exists - show success (using textContent for security)

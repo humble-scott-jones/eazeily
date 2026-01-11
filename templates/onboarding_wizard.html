@@ -578,10 +578,13 @@ async function handleFormSubmit(e) {
     try {
         // Submit the form data
         const formData = new FormData(e.target);
+        // Use redirect: 'manual' to handle server redirects in JavaScript
+        // This allows us to show a success message before redirecting to dashboard
+        // Without this, fetch() would follow redirects automatically and we'd lose control
         const response = await fetch('/onboarding', {
             method: 'POST',
             body: formData,
-            redirect: 'manual'  // Don't follow redirects automatically
+            redirect: 'manual'
         });
         
         // Check for successful response or redirect
