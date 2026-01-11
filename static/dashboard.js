@@ -217,9 +217,28 @@ async function ensureAccountFormFields() {
   accountFormReadyPromise = (async () => {
     const cfg = await getDashboardConfig();
     populateAccountIndustryOptions(cfg.industries || []);
-    populateAccountPlatformOptions(cfg.platforms || []);
+    // Flatten platform structure for backward compatibility
+    const flatPlatforms = flattenPlatformConfig(cfg.platforms || []);
+    populateAccountPlatformOptions(flatPlatforms);
   })();
   return accountFormReadyPromise;
+}
+
+function flattenPlatformConfig(platformCategories) {
+  const flattened = [];
+  platformCategories.forEach(category => {
+    if (category.items && Array.isArray(category.items)) {
+      category.items.forEach(item => {
+        flattened.push({
+          key: item.key,
+          label: item.label,
+          category: category.category,
+          categoryLabel: category.categoryLabel
+        });
+      });
+    }
+  });
+  return flattened;
 }
 
 function populateAccountIndustryOptions(list) {
