@@ -410,17 +410,41 @@
                 }
 
                 try {
+                    // Setup timeout and long-running notification
+                    const LONG_RUNNING_THRESHOLD = 5000; // 5 seconds
+                    const TIMEOUT_MS = 45000; // 45 seconds
+                    
+                    let longRunningTimer = null;
+                    let timeoutTimer = null;
+                    let abortController = new AbortController();
+                    
+                    // Show "still working" message after 5 seconds
+                    longRunningTimer = setTimeout(() => {
+                        btnText.textContent = 'Still working...';
+                        showToast('Generation is taking longer than usual. Please wait...', 'info');
+                    }, LONG_RUNNING_THRESHOLD);
+                    
+                    // Setup timeout to prevent indefinite hanging
+                    timeoutTimer = setTimeout(() => {
+                        abortController.abort();
+                    }, TIMEOUT_MS);
+                    
                     const response = await fetch('/api/generate', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
+                            'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ 
-                            topic, 
+                        body: JSON.stringify({
+                            topic,
                             platform,
                             task_type: taskType
-                        })
+                        }),
+                        signal: abortController.signal
                     });
+                    
+                    // Clear timers on successful response
+                    clearTimeout(longRunningTimer);
+                    clearTimeout(timeoutTimer);
 
                     const data = await response.json();
 
@@ -431,7 +455,18 @@
                     } else {
                         const code = data?.error?.code || 'unknown_error';
                         const message = data?.error?.message || data?.error || 'Failed to generate content';
-                        showToast(`Error (${code}): ${message}`, 'error');
+                        
+                        // Provide user-friendly messages for common errors
+                        let userMessage = message;
+                        if (code === 'timeout' || message.toLowerCase().includes('timeout')) {
+                            userMessage = 'Generation timed out. The AI service is taking too long. Please try again with a simpler request.';
+                        } else if (code === 'rate_limit' || message.toLowerCase().includes('rate limit')) {
+                            userMessage = 'API rate limit reached. Please wait a moment and try again.';
+                        } else if (code === 'missing_api_key' || message.toLowerCase().includes('api key')) {
+                            userMessage = 'AI service not configured. Please contact support.';
+                        }
+                        
+                        showToast(userMessage, 'error');
                         if (data && data.redirect) {
                             if (confirm('Would you like to set up your brand profile now?')) {
                                 window.location.href = data.redirect;
@@ -440,9 +475,27 @@
                         }
                     }
                 } catch (error) {
+                    // Clean up timers to prevent memory leaks
+                    clearTimeout(longRunningTimer);
+                    clearTimeout(timeoutTimer);
+                    
                     console.error('Error:', error);
-                    showToast('An unexpected error occurred.', 'error');
+                    
+                    // Provide specific error messages
+                    let errorMessage = 'An unexpected error occurred.';
+                    if (error.name === 'AbortError') {
+                        errorMessage = 'Request timed out after 45 seconds. Please try again with a simpler topic.';
+                    } else if (error.message && error.message.toLowerCase().includes('network')) {
+                        errorMessage = 'Network error. Please check your connection and try again.';
+                    }
+                    
+                    showToast(errorMessage, 'error');
                 } finally {
+                    // Defensive cleanup: ensure timers are cleared even if error handling fails
+                    // clearTimeout() is safe to call multiple times on the same timer
+                    clearTimeout(longRunningTimer);
+                    clearTimeout(timeoutTimer);
+                    
                     // Reset State
                     btn.disabled = false;
                     btnText.textContent = taskConfig[taskType].buttonText;
