@@ -126,11 +126,12 @@
                     </div>
 
                     <!-- Platform selector (only for posts) -->
-                    <div id="platformSection" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div id="platformSection" class="mb-4">
                         <div>
                             <label for="platform" class="block text-sm font-medium text-gray-700 mb-2">Platform</label>
                             <select id="platform" name="platform"
-                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm h-11">
+                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm h-11"
+                                    onchange="updateDynamicInputs()">
 
                 <option value="LinkedIn">LinkedIn</option>
                 <option value="Instagram">Instagram</option>
@@ -138,15 +139,122 @@
                 <option value="Twitter">Twitter</option>
             </select>
         </div>
+                    </div>
+                    
+                    <!-- Dynamic Input Sections - Optional context for better personalization -->
+                    
+                    <!-- Facebook/Ad Options (shown for ads or Facebook posts) -->
+                    <div id="ad-options" class="hidden mb-4 bg-blue-50 p-4 sm:p-5 rounded-xl border border-blue-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">🎯</span>
+                            <h4 class="text-sm font-semibold text-blue-900">Ad Details <span class="text-xs font-normal text-blue-600">(Optional)</span></h4>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="ad-audience" class="block text-sm font-medium text-gray-800 mb-1.5">Who's this for?</label>
+                                <input type="text" id="ad-audience" placeholder="e.g., Parents with young kids, Small business owners"
+                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4">
+                                <p class="text-xs text-gray-600 mt-1">Helps us write copy that speaks to your audience</p>
+                            </div>
+                            <div>
+                                <label for="ad-objective" class="block text-sm font-medium text-gray-800 mb-1.5">What's the goal?</label>
+                                <select id="ad-objective" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="">Choose one...</option>
+                                    <option value="traffic">Get people to click</option>
+                                    <option value="awareness">Build awareness</option>
+                                    <option value="leads">Collect leads</option>
+                                    <option value="conversions">Drive sales</option>
+                                    <option value="engagement">Start conversations</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- LinkedIn Options (shown for LinkedIn) -->
+                    <div id="linkedin-options" class="hidden mb-4 bg-indigo-50 p-4 sm:p-5 rounded-xl border border-indigo-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">💼</span>
+                            <h4 class="text-sm font-semibold text-indigo-900">LinkedIn Style <span class="text-xs font-normal text-indigo-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="linkedin-tone" class="block text-sm font-medium text-gray-800 mb-1.5">What tone works best for you?</label>
+                            <select id="linkedin-tone" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                <option value="">Your usual style...</option>
+                                <option value="thought-leadership">Share expertise & insights</option>
+                                <option value="personal-story">Tell a personal story</option>
+                                <option value="company-update">Company news/update</option>
+                                <option value="hiring">We're hiring</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Email/Newsletter Options (shown for email/newsletter) -->
+                    <div id="email-options" class="hidden mb-4 bg-emerald-50 p-4 sm:p-5 rounded-xl border border-emerald-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">✉️</span>
+                            <h4 class="text-sm font-semibold text-emerald-900">Email Style <span class="text-xs font-normal text-emerald-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="email-cta" class="block text-sm font-medium text-gray-800 mb-1.5">What should readers do?</label>
+                            <input type="text" id="email-cta" placeholder="e.g., Book a call, Download the guide, Reply to this email"
+                                   class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4">
+                            <p class="text-xs text-gray-600 mt-1">The main action you want them to take</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Visual/Instagram Options (shown for Instagram) -->
+                    <div id="visual-options" class="hidden mb-4 bg-purple-50 p-4 sm:p-5 rounded-xl border border-purple-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">📸</span>
+                            <h4 class="text-sm font-semibold text-purple-900">Instagram Vibe <span class="text-xs font-normal text-purple-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="instagram-mood" class="block text-sm font-medium text-gray-800 mb-1.5">What's the mood?</label>
+                            <select id="instagram-mood" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                <option value="">Match your brand vibe...</option>
+                                <option value="inspiring">Inspiring & uplifting</option>
+                                <option value="casual">Casual & fun</option>
+                                <option value="educational">Teach something new</option>
+                                <option value="behind-the-scenes">Behind the scenes</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Video/Script Options (shown for video scripts) -->
+                    <div id="video-options" class="hidden mb-4 bg-pink-50 p-4 sm:p-5 rounded-xl border border-pink-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">🎥</span>
+                            <h4 class="text-sm font-semibold text-pink-900">Video Details <span class="text-xs font-normal text-pink-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="video-length" class="block text-sm font-medium text-gray-800 mb-1.5">How long should it be?</label>
+                            <select id="video-length" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                <option value="">Choose length...</option>
+                                <option value="15">15 seconds (Quick hit)</option>
+                                <option value="30">30 seconds (Standard)</option>
+                                <option value="60">60 seconds (Detailed)</option>
+                                <option value="90">90 seconds (In-depth)</option>
+                            </select>
+                        </div>
+                    </div>
 
-        <button type="submit" id="generateBtn"
-                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            <span id="btnText">Generate Post</span>
-            <svg id="loadingSpinner" class="animate-spin ml-2 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-        </button>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button type="button" id="surpriseMeBtn"
+                    class="flex items-center justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    onclick="handleSurpriseMe()">
+                <span class="text-lg mr-2">✨</span>
+                <span>Surprise Me</span>
+            </button>
+            
+            <button type="submit" id="generateBtn"
+                    class="md:col-span-2 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <span id="btnText">Generate Post</span>
+                <svg id="loadingSpinner" class="animate-spin ml-2 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </div>
     </form>
 
     <div id="resultBox" class="mt-8 hidden">
@@ -246,92 +354,189 @@
         document.getElementById('task-' + taskType).classList.remove('border-gray-300');
         document.getElementById('task-' + taskType).classList.add('border-blue-600', 'bg-blue-50');
         
+        // Update dynamic inputs visibility
+        updateDynamicInputs();
+        
         // Clear result
         document.getElementById('resultBox').classList.add('hidden');
     }
     
-<script>
-    // Task button selection (lightweight, needed for UI updates)
-    let currentTask = 'post';
-    
-    const taskConfig = {
-        'post': {
-            label: 'What is this post about?',
-            placeholder: 'e.g., New summer collection launch',
-            buttonText: 'Generate Post',
-            showPlatform: true
-        },
-        'ad': {
-            label: 'What is this ad promoting?',
-            placeholder: 'e.g., 20% off all pottery classes this month',
-            buttonText: 'Generate Ad',
-            showPlatform: false
-        },
-        'email': {
-            label: 'What is the email about?',
-            placeholder: 'e.g., Following up on our recent conversation about home staging',
-            buttonText: 'Generate Email',
-            showPlatform: false
-        },
-        'review': {
-            label: 'Paste the review here:',
-            placeholder: 'e.g., Great experience! The agent was very helpful and responsive.',
-            buttonText: 'Generate Reply',
-            showPlatform: false
-        },
-        'proposal': {
-            label: 'What service/project is this proposal for?',
-            placeholder: 'e.g., Complete kitchen remodel for 3-bedroom home',
-            buttonText: 'Generate Proposal',
-            showPlatform: false
-        },
-        'newsletter': {
-            label: 'What is the theme of this newsletter?',
-            placeholder: 'e.g., Monthly wellness tips and upcoming class schedule',
-            buttonText: 'Generate Newsletter',
-            showPlatform: false
-        },
-        'blog': {
-            label: 'What is the blog post topic?',
-            placeholder: 'e.g., 5 tips for first-time homebuyers in today\'s market',
-            buttonText: 'Generate Blog',
-            showPlatform: false
-        },
-        'script': {
-            label: 'What is this video about?',
-            placeholder: 'e.g., Studio tour and pottery-making process for Reels',
-            buttonText: 'Generate Script',
-            showPlatform: false
-        },
-        'caption': {
-            label: 'Describe the image:',
-            placeholder: 'e.g., Photo of newly listed Victorian home with sunset lighting',
-            buttonText: 'Generate Caption',
-            showPlatform: false
-        }
+    // Dynamic Input Configuration Map
+    const DYNAMIC_INPUT_CONFIG = {
+        'ad': 'ad-options',
+        'facebook': 'ad-options',
+        'linkedin': 'linkedin-options',
+        'instagram': 'visual-options',
+        'script': 'video-options',
+        'email': 'email-options',
+        'newsletter': 'email-options'
     };
     
-    function selectTask(taskType) {
-        currentTask = taskType;
-        document.getElementById('task_type').value = taskType;
-        
-        // Update UI
-        const config = taskConfig[taskType];
-        document.getElementById('topicLabel').textContent = config.label;
-        document.getElementById('topic').placeholder = config.placeholder;
-        document.getElementById('btnText').textContent = config.buttonText;
-        document.getElementById('platformSection').style.display = config.showPlatform ? 'block' : 'none';
-        
-        // Update task button styles
-        document.querySelectorAll('.task-btn').forEach(btn => {
-            btn.classList.remove('border-blue-600', 'bg-blue-50');
-            btn.classList.add('border-gray-300');
+    /**
+     * Update visibility of dynamic input sections based on current task and platform
+     */
+    function updateDynamicInputs() {
+        // Hide all dynamic sections
+        ['ad-options', 'linkedin-options', 'visual-options', 'video-options', 'email-options'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
         });
-        document.getElementById('task-' + taskType).classList.remove('border-gray-300');
-        document.getElementById('task-' + taskType).classList.add('border-blue-600', 'bg-blue-50');
         
-        // Clear result
-        document.getElementById('resultBox').classList.add('hidden');
+        // Show relevant section based on task type
+        const taskType = document.getElementById('task_type').value;
+        const platform = document.getElementById('platform')?.value?.toLowerCase() || '';
+        
+        // Check task type first
+        if (DYNAMIC_INPUT_CONFIG[taskType]) {
+            const sectionId = DYNAMIC_INPUT_CONFIG[taskType];
+            const el = document.getElementById(sectionId);
+            if (el) el.classList.remove('hidden');
+        }
+        // Then check platform
+        else if (DYNAMIC_INPUT_CONFIG[platform]) {
+            const sectionId = DYNAMIC_INPUT_CONFIG[platform];
+            const el = document.getElementById(sectionId);
+            if (el) el.classList.remove('hidden');
+        }
+    }
+    
+    /**
+     * Collect dynamic input data based on visible sections
+     */
+    function collectDynamicInputs() {
+        const dynamicData = {};
+        
+        // Ad options
+        const adOptions = document.getElementById('ad-options');
+        if (adOptions && !adOptions.classList.contains('hidden')) {
+            const objective = document.getElementById('ad-objective')?.value;
+            const audience = document.getElementById('ad-audience')?.value;
+            if (objective) dynamicData.ad_objective = objective;
+            if (audience) dynamicData.target_audience = audience;
+        }
+        
+        // LinkedIn options
+        const linkedinOptions = document.getElementById('linkedin-options');
+        if (linkedinOptions && !linkedinOptions.classList.contains('hidden')) {
+            const tone = document.getElementById('linkedin-tone')?.value;
+            if (tone) dynamicData.tone_modifier = tone;
+        }
+        
+        // Email options
+        const emailOptions = document.getElementById('email-options');
+        if (emailOptions && !emailOptions.classList.contains('hidden')) {
+            const cta = document.getElementById('email-cta')?.value;
+            if (cta) dynamicData.cta = cta;
+        }
+        
+        // Visual/Instagram options
+        const visualOptions = document.getElementById('visual-options');
+        if (visualOptions && !visualOptions.classList.contains('hidden')) {
+            const mood = document.getElementById('instagram-mood')?.value;
+            if (mood) dynamicData.mood = mood;
+        }
+        
+        // Video options
+        const videoOptions = document.getElementById('video-options');
+        if (videoOptions && !videoOptions.classList.contains('hidden')) {
+            const length = document.getElementById('video-length')?.value;
+            if (length) dynamicData.video_length = length;
+        }
+        
+        return dynamicData;
+    }
+    
+    /**
+     * Surprise Me - randomly populate inputs based on task type
+     */
+    function handleSurpriseMe() {
+        const taskType = document.getElementById('task_type').value;
+        
+        // Topic suggestions by task type
+        const topicSuggestions = {
+            'post': [
+                'A behind-the-scenes look at our creative process',
+                'Customer success story that showcases our impact',
+                'Industry trend analysis and what it means for our audience',
+                'Quick tips for solving a common problem',
+                'Motivational message about overcoming challenges'
+            ],
+            'ad': [
+                'Limited time offer: 20% off this weekend only',
+                'Solve your biggest challenge with our proven solution',
+                'Join thousands who transformed their business',
+                'Free consultation - discover what\'s possible',
+                'New product launch - be the first to try it'
+            ],
+            'email': [
+                'Exclusive insight: What successful clients do differently',
+                'Following up on our conversation - next steps',
+                'Monthly roundup of tips and resources',
+                'Personal invitation to our upcoming event',
+                'Quick check-in: How can we help you succeed?'
+            ],
+            'script': [
+                'Day in the life of running our business',
+                '3 mistakes people make and how to avoid them',
+                'Before and after transformation story',
+                'Quick tutorial: Our signature technique',
+                'Behind the scenes: How we create our product'
+            ],
+            'review': [
+                'Thank you so much for your kind words! We love working with clients like you.',
+                'We appreciate your feedback and are glad we could help.',
+                'Thank you for taking the time to share your experience!'
+            ],
+            'blog': [
+                'Complete beginner\'s guide to getting started',
+                'Top 10 mistakes to avoid in 2024',
+                'Case study: How we achieved amazing results',
+                'Industry trends you need to know about',
+                'Expert interview: Insights from a leader'
+            ],
+            'newsletter': [
+                'Monthly highlights and what\'s coming next',
+                'Exclusive tips and resources for subscribers',
+                'Community spotlight and member achievements',
+                'Seasonal guide and special announcements',
+                'Behind-the-scenes update and insider news'
+            ],
+            'proposal': [
+                'Complete branding package for small businesses',
+                'Website redesign and SEO optimization',
+                'Social media management - 3-month package',
+                'Consulting services for business growth',
+                'Custom solution tailored to your needs'
+            ],
+            'caption': [
+                'Smiling team photo in front of our office',
+                'Product showcase with beautiful natural lighting',
+                'Happy customer holding our product',
+                'Workspace setup that inspires creativity',
+                'Event photos from our recent gathering'
+            ]
+        };
+        
+        const suggestions = topicSuggestions[taskType] || topicSuggestions['post'];
+        const randomTopic = suggestions[Math.floor(Math.random() * suggestions.length)];
+        
+        // Set the topic
+        document.getElementById('topic').value = randomTopic;
+        
+        // Randomly set platform if applicable
+        if (taskConfig[taskType].showPlatform) {
+            const platforms = ['LinkedIn', 'Instagram', 'Facebook', 'Twitter'];
+            const randomPlatform = platforms[Math.floor(Math.random() * platforms.length)];
+            document.getElementById('platform').value = randomPlatform;
+            updateDynamicInputs();
+        }
+        
+        // Show feedback
+        showToast('✨ Surprise! Try this topic or edit it to your liking.', 'info', 2000);
+        
+        // Auto-focus on topic field so user can easily edit
+        document.getElementById('topic').focus();
+        document.getElementById('topic').select();
     }
     
     // Toast notification system
@@ -429,6 +634,9 @@
                         abortController.abort();
                     }, TIMEOUT_MS);
                     
+                    // Collect dynamic inputs
+                    const dynamicInputs = collectDynamicInputs();
+                    
                     const response = await fetch('/api/generate', {
                         method: 'POST',
                         headers: {
@@ -437,7 +645,8 @@
                         body: JSON.stringify({
                             topic,
                             platform,
-                            task_type: taskType
+                            task_type: taskType,
+                            ...dynamicInputs
                         }),
                         signal: abortController.signal
                     });
