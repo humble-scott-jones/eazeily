@@ -600,6 +600,7 @@ async function handleFormSubmit(e) {
         } else {
             // Server error - extract error message
             const text = await response.text();
+            const networkErrorMsg = 'Network error. Please check your connection and try again.';
             let errorMessage = 'Failed to save profile. Please try again.';
             
             // Try to extract flash message from response
@@ -611,28 +612,30 @@ async function handleFormSubmit(e) {
             }
             
             // Show error
-            errors.push(errorMessage);
             const li = document.createElement('li');
             li.textContent = errorMessage;
             errorsList.appendChild(li);
             errorBanner.classList.remove('hidden');
             errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    } catch (error) {
-        console.error('Error submitting form:', error);
-        errors.push('Network error. Please check your connection and try again.');
-        const li = document.createElement('li');
-        li.textContent = 'Network error. Please check your connection and try again.';
-        errorsList.appendChild(li);
-        errorBanner.classList.remove('hidden');
-        errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } finally {
-        // Reset button state if there was an error
-        if (errors.length > 0) {
+            
+            // Reset button state
             submitBtn.disabled = false;
             submitBtnText.textContent = 'Save & Continue to Dashboard';
             submitLoading.classList.add('hidden');
         }
+    } catch (error) {
+        console.error('Error submitting form:', error);
+        const networkErrorMsg = 'Network error. Please check your connection and try again.';
+        const li = document.createElement('li');
+        li.textContent = networkErrorMsg;
+        errorsList.appendChild(li);
+        errorBanner.classList.remove('hidden');
+        errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Reset button state
+        submitBtn.disabled = false;
+        submitBtnText.textContent = 'Save & Continue to Dashboard';
+        submitLoading.classList.add('hidden');
     }
     
     return false;
@@ -641,10 +644,17 @@ async function handleFormSubmit(e) {
 function showSuccessToast(message) {
     const toast = document.createElement('div');
     toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg z-50 flex items-center space-x-2 animate-fade-in';
-    toast.innerHTML = `
-        <span class="text-xl">✓</span>
-        <span class="font-medium">${message}</span>
-    `;
+    
+    const icon = document.createElement('span');
+    icon.className = 'text-xl';
+    icon.textContent = '✓';
+    
+    const text = document.createElement('span');
+    text.className = 'font-medium';
+    text.textContent = message;  // Use textContent for security
+    
+    toast.appendChild(icon);
+    toast.appendChild(text);
     document.body.appendChild(toast);
     
     setTimeout(() => {

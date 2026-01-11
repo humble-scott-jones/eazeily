@@ -116,7 +116,7 @@ def onboarding():
                 db.session.rollback()
                 logger.error(f"Database error saving brand profile for user {current_user.id}: {db_error}", exc_info=True)
                 from flask import flash
-                flash(f"Database error: Unable to save profile. Please try reducing the length of your writing samples or contact support.", "error")
+                flash(f"Unable to save profile. Please try again or contact support if the problem persists.", "error")
                 return render_template('onboarding_wizard.html',
                     business_name=business_name,
                     industry=industry,

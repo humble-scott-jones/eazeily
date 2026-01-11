@@ -609,15 +609,31 @@
                     `;
                     statusEl.classList.remove('hidden');
                 } else if (profile.business_name) {
-                    // Profile exists - show success
+                    // Profile exists - show success (using textContent for security)
                     statusEl.className = 'mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm';
-                    statusEl.innerHTML = `
-                        <div class="flex items-center space-x-2">
-                            <span class="text-lg">✓</span>
-                            <span class="text-green-900">Profile loaded: <strong>${profile.business_name}</strong> • ${profile.industry || 'General'}</span>
-                            <a href="/onboarding" class="ml-auto text-sm text-green-700 hover:text-green-900 underline">Edit profile</a>
-                        </div>
-                    `;
+                    
+                    const container = document.createElement('div');
+                    container.className = 'flex items-center space-x-2';
+                    
+                    const icon = document.createElement('span');
+                    icon.className = 'text-lg';
+                    icon.textContent = '✓';
+                    
+                    const text = document.createElement('span');
+                    text.className = 'text-green-900';
+                    text.textContent = `Profile loaded: ${profile.business_name} • ${profile.industry || 'General'}`;
+                    
+                    const link = document.createElement('a');
+                    link.href = '/onboarding';
+                    link.className = 'ml-auto text-sm text-green-700 hover:text-green-900 underline';
+                    link.textContent = 'Edit profile';
+                    
+                    container.appendChild(icon);
+                    container.appendChild(text);
+                    container.appendChild(link);
+                    
+                    statusEl.innerHTML = '';  // Clear previous content
+                    statusEl.appendChild(container);
                     statusEl.classList.remove('hidden');
                     
                     // Auto-hide success banner after 5 seconds
