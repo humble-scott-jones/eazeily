@@ -464,7 +464,7 @@
     /**
      * Surprise Me - randomly populate inputs based on task type
      */
-    function handleSurpriseMe() {
+    async function handleSurpriseMe() {
         const taskType = document.getElementById('task_type').value;
         
         // Topic suggestions by task type
@@ -540,10 +540,17 @@
         
         // Randomly set platform if applicable
         if (taskConfig[taskType].showPlatform) {
-            const platforms = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok', 'short_video'];
-            const randomPlatform = platforms[Math.floor(Math.random() * platforms.length)];
-            document.getElementById('platform').value = randomPlatform;
-            updateDynamicInputs();
+            // Get platforms from dropdown options (respects config.json)
+            const platformSelect = document.getElementById('platform');
+            const options = Array.from(platformSelect.options)
+                .filter(opt => opt.value && opt.value.trim())
+                .map(opt => opt.value);
+            
+            if (options.length > 0) {
+                const randomPlatform = options[Math.floor(Math.random() * options.length)];
+                platformSelect.value = randomPlatform;
+                updateDynamicInputs();
+            }
         }
         
         // Show feedback

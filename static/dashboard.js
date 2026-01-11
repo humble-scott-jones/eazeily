@@ -226,17 +226,31 @@ async function ensureAccountFormFields() {
 
 function flattenPlatformConfig(platformCategories) {
   const flattened = [];
+  if (!Array.isArray(platformCategories)) {
+    console.warn('[Eazeily] flattenPlatformConfig: expected array, got:', typeof platformCategories);
+    return flattened;
+  }
   platformCategories.forEach(category => {
-    if (category.items && Array.isArray(category.items)) {
-      category.items.forEach(item => {
-        flattened.push({
-          key: item.key,
-          label: item.label,
-          category: category.category,
-          categoryLabel: category.categoryLabel
-        });
-      });
+    if (!category || typeof category !== 'object') {
+      console.warn('[Eazeily] flattenPlatformConfig: invalid category:', category);
+      return;
     }
+    if (!Array.isArray(category.items)) {
+      console.warn('[Eazeily] flattenPlatformConfig: category.items is not an array:', category);
+      return;
+    }
+    category.items.forEach(item => {
+      if (!item || !item.key || !item.label) {
+        console.warn('[Eazeily] flattenPlatformConfig: invalid item (missing key or label):', item);
+        return;
+      }
+      flattened.push({
+        key: item.key,
+        label: item.label,
+        category: category.category || 'unknown',
+        categoryLabel: category.categoryLabel || 'Unknown'
+      });
+    });
   });
   return flattened;
 }
