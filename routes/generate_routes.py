@@ -98,11 +98,11 @@ def _handle_generate(task_type, data):
     # Extract dynamic input context
     context = {}
     dynamic_fields = [
-        'ad_objective', 'ad_format', 'target_audience',
-        'linkedin_type', 'tone_modifier',
-        'subject_style', 'cta',
-        'instagram_format', 'mood',
-        'video_length', 'hook_style'
+        'ad_objective', 'target_audience',
+        'tone_modifier',
+        'cta',
+        'mood',
+        'video_length'
     ]
     for field in dynamic_fields:
         value = data.get(field)

@@ -140,140 +140,100 @@
             </select>
         </div>
                     
-                    <!-- Dynamic Input Sections -->
+                    <!-- Dynamic Input Sections - Optional context for better personalization -->
                     
                     <!-- Facebook/Ad Options (shown for ads or Facebook posts) -->
-                    <div id="ad-options" class="hidden col-span-full mt-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                        <h4 class="text-sm font-semibold text-blue-900 mb-3">Ad Options</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div id="ad-options" class="hidden col-span-full mt-4 bg-blue-50 p-4 sm:p-5 rounded-xl border border-blue-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">🎯</span>
+                            <h4 class="text-sm font-semibold text-blue-900">Ad Details <span class="text-xs font-normal text-blue-600">(Optional)</span></h4>
+                        </div>
+                        <div class="space-y-3">
                             <div>
-                                <label for="ad-objective" class="block text-xs font-medium text-gray-700 mb-1">Campaign Objective</label>
-                                <select id="ad-objective" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select objective...</option>
-                                    <option value="traffic">Drive Traffic</option>
-                                    <option value="awareness">Brand Awareness</option>
-                                    <option value="leads">Generate Leads</option>
-                                    <option value="conversions">Conversions</option>
-                                    <option value="engagement">Engagement</option>
-                                </select>
+                                <label for="ad-audience" class="block text-sm font-medium text-gray-800 mb-1.5">Who's this for?</label>
+                                <input type="text" id="ad-audience" placeholder="e.g., Parents with young kids, Small business owners"
+                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4">
+                                <p class="text-xs text-gray-600 mt-1">Helps us write copy that speaks to your audience</p>
                             </div>
                             <div>
-                                <label for="ad-format" class="block text-xs font-medium text-gray-700 mb-1">Ad Format</label>
-                                <select id="ad-format" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select format...</option>
-                                    <option value="single-image">Single Image</option>
-                                    <option value="carousel">Carousel</option>
-                                    <option value="video">Video</option>
-                                    <option value="collection">Collection</option>
+                                <label for="ad-objective" class="block text-sm font-medium text-gray-800 mb-1.5">What's the goal?</label>
+                                <select id="ad-objective" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="">Choose one...</option>
+                                    <option value="traffic">Get people to click</option>
+                                    <option value="awareness">Build awareness</option>
+                                    <option value="leads">Collect leads</option>
+                                    <option value="conversions">Drive sales</option>
+                                    <option value="engagement">Start conversations</option>
                                 </select>
-                            </div>
-                            <div>
-                                <label for="ad-audience" class="block text-xs font-medium text-gray-700 mb-1">Target Audience</label>
-                                <input type="text" id="ad-audience" placeholder="e.g., Moms in Seattle, CTOs at startups"
-                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9 px-3">
                             </div>
                         </div>
                     </div>
                     
                     <!-- LinkedIn Options (shown for LinkedIn) -->
-                    <div id="linkedin-options" class="hidden col-span-full mt-4 bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                        <h4 class="text-sm font-semibold text-indigo-900 mb-3">LinkedIn Options</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="linkedin-type" class="block text-xs font-medium text-gray-700 mb-1">Content Type</label>
-                                <select id="linkedin-type" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select type...</option>
-                                    <option value="standard">Standard Post</option>
-                                    <option value="article">Article/Newsletter</option>
-                                    <option value="poll">Poll</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="linkedin-tone" class="block text-xs font-medium text-gray-700 mb-1">Tone Modifier</label>
-                                <select id="linkedin-tone" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select tone...</option>
-                                    <option value="thought-leadership">Thought Leadership</option>
-                                    <option value="hiring">Hiring Announcement</option>
-                                    <option value="company-update">Company Update</option>
-                                    <option value="personal-story">Personal Story</option>
-                                </select>
-                            </div>
+                    <div id="linkedin-options" class="hidden col-span-full mt-4 bg-indigo-50 p-4 sm:p-5 rounded-xl border border-indigo-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">💼</span>
+                            <h4 class="text-sm font-semibold text-indigo-900">LinkedIn Style <span class="text-xs font-normal text-indigo-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="linkedin-tone" class="block text-sm font-medium text-gray-800 mb-1.5">What tone works best for you?</label>
+                            <select id="linkedin-tone" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                <option value="">Your usual style...</option>
+                                <option value="thought-leadership">Share expertise & insights</option>
+                                <option value="personal-story">Tell a personal story</option>
+                                <option value="company-update">Company news/update</option>
+                                <option value="hiring">We're hiring</option>
+                            </select>
                         </div>
                     </div>
                     
                     <!-- Email/Newsletter Options (shown for email/newsletter) -->
-                    <div id="email-options" class="hidden col-span-full mt-4 bg-emerald-50 p-4 rounded-lg border border-emerald-100">
-                        <h4 class="text-sm font-semibold text-emerald-900 mb-3">Email Options</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="email-subject-style" class="block text-xs font-medium text-gray-700 mb-1">Subject Line Style</label>
-                                <select id="email-subject-style" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select style...</option>
-                                    <option value="curiosity">Curiosity Gap</option>
-                                    <option value="direct">Direct & Clear</option>
-                                    <option value="urgency">Urgency-Based</option>
-                                    <option value="personalized">Personalized</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="email-cta" class="block text-xs font-medium text-gray-700 mb-1">Call-to-Action</label>
-                                <input type="text" id="email-cta" placeholder="e.g., Book a call, Download guide"
-                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9 px-3">
-                            </div>
+                    <div id="email-options" class="hidden col-span-full mt-4 bg-emerald-50 p-4 sm:p-5 rounded-xl border border-emerald-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">✉️</span>
+                            <h4 class="text-sm font-semibold text-emerald-900">Email Style <span class="text-xs font-normal text-emerald-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="email-cta" class="block text-sm font-medium text-gray-800 mb-1.5">What should readers do?</label>
+                            <input type="text" id="email-cta" placeholder="e.g., Book a call, Download the guide, Reply to this email"
+                                   class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4">
+                            <p class="text-xs text-gray-600 mt-1">The main action you want them to take</p>
                         </div>
                     </div>
                     
                     <!-- Visual/Instagram Options (shown for Instagram) -->
-                    <div id="visual-options" class="hidden col-span-full mt-4 bg-purple-50 p-4 rounded-lg border border-purple-100">
-                        <h4 class="text-sm font-semibold text-purple-900 mb-3">Instagram Options</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="instagram-format" class="block text-xs font-medium text-gray-700 mb-1">Format</label>
-                                <select id="instagram-format" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select format...</option>
-                                    <option value="feed">Feed Post</option>
-                                    <option value="carousel">Carousel</option>
-                                    <option value="reel">Reel</option>
-                                    <option value="story">Story</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="instagram-mood" class="block text-xs font-medium text-gray-700 mb-1">Mood/Vibe</label>
-                                <select id="instagram-mood" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select mood...</option>
-                                    <option value="inspiring">Inspiring</option>
-                                    <option value="casual">Casual & Fun</option>
-                                    <option value="educational">Educational</option>
-                                    <option value="behind-the-scenes">Behind-the-Scenes</option>
-                                </select>
-                            </div>
+                    <div id="visual-options" class="hidden col-span-full mt-4 bg-purple-50 p-4 sm:p-5 rounded-xl border border-purple-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">📸</span>
+                            <h4 class="text-sm font-semibold text-purple-900">Instagram Vibe <span class="text-xs font-normal text-purple-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="instagram-mood" class="block text-sm font-medium text-gray-800 mb-1.5">What's the mood?</label>
+                            <select id="instagram-mood" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                <option value="">Match your brand vibe...</option>
+                                <option value="inspiring">Inspiring & uplifting</option>
+                                <option value="casual">Casual & fun</option>
+                                <option value="educational">Teach something new</option>
+                                <option value="behind-the-scenes">Behind the scenes</option>
+                            </select>
                         </div>
                     </div>
                     
                     <!-- Video/Script Options (shown for video scripts) -->
-                    <div id="video-options" class="hidden col-span-full mt-4 bg-pink-50 p-4 rounded-lg border border-pink-100">
-                        <h4 class="text-sm font-semibold text-pink-900 mb-3">Video Script Options</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label for="video-length" class="block text-xs font-medium text-gray-700 mb-1">Target Length</label>
-                                <select id="video-length" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select length...</option>
-                                    <option value="15">15 seconds</option>
-                                    <option value="30">30 seconds</option>
-                                    <option value="60">60 seconds</option>
-                                    <option value="90">90 seconds</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="video-hook" class="block text-xs font-medium text-gray-700 mb-1">Hook Style</label>
-                                <select id="video-hook" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
-                                    <option value="">Select hook...</option>
-                                    <option value="question">Start with Question</option>
-                                    <option value="bold-statement">Bold Statement</option>
-                                    <option value="story">Story Opening</option>
-                                    <option value="pattern-interrupt">Pattern Interrupt</option>
-                                </select>
-                            </div>
+                    <div id="video-options" class="hidden col-span-full mt-4 bg-pink-50 p-4 sm:p-5 rounded-xl border border-pink-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">🎥</span>
+                            <h4 class="text-sm font-semibold text-pink-900">Video Details <span class="text-xs font-normal text-pink-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="video-length" class="block text-sm font-medium text-gray-800 mb-1.5">How long should it be?</label>
+                            <select id="video-length" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                <option value="">Choose length...</option>
+                                <option value="15">15 seconds (Quick hit)</option>
+                                <option value="30">30 seconds (Standard)</option>
+                                <option value="60">60 seconds (Detailed)</option>
+                                <option value="90">90 seconds (In-depth)</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -450,37 +410,29 @@
         const adOptions = document.getElementById('ad-options');
         if (adOptions && !adOptions.classList.contains('hidden')) {
             const objective = document.getElementById('ad-objective')?.value;
-            const format = document.getElementById('ad-format')?.value;
             const audience = document.getElementById('ad-audience')?.value;
             if (objective) dynamicData.ad_objective = objective;
-            if (format) dynamicData.ad_format = format;
             if (audience) dynamicData.target_audience = audience;
         }
         
         // LinkedIn options
         const linkedinOptions = document.getElementById('linkedin-options');
         if (linkedinOptions && !linkedinOptions.classList.contains('hidden')) {
-            const type = document.getElementById('linkedin-type')?.value;
             const tone = document.getElementById('linkedin-tone')?.value;
-            if (type) dynamicData.linkedin_type = type;
             if (tone) dynamicData.tone_modifier = tone;
         }
         
         // Email options
         const emailOptions = document.getElementById('email-options');
         if (emailOptions && !emailOptions.classList.contains('hidden')) {
-            const subjectStyle = document.getElementById('email-subject-style')?.value;
             const cta = document.getElementById('email-cta')?.value;
-            if (subjectStyle) dynamicData.subject_style = subjectStyle;
             if (cta) dynamicData.cta = cta;
         }
         
         // Visual/Instagram options
         const visualOptions = document.getElementById('visual-options');
         if (visualOptions && !visualOptions.classList.contains('hidden')) {
-            const format = document.getElementById('instagram-format')?.value;
             const mood = document.getElementById('instagram-mood')?.value;
-            if (format) dynamicData.instagram_format = format;
             if (mood) dynamicData.mood = mood;
         }
         
@@ -488,9 +440,7 @@
         const videoOptions = document.getElementById('video-options');
         if (videoOptions && !videoOptions.classList.contains('hidden')) {
             const length = document.getElementById('video-length')?.value;
-            const hook = document.getElementById('video-hook')?.value;
             if (length) dynamicData.video_length = length;
-            if (hook) dynamicData.hook_style = hook;
         }
         
         return dynamicData;
