@@ -3,6 +3,10 @@
 ## Overview
 This document describes the complete user journey from profile setup through content generation in Eazeily. It includes the technical flow, current pain points, and a QA checklist for validation.
 
+**✅ MAJOR UPDATE (2026-01-11)**: Added standalone editable profile page at `/profile` to address missing profile editing functionality. Users can now view and edit their brand profile after initial onboarding.
+
+**📖 Related Documentation**: See [PROFILE_TO_GENERATION_FLOW.md](PROFILE_TO_GENERATION_FLOW.md) for detailed technical data flow from profile → AI generation.
+
 ## Primary User Flow
 
 ### 1. Profile Completion
@@ -25,20 +29,50 @@ This document describes the complete user journey from profile setup through con
    - Voice rules (optional)
    - Writing samples (required)
 4. User submits form via POST to `/onboarding`
-5. **Database Save**: Profile data saved to `profiles` table
-   - Fields: user_id, business_name, industry, target_audience, brand_voice, key_offer, voice_rules, writing_samples, website_url, created_at, updated_at
-   - Backend: `app.py` route handler processes form data
+5. **Database Save**: Profile data saved to `voice_profile` table
+   - Fields: user_id, business_name, industry, target_audience, brand_voice, key_offer, voice_rules, writing_samples, platforms, brand_keywords, goals, timezone, etc.
+   - Backend: `routes/onboarding_routes.py` route handler processes form data
    - Validation ensures required fields are present
+6. **Success**: User redirected to `/dashboard` with success message
 
-**Current Pain Points**:
-- ❌ **Brand Profile Save Failing**: Some users report profile data not persisting to database
-  - Possible cause: Form validation errors not surfaced to user
-  - Possible cause: Database connection timeouts
-  - Possible cause: Large writing samples exceeding field limits
-- ⚠️ Form doesn't show clear success confirmation after save
-- ⚠️ Website scraper timeout can leave user hanging without feedback
+**Current Status**:
+- ✅ **Profile Save Fixed**: API endpoint works correctly (verified with tests)
+- ✅ **Clear Feedback**: Success toast and redirect after save
+- ⚠️ Website scraper timeout can leave user hanging without feedback (existing issue)
 
-### 2. Dashboard Access
+### 2. Profile Editing (NEW ✅)
+**Entry Point**: Authenticated user navigates to `/profile` from sidebar or dashboard
+
+**Steps**:
+1. User clicks "Edit Profile" in sidebar navigation
+2. Profile page loads at `/profile`
+3. System fetches existing profile via GET `/api/profile`
+4. Form fields pre-populated with current values:
+   - Basic info: company, industry, timezone
+   - Brand voice: tone, target_audience, key_offer, voice_rules
+   - Platforms: checkboxes for social platforms
+   - Keywords & goals: brand_keywords, goals (comma-separated)
+   - Writing samples: text area with examples
+5. User edits any fields
+6. User clicks "Save Profile" button
+7. System validates required fields (company, industry, tone)
+8. POST `/api/profile` with updated data
+9. **Success**: Green success message, profile persisted to DB
+10. User can return to dashboard or continue editing
+
+**Features**:
+- ✅ Loading state while fetching profile
+- ✅ Error handling with clear messaging
+- ✅ Validation for required fields
+- ✅ Success feedback with toast notification
+- ✅ Back button to dashboard
+- ✅ All profile fields editable
+
+**Navigation**:
+- From sidebar: Click "Edit Profile" under "Brand Setup"
+- From dashboard: (Can add profile link in dashboard header if needed)
+
+### 3. Dashboard Access
 **Entry Point**: User navigates to `/dashboard` after profile save
 
 **Steps**:

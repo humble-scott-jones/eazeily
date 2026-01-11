@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
 from models import db, VoiceProfile
 import logging
@@ -6,6 +6,13 @@ import uuid
 
 profile_bp = Blueprint('profile', __name__)
 logger = logging.getLogger(__name__)
+
+
+@profile_bp.route('/profile')
+@login_required
+def profile_page():
+    """Render the standalone editable profile page."""
+    return render_template('profile.html')
 
 
 def _coerce_str_list(val):
