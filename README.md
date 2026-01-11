@@ -1,4 +1,9 @@
 # Togetherly (dev)
+
+## 📖 Documentation
+
+- **[User Journey Documentation](USER_JOURNEY.md)** — Complete end-to-end user flow from profile setup to content generation, including pain points and QA checklist
+
 Run dev server:
 ```bash
 source .venv/bin/activate
