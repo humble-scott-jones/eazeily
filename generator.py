@@ -21,6 +21,13 @@ PLATFORM_HINTS = {
     "linkedin": "Value-forward, concise, 1–2 actionable insights, 3–6 hashtags.",
     "tiktok": "Hook in first sentence, keep lines punchy, suggest a shot list.",
     "twitter": "Short & punchy. 1–2 tweets per post; avoid walls of text.",
+    "short_video": "Hook in first second, keep visual focus, include shot suggestions.",
+    "facebook_ads": "Clear CTA, benefit-focused, compelling headline under 125 chars.",
+    "instagram_ads": "Visual-first, strong hook, clear value prop, CTA button friendly.",
+    "linkedin_ads": "Professional tone, value proposition first, B2B focused messaging.",
+    "twitter_ads": "Concise benefit statement, clear CTA, attention-grabbing first line.",
+    "tiktok_ads": "Native feel, authentic voice, entertainment-first with soft sell.",
+    "reviews": "Acknowledge sentiment, provide value, maintain brand voice."
 }
 
 USE_OPENAI_FOR_POSTS = bool(os.getenv('OPENAI_API_KEY') or os.getenv('USE_OPENAI_FOR_POSTS'))

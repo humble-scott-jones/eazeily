@@ -431,9 +431,22 @@ function normalizePlatformKey(value) {
 }
 
 function getGeneratorPlatformButtons() {
-  const wrap = document.getElementById('generator-platforms');
-  if (!wrap) return [];
-  return Array.from(wrap.querySelectorAll('[data-generator-platform]'));
+  // Get buttons from all platform category groups
+  const selectors = [
+    '#generator-platforms-social [data-generator-platform]',
+    '#generator-platforms-ads [data-generator-platform]',
+    '#generator-platforms-reputation [data-generator-platform]',
+    // Fallback for legacy single group
+    '#generator-platforms [data-generator-platform]'
+  ];
+  const buttons = [];
+  selectors.forEach(selector => {
+    const found = document.querySelectorAll(selector);
+    if (found.length) {
+      buttons.push(...Array.from(found));
+    }
+  });
+  return buttons;
 }
 
 function getGeneratorPlatformSelections() {
@@ -3013,8 +3026,14 @@ function escapeAttr(text) {
 }
 
 const PLATFORM_LABEL_OVERRIDES = {
-  twitter: 'X / Twitter',
-  short_video: 'Reels / Shorts'
+  twitter: 'X (Twitter)',
+  short_video: 'Reels / Shorts',
+  facebook_ads: 'Facebook Ads',
+  instagram_ads: 'Instagram Ads',
+  linkedin_ads: 'LinkedIn Ads',
+  twitter_ads: 'X Ads',
+  tiktok_ads: 'TikTok Ads',
+  reviews: 'Review responses'
 };
 const PLATFORM_CHARACTER_LIMITS = {
   twitter: 280,
@@ -3022,7 +3041,13 @@ const PLATFORM_CHARACTER_LIMITS = {
   facebook: 63206,
   linkedin: 3000,
   tiktok: 2200,
-  short_video: 2200
+  short_video: 2200,
+  facebook_ads: 125,
+  instagram_ads: 2200,
+  linkedin_ads: 150,
+  twitter_ads: 280,
+  tiktok_ads: 100,
+  reviews: 1000
 };
 
 function getCachedIndustries(){

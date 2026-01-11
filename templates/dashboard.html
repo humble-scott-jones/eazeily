@@ -234,14 +234,34 @@
             <div class="planner-body space-y-3">
               <div id="platform-preset-buttons" class="chip-group hidden" aria-label="Saved platforms"></div>
               <p id="platform-preset-empty" class="planner-hint">Save preferred platforms in the wizard to unlock quick toggles here.</p>
-              <p class="text-xs uppercase tracking-wide text-slate-500">Select every channel for this plan</p>
-              <div id="generator-platforms" class="generator-platforms" role="group" aria-label="Select platforms">
-                <button type="button" class="chip chip--active" data-generator-platform="instagram" aria-pressed="true">Instagram</button>
-                <button type="button" class="chip" data-generator-platform="facebook" aria-pressed="false">Facebook</button>
-                <button type="button" class="chip" data-generator-platform="linkedin" aria-pressed="false">LinkedIn</button>
-                <button type="button" class="chip" data-generator-platform="twitter" aria-pressed="false">X / Twitter</button>
-                <button type="button" class="chip" data-generator-platform="short_video" aria-pressed="false">Reels / Shorts</button>
-                <button type="button" class="chip" data-generator-platform="tiktok" aria-pressed="false">TikTok</button>
+              <div class="space-y-4">
+                <div>
+                  <p class="text-xs uppercase tracking-wide text-slate-500 mb-2">Social (organic)</p>
+                  <div id="generator-platforms-social" class="generator-platforms" role="group" aria-label="Select organic social platforms">
+                    <button type="button" class="chip chip--active" data-generator-platform="instagram" aria-pressed="true">Instagram</button>
+                    <button type="button" class="chip" data-generator-platform="facebook" aria-pressed="false">Facebook</button>
+                    <button type="button" class="chip" data-generator-platform="linkedin" aria-pressed="false">LinkedIn</button>
+                    <button type="button" class="chip" data-generator-platform="twitter" aria-pressed="false">X (Twitter)</button>
+                    <button type="button" class="chip" data-generator-platform="tiktok" aria-pressed="false">TikTok</button>
+                    <button type="button" class="chip" data-generator-platform="short_video" aria-pressed="false">Reels / Shorts</button>
+                  </div>
+                </div>
+                <div>
+                  <p class="text-xs uppercase tracking-wide text-slate-500 mb-2">Social Ads</p>
+                  <div id="generator-platforms-ads" class="generator-platforms" role="group" aria-label="Select paid social advertising platforms">
+                    <button type="button" class="chip" data-generator-platform="facebook_ads" aria-pressed="false">Facebook Ads</button>
+                    <button type="button" class="chip" data-generator-platform="instagram_ads" aria-pressed="false">Instagram Ads</button>
+                    <button type="button" class="chip" data-generator-platform="linkedin_ads" aria-pressed="false">LinkedIn Ads</button>
+                    <button type="button" class="chip" data-generator-platform="twitter_ads" aria-pressed="false">X Ads</button>
+                    <button type="button" class="chip" data-generator-platform="tiktok_ads" aria-pressed="false">TikTok Ads</button>
+                  </div>
+                </div>
+                <div>
+                  <p class="text-xs uppercase tracking-wide text-slate-500 mb-2">Reputation</p>
+                  <div id="generator-platforms-reputation" class="generator-platforms" role="group" aria-label="Select reputation management platforms">
+                    <button type="button" class="chip" data-generator-platform="reviews" aria-pressed="false">Review responses</button>
+                  </div>
+                </div>
               </div>
               <p id="platform-prefs-note" class="planner-hint hidden"></p>
             </div>
