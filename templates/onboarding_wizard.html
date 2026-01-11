@@ -203,14 +203,26 @@
                     </div>
                 </div>
 
+                <!-- Validation Error Banner -->
+                <div id="validation-error" class="hidden mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-lg">
+                    <div class="flex items-start space-x-2">
+                        <span class="text-xl">⚠️</span>
+                        <div>
+                            <h4 class="font-semibold text-red-900 mb-1">Please fix the following:</h4>
+                            <ul id="validation-errors-list" class="text-sm text-red-800 list-disc ml-5"></ul>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-8 flex justify-between">
                     <button type="button" onclick="prevStep()" class="px-6 py-3 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-colors">
                         ← Back
                     </button>
                     <button type="submit" id="submitBtn"
-                            class="px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center">
-                        <span>Save & Continue to Dashboard</span>
+                            class="px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                        <span id="submitBtnText">Save & Continue to Dashboard</span>
                         <span class="ml-2">✓</span>
+                        <span id="submitLoading" class="hidden ml-2 animate-spin">⏳</span>
                     </button>
                 </div>
             </div>
@@ -504,6 +516,140 @@ async function fetchAndPrefillData() {
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     showStep(1);
+    
+    // Add form submit handler with validation
+    const form = document.getElementById('onboardingForm');
+    form.addEventListener('submit', handleFormSubmit);
 });
+
+async function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    // Clear previous errors
+    const errorBanner = document.getElementById('validation-error');
+    const errorsList = document.getElementById('validation-errors-list');
+    errorBanner.classList.add('hidden');
+    errorsList.innerHTML = '';
+    
+    // Validate required fields
+    const errors = [];
+    const businessName = document.getElementById('business_name').value.trim();
+    const industry = document.getElementById('industry').value;
+    const audience = document.getElementById('audience').value.trim();
+    const voice = document.getElementById('voice').value.trim();
+    const offer = document.getElementById('offer').value.trim();
+    const samples = document.getElementById('samples').value.trim();
+    
+    if (!businessName) errors.push('Business Name is required');
+    if (!industry) errors.push('Industry is required');
+    if (!audience) errors.push('Target Audience is required');
+    if (!voice) errors.push('Brand Voice is required');
+    if (!offer) errors.push('Key Offer / Hook is required');
+    if (!samples) errors.push('Writing Samples are required');
+    
+    // Check field lengths
+    if (businessName.length > 255) errors.push('Business Name must be under 255 characters');
+    if (voice.length > 255) errors.push('Brand Voice must be under 255 characters');
+    if (audience.length > 2000) errors.push('Target Audience must be under 2000 characters');
+    if (offer.length > 2000) errors.push('Key Offer must be under 2000 characters');
+    if (samples.length > 10000) errors.push('Writing Samples must be under 10,000 characters');
+    
+    // Show errors if any
+    if (errors.length > 0) {
+        errors.forEach(error => {
+            const li = document.createElement('li');
+            li.textContent = error;
+            errorsList.appendChild(li);
+        });
+        errorBanner.classList.remove('hidden');
+        errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return false;
+    }
+    
+    // Show loading state
+    const submitBtn = document.getElementById('submitBtn');
+    const submitBtnText = document.getElementById('submitBtnText');
+    const submitLoading = document.getElementById('submitLoading');
+    
+    submitBtn.disabled = true;
+    submitBtnText.textContent = 'Saving your profile...';
+    submitLoading.classList.remove('hidden');
+    
+    try {
+        // Submit the form data
+        const formData = new FormData(e.target);
+        const response = await fetch('/onboarding', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok && response.redirected) {
+            // Success! Show success message briefly before redirect
+            submitBtnText.textContent = 'Success! Redirecting...';
+            submitLoading.classList.add('hidden');
+            
+            // Create success toast
+            showSuccessToast('✓ Profile saved successfully! Redirecting to dashboard...');
+            
+            // Redirect after brief delay
+            setTimeout(() => {
+                window.location.href = response.url;
+            }, 800);
+        } else {
+            // Server error - extract error message
+            const text = await response.text();
+            let errorMessage = 'Failed to save profile. Please try again.';
+            
+            // Try to extract flash message from response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            const flashMessage = doc.querySelector('.bg-red-50');
+            if (flashMessage) {
+                errorMessage = flashMessage.textContent.trim();
+            }
+            
+            // Show error
+            errors.push(errorMessage);
+            const li = document.createElement('li');
+            li.textContent = errorMessage;
+            errorsList.appendChild(li);
+            errorBanner.classList.remove('hidden');
+            errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    } catch (error) {
+        console.error('Error submitting form:', error);
+        errors.push('Network error. Please check your connection and try again.');
+        const li = document.createElement('li');
+        li.textContent = 'Network error. Please check your connection and try again.';
+        errorsList.appendChild(li);
+        errorBanner.classList.remove('hidden');
+        errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } finally {
+        // Reset button state if there was an error
+        if (errors.length > 0) {
+            submitBtn.disabled = false;
+            submitBtnText.textContent = 'Save & Continue to Dashboard';
+            submitLoading.classList.add('hidden');
+        }
+    }
+    
+    return false;
+}
+
+function showSuccessToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-6 py-4 rounded-lg shadow-lg z-50 flex items-center space-x-2 animate-fade-in';
+    toast.innerHTML = `
+        <span class="text-xl">✓</span>
+        <span class="font-medium">${message}</span>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
 </script>
 {% endblock %}

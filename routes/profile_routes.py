@@ -332,3 +332,43 @@ def api_signup():
     """Alias route that forwards to /auth/signup for API compatibility."""
     from routes.auth_routes import signup
     return signup()
+
+
+@profile_bp.route('/api/current_user', methods=['GET'])
+@login_required
+def api_current_user():
+    """Get current user and their profile information."""
+    try:
+        profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+        
+        user_data = {
+            'id': current_user.id,
+            'email': current_user.email
+        }
+        
+        profile_data = None
+        if profile:
+            profile_data = {
+                'id': profile.id,
+                'business_name': profile.business_name or '',
+                'industry': profile.industry or '',
+                'brand_voice': profile.brand_voice or '',
+                'target_audience': profile.target_audience or '',
+                'key_offer': profile.key_offer or ''
+            }
+        
+        return jsonify({
+            'ok': True,
+            'user': user_data,
+            'profile': profile_data
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting current user: {e}", exc_info=True)
+        return jsonify({
+            'ok': False,
+            'error': {
+                'code': 'current_user_error',
+                'message': 'Failed to get current user'
+            }
+        }), 500

@@ -27,21 +27,48 @@ def onboarding():
     if request.method == 'POST':
         try:
             # Get form data
-            business_name = request.form.get('business_name')
-            industry = request.form.get('industry')
-            target_audience = request.form.get('target_audience')
-            brand_voice = request.form.get('brand_voice')
-            key_offer = request.form.get('key_offer')
-            voice_rules = request.form.get('voice_rules', '')
-            writing_samples_raw = request.form.get('writing_samples', '')
+            business_name = request.form.get('business_name', '').strip()
+            industry = request.form.get('industry', '').strip()
+            target_audience = request.form.get('target_audience', '').strip()
+            brand_voice = request.form.get('brand_voice', '').strip()
+            key_offer = request.form.get('key_offer', '').strip()
+            voice_rules = request.form.get('voice_rules', '').strip()
+            writing_samples_raw = request.form.get('writing_samples', '').strip()
             
             logger.info(f"Onboarding POST from user {current_user.id}: business_name={business_name}, industry={industry}")
             
             # Validate required fields
-            if not all([business_name, industry, target_audience, brand_voice, key_offer, writing_samples_raw]):
-                logger.warning(f"Onboarding validation failed for user {current_user.id}: missing required fields")
+            validation_errors = []
+            if not business_name:
+                validation_errors.append('Business Name is required')
+            if not industry:
+                validation_errors.append('Industry is required')
+            if not target_audience:
+                validation_errors.append('Target Audience is required')
+            if not brand_voice:
+                validation_errors.append('Brand Voice is required')
+            if not key_offer:
+                validation_errors.append('Key Offer is required')
+            if not writing_samples_raw:
+                validation_errors.append('Writing Samples are required')
+            
+            # Validate field lengths to prevent database errors
+            if business_name and len(business_name) > 255:
+                validation_errors.append('Business Name must be under 255 characters')
+            if brand_voice and len(brand_voice) > 255:
+                validation_errors.append('Brand Voice must be under 255 characters')
+            if target_audience and len(target_audience) > 5000:
+                validation_errors.append('Target Audience must be under 5000 characters')
+            if key_offer and len(key_offer) > 5000:
+                validation_errors.append('Key Offer must be under 5000 characters')
+            if writing_samples_raw and len(writing_samples_raw) > 20000:
+                validation_errors.append('Writing Samples must be under 20,000 characters')
+            
+            if validation_errors:
+                logger.warning(f"Onboarding validation failed for user {current_user.id}: {validation_errors}")
                 from flask import flash
-                flash("All required fields must be filled", "error")
+                for error in validation_errors:
+                    flash(error, "error")
                 # Return form data so user doesn't lose their input
                 return render_template('onboarding_wizard.html', 
                     business_name=business_name,
@@ -82,11 +109,25 @@ def onboarding():
             profile.set_writing_samples(writing_samples)
             
             # Commit to database
-            db.session.commit()
+            try:
+                db.session.commit()
+                logger.info(f"Brand profile saved successfully for user {current_user.id}, profile_id={profile.id}")
+            except Exception as db_error:
+                db.session.rollback()
+                logger.error(f"Database error saving brand profile for user {current_user.id}: {db_error}", exc_info=True)
+                from flask import flash
+                flash(f"Database error: Unable to save profile. Please try reducing the length of your writing samples or contact support.", "error")
+                return render_template('onboarding_wizard.html',
+                    business_name=business_name,
+                    industry=industry,
+                    target_audience=target_audience,
+                    brand_voice=brand_voice,
+                    key_offer=key_offer,
+                    voice_rules=voice_rules,
+                    writing_samples=writing_samples_raw
+                ), 500
             
-            logger.info(f"Brand profile saved successfully for user {current_user.id}, profile_id={profile.id}")
-            
-            # Redirect to dashboard
+            # Success! Redirect to dashboard
             return redirect(url_for('generate.dashboard'))
             
         except Exception as e:
