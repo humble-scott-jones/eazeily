@@ -550,9 +550,9 @@ async function handleFormSubmit(e) {
     // Check field lengths
     if (businessName.length > 255) errors.push('Business Name must be under 255 characters');
     if (voice.length > 255) errors.push('Brand Voice must be under 255 characters');
-    if (audience.length > 2000) errors.push('Target Audience must be under 2000 characters');
-    if (offer.length > 2000) errors.push('Key Offer must be under 2000 characters');
-    if (samples.length > 10000) errors.push('Writing Samples must be under 10,000 characters');
+    if (audience.length > 5000) errors.push('Target Audience must be under 5000 characters');
+    if (offer.length > 5000) errors.push('Key Offer must be under 5000 characters');
+    if (samples.length > 20000) errors.push('Writing Samples must be under 20,000 characters');
     
     // Show errors if any
     if (errors.length > 0) {
@@ -580,10 +580,12 @@ async function handleFormSubmit(e) {
         const formData = new FormData(e.target);
         const response = await fetch('/onboarding', {
             method: 'POST',
-            body: formData
+            body: formData,
+            redirect: 'manual'  // Don't follow redirects automatically
         });
         
-        if (response.ok && response.redirected) {
+        // Check for successful response or redirect
+        if (response.ok || response.type === 'opaqueredirect' || response.status === 302 || response.status === 0) {
             // Success! Show success message briefly before redirect
             submitBtnText.textContent = 'Success! Redirecting...';
             submitLoading.classList.add('hidden');
@@ -593,7 +595,7 @@ async function handleFormSubmit(e) {
             
             // Redirect after brief delay
             setTimeout(() => {
-                window.location.href = response.url;
+                window.location.href = '/dashboard';
             }, 800);
         } else {
             // Server error - extract error message
