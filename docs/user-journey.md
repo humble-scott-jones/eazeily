@@ -57,7 +57,7 @@ This document describes the complete user journey from profile setup through con
 **Entry Point**: User on `/dashboard` ready to generate content
 
 **UI Components**:
-- **Task Selector**: 9 content type tiles (Social Post, Image Caption, Video Script, Email, Proposal, Facebook Ad, Review Reply, Blog Post, Newsletter)
+- **Task Selector**: 9 content type tiles (Social Post, Image Caption, Video Script, Email, Proposal, Social Ads, Review Reply, Blog Post, Newsletter)
 - **Topic Input**: Text area for content description
 - **Platform Dropdown**: Appears for "Social Post" task only
   - Options: LinkedIn, Instagram, Facebook, Twitter
@@ -204,13 +204,13 @@ This document describes the complete user journey from profile setup through con
 - Video Script
 - Email Draft
 - Proposal
-- Facebook Ad
+- Social Ads
 - Review Reply
 - Blog Post
 - Newsletter
 
 **Issues**:
-- Ads mixed with organic posts (Facebook Ad in task list, but no other ads)
+- Ads mixed with organic posts (Social Ads in task list, but no other ads)
 - Platform dropdown doesn't match available content types
 - No "Review responses" platform shown in dropdown
 - Inconsistent key naming: "twitter" vs "Twitter" vs "X (Twitter)"
@@ -226,7 +226,7 @@ This document describes the complete user journey from profile setup through con
 - **Reels/Shorts** (`short_video`) - Instagram Reels, YouTube Shorts
 
 #### Social Ads
-- **Facebook Ads** (`facebook_ads`)
+- **Social Adss** (`facebook_ads`)
 - **Instagram Ads** (`instagram_ads`)
 - **LinkedIn Ads** (`linkedin_ads`)
 - **X Ads** (`twitter_ads`)
@@ -340,7 +340,7 @@ User copies content
 - [ ] Platform dropdown appears only for "Social Post" task
 - [ ] Platform dropdown contains all normalized platforms (Instagram, Facebook, LinkedIn, X, TikTok, Reels/Shorts)
 - [ ] Dynamic context fields appear based on task/platform selection:
-  - [ ] Ad options for "Facebook Ad" or Facebook platform
+  - [ ] Ad options for "Social Ads" or Facebook platform
   - [ ] LinkedIn options for LinkedIn platform
   - [ ] Instagram options for Instagram platform
   - [ ] Video options for "Video Script" task

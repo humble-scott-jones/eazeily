@@ -1,7 +1,7 @@
 # Taxonomy Normalization Summary
 
 ## Overview
-This document summarizes the platform taxonomy normalization completed as part of the staging/rollout-2025-12-04 branch update.
+This document summarizes the platform taxonomy normalization completed as part of the staging/rollout-2025-12-04 branch update. The approach focuses on simplicity and aligns with the existing content type structure.
 
 ## Changes Made
 
@@ -19,210 +19,115 @@ This document summarizes the platform taxonomy normalization completed as part o
 
 **Link Added**: README.md now includes quick link to user journey doc for discoverability.
 
-### 2. Platform Configuration (`static/content/config.json`)
-**ADDED**: New `platforms` array with hierarchical structure:
+### 2. Content Type Naming (`templates/dashboard.html`)
+**UPDATED**: Task button label from "Facebook Ad" to "Social Ads":
+
+```html
+<div class="font-semibold text-gray-900">Social Ads</div>
+<div class="text-xs text-gray-500 mt-1">FB, IG, LinkedIn & more</div>
+```
+
+**Benefits**:
+- Clarifies that ads aren't limited to Facebook
+- Aligns with multi-platform ad generation capabilities
+- More accurate representation of the task type
+
+### 3. Platform Configuration (`static/content/config.json`)
+**ADDED**: Simple flat platform array:
 
 ```json
 {
   "platforms": [
-    {
-      "category": "social_organic",
-      "categoryLabel": "Social (Organic)",
-      "items": [
-        {"key": "instagram", "label": "Instagram"},
-        {"key": "facebook", "label": "Facebook"},
-        {"key": "linkedin", "label": "LinkedIn"},
-        {"key": "twitter", "label": "X (Twitter)"},
-        {"key": "tiktok", "label": "TikTok"},
-        {"key": "short_video", "label": "Reels/Shorts"}
-      ]
-    },
-    {
-      "category": "social_ads",
-      "categoryLabel": "Social Ads",
-      "items": [
-        {"key": "facebook_ads", "label": "Facebook Ads"},
-        {"key": "instagram_ads", "label": "Instagram Ads"},
-        {"key": "linkedin_ads", "label": "LinkedIn Ads"},
-        {"key": "twitter_ads", "label": "X Ads"},
-        {"key": "tiktok_ads", "label": "TikTok Ads"}
-      ]
-    },
-    {
-      "category": "reputation",
-      "categoryLabel": "Reputation/Support",
-      "items": [
-        {"key": "review_response", "label": "Review Responses"}
-      ]
-    }
+    {"key": "instagram", "label": "Instagram"},
+    {"key": "facebook", "label": "Facebook"},
+    {"key": "linkedin", "label": "LinkedIn"},
+    {"key": "twitter", "label": "X (Twitter)"},
+    {"key": "tiktok", "label": "TikTok"},
+    {"key": "short_video", "label": "Reels/Shorts"}
   ]
 }
 ```
 
 **Benefits**:
-- Clear separation between organic social and paid ads
+- Simple, maintainable structure
+- Focuses on organic social platforms used by "Social Post" task
 - Consistent lowercase keys for backend processing
 - User-friendly labels for UI display
-- Extensible structure for future categories
 
-### 3. Dashboard UI (`templates/dashboard.html`)
-**UPDATED**: Platform dropdown with optgroup structure:
+### 4. Dashboard UI (`templates/dashboard.html`)
+**UPDATED**: Platform dropdown with simple structure (no optgroups):
 
 ```html
 <select id="platform" name="platform">
-  <optgroup label="Social (Organic)">
-    <option value="instagram">Instagram</option>
-    <option value="facebook">Facebook</option>
-    <option value="linkedin">LinkedIn</option>
-    <option value="twitter">X (Twitter)</option>
-    <option value="tiktok">TikTok</option>
-    <option value="short_video">Reels/Shorts</option>
-  </optgroup>
-  <optgroup label="Social Ads">
-    <option value="facebook_ads">Facebook Ads</option>
-    <option value="instagram_ads">Instagram Ads</option>
-    <option value="linkedin_ads">LinkedIn Ads</option>
-    <option value="twitter_ads">X Ads</option>
-    <option value="tiktok_ads">TikTok Ads</option>
-  </optgroup>
+  <option value="instagram">Instagram</option>
+  <option value="facebook">Facebook</option>
+  <option value="linkedin">LinkedIn</option>
+  <option value="twitter">X (Twitter)</option>
+  <option value="tiktok">TikTok</option>
+  <option value="short_video">Reels/Shorts</option>
 </select>
 ```
 
-**UPDATED**: Dynamic input configuration to handle ad platforms:
-```javascript
-const DYNAMIC_INPUT_CONFIG = {
-  'ad': 'ad-options',
-  'facebook': 'ad-options',
-  'facebook_ads': 'ad-options',
-  'instagram_ads': 'ad-options',
-  'linkedin_ads': 'ad-options',
-  'twitter_ads': 'ad-options',
-  'tiktok_ads': 'ad-options',
-  'linkedin': 'linkedin-options',
-  'instagram': 'visual-options',
-  'script': 'video-options',
-  'email': 'email-options',
-  'newsletter': 'email-options'
-};
-```
-
-**UPDATED**: Surprise Me function to use normalized platform keys:
-```javascript
-const platforms = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok', 'short_video'];
-```
-
 **Benefits**:
-- Visual grouping makes platform selection intuitive
-- Users can easily distinguish organic posts from ads
+- Clean, simple UI
+- All major organic social platforms included
 - Consistent naming: "X (Twitter)" instead of just "Twitter"
-- All major platforms now available (added TikTok, Reels/Shorts)
+- Added TikTok and Reels/Shorts support
 
-### 4. Dashboard JavaScript (`static/dashboard.js`)
-**ADDED**: Platform config flattening function:
-
-```javascript
-function flattenPlatformConfig(platformCategories) {
-  const flattened = [];
-  platformCategories.forEach(category => {
-    if (category.items && Array.isArray(category.items)) {
-      category.items.forEach(item => {
-        flattened.push({
-          key: item.key,
-          label: item.label,
-          category: category.category,
-          categoryLabel: category.categoryLabel
-        });
-      });
-    }
-  });
-  return flattened;
-}
-```
-
-**UPDATED**: `ensureAccountFormFields()` to flatten platform config before populating UI.
+### 5. Dashboard JavaScript (`static/dashboard.js`)
+**SIMPLIFIED**: Removed complex flattening logic, platforms now simple array.
 
 **Benefits**:
-- Backward compatible with existing code expecting flat array
-- Preserves category metadata for future enhancements
-- Gracefully handles missing or malformed config
+- Less code complexity
+- Direct handling of platform array from config.json
+- Maintains backward compatibility
 
-### 5. Platform Rules (`platform_rules.py`)
-**ADDED**: Rules for new platforms:
+### 6. Platform Rules (`platform_rules.py`)
+**RETAINED**: Comprehensive platform-specific formatting rules (13 total)
 
-```python
-# short_video (Reels/Shorts)
-"short_video": PlatformRule(
-    key="short_video",
-    label="Reels/Shorts",
-    max_length=1500,
-    max_hashtags=5,
-    cta="Save this and share with someone who needs it",
-    hashtag_prefix="#",
-    thumbnail_note="Bold hook text, high contrast, centered subject",
-),
-
-# Social Ads platforms (5 new rules)
-"facebook_ads": PlatformRule(
-    key="facebook_ads",
-    label="Facebook Ads",
-    max_length=125,
-    max_hashtags=0,
-    cta="Learn more",
-    link_note="Include clear CTA button text (e.g., Shop Now, Sign Up).",
-    thumbnail_note="Eye-catching image with minimal text overlay",
-),
-# ... (instagram_ads, linkedin_ads, twitter_ads, tiktok_ads)
-
-# Reputation/Support
-"review_response": PlatformRule(
-    key="review_response",
-    label="Review Response",
-    max_length=500,
-    max_hashtags=0,
-    cta="Thank you for your feedback",
-    thumbnail_note=None,
-),
-```
-
-**UPDATED**: `DEFAULT_VARIANT_PLATFORMS` tuple to include `short_video`.
-
-**Platform Rule Count**: 13 total (was 6, added 7)
+Platform rules define character limits, hashtag rules, CTAs, and formatting for each platform:
+- Organic social: instagram, facebook, linkedin, twitter, tiktok, youtube, short_video
+- Ad platforms: facebook_ads, instagram_ads, linkedin_ads, twitter_ads, tiktok_ads
+- Support: review_response
 
 **Benefits**:
-- Ad copy follows platform-specific character limits (125 chars for FB/IG ads)
-- Review responses have appropriate tone and length
-- Each platform has tailored CTA and thumbnail guidance
+- Backend can handle multiple platform types even with simplified UI
+- Platform-specific formatting ensures content fits each channel
+- Extensible for future platform additions
 
-### 6. Generator (`generator.py`)
-**UPDATED**: `PLATFORM_HINTS` dictionary with 12 entries:
+### 7. Generator (`generator.py`)
+**UPDATED**: `PLATFORM_HINTS` dictionary with 12 entries for AI prompts:
 
-```python
-PLATFORM_HINTS = {
-    "instagram": "Keep it visual, 1–2 short paragraphs, 8–12 niche hashtags.",
-    "facebook": "Conversational tone, 2–3 short paragraphs. Invite replies.",
-    "linkedin": "Value-forward, concise, 1–2 actionable insights, 3–6 hashtags.",
-    "tiktok": "Hook in first sentence, keep lines punchy, suggest a shot list.",
-    "twitter": "Short & punchy. 1–2 tweets per post; avoid walls of text.",
-    "short_video": "Dynamic opening hook, punchy lines, visual-first storytelling.",
-    "facebook_ads": "Clear value prop, strong CTA, mobile-optimized, under 125 chars.",
-    "instagram_ads": "Eye-catching opening, benefit-focused, concise for mobile.",
-    "linkedin_ads": "Professional, value-driven, clear ROI or benefit statement.",
-    "twitter_ads": "Direct and concise, strong hook in first 7 words.",
-    "tiktok_ads": "Native feel, entertaining, avoid hard-sell, under 100 chars.",
-    "review_response": "Grateful, empathetic, address concerns, invite follow-up.",
-}
-```
+Includes platform-specific guidance for content generation:
+- Organic platforms: Instagram, Facebook, LinkedIn, TikTok, Twitter, Reels/Shorts
+- Ad platforms: Facebook Ads, Instagram Ads, LinkedIn Ads, X Ads, TikTok Ads  
+- Support: Review responses
 
 **Benefits**:
 - Gemini API receives platform-specific guidance for tone and structure
 - Ads get distinct prompts focused on conversion (CTA, value prop)
 - Review responses are empathetic and constructive
-- Short-form video platforms emphasize hooks and pacing
 
-## Normalized Taxonomy
+## Content Type Structure
+
+The dashboard maintains 9 content type tiles:
+
+1. **Social Post** (task='post') - Requires platform selection from dropdown
+2. **Image Caption** (task='caption') - For photos
+3. **Video Script** (task='script') - Reels & TikToks
+4. **Email Draft** (task='email') - Newsletters & More
+5. **Proposal** (task='proposal') - Project bids & quotes
+6. **Social Ads** (task='ad') - FB, IG, LinkedIn & more (renamed from "Facebook Ad")
+7. **Review Reply** (task='review') - Customer Responses
+8. **Blog Post** (task='blog') - SEO Articles
+9. **Newsletter** (task='newsletter') - Community Updates
+
+**Key Change**: Task #6 renamed from "Facebook Ad" to "Social Ads" to clarify multi-platform capability.
+
+## Platform Taxonomy
 
 ### Platform Keys (Lowercase, for Backend)
-**Social (Organic)**:
+**Organic Social** (used in "Social Post" platform dropdown):
 - `instagram`
 - `facebook`
 - `linkedin`
@@ -230,18 +135,14 @@ PLATFORM_HINTS = {
 - `tiktok`
 - `short_video`
 
-**Social Ads**:
-- `facebook_ads`
-- `instagram_ads`
-- `linkedin_ads`
-- `twitter_ads`
-- `tiktok_ads`
+**Ad Platforms** (handled via task='ad', platform-specific logic in backend):
+- `facebook_ads`, `instagram_ads`, `linkedin_ads`, `twitter_ads`, `tiktok_ads`
 
-**Reputation/Support**:
+**Support** (future use):
 - `review_response`
 
 ### Platform Labels (User-Friendly, for UI)
-**Social (Organic)**:
+**Social Post Dropdown**:
 - Instagram
 - Facebook
 - LinkedIn
@@ -249,20 +150,14 @@ PLATFORM_HINTS = {
 - TikTok
 - Reels/Shorts
 
-**Social Ads**:
-- Facebook Ads
-- Instagram Ads
-- LinkedIn Ads
-- X Ads
-- TikTok Ads
-
-**Reputation/Support**:
-- Review Responses
+**Social Ads Task**:
+- UI label: "Social Ads"
+- Subtitle: "FB, IG, LinkedIn & more"
 
 ## Validation
 
 ### Python Validation
-- ✅ `config.json` valid JSON (3 platform categories, 18 industries)
+- ✅ `config.json` valid JSON (6 platforms, 18 industries)
 - ✅ `platform_rules.py` loads successfully (13 rules)
 - ✅ `generator.py` loads successfully (12 platform hints)
 - ✅ Platform rule application works for organic and ad platforms
@@ -270,63 +165,53 @@ PLATFORM_HINTS = {
 
 ### JavaScript Validation
 - ✅ `dashboard.js` syntax validated
-- ✅ Platform config flattening function tested
+- ✅ Simplified platform handling (no complex flattening needed)
 
 ### HTML Validation
-- ✅ `dashboard.html` contains optgroup structure
-- ✅ All new platform labels present (X (Twitter), Reels/Shorts, Facebook Ads, etc.)
-- ✅ Dynamic input config updated for ad platforms
+- ✅ `dashboard.html` simple dropdown structure (no optgroups)
+- ✅ Task button renamed: "Social Ads" (was "Facebook Ad")
+- ✅ All platform labels present (X (Twitter), Reels/Shorts, TikTok)
 
 ## Migration Notes
 
 ### Breaking Changes
 **None**. Changes are backward compatible:
 - Old platform keys still work (`twitter`, `instagram`, etc.)
-- New keys added alongside existing ones
+- New keys added: `tiktok`, `short_video`
 - UI gracefully handles missing config fields
 
-### New Platform Keys
-If you have existing code that checks platform values, be aware of these new keys:
-- `short_video` (Reels/Shorts)
-- `facebook_ads`, `instagram_ads`, `linkedin_ads`, `twitter_ads`, `tiktok_ads`
-- `review_response`
+### Simplified Approach
+This implementation focuses on:
+1. **Content types** are the primary UI element (9 task tiles)
+2. **Platform dropdown** is simple and only for "Social Post" task
+3. **Backend** retains full platform taxonomy for flexibility
 
-### Deprecated Patterns
-- ❌ **AVOID**: Hardcoding platform lists in JavaScript (use config.json instead)
-- ❌ **AVOID**: Using "Twitter" without "X" clarification
-- ❌ **AVOID**: Mixing ads and organic posts in same category
-
-### Recommended Updates
-If you maintain custom code that references platforms:
-1. Use lowercase keys for backend processing (`instagram`, not `Instagram`)
-2. Use labels from config.json for display (`X (Twitter)`, not `Twitter`)
-3. Check platform category when needed (`social_organic` vs `social_ads`)
-4. Handle new platforms in any switch/case statements
+### Recommended Usage
+- Use "Social Post" task + platform dropdown for organic social content
+- Use "Social Ads" task for paid advertising (platform-agnostic UI, platform-specific backend)
+- Backend handles platform-specific rules via platform_rules.py
 
 ## Testing Checklist
 
 ### Manual Testing (High Priority)
-- [ ] Load `/dashboard` and verify platform dropdown shows all options grouped correctly
+- [ ] Load `/dashboard` and verify 9 content type tiles displayed
+- [ ] Verify "Social Ads" task button (not "Facebook Ad")
+- [ ] Click "Social Post", verify platform dropdown appears
 - [ ] Select "Instagram" from dropdown, verify dynamic options appear
-- [ ] Select "Facebook Ads" from dropdown, verify ad options appear
-- [ ] Click "Surprise Me" button, verify random platform is selected
-- [ ] Generate content for "Instagram" (organic), verify correct PLATFORM_HINT used
-- [ ] Generate content for "Facebook Ads", verify correct ad rules applied (125 char limit)
-- [ ] Generate content for "Reels/Shorts", verify short_video rules applied
-- [ ] Check character counter shows correct limits for each platform
-- [ ] Verify generated content respects platform-specific hashtag limits
-- [ ] Verify CTAs are platform-appropriate (e.g., "Shop now" for Instagram ads)
+- [ ] Select "TikTok" from dropdown, verify available
+- [ ] Click "Surprise Me" button, verify random platform selected
+- [ ] Generate content for "Instagram" (organic), verify correct output
+- [ ] Generate content using "Social Ads" task, verify ad-appropriate content
+- [ ] Verify X (Twitter) label in dropdown (not just "Twitter")
 
 ### Automated Testing (If Available)
 - [ ] Run `PYTHONPATH=. pytest tests/test_api_generate_payload.py -v`
-- [ ] Run `PYTHONPATH=. pytest tests/test_dashboard_dynamic_inputs.py -v`
 - [ ] Run full test suite: `PYTHONPATH=. pytest -v`
 
 ### Edge Cases
 - [ ] Select platform, switch task type, verify platform resets appropriately
 - [ ] Load dashboard with no saved profile, verify defaults work
-- [ ] Test with browser JavaScript disabled (graceful degradation)
-- [ ] Test on mobile viewport (dropdown, optgroups readable)
+- [ ] Test on mobile viewport (dropdown readable)
 - [ ] Test with slow network (config.json fetch timeout)
 
 ## Files Changed
@@ -335,13 +220,12 @@ If you maintain custom code that references platforms:
 |------|--------------|------|
 | `docs/user-journey.md` | +497 | NEW |
 | `README.md` | +6 | UPDATED |
-| `static/content/config.json` | +36 | UPDATED |
-| `templates/dashboard.html` | +16, -10 | UPDATED |
-| `static/dashboard.js` | +20, -1 | UPDATED |
-| `platform_rules.py` | +84, -9 | UPDATED |
-| `generator.py` | +7, -1 | UPDATED |
-
-**Total**: 659 lines added, 22 lines removed, 1 file created, 6 files updated.
+| `static/content/config.json` | Simplified | UPDATED |
+| `templates/dashboard.html` | Simplified dropdown, renamed task | UPDATED |
+| `static/dashboard.js` | Removed flattening logic | UPDATED |
+| `platform_rules.py` | +84, -9 (13 rules total) | UPDATED |
+| `generator.py` | +7, -1 (12 hints total) | UPDATED |
+| `TAXONOMY_NORMALIZATION_SUMMARY.md` | +371 | NEW |
 
 ## Rollback Plan
 

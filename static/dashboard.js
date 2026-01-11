@@ -217,42 +217,9 @@ async function ensureAccountFormFields() {
   accountFormReadyPromise = (async () => {
     const cfg = await getDashboardConfig();
     populateAccountIndustryOptions(cfg.industries || []);
-    // Flatten platform structure for backward compatibility
-    const flatPlatforms = flattenPlatformConfig(cfg.platforms || []);
-    populateAccountPlatformOptions(flatPlatforms);
+    populateAccountPlatformOptions(cfg.platforms || []);
   })();
   return accountFormReadyPromise;
-}
-
-function flattenPlatformConfig(platformCategories) {
-  const flattened = [];
-  if (!Array.isArray(platformCategories)) {
-    console.warn('[Eazeily] flattenPlatformConfig: expected array, got:', typeof platformCategories);
-    return flattened;
-  }
-  platformCategories.forEach(category => {
-    if (!category || typeof category !== 'object') {
-      console.warn('[Eazeily] flattenPlatformConfig: invalid category:', category);
-      return;
-    }
-    if (!Array.isArray(category.items)) {
-      console.warn('[Eazeily] flattenPlatformConfig: category.items is not an array:', category);
-      return;
-    }
-    category.items.forEach(item => {
-      if (!item || !item.key || !item.label) {
-        console.warn('[Eazeily] flattenPlatformConfig: invalid item (missing key or label):', item);
-        return;
-      }
-      flattened.push({
-        key: item.key,
-        label: item.label,
-        category: category.category || 'unknown',
-        categoryLabel: category.categoryLabel || 'Unknown'
-      });
-    });
-  });
-  return flattened;
 }
 
 function populateAccountIndustryOptions(list) {

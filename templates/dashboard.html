@@ -77,8 +77,8 @@
                     <div class="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mb-3 group-hover:bg-orange-100 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
                     </div>
-                    <div class="font-semibold text-gray-900">Facebook Ad</div>
-                    <div class="text-xs text-gray-500 mt-1">Ads & Promotions</div>
+                    <div class="font-semibold text-gray-900">Social Ads</div>
+                    <div class="text-xs text-gray-500 mt-1">FB, IG, LinkedIn & more</div>
                 </button>
 
                 <button type="button" onclick="selectTask('review')" id="task-review" 
@@ -132,21 +132,12 @@
                             <select id="platform" name="platform"
                                     class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm h-11"
                                     onchange="updateDynamicInputs()">
-                <optgroup label="Social (Organic)">
-                    <option value="instagram">Instagram</option>
-                    <option value="facebook">Facebook</option>
-                    <option value="linkedin">LinkedIn</option>
-                    <option value="twitter">X (Twitter)</option>
-                    <option value="tiktok">TikTok</option>
-                    <option value="short_video">Reels/Shorts</option>
-                </optgroup>
-                <optgroup label="Social Ads">
-                    <option value="facebook_ads">Facebook Ads</option>
-                    <option value="instagram_ads">Instagram Ads</option>
-                    <option value="linkedin_ads">LinkedIn Ads</option>
-                    <option value="twitter_ads">X Ads</option>
-                    <option value="tiktok_ads">TikTok Ads</option>
-                </optgroup>
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="twitter">X (Twitter)</option>
+                <option value="tiktok">TikTok</option>
+                <option value="short_video">Reels/Shorts</option>
             </select>
         </div>
                     </div>
@@ -375,11 +366,6 @@
     const DYNAMIC_INPUT_CONFIG = {
         'ad': 'ad-options',
         'facebook': 'ad-options',
-        'facebook_ads': 'ad-options',
-        'instagram_ads': 'ad-options',
-        'linkedin_ads': 'ad-options',
-        'twitter_ads': 'ad-options',
-        'tiktok_ads': 'ad-options',
         'linkedin': 'linkedin-options',
         'instagram': 'visual-options',
         'script': 'video-options',
@@ -541,17 +527,11 @@
         
         // Randomly set platform if applicable
         if (taskConfig[taskType].showPlatform) {
-            // Get platforms from dropdown options (respects config.json)
-            const platformSelect = document.getElementById('platform');
-            const options = Array.from(platformSelect.options)
-                .filter(opt => opt.value && opt.value.trim())
-                .map(opt => opt.value);
-            
-            if (options.length > 0) {
-                const randomPlatform = options[Math.floor(Math.random() * options.length)];
-                platformSelect.value = randomPlatform;
-                updateDynamicInputs();
-            }
+            // Use organic social platforms for Social Post task
+            const platforms = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok', 'short_video'];
+            const randomPlatform = platforms[Math.floor(Math.random() * platforms.length)];
+            document.getElementById('platform').value = randomPlatform;
+            updateDynamicInputs();
         }
         
         // Show feedback
