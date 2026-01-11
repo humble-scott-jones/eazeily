@@ -56,12 +56,29 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
             "Show appreciation, address concerns, and reinforce brand values."
         ),
     ),
+    "review_reply": TaskConfig(
+        key="review_reply",
+        role="Customer Service Manager",
+        prompt_template=(
+            "Draft a professional, empathetic response to this customer review: {topic}. "
+            "Show appreciation, address specific concerns, and offer resolution where appropriate. "
+            "Maintain brand voice and be concise."
+        ),
+    ),
     "proposal": TaskConfig(
         key="proposal",
         role="Business Development Manager",
         prompt_template=(
             "Write a professional business proposal for {topic}. "
             "Include: project overview, deliverables, timeline, pricing structure, and value proposition."
+        ),
+    ),
+    "blog_post": TaskConfig(
+        key="blog_post",
+        role="Content Writer and SEO Specialist",
+        prompt_template=(
+            "Write a comprehensive, SEO-optimized blog post about {topic}. "
+            "Include: three title options, meta description, outline with headings, full article content, and CTA."
         ),
     ),
     "newsletter": TaskConfig(
