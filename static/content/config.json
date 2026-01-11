@@ -19,5 +19,87 @@
     {"key": "software", "label": "Software"},
     {"key": "other", "label": "Other"}
   ],
+  "platforms": [
+    {"key": "instagram", "label": "Instagram"},
+    {"key": "facebook", "label": "Facebook"},
+    {"key": "linkedin", "label": "LinkedIn"},
+    {"key": "twitter", "label": "X (Twitter)"},
+    {"key": "tiktok", "label": "TikTok"},
+    {"key": "short_video", "label": "Reels/Shorts"}
+  ],
+  "content_types": [
+    {
+      "key": "post",
+      "label": "Social Post",
+      "description": "Organic social media posts for platforms like Instagram, Facebook, LinkedIn, X, and TikTok",
+      "platforms": ["instagram", "facebook", "linkedin", "twitter", "tiktok", "short_video"],
+      "use_cases": ["Brand awareness", "Engagement", "Community building", "Thought leadership"],
+      "best_practices": ["Hook in first line", "Platform-appropriate length", "Include CTA", "Use relevant hashtags"]
+    },
+    {
+      "key": "caption",
+      "label": "Image Caption",
+      "description": "Captions for photos and images to be shared on social media",
+      "platforms": ["instagram", "facebook", "linkedin", "twitter"],
+      "use_cases": ["Product showcase", "Behind-the-scenes", "Customer stories", "Event highlights"],
+      "best_practices": ["Describe the image context", "Add emotional connection", "Include relevant hashtags", "Keep it concise"]
+    },
+    {
+      "key": "script",
+      "label": "Video Script",
+      "description": "Scripts for short-form video content like Reels, TikToks, and YouTube Shorts",
+      "platforms": ["short_video", "tiktok", "instagram", "youtube"],
+      "use_cases": ["Tutorials", "Product demos", "Storytelling", "Entertainment"],
+      "best_practices": ["Hook in first 3 seconds", "Include visual cues", "Add timestamps", "Strong CTA at end"]
+    },
+    {
+      "key": "email",
+      "label": "Email Draft",
+      "description": "Personalized outreach emails for customer communication, follow-ups, and relationship building",
+      "platforms": ["email"],
+      "use_cases": ["Customer outreach", "Follow-ups", "Partnership proposals", "Personal connection"],
+      "best_practices": ["Compelling subject line", "Personalized greeting", "Clear value proposition", "Single clear CTA"]
+    },
+    {
+      "key": "proposal",
+      "label": "Proposal",
+      "description": "Professional business proposals for projects, services, and partnerships",
+      "platforms": ["document"],
+      "use_cases": ["Project bids", "Service quotes", "Partnership proposals", "Contract proposals"],
+      "best_practices": ["Clear project scope", "Detailed deliverables", "Timeline and milestones", "Transparent pricing"]
+    },
+    {
+      "key": "ad",
+      "label": "Social Ads",
+      "description": "Paid advertising copy for social media platforms including Facebook, Instagram, LinkedIn, and more",
+      "platforms": ["facebook_ads", "instagram_ads", "linkedin_ads", "twitter_ads", "tiktok_ads"],
+      "use_cases": ["Lead generation", "Product sales", "Event promotion", "Brand awareness"],
+      "best_practices": ["Scroll-stopping hook", "Clear value proposition", "Strong CTA", "Mobile-optimized", "Under 125 characters"]
+    },
+    {
+      "key": "review",
+      "label": "Review Reply",
+      "description": "Professional responses to customer reviews on Google, Yelp, Facebook, and other platforms",
+      "platforms": ["google", "yelp", "facebook", "tripadvisor"],
+      "use_cases": ["Customer service", "Reputation management", "Conflict resolution", "Thank customers"],
+      "best_practices": ["Express gratitude", "Address concerns empathetically", "Offer resolution", "Stay professional", "Keep it concise"]
+    },
+    {
+      "key": "blog",
+      "label": "Blog Post",
+      "description": "Long-form SEO-optimized articles for websites and blogs",
+      "platforms": ["website", "blog"],
+      "use_cases": ["Thought leadership", "SEO content", "Education", "Product guides"],
+      "best_practices": ["Keyword optimization", "Clear structure with H2/H3", "Actionable takeaways", "Include images", "Strong meta description"]
+    },
+    {
+      "key": "newsletter",
+      "label": "Newsletter",
+      "description": "Email newsletter content for regular communication with subscribers",
+      "platforms": ["email"],
+      "use_cases": ["Community updates", "Product announcements", "Content roundups", "Exclusive offers"],
+      "best_practices": ["Catchy subject line", "Scannable format", "Value-first content", "Clear sections", "Consistent schedule"]
+    }
+  ],
   "questions": {}
 }

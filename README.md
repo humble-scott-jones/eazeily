@@ -1,4 +1,11 @@
 # Togetherly (dev)
+
+## Quick Links
+- 📖 **[User Journey Documentation](docs/user-journey.md)** - Complete end-to-end flow from profile setup through content generation
+- 🚀 [Launch Checklist](LAUNCH_CHECKLIST.md)
+- 🔧 [Testing Guide](TESTING.md)
+- 🔐 [Security Guide](SECURITY.md)
+
 Run dev server:
 ```bash
 source .venv/bin/activate

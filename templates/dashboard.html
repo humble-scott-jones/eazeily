@@ -77,8 +77,8 @@
                     <div class="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center mb-3 group-hover:bg-orange-100 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
                     </div>
-                    <div class="font-semibold text-gray-900">Facebook Ad</div>
-                    <div class="text-xs text-gray-500 mt-1">Ads & Promotions</div>
+                    <div class="font-semibold text-gray-900">Social Ads</div>
+                    <div class="text-xs text-gray-500 mt-1">FB, IG, LinkedIn & more</div>
                 </button>
 
                 <button type="button" onclick="selectTask('review')" id="task-review" 
@@ -132,11 +132,12 @@
                             <select id="platform" name="platform"
                                     class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm h-11"
                                     onchange="updateDynamicInputs()">
-
-                <option value="LinkedIn">LinkedIn</option>
-                <option value="Instagram">Instagram</option>
-                <option value="Facebook">Facebook</option>
-                <option value="Twitter">Twitter</option>
+                <option value="instagram">Instagram</option>
+                <option value="facebook">Facebook</option>
+                <option value="linkedin">LinkedIn</option>
+                <option value="twitter">X (Twitter)</option>
+                <option value="tiktok">TikTok</option>
+                <option value="short_video">Reels/Shorts</option>
             </select>
         </div>
                     </div>
@@ -448,6 +449,7 @@
     
     /**
      * Surprise Me - randomly populate inputs based on task type
+     * Note: Platform dropdown is static HTML, so no async config loading needed
      */
     function handleSurpriseMe() {
         const taskType = document.getElementById('task_type').value;
@@ -525,7 +527,8 @@
         
         // Randomly set platform if applicable
         if (taskConfig[taskType].showPlatform) {
-            const platforms = ['LinkedIn', 'Instagram', 'Facebook', 'Twitter'];
+            // Use organic social platforms for Social Post task
+            const platforms = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok', 'short_video'];
             const randomPlatform = platforms[Math.floor(Math.random() * platforms.length)];
             document.getElementById('platform').value = randomPlatform;
             updateDynamicInputs();

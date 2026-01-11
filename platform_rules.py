@@ -76,6 +76,70 @@ PLATFORM_RULES: dict[str, PlatformRule] = {
         hashtag_position="end",
         thumbnail_note="Thumbnail: bold promise + clear subject, avoid clutter",
     ),
+    "short_video": PlatformRule(
+        key="short_video",
+        label="Reels/Shorts",
+        max_length=1500,
+        max_hashtags=5,
+        cta="Save this and share with someone who needs it",
+        hashtag_prefix="#",
+        thumbnail_note="Bold hook text, high contrast, centered subject",
+    ),
+    # Social Ads platforms
+    "facebook_ads": PlatformRule(
+        key="facebook_ads",
+        label="Facebook Ads",
+        max_length=125,
+        max_hashtags=0,
+        cta="Learn more",
+        link_note="Include clear CTA button text (e.g., Shop Now, Sign Up).",
+        thumbnail_note="Eye-catching image with minimal text overlay",
+    ),
+    "instagram_ads": PlatformRule(
+        key="instagram_ads",
+        label="Instagram Ads",
+        max_length=125,
+        max_hashtags=0,
+        cta="Shop now",
+        link_note="Keep copy concise for mobile viewers.",
+        thumbnail_note="High-quality visual with brand logo",
+    ),
+    "linkedin_ads": PlatformRule(
+        key="linkedin_ads",
+        label="LinkedIn Ads",
+        max_length=150,
+        max_hashtags=0,
+        cta="Learn more",
+        link_note="Professional tone, focus on value proposition.",
+        thumbnail_note="Professional imagery, clear headline",
+    ),
+    "twitter_ads": PlatformRule(
+        key="twitter_ads",
+        label="X Ads",
+        max_length=280,
+        max_hashtags=2,
+        cta="Click to see more",
+        link_note="Concise and direct messaging.",
+        thumbnail_note="Bold, simple visuals that stand out in feed",
+    ),
+    "tiktok_ads": PlatformRule(
+        key="tiktok_ads",
+        label="TikTok Ads",
+        max_length=100,
+        max_hashtags=0,
+        cta="Watch now",
+        link_note="Native feel, avoid overly promotional tone.",
+        thumbnail_note="Dynamic, attention-grabbing first frame",
+    ),
+    # Reputation/Support
+    "review_response": PlatformRule(
+        key="review_response",
+        label="Review Response",
+        max_length=500,
+        max_hashtags=0,
+        cta="Thank you for your feedback",
+        thumbnail_note=None,
+    ),
 }
 
 
@@ -86,6 +150,7 @@ DEFAULT_VARIANT_PLATFORMS: Tuple[str, ...] = (
     "facebook",
     "tiktok",
     "youtube",
+    "short_video",
 )
 
 
