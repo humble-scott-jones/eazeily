@@ -105,7 +105,10 @@ class VoiceEngine:
         task_type: str = "post",
         platform: str = "LinkedIn"
     ) -> str:
-        """Generate content based on task type with timeout protection.
+        """Generate content based on task type with error handling for timeout scenarios.
+        
+        Note: Timeout protection is handled by the calling code (frontend/service layer).
+        This method provides appropriate error messages when timeout or other errors occur.
         
         Args:
             user_profile: User profile with brand voice settings
@@ -114,7 +117,7 @@ class VoiceEngine:
             platform: Target platform for the content
             
         Returns:
-            Generated content string or error message
+            Generated content string or user-friendly error message
         """
         # Get profile attributes safely
         industry = getattr(user_profile, "industry", "general")
