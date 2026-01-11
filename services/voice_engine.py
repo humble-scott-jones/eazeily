@@ -114,50 +114,116 @@ class VoiceEngine:
         platform: str = "LinkedIn",
         **context
     ) -> str:
-        """Generate content based on task type with error handling for timeout scenarios.
+        """Generate content based on task type with comprehensive brand profile context.
         
-        Note: Timeout protection is handled by the calling code (frontend/service layer).
-        This method provides appropriate error messages when timeout or other errors occur.
+        This method builds a highly structured prompt that incorporates all available
+        brand profile data to ensure generated content matches the user's voice and is
+        immediately copy-paste ready for the target platform.
         
         Args:
-            user_profile: User profile with brand voice settings (expects industry,
-                         business_name, brand_voice attributes but handles missing attrs)
+            user_profile: User profile with comprehensive brand data
             topic: Content topic
-            task_type: Type of content to generate (post, email, etc.)
+            task_type: Type of content to generate (post, email, ad, etc.)
             platform: Target platform for the content
-            **context: Additional context parameters (ad_objective, target_audience, etc.)
+            **context: Additional context from dynamic inputs (ad_objective, target_audience, etc.)
             
         Returns:
-            Generated content string or user-friendly error message
+            Generated content string formatted for the specific platform/task type
         """
-        # Get profile attributes safely
+        # Extract comprehensive profile data using safe getters
         industry = getattr(user_profile, "industry", "general")
         business_name = getattr(user_profile, "business_name", "Your Business")
         brand_voice = getattr(user_profile, "brand_voice", "Professional and friendly")
+        target_audience = getattr(user_profile, "target_audience", "")
+        key_offer = getattr(user_profile, "key_offer", "")
+        voice_rules = getattr(user_profile, "voice_rules", "")
         
-        # Build prompt based on task type
+        # Get structured data from JSON fields
+        writing_samples = []
+        brand_keywords = []
+        if hasattr(user_profile, 'get_writing_samples'):
+            writing_samples = user_profile.get_writing_samples()
+        if hasattr(user_profile, 'get_brand_keywords'):
+            brand_keywords = user_profile.get_brand_keywords()
+        
+        # Build comprehensive, structured prompt
         prompt_parts = [
-            f"You are an expert content creator for {business_name} in the {industry} industry.",
-            f"Brand voice: {brand_voice}",
-            f"Task: Create {task_type} content about: {topic}",
-            f"Platform: {platform}",
+            "# CONTENT GENERATION REQUEST",
+            "",
+            "## Brand Context",
+            f"Business: {business_name}",
+            f"Industry: {industry}",
+            f"Brand Voice: {brand_voice}",
         ]
         
-        # Add dynamic context to prompt if provided
-        if context.get('ad_objective'):
-            prompt_parts.append(f"Ad objective: {context['ad_objective']}")
-        if context.get('target_audience'):
-            prompt_parts.append(f"Target audience: {context['target_audience']}")
-        if context.get('tone_modifier'):
-            prompt_parts.append(f"Tone modifier: {context['tone_modifier']}")
-        if context.get('cta'):
-            prompt_parts.append(f"Call-to-action: {context['cta']}")
-        if context.get('mood'):
-            prompt_parts.append(f"Mood/vibe: {context['mood']}")
-        if context.get('video_length'):
-            prompt_parts.append(f"Target video length: {context['video_length']} seconds")
+        if target_audience:
+            prompt_parts.append(f"Target Audience: {target_audience}")
+        if key_offer:
+            prompt_parts.append(f"Key Offering: {key_offer}")
         
-        prompt_parts.append("Provide engaging, on-brand content that resonates with the target audience.")
+        # Add brand keywords for consistent terminology
+        if brand_keywords:
+            prompt_parts.extend([
+                "",
+                "## Brand Keywords",
+                "Use these terms naturally: " + ", ".join(brand_keywords[:10])
+            ])
+        
+        # Add voice rules/constraints
+        if voice_rules:
+            prompt_parts.extend([
+                "",
+                "## Writing Constraints",
+                voice_rules
+            ])
+        
+        # Add writing samples for style matching
+        if writing_samples:
+            prompt_parts.extend([
+                "",
+                "## Voice Examples",
+                "Match the style, tone, and structure of these examples:"
+            ])
+            for i, sample in enumerate(writing_samples[:3], 1):  # Limit to 3 samples
+                prompt_parts.append(f"\nExample {i}:")
+                prompt_parts.append(sample)
+        
+        # Add task-specific requirements
+        prompt_parts.extend([
+            "",
+            "## Task Requirements",
+            f"Content Type: {task_type}",
+            f"Platform: {platform}",
+            f"Topic: {topic}",
+        ])
+        
+        # Add context from dynamic inputs
+        if context.get('ad_objective'):
+            prompt_parts.append(f"Campaign Goal: {context['ad_objective']}")
+        if context.get('target_audience'):
+            prompt_parts.append(f"Specific Audience: {context['target_audience']}")
+        if context.get('tone_modifier'):
+            prompt_parts.append(f"Tone Adjustment: {context['tone_modifier']}")
+        if context.get('cta'):
+            prompt_parts.append(f"Call-to-Action: {context['cta']}")
+        if context.get('mood'):
+            prompt_parts.append(f"Mood/Vibe: {context['mood']}")
+        if context.get('video_length'):
+            prompt_parts.append(f"Video Length: {context['video_length']} seconds")
+        
+        # Add format-specific output instructions
+        prompt_parts.extend([
+            "",
+            "## Output Format",
+            self._get_output_format_instructions(task_type, platform),
+            "",
+            "Generate content that:",
+            "1. Perfectly matches the brand voice and examples provided",
+            "2. Is immediately copy-paste ready for the target platform",
+            "3. Incorporates all constraints and requirements",
+            "4. Sounds authentically like the brand",
+            "5. Is optimized for engagement on the specified platform"
+        ])
         
         prompt = "\n".join(prompt_parts)
         
@@ -166,9 +232,12 @@ class VoiceEngine:
             return f"Generated {task_type} content for {platform}"
         
         try:
-            # Generate content with timeout handled by the model's underlying client
+            # Generate content with structured prompt
             response = self.model.generate_content(prompt)
-            return response.text if response else f"Generated {task_type} content"
+            generated_content = response.text if response else f"Generated {task_type} content"
+            
+            # Post-process to ensure clean, copy-paste-ready output
+            return self._clean_generated_content(generated_content, task_type, platform)
         except Exception as e:
             # Log error and return user-friendly message
             error_msg = str(e).lower()
@@ -180,6 +249,76 @@ class VoiceEngine:
                 return "Error: API authentication failed. Please check configuration."
             else:
                 return f"Error: Failed to generate content. Please try again."
+    
+    def _get_output_format_instructions(self, task_type: str, platform: str) -> str:
+        """Get platform and task-specific formatting instructions."""
+        format_map = {
+            'post': {
+                'LinkedIn': "Write a professional LinkedIn post with a strong hook, clear paragraphs, and appropriate line breaks. Include 3-5 relevant hashtags at the end.",
+                'Instagram': "Write an engaging Instagram caption with emojis where appropriate. Include line breaks for readability and 10-15 relevant hashtags at the end.",
+                'Facebook': "Write a conversational Facebook post that encourages engagement. Use a friendly tone with clear paragraphs.",
+                'Twitter': "Write a concise, engaging tweet under 280 characters. Make every word count."
+            },
+            'ad': {
+                'default': "Write compelling ad copy with: 1) Attention-grabbing headline, 2) Clear benefit statement, 3) Strong call-to-action. Keep it concise and action-oriented."
+            },
+            'email': {
+                'default': "Write a professional email with: 1) Compelling subject line (on first line), 2) Personalized greeting, 3) Clear body with value proposition, 4) Strong call-to-action, 5) Professional signature."
+            },
+            'script': {
+                'default': "Write a video script with: 1) Hook (first 3 seconds), 2) Main content with clear sections, 3) Call-to-action. Include [Visual cues] in brackets where helpful."
+            },
+            'blog': {
+                'default': "Write a blog post with: 1) SEO-optimized title, 2) Engaging introduction, 3) Well-structured sections with subheadings, 4) Conclusion with call-to-action."
+            },
+            'caption': {
+                'default': "Write an engaging image caption that describes what's shown, adds context, and includes relevant hashtags."
+            },
+            'review': {
+                'default': "Write a warm, professional response that: 1) Thanks the reviewer, 2) Acknowledges specific feedback, 3) Reinforces brand values."
+            },
+            'proposal': {
+                'default': "Write a professional proposal with: 1) Clear scope, 2) Deliverables, 3) Timeline, 4) Pricing structure, 5) Next steps."
+            },
+            'newsletter': {
+                'default': "Write a newsletter with: 1) Catchy subject line, 2) Personal greeting, 3) Main content sections with headings, 4) Clear call-to-action."
+            }
+        }
+        
+        if task_type in format_map:
+            if isinstance(format_map[task_type], dict):
+                return format_map[task_type].get(platform, format_map[task_type].get('default', ''))
+            return format_map[task_type]
+        
+        return "Provide well-formatted, engaging content ready to use immediately."
+    
+    def _clean_generated_content(self, content: str, task_type: str, platform: str) -> str:
+        """Clean and format generated content for immediate copy-paste use."""
+        if not content or content.startswith("Error"):
+            return content
+        
+        # Remove markdown formatting artifacts that shouldn't be in final output
+        content = content.strip()
+        
+        # Remove common AI preambles
+        preambles_to_remove = [
+            "Here's a ", "Here is a ", "Here's the ", "Here is the ",
+            "I've created ", "I've written ", "I have created ", "I have written "
+        ]
+        for preamble in preambles_to_remove:
+            if content.lower().startswith(preamble.lower()):
+                # Find the colon or newline after preamble
+                idx = content.find(':')
+                if idx > 0 and idx < 100:  # Reasonable preamble length
+                    content = content[idx+1:].strip()
+                    break
+        
+        # Remove markdown code blocks if present
+        if content.startswith('```') and content.endswith('```'):
+            lines = content.split('\n')
+            content = '\n'.join(lines[1:-1]).strip()
+        
+        return content
 
 
 class VoiceAnalyzer:

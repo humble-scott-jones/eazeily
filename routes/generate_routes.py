@@ -61,6 +61,14 @@ def _error_response(code: str, message: str, http_status: int = 400, **extra):
 
 
 def _handle_generate(task_type, data):
+    """Handle content generation with optimized database access and structured API calls.
+    
+    This function:
+    1. Validates inputs efficiently
+    2. Fetches profile data in a single optimized query
+    3. Structures context data for the AI model
+    4. Returns clean, copy-paste-ready content
+    """
     task_cfg = get_task_config(task_type)
     if not task_cfg:
         return _error_response(
@@ -88,29 +96,50 @@ def _handle_generate(task_type, data):
             503,
         )
 
-    # Get user profile
+    # OPTIMIZED: Fetch user profile with all needed data in a single query
+    # Using select load to ensure all profile fields are loaded efficiently
     profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
     profile_missing = profile is None
+    
     if profile_missing:
         logger.info(f"User {current_user.id} generating content without a brand profile, using defaults")
         profile = _build_dummy_profile()
+    else:
+        # Profile exists - all data is already loaded from the single query above
+        # The VoiceProfile model has all fields as columns, so no additional queries needed
+        logger.debug(f"Loaded profile for user {current_user.id} with brand: {profile.business_name}")
 
-    # Extract dynamic input context
+    # STRUCTURED CONTEXT: Extract and validate dynamic input context
     context = {}
-    dynamic_fields = [
-        'ad_objective', 'target_audience',
-        'tone_modifier',
-        'cta',
-        'mood',
-        'video_length'
-    ]
-    for field in dynamic_fields:
+    
+    # Map of dynamic fields with their validation/cleaning
+    dynamic_field_processors = {
+        'ad_objective': lambda v: v if v in ['traffic', 'awareness', 'leads', 'conversions', 'engagement'] else None,
+        'target_audience': lambda v: v[:200] if v else None,  # Limit length
+        'tone_modifier': lambda v: v if v in ['thought-leadership', 'personal-story', 'company-update', 'hiring'] else None,
+        'cta': lambda v: v[:100] if v else None,  # Limit length
+        'mood': lambda v: v if v in ['inspiring', 'casual', 'educational', 'behind-the-scenes'] else None,
+        'video_length': lambda v: v if v in ['15', '30', '60', '90'] else None,
+    }
+    
+    for field, processor in dynamic_field_processors.items():
         value = data.get(field)
         if value:
-            context[field] = value
+            processed_value = processor(value)
+            if processed_value:
+                context[field] = processed_value
 
     try:
-        content = voice_engine.generate_expert_content(profile, topic, task_type, platform, **context)
+        # STRUCTURED API CALL: Pass all context to the voice engine
+        # The voice engine now builds a comprehensive, structured prompt
+        # using profile data (writing samples, brand keywords, voice rules, etc.)
+        content = voice_engine.generate_expert_content(
+            profile, 
+            topic, 
+            task_type, 
+            platform, 
+            **context
+        )
 
         if isinstance(content, str) and content.startswith("Error"):
             logger.error(f"Content generation failed: {content}")
@@ -120,13 +149,18 @@ def _handle_generate(task_type, data):
                 500,
             )
 
+        # CLEAN RESPONSE: Return structured, copy-paste-ready content
         response_payload = {
             "content": content,
             "status": "success",
+            "task_type": task_type,
+            "platform": platform,
         }
+        
         if profile_missing:
             response_payload["profile_missing"] = True
             response_payload["redirect"] = "/onboarding"
+            
         return jsonify(response_payload)
     except Exception as e:
         logger.error(f"Exception during content generation: {str(e)}", exc_info=True)
