@@ -47,7 +47,7 @@ def _validate_url(url: str) -> tuple[bool, str]:
     return True, ""
 
 
-def _run_scrape_job(job_id: str, url: str, profile_id: int):
+def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
     """Background worker to scrape URL and update profile.
     
     This function runs in a separate thread and:
@@ -55,12 +55,13 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int):
     2. Extracts business information
     3. Updates the profile with scraped data
     4. Updates job status
+    
+    Args:
+        job_id: Unique job identifier
+        url: URL to scrape
+        profile_id: Profile database ID
+        app: Flask app instance
     """
-    from flask import current_app
-    
-    # Get the app instance from the current context before entering thread
-    app = current_app._get_current_object()
-    
     with app.app_context():
         try:
             logger.info(f"Starting scrape job {job_id} for URL: {url}")
@@ -231,9 +232,13 @@ def api_scrape():
             }
         
         # Start background thread
+        # Pass the app instance to the thread (not current_app proxy)
+        from flask import current_app
+        app_instance = current_app._get_current_object()
+        
         thread = threading.Thread(
             target=_run_scrape_job,
-            args=(job_id, url, profile.id),
+            args=(job_id, url, profile.id, app_instance),
             daemon=True
         )
         thread.start()
