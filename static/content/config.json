@@ -19,5 +19,37 @@
     {"key": "software", "label": "Software"},
     {"key": "other", "label": "Other"}
   ],
+  "platforms": [
+    {
+      "category": "social_organic",
+      "categoryLabel": "Social (Organic)",
+      "items": [
+        {"key": "instagram", "label": "Instagram"},
+        {"key": "facebook", "label": "Facebook"},
+        {"key": "linkedin", "label": "LinkedIn"},
+        {"key": "twitter", "label": "X (Twitter)"},
+        {"key": "tiktok", "label": "TikTok"},
+        {"key": "short_video", "label": "Reels/Shorts"}
+      ]
+    },
+    {
+      "category": "social_ads",
+      "categoryLabel": "Social Ads",
+      "items": [
+        {"key": "facebook_ads", "label": "Facebook Ads"},
+        {"key": "instagram_ads", "label": "Instagram Ads"},
+        {"key": "linkedin_ads", "label": "LinkedIn Ads"},
+        {"key": "twitter_ads", "label": "X Ads"},
+        {"key": "tiktok_ads", "label": "TikTok Ads"}
+      ]
+    },
+    {
+      "category": "reputation",
+      "categoryLabel": "Reputation/Support",
+      "items": [
+        {"key": "review_response", "label": "Review Responses"}
+      ]
+    }
+  ],
   "questions": {}
 }

@@ -31,6 +31,13 @@ PLATFORM_HINTS = {
     "linkedin": "Value-forward, concise, 1–2 actionable insights, 3–6 hashtags.",
     "tiktok": "Hook in first sentence, keep lines punchy, suggest a shot list.",
     "twitter": "Short & punchy. 1–2 tweets per post; avoid walls of text.",
+    "short_video": "Dynamic opening hook, punchy lines, visual-first storytelling.",
+    "facebook_ads": "Clear value prop, strong CTA, mobile-optimized, under 125 chars.",
+    "instagram_ads": "Eye-catching opening, benefit-focused, concise for mobile.",
+    "linkedin_ads": "Professional, value-driven, clear ROI or benefit statement.",
+    "twitter_ads": "Direct and concise, strong hook in first 7 words.",
+    "tiktok_ads": "Native feel, entertaining, avoid hard-sell, under 100 chars.",
+    "review_response": "Grateful, empathetic, address concerns, invite follow-up.",
 }
 
 _CACHE_DIR = Path(os.getenv('TREND_CACHE_DIR') or (Path(__file__).resolve().parent / '.cache'))
