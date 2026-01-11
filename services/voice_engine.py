@@ -7,7 +7,15 @@ patch a client directly.
 from __future__ import annotations
 import json
 import os
-from typing import Any, List
+from typing import Any, List, Protocol
+
+
+class UserProfile(Protocol):
+    """Protocol defining the expected interface for user profiles."""
+    industry: str
+    business_name: str
+    brand_voice: str
+
 
 try:  # Prefer new google.genai; keep optional
     import google.genai as genai  # type: ignore
@@ -100,7 +108,7 @@ class VoiceEngine:
 
     def generate_expert_content(
         self,
-        user_profile: Any,
+        user_profile: UserProfile | Any,
         topic: str,
         task_type: str = "post",
         platform: str = "LinkedIn"
@@ -111,7 +119,8 @@ class VoiceEngine:
         This method provides appropriate error messages when timeout or other errors occur.
         
         Args:
-            user_profile: User profile with brand voice settings
+            user_profile: User profile with brand voice settings (expects industry,
+                         business_name, brand_voice attributes but handles missing attrs)
             topic: Content topic
             task_type: Type of content to generate (post, email, etc.)
             platform: Target platform for the content

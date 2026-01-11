@@ -491,7 +491,8 @@
                     
                     showToast(errorMessage, 'error');
                 } finally {
-                    // Ensure timers are always cleaned up
+                    // Defensive cleanup: ensure timers are cleared even if error handling fails
+                    // clearTimeout() is safe to call multiple times on the same timer
                     clearTimeout(longRunningTimer);
                     clearTimeout(timeoutTimer);
                     
