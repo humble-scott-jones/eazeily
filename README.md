@@ -2,6 +2,7 @@
 
 ## Quick Links
 - 📖 **[User Journey Documentation](docs/user-journey.md)** - Complete end-to-end flow from profile setup through content generation
+- 📚 [Documentation Index](docs/README.md) - Full documentation directory
 - 🚀 [Launch Checklist](LAUNCH_CHECKLIST.md)
 - 🔧 [Testing Guide](TESTING.md)
 - 🔐 [Security Guide](SECURITY.md)
