@@ -515,7 +515,7 @@
                 'Limited time offer: 20% off this weekend only',
                 'Solve your biggest challenge with our proven solution',
                 'Join thousands who transformed their business',
-                'Free consultation - discover what's possible',
+                'Free consultation - discover what\'s possible',
                 'New product launch - be the first to try it'
             ],
             'email': [
@@ -589,85 +589,7 @@
         document.getElementById('topic').select();
     }
     
-    function showToast(message, tone = 'info', durationMs = 3500) {
-        'post': {
-            label: 'What is this post about?',
-            placeholder: 'e.g., New summer collection launch',
-            buttonText: 'Generate Post',
-            showPlatform: true
-        },
-        'ad': {
-            label: 'What is this ad promoting?',
-            placeholder: 'e.g., 20% off all pottery classes this month',
-            buttonText: 'Generate Ad',
-            showPlatform: false
-        },
-        'email': {
-            label: 'What is the email about?',
-            placeholder: 'e.g., Following up on our recent conversation about home staging',
-            buttonText: 'Generate Email',
-            showPlatform: false
-        },
-        'review': {
-            label: 'Paste the review here:',
-            placeholder: 'e.g., Great experience! The agent was very helpful and responsive.',
-            buttonText: 'Generate Reply',
-            showPlatform: false
-        },
-        'proposal': {
-            label: 'What service/project is this proposal for?',
-            placeholder: 'e.g., Complete kitchen remodel for 3-bedroom home',
-            buttonText: 'Generate Proposal',
-            showPlatform: false
-        },
-        'newsletter': {
-            label: 'What is the theme of this newsletter?',
-            placeholder: 'e.g., Monthly wellness tips and upcoming class schedule',
-            buttonText: 'Generate Newsletter',
-            showPlatform: false
-        },
-        'blog': {
-            label: 'What is the blog post topic?',
-            placeholder: 'e.g., 5 tips for first-time homebuyers in today\'s market',
-            buttonText: 'Generate Blog',
-            showPlatform: false
-        },
-        'script': {
-            label: 'What is this video about?',
-            placeholder: 'e.g., Studio tour and pottery-making process for Reels',
-            buttonText: 'Generate Script',
-            showPlatform: false
-        },
-        'caption': {
-            label: 'Describe the image:',
-            placeholder: 'e.g., Photo of newly listed Victorian home with sunset lighting',
-            buttonText: 'Generate Caption',
-            showPlatform: false
-        }
-    };
-    
-    function selectTask(taskType) {
-        currentTask = taskType;
-        document.getElementById('task_type').value = taskType;
-        
-        // Update UI
-        const config = taskConfig[taskType];
-        document.getElementById('topicLabel').textContent = config.label;
-        document.getElementById('topic').placeholder = config.placeholder;
-        document.getElementById('btnText').textContent = config.buttonText;
-        document.getElementById('platformSection').style.display = config.showPlatform ? 'block' : 'none';
-        
-        // Update task button styles
-        document.querySelectorAll('.task-btn').forEach(btn => {
-            btn.classList.remove('border-blue-600', 'bg-blue-50');
-            btn.classList.add('border-gray-300');
-        });
-        document.getElementById('task-' + taskType).classList.remove('border-gray-300');
-        document.getElementById('task-' + taskType).classList.add('border-blue-600', 'bg-blue-50');
-        
-        // Clear result
-        document.getElementById('resultBox').classList.add('hidden');
-    }
+    // Toast notification system
     
     // Toast notification system
     function showToast(message, tone = 'info', durationMs = 3500) {
