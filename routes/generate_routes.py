@@ -95,8 +95,22 @@ def _handle_generate(task_type, data):
         logger.info(f"User {current_user.id} generating content without a brand profile, using defaults")
         profile = _build_dummy_profile()
 
+    # Extract dynamic input context
+    context = {}
+    dynamic_fields = [
+        'ad_objective', 'ad_format', 'target_audience',
+        'linkedin_type', 'tone_modifier',
+        'subject_style', 'cta',
+        'instagram_format', 'mood',
+        'video_length', 'hook_style'
+    ]
+    for field in dynamic_fields:
+        value = data.get(field)
+        if value:
+            context[field] = value
+
     try:
-        content = voice_engine.generate_expert_content(profile, topic, task_type, platform)
+        content = voice_engine.generate_expert_content(profile, topic, task_type, platform, **context)
 
         if isinstance(content, str) and content.startswith("Error"):
             logger.error(f"Content generation failed: {content}")

@@ -111,7 +111,8 @@ class VoiceEngine:
         user_profile: UserProfile | Any,
         topic: str,
         task_type: str = "post",
-        platform: str = "LinkedIn"
+        platform: str = "LinkedIn",
+        **context
     ) -> str:
         """Generate content based on task type with error handling for timeout scenarios.
         
@@ -124,6 +125,7 @@ class VoiceEngine:
             topic: Content topic
             task_type: Type of content to generate (post, email, etc.)
             platform: Target platform for the content
+            **context: Additional context parameters (ad_objective, target_audience, etc.)
             
         Returns:
             Generated content string or user-friendly error message
@@ -139,8 +141,33 @@ class VoiceEngine:
             f"Brand voice: {brand_voice}",
             f"Task: Create {task_type} content about: {topic}",
             f"Platform: {platform}",
-            f"Provide engaging, on-brand content that resonates with the target audience.",
         ]
+        
+        # Add dynamic context to prompt if provided
+        if context.get('ad_objective'):
+            prompt_parts.append(f"Ad objective: {context['ad_objective']}")
+        if context.get('ad_format'):
+            prompt_parts.append(f"Ad format: {context['ad_format']}")
+        if context.get('target_audience'):
+            prompt_parts.append(f"Target audience: {context['target_audience']}")
+        if context.get('linkedin_type'):
+            prompt_parts.append(f"LinkedIn content type: {context['linkedin_type']}")
+        if context.get('tone_modifier'):
+            prompt_parts.append(f"Tone modifier: {context['tone_modifier']}")
+        if context.get('subject_style'):
+            prompt_parts.append(f"Subject line style: {context['subject_style']}")
+        if context.get('cta'):
+            prompt_parts.append(f"Call-to-action: {context['cta']}")
+        if context.get('instagram_format'):
+            prompt_parts.append(f"Instagram format: {context['instagram_format']}")
+        if context.get('mood'):
+            prompt_parts.append(f"Mood/vibe: {context['mood']}")
+        if context.get('video_length'):
+            prompt_parts.append(f"Target video length: {context['video_length']} seconds")
+        if context.get('hook_style'):
+            prompt_parts.append(f"Hook style: {context['hook_style']}")
+        
+        prompt_parts.append("Provide engaging, on-brand content that resonates with the target audience.")
         
         prompt = "\n".join(prompt_parts)
         
