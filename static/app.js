@@ -923,20 +923,55 @@ function renderPlatformChoices(list){
   const wrap = document.getElementById("platforms");
   if (!wrap) return;
   wrap.innerHTML = "";
-  list.forEach(opt => {
-    const div = document.createElement("button");
-    div.className = "choice"; div.setAttribute("data-key", opt.key);
-    div.innerHTML = `<div class="title">${opt.label}</div>`;
-    div.addEventListener("click", () => {
-      const k = opt.key;
-      const idx = answers.platforms.indexOf(k);
-      if (idx === -1) { answers.platforms.push(k); div.classList.add("selected"); }
-      else { answers.platforms.splice(idx,1); div.classList.remove("selected"); }
-      if (answers.platforms.length === 0) answers.platforms = ["instagram"];
-      updateSummary();
+  
+  // Group platforms by category
+  const byCategory = {
+    social: [],
+    ads: [],
+    reputation: []
+  };
+  
+  (list || []).forEach(opt => {
+    const category = opt.category || 'social';
+    if (byCategory[category]) {
+      byCategory[category].push(opt);
+    }
+  });
+  
+  // Render each category
+  const categoryLabels = {
+    social: 'Social (organic)',
+    ads: 'Social Ads',
+    reputation: 'Reputation'
+  };
+  
+  ['social', 'ads', 'reputation'].forEach(catKey => {
+    const platforms = byCategory[catKey];
+    if (!platforms || platforms.length === 0) return;
+    
+    // Add category header
+    const header = document.createElement("div");
+    header.className = "text-xs uppercase tracking-wide text-slate-500 mt-4 mb-2 first:mt-0";
+    header.textContent = categoryLabels[catKey];
+    wrap.appendChild(header);
+    
+    // Add platform buttons
+    platforms.forEach(opt => {
+      const div = document.createElement("button");
+      div.className = "choice"; 
+      div.setAttribute("data-key", opt.key);
+      div.innerHTML = `<div class="title">${opt.label}</div>`;
+      div.addEventListener("click", () => {
+        const k = opt.key;
+        const idx = answers.platforms.indexOf(k);
+        if (idx === -1) { answers.platforms.push(k); div.classList.add("selected"); }
+        else { answers.platforms.splice(idx,1); div.classList.remove("selected"); }
+        if (answers.platforms.length === 0) answers.platforms = ["instagram"];
+        updateSummary();
+      });
+      if (answers.platforms.includes(opt.key)) div.classList.add("selected");
+      wrap.appendChild(div);
     });
-    if (answers.platforms.includes(opt.key)) div.classList.add("selected");
-    wrap.appendChild(div);
   });
 }
 
@@ -1918,6 +1953,23 @@ function requestFeedbackNote(meta = {}){
   });
 }
 window.requestFeedbackNote = requestFeedbackNote;
+
+function formatPlatformLabel(value) {
+  if (!value) return '';
+  const overrides = {
+    twitter: 'X (Twitter)',
+    short_video: 'Reels / Shorts',
+    facebook_ads: 'Facebook Ads',
+    instagram_ads: 'Instagram Ads',
+    linkedin_ads: 'LinkedIn Ads',
+    twitter_ads: 'X Ads',
+    tiktok_ads: 'TikTok Ads',
+    reviews: 'Review responses'
+  };
+  const normalized = value.toLowerCase();
+  if (overrides[normalized]) return overrides[normalized];
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
 
 function buildFeedbackSnapshot(post = {}){
   const lines = [];
