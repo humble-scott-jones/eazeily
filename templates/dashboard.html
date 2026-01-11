@@ -130,7 +130,8 @@
                         <div>
                             <label for="platform" class="block text-sm font-medium text-gray-700 mb-2">Platform</label>
                             <select id="platform" name="platform"
-                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm h-11">
+                                    class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm h-11"
+                                    onchange="updateDynamicInputs()">
 
                 <option value="LinkedIn">LinkedIn</option>
                 <option value="Instagram">Instagram</option>
@@ -138,15 +139,162 @@
                 <option value="Twitter">Twitter</option>
             </select>
         </div>
+                    
+                    <!-- Dynamic Input Sections -->
+                    
+                    <!-- Facebook/Ad Options (shown for ads or Facebook posts) -->
+                    <div id="ad-options" class="hidden col-span-full mt-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <h4 class="text-sm font-semibold text-blue-900 mb-3">Ad Options</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="ad-objective" class="block text-xs font-medium text-gray-700 mb-1">Campaign Objective</label>
+                                <select id="ad-objective" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select objective...</option>
+                                    <option value="traffic">Drive Traffic</option>
+                                    <option value="awareness">Brand Awareness</option>
+                                    <option value="leads">Generate Leads</option>
+                                    <option value="conversions">Conversions</option>
+                                    <option value="engagement">Engagement</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="ad-format" class="block text-xs font-medium text-gray-700 mb-1">Ad Format</label>
+                                <select id="ad-format" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select format...</option>
+                                    <option value="single-image">Single Image</option>
+                                    <option value="carousel">Carousel</option>
+                                    <option value="video">Video</option>
+                                    <option value="collection">Collection</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="ad-audience" class="block text-xs font-medium text-gray-700 mb-1">Target Audience</label>
+                                <input type="text" id="ad-audience" placeholder="e.g., Moms in Seattle, CTOs at startups"
+                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9 px-3">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- LinkedIn Options (shown for LinkedIn) -->
+                    <div id="linkedin-options" class="hidden col-span-full mt-4 bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                        <h4 class="text-sm font-semibold text-indigo-900 mb-3">LinkedIn Options</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="linkedin-type" class="block text-xs font-medium text-gray-700 mb-1">Content Type</label>
+                                <select id="linkedin-type" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select type...</option>
+                                    <option value="standard">Standard Post</option>
+                                    <option value="article">Article/Newsletter</option>
+                                    <option value="poll">Poll</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="linkedin-tone" class="block text-xs font-medium text-gray-700 mb-1">Tone Modifier</label>
+                                <select id="linkedin-tone" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select tone...</option>
+                                    <option value="thought-leadership">Thought Leadership</option>
+                                    <option value="hiring">Hiring Announcement</option>
+                                    <option value="company-update">Company Update</option>
+                                    <option value="personal-story">Personal Story</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Email/Newsletter Options (shown for email/newsletter) -->
+                    <div id="email-options" class="hidden col-span-full mt-4 bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+                        <h4 class="text-sm font-semibold text-emerald-900 mb-3">Email Options</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="email-subject-style" class="block text-xs font-medium text-gray-700 mb-1">Subject Line Style</label>
+                                <select id="email-subject-style" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select style...</option>
+                                    <option value="curiosity">Curiosity Gap</option>
+                                    <option value="direct">Direct & Clear</option>
+                                    <option value="urgency">Urgency-Based</option>
+                                    <option value="personalized">Personalized</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="email-cta" class="block text-xs font-medium text-gray-700 mb-1">Call-to-Action</label>
+                                <input type="text" id="email-cta" placeholder="e.g., Book a call, Download guide"
+                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9 px-3">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Visual/Instagram Options (shown for Instagram) -->
+                    <div id="visual-options" class="hidden col-span-full mt-4 bg-purple-50 p-4 rounded-lg border border-purple-100">
+                        <h4 class="text-sm font-semibold text-purple-900 mb-3">Instagram Options</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="instagram-format" class="block text-xs font-medium text-gray-700 mb-1">Format</label>
+                                <select id="instagram-format" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select format...</option>
+                                    <option value="feed">Feed Post</option>
+                                    <option value="carousel">Carousel</option>
+                                    <option value="reel">Reel</option>
+                                    <option value="story">Story</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="instagram-mood" class="block text-xs font-medium text-gray-700 mb-1">Mood/Vibe</label>
+                                <select id="instagram-mood" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select mood...</option>
+                                    <option value="inspiring">Inspiring</option>
+                                    <option value="casual">Casual & Fun</option>
+                                    <option value="educational">Educational</option>
+                                    <option value="behind-the-scenes">Behind-the-Scenes</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Video/Script Options (shown for video scripts) -->
+                    <div id="video-options" class="hidden col-span-full mt-4 bg-pink-50 p-4 rounded-lg border border-pink-100">
+                        <h4 class="text-sm font-semibold text-pink-900 mb-3">Video Script Options</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="video-length" class="block text-xs font-medium text-gray-700 mb-1">Target Length</label>
+                                <select id="video-length" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select length...</option>
+                                    <option value="15">15 seconds</option>
+                                    <option value="30">30 seconds</option>
+                                    <option value="60">60 seconds</option>
+                                    <option value="90">90 seconds</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="video-hook" class="block text-xs font-medium text-gray-700 mb-1">Hook Style</label>
+                                <select id="video-hook" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm h-9">
+                                    <option value="">Select hook...</option>
+                                    <option value="question">Start with Question</option>
+                                    <option value="bold-statement">Bold Statement</option>
+                                    <option value="story">Story Opening</option>
+                                    <option value="pattern-interrupt">Pattern Interrupt</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-        <button type="submit" id="generateBtn"
-                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            <span id="btnText">Generate Post</span>
-            <svg id="loadingSpinner" class="animate-spin ml-2 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-        </button>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <button type="button" id="surpriseMeBtn"
+                    class="flex items-center justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    onclick="handleSurpriseMe()">
+                <span class="text-lg mr-2">✨</span>
+                <span>Surprise Me</span>
+            </button>
+            
+            <button type="submit" id="generateBtn"
+                    class="md:col-span-2 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <span id="btnText">Generate Post</span>
+                <svg id="loadingSpinner" class="animate-spin ml-2 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </div>
     </form>
 
     <div id="resultBox" class="mt-8 hidden">
@@ -246,15 +394,202 @@
         document.getElementById('task-' + taskType).classList.remove('border-gray-300');
         document.getElementById('task-' + taskType).classList.add('border-blue-600', 'bg-blue-50');
         
+        // Update dynamic inputs visibility
+        updateDynamicInputs();
+        
         // Clear result
         document.getElementById('resultBox').classList.add('hidden');
     }
     
-<script>
-    // Task button selection (lightweight, needed for UI updates)
-    let currentTask = 'post';
+    // Dynamic Input Configuration Map
+    const DYNAMIC_INPUT_CONFIG = {
+        'ad': 'ad-options',
+        'facebook': 'ad-options',
+        'linkedin': 'linkedin-options',
+        'instagram': 'visual-options',
+        'script': 'video-options',
+        'email': 'email-options',
+        'newsletter': 'email-options'
+    };
     
-    const taskConfig = {
+    /**
+     * Update visibility of dynamic input sections based on current task and platform
+     */
+    function updateDynamicInputs() {
+        // Hide all dynamic sections
+        ['ad-options', 'linkedin-options', 'visual-options', 'video-options', 'email-options'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+        
+        // Show relevant section based on task type
+        const taskType = document.getElementById('task_type').value;
+        const platform = document.getElementById('platform')?.value?.toLowerCase() || '';
+        
+        // Check task type first
+        if (DYNAMIC_INPUT_CONFIG[taskType]) {
+            const sectionId = DYNAMIC_INPUT_CONFIG[taskType];
+            const el = document.getElementById(sectionId);
+            if (el) el.classList.remove('hidden');
+        }
+        // Then check platform
+        else if (DYNAMIC_INPUT_CONFIG[platform]) {
+            const sectionId = DYNAMIC_INPUT_CONFIG[platform];
+            const el = document.getElementById(sectionId);
+            if (el) el.classList.remove('hidden');
+        }
+    }
+    
+    /**
+     * Collect dynamic input data based on visible sections
+     */
+    function collectDynamicInputs() {
+        const dynamicData = {};
+        
+        // Ad options
+        const adOptions = document.getElementById('ad-options');
+        if (adOptions && !adOptions.classList.contains('hidden')) {
+            const objective = document.getElementById('ad-objective')?.value;
+            const format = document.getElementById('ad-format')?.value;
+            const audience = document.getElementById('ad-audience')?.value;
+            if (objective) dynamicData.ad_objective = objective;
+            if (format) dynamicData.ad_format = format;
+            if (audience) dynamicData.target_audience = audience;
+        }
+        
+        // LinkedIn options
+        const linkedinOptions = document.getElementById('linkedin-options');
+        if (linkedinOptions && !linkedinOptions.classList.contains('hidden')) {
+            const type = document.getElementById('linkedin-type')?.value;
+            const tone = document.getElementById('linkedin-tone')?.value;
+            if (type) dynamicData.linkedin_type = type;
+            if (tone) dynamicData.tone_modifier = tone;
+        }
+        
+        // Email options
+        const emailOptions = document.getElementById('email-options');
+        if (emailOptions && !emailOptions.classList.contains('hidden')) {
+            const subjectStyle = document.getElementById('email-subject-style')?.value;
+            const cta = document.getElementById('email-cta')?.value;
+            if (subjectStyle) dynamicData.subject_style = subjectStyle;
+            if (cta) dynamicData.cta = cta;
+        }
+        
+        // Visual/Instagram options
+        const visualOptions = document.getElementById('visual-options');
+        if (visualOptions && !visualOptions.classList.contains('hidden')) {
+            const format = document.getElementById('instagram-format')?.value;
+            const mood = document.getElementById('instagram-mood')?.value;
+            if (format) dynamicData.instagram_format = format;
+            if (mood) dynamicData.mood = mood;
+        }
+        
+        // Video options
+        const videoOptions = document.getElementById('video-options');
+        if (videoOptions && !videoOptions.classList.contains('hidden')) {
+            const length = document.getElementById('video-length')?.value;
+            const hook = document.getElementById('video-hook')?.value;
+            if (length) dynamicData.video_length = length;
+            if (hook) dynamicData.hook_style = hook;
+        }
+        
+        return dynamicData;
+    }
+    
+    /**
+     * Surprise Me - randomly populate inputs based on task type
+     */
+    function handleSurpriseMe() {
+        const taskType = document.getElementById('task_type').value;
+        
+        // Topic suggestions by task type
+        const topicSuggestions = {
+            'post': [
+                'A behind-the-scenes look at our creative process',
+                'Customer success story that showcases our impact',
+                'Industry trend analysis and what it means for our audience',
+                'Quick tips for solving a common problem',
+                'Motivational message about overcoming challenges'
+            ],
+            'ad': [
+                'Limited time offer: 20% off this weekend only',
+                'Solve your biggest challenge with our proven solution',
+                'Join thousands who transformed their business',
+                'Free consultation - discover what's possible',
+                'New product launch - be the first to try it'
+            ],
+            'email': [
+                'Exclusive insight: What successful clients do differently',
+                'Following up on our conversation - next steps',
+                'Monthly roundup of tips and resources',
+                'Personal invitation to our upcoming event',
+                'Quick check-in: How can we help you succeed?'
+            ],
+            'script': [
+                'Day in the life of running our business',
+                '3 mistakes people make and how to avoid them',
+                'Before and after transformation story',
+                'Quick tutorial: Our signature technique',
+                'Behind the scenes: How we create our product'
+            ],
+            'review': [
+                'Thank you so much for your kind words! We love working with clients like you.',
+                'We appreciate your feedback and are glad we could help.',
+                'Thank you for taking the time to share your experience!'
+            ],
+            'blog': [
+                'Complete beginner\'s guide to getting started',
+                'Top 10 mistakes to avoid in 2024',
+                'Case study: How we achieved amazing results',
+                'Industry trends you need to know about',
+                'Expert interview: Insights from a leader'
+            ],
+            'newsletter': [
+                'Monthly highlights and what\'s coming next',
+                'Exclusive tips and resources for subscribers',
+                'Community spotlight and member achievements',
+                'Seasonal guide and special announcements',
+                'Behind-the-scenes update and insider news'
+            ],
+            'proposal': [
+                'Complete branding package for small businesses',
+                'Website redesign and SEO optimization',
+                'Social media management - 3-month package',
+                'Consulting services for business growth',
+                'Custom solution tailored to your needs'
+            ],
+            'caption': [
+                'Smiling team photo in front of our office',
+                'Product showcase with beautiful natural lighting',
+                'Happy customer holding our product',
+                'Workspace setup that inspires creativity',
+                'Event photos from our recent gathering'
+            ]
+        };
+        
+        const suggestions = topicSuggestions[taskType] || topicSuggestions['post'];
+        const randomTopic = suggestions[Math.floor(Math.random() * suggestions.length)];
+        
+        // Set the topic
+        document.getElementById('topic').value = randomTopic;
+        
+        // Randomly set platform if applicable
+        if (taskConfig[taskType].showPlatform) {
+            const platforms = ['LinkedIn', 'Instagram', 'Facebook', 'Twitter'];
+            const randomPlatform = platforms[Math.floor(Math.random() * platforms.length)];
+            document.getElementById('platform').value = randomPlatform;
+            updateDynamicInputs();
+        }
+        
+        // Show feedback
+        showToast('✨ Surprise! Try this topic or edit it to your liking.', 'info', 2000);
+        
+        // Auto-focus on topic field so user can easily edit
+        document.getElementById('topic').focus();
+        document.getElementById('topic').select();
+    }
+    
+    function showToast(message, tone = 'info', durationMs = 3500) {
         'post': {
             label: 'What is this post about?',
             placeholder: 'e.g., New summer collection launch',
@@ -429,6 +764,9 @@
                         abortController.abort();
                     }, TIMEOUT_MS);
                     
+                    // Collect dynamic inputs
+                    const dynamicInputs = collectDynamicInputs();
+                    
                     const response = await fetch('/api/generate', {
                         method: 'POST',
                         headers: {
@@ -437,7 +775,8 @@
                         body: JSON.stringify({
                             topic,
                             platform,
-                            task_type: taskType
+                            task_type: taskType,
+                            ...dynamicInputs
                         }),
                         signal: abortController.signal
                     });
