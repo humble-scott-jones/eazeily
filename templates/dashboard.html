@@ -128,18 +128,23 @@
                     <!-- Platform selector (only for posts) -->
                     <div id="platformSection" class="mb-4">
                         <div>
-                            <label for="platform" class="block text-sm font-medium text-gray-700 mb-2">Platform</label>
+                            <label for="platform" class="block text-sm font-medium text-gray-700 mb-2">
+                                Platform <span class="text-xs text-gray-500">(Where will this be posted?)</span>
+                            </label>
                             <select id="platform" name="platform"
                                     class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm h-11"
                                     onchange="updateDynamicInputs()">
-                <option value="instagram">Instagram</option>
-                <option value="facebook">Facebook</option>
-                <option value="linkedin">LinkedIn</option>
-                <option value="twitter">X (Twitter)</option>
-                <option value="tiktok">TikTok</option>
-                <option value="short_video">Reels/Shorts</option>
-            </select>
-        </div>
+                                <optgroup label="📱 Social Media">
+                                    <option value="instagram">Instagram (Feed & Stories)</option>
+                                    <option value="facebook">Facebook (Page Posts)</option>
+                                    <option value="linkedin">LinkedIn (Professional)</option>
+                                    <option value="twitter">X / Twitter</option>
+                                    <option value="tiktok">TikTok</option>
+                                    <option value="short_video">Reels & Shorts (IG, YT)</option>
+                                </optgroup>
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">Each platform has different best practices for length, tone, and hashtags</p>
+                        </div>
                     </div>
                     
                     <!-- Dynamic Input Sections - Optional context for better personalization -->
@@ -577,8 +582,101 @@
         }
     }
     
+    // Check profile status and show banner if needed
+    async function checkProfileStatus() {
+        try {
+            const response = await fetch('/api/current_user');
+            const data = await response.json();
+            
+            const statusEl = document.getElementById('generator-status-banner');
+            if (!statusEl) return;
+            
+            if (response.ok && data.user) {
+                const profile = data.profile;
+                
+                if (!profile) {
+                    // No profile - show warning (XSS-safe using DOM methods)
+                    statusEl.className = 'mb-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm';
+                    
+                    const container = document.createElement('div');
+                    container.className = 'flex items-start space-x-3';
+                    
+                    const icon = document.createElement('span');
+                    icon.className = 'text-xl';
+                    icon.textContent = '⚠️';
+                    
+                    const content = document.createElement('div');
+                    content.className = 'flex-1';
+                    
+                    const title = document.createElement('p');
+                    title.className = 'font-semibold text-yellow-900';
+                    title.textContent = 'Brand profile not set up';
+                    
+                    const description = document.createElement('p');
+                    description.className = 'text-yellow-800 mt-1';
+                    description.textContent = 'For best results, complete your brand profile first.';
+                    
+                    const link = document.createElement('a');
+                    link.href = '/onboarding';
+                    link.className = 'inline-block mt-2 text-sm font-medium text-yellow-900 underline hover:text-yellow-700';
+                    link.textContent = 'Set up profile →';
+                    
+                    content.appendChild(title);
+                    content.appendChild(description);
+                    content.appendChild(link);
+                    container.appendChild(icon);
+                    container.appendChild(content);
+                    
+                    statusEl.innerHTML = '';  // Clear previous content
+                    statusEl.appendChild(container);
+                    statusEl.classList.remove('hidden');
+                } else if (profile.business_name) {
+                    // Profile exists - show success (using textContent for security)
+                    statusEl.className = 'mb-4 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-sm';
+                    
+                    const container = document.createElement('div');
+                    container.className = 'flex items-center space-x-2';
+                    
+                    const icon = document.createElement('span');
+                    icon.className = 'text-lg';
+                    icon.textContent = '✓';
+                    
+                    const text = document.createElement('span');
+                    text.className = 'text-green-900';
+                    text.textContent = `Profile loaded: ${profile.business_name} • ${profile.industry || 'General'}`;
+                    
+                    const link = document.createElement('a');
+                    link.href = '/onboarding';
+                    link.className = 'ml-auto text-sm text-green-700 hover:text-green-900 underline';
+                    link.textContent = 'Edit profile';
+                    
+                    container.appendChild(icon);
+                    container.appendChild(text);
+                    container.appendChild(link);
+                    
+                    statusEl.innerHTML = '';  // Clear previous content
+                    statusEl.appendChild(container);
+                    statusEl.classList.remove('hidden');
+                    
+                    // Auto-hide success banner after 5 seconds
+                    setTimeout(() => {
+                        statusEl.style.transition = 'opacity 0.5s';
+                        statusEl.style.opacity = '0';
+                        setTimeout(() => statusEl.classList.add('hidden'), 500);
+                    }, 5000);
+                }
+            }
+        } catch (error) {
+            console.error('Error checking profile status:', error);
+            // Silently fail - don't show error to user for status check
+        }
+    }
+    
     // Form submission handler
     document.addEventListener('DOMContentLoaded', function() {
+        // Check profile status on page load
+        checkProfileStatus();
+        
         const form = document.getElementById('generateForm');
         if (form) {
             form.addEventListener('submit', async function(e) {
