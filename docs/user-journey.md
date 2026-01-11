@@ -184,6 +184,354 @@ This document describes the complete user journey from profile setup through con
 - ⚠️ No export to other formats (PDF, DOCX)
 - ⚠️ Copy button doesn't handle mobile keyboards well
 
+## Content Type Taxonomy
+
+Eazeily supports 9 distinct content types, each optimized for specific channels, use cases, and best practices. This comprehensive taxonomy ensures consistent, high-quality content generation across the entire user journey.
+
+### 1. Social Post (`post`)
+**What it is**: Organic social media posts for platforms like Instagram, Facebook, LinkedIn, X (Twitter), and TikTok.
+
+**Platforms/Channels**:
+- Instagram (feed posts, stories)
+- Facebook (page posts, personal posts)
+- LinkedIn (professional updates, thought leadership)
+- X / Twitter (short-form posts, threads)
+- TikTok (short-form video captions)
+- Reels/Shorts (Instagram Reels, YouTube Shorts)
+
+**Use Cases**:
+- Brand awareness and visibility
+- Audience engagement and community building
+- Thought leadership and expertise sharing
+- Product/service announcements
+- Behind-the-scenes content
+- Customer stories and testimonials
+
+**Best Practices**:
+- **Hook**: Start with attention-grabbing first line (especially important for Instagram/TikTok)
+- **Length**: Platform-appropriate (280 chars for Twitter, 1-2 paragraphs for LinkedIn, 2000 chars max for Instagram)
+- **Hashtags**: Include 3-12 relevant, niche hashtags (platform-dependent)
+- **CTA**: Clear call-to-action (comment, share, visit link)
+- **Tone**: Match brand voice and platform culture
+- **Visuals**: Reference visual content being paired with post
+
+**Generator Flow**:
+1. User selects "Social Post" tile
+2. Platform dropdown appears (Instagram, Facebook, LinkedIn, X, TikTok, Reels/Shorts)
+3. User enters topic description
+4. Dynamic options appear based on platform (e.g., Instagram mood, LinkedIn tone)
+5. System generates platform-optimized content using `PLATFORM_HINTS` and `platform_rules.py`
+
+---
+
+### 2. Image Caption (`caption`)
+**What it is**: Captions for photos and images to be shared on social media platforms.
+
+**Platforms/Channels**:
+- Instagram (photo posts)
+- Facebook (photo albums, image posts)
+- LinkedIn (image posts)
+- X / Twitter (image posts)
+
+**Use Cases**:
+- Product showcase and launches
+- Behind-the-scenes glimpses
+- Customer stories and user-generated content
+- Event highlights and coverage
+- Team introductions
+- Lifestyle and brand aesthetic content
+
+**Best Practices**:
+- **Context**: Describe what's happening in the image
+- **Emotion**: Add emotional connection or storytelling
+- **Brevity**: Keep it concise (especially for Twitter)
+- **Hashtags**: Include relevant tags for discoverability
+- **Accessibility**: Describe visual elements for accessibility
+- **CTA**: Invite engagement (tag someone, share, comment)
+
+**Generator Flow**:
+1. User selects "Image Caption" tile
+2. User describes the image or pastes image description
+3. System generates caption that complements the visual
+4. No platform dropdown (works across social platforms)
+
+---
+
+### 3. Video Script (`script`)
+**What it is**: Scripts for short-form video content optimized for Reels, TikToks, and YouTube Shorts.
+
+**Platforms/Channels**:
+- TikTok (short-form vertical video)
+- Instagram Reels (short-form vertical video)
+- YouTube Shorts (short-form vertical video)
+- Facebook Reels (short-form vertical video)
+
+**Use Cases**:
+- Tutorials and how-tos
+- Product demonstrations
+- Educational content
+- Storytelling and narratives
+- Entertainment and trending content
+- Day-in-the-life content
+
+**Best Practices**:
+- **Hook**: Capture attention in first 3 seconds (critical for retention)
+- **Structure**: Include timestamps for editing (e.g., 0:00-0:03 Hook)
+- **Visual Cues**: Add shot descriptions and visual directions
+- **Pacing**: Keep it fast-paced, punchy dialogue
+- **Audio**: Consider voiceover, music, and sound effects
+- **CTA**: Strong call-to-action at end (follow, comment, share)
+- **Text Overlays**: Note where on-screen text should appear
+
+**Generator Flow**:
+1. User selects "Video Script" tile
+2. User enters video topic and concept
+3. Dynamic options: video length (15s, 30s, 60s), style (tutorial, entertainment, story)
+4. System generates script with timestamps, dialogue, and shot descriptions
+
+---
+
+### 4. Email Draft (`email`)
+**What it is**: Personalized outreach emails for customer communication, follow-ups, and relationship building.
+
+**Platforms/Channels**:
+- Email (direct inbox delivery)
+- Gmail, Outlook, Apple Mail, etc.
+
+**Use Cases**:
+- Customer outreach and prospecting
+- Follow-up emails after meetings/calls
+- Partnership and collaboration proposals
+- Personal connection and networking
+- Customer check-ins
+- Sales outreach
+
+**Best Practices**:
+- **Subject Line**: Compelling, curiosity-driven (30-50 characters)
+- **Personalization**: Use recipient's name and reference specific details
+- **Value Proposition**: Lead with what's in it for them
+- **Brevity**: Keep it short and scannable (3-5 short paragraphs max)
+- **Single CTA**: One clear call-to-action (schedule call, reply, visit link)
+- **Tone**: Warm, conversational, relationship-first
+- **Signature**: Professional email signature
+
+**Generator Flow**:
+1. User selects "Email Draft" tile
+2. User enters email purpose and recipient context
+3. Dynamic options: email objective (outreach, follow-up, introduction)
+4. System generates subject line + email body
+5. CTA options available (schedule call, request reply, visit link)
+
+---
+
+### 5. Proposal (`proposal`)
+**What it is**: Professional business proposals for projects, services, and partnerships.
+
+**Platforms/Channels**:
+- PDF document
+- Google Docs / Microsoft Word
+- Email attachment
+- Proposal software (PandaDoc, Proposify)
+
+**Use Cases**:
+- Project bids and RFP responses
+- Service quotes and estimates
+- Partnership proposals
+- Contract proposals
+- Consulting engagement proposals
+- Freelance project proposals
+
+**Best Practices**:
+- **Executive Summary**: Clear overview of project and value
+- **Scope**: Detailed project scope and deliverables
+- **Timeline**: Milestones and estimated completion dates
+- **Pricing**: Transparent pricing structure (fixed, hourly, milestone-based)
+- **Value Proposition**: Why you're the best fit
+- **Terms**: Payment terms, contract duration, revisions
+- **Call-to-Action**: Clear next steps (sign, schedule call, ask questions)
+
+**Generator Flow**:
+1. User selects "Proposal" tile
+2. User enters project details and client context
+3. System generates structured proposal with sections:
+   - Project Overview
+   - Deliverables
+   - Timeline
+   - Pricing
+   - Value Proposition
+   - Next Steps
+
+---
+
+### 6. Social Ads (`ad`)
+**What it is**: Paid advertising copy for social media platforms optimized for conversions.
+
+**Platforms/Channels**:
+- Facebook Ads (newsfeed, stories, reels)
+- Instagram Ads (feed, stories, reels, explore)
+- LinkedIn Ads (sponsored content, message ads)
+- X Ads / Twitter Ads (promoted posts)
+- TikTok Ads (in-feed ads, branded hashtag challenges)
+
+**Use Cases**:
+- Lead generation (email capture, form fills)
+- Product sales and e-commerce
+- Event promotion and ticket sales
+- App installs
+- Brand awareness campaigns
+- Retargeting and remarketing
+
+**Best Practices**:
+- **Hook**: Scroll-stopping first line (3-5 words max)
+- **Value Prop**: Clear benefit and unique selling point
+- **Brevity**: Under 125 characters for primary text (mobile-optimized)
+- **CTA**: Strong, action-oriented CTA (Shop Now, Learn More, Sign Up)
+- **Urgency**: Create sense of urgency when appropriate (limited time, exclusive)
+- **Mobile-First**: Optimize for mobile viewing
+- **Testing**: A/B test different hooks and CTAs
+
+**Generator Flow**:
+1. User selects "Social Ads" tile
+2. User enters ad topic and offer details
+3. Dynamic ad options:
+   - Ad objective (traffic, conversions, awareness)
+   - Target audience description
+   - Special offer or promotion
+4. System generates ad copy optimized for paid social (125 chars, strong CTA)
+
+---
+
+### 7. Review Reply (`review`)
+**What it is**: Professional, empathetic responses to customer reviews across platforms.
+
+**Platforms/Channels**:
+- Google My Business / Google Reviews
+- Yelp reviews
+- Facebook reviews
+- TripAdvisor reviews
+- Amazon reviews
+- App Store / Google Play reviews
+
+**Use Cases**:
+- Customer service and support
+- Reputation management
+- Conflict resolution and complaint handling
+- Thanking satisfied customers
+- Addressing negative feedback
+- Encouraging future business
+
+**Best Practices**:
+- **Gratitude**: Always thank the customer for feedback
+- **Personalization**: Reference specific details from their review
+- **Empathy**: Show understanding, especially for negative reviews
+- **Resolution**: Offer to make things right (refund, redo, discount)
+- **Professional**: Stay calm and professional, never defensive
+- **Concise**: Keep response brief (100-200 words)
+- **Action**: Provide contact info for follow-up if needed
+
+**Generator Flow**:
+1. User selects "Review Reply" tile
+2. User pastes the customer review text
+3. System analyzes sentiment (positive, neutral, negative)
+4. Dynamic options: review platform, response tone
+5. System generates empathetic, professional response
+
+---
+
+### 8. Blog Post (`blog`)
+**What it is**: Long-form, SEO-optimized articles for websites and company blogs.
+
+**Platforms/Channels**:
+- Company website blog
+- Medium
+- WordPress / Webflow / Wix
+- LinkedIn articles
+- Substack
+
+**Use Cases**:
+- Thought leadership and expertise
+- SEO content for organic traffic
+- Educational content and guides
+- Product tutorials and use cases
+- Industry insights and trends
+- Case studies and success stories
+
+**Best Practices**:
+- **Keyword Research**: Target 1-2 primary keywords
+- **Title**: Compelling, keyword-rich title (50-60 characters)
+- **Meta Description**: Clear summary for search results (150-160 characters)
+- **Structure**: Use H2/H3 headings for scannability
+- **Length**: 1000-2000 words for thorough coverage
+- **Actionable**: Include specific takeaways and how-tos
+- **Images**: Add relevant images, screenshots, diagrams
+- **Internal Links**: Link to related content
+- **CTA**: Clear next step at end (subscribe, download, contact)
+
+**Generator Flow**:
+1. User selects "Blog Post" tile
+2. User enters blog topic and target keywords
+3. System generates:
+   - 3 title options
+   - Meta description
+   - Article outline with H2/H3 headings
+   - Full article content
+   - Conclusion with CTA
+
+---
+
+### 9. Newsletter (`newsletter`)
+**What it is**: Email newsletter content for regular communication with subscribers.
+
+**Platforms/Channels**:
+- Email (Mailchimp, ConvertKit, Substack, etc.)
+- Direct inbox delivery to subscriber list
+
+**Use Cases**:
+- Community updates and announcements
+- Product launches and updates
+- Content roundups (blog posts, videos, podcasts)
+- Exclusive offers and promotions
+- Behind-the-scenes insights
+- Event invitations
+
+**Best Practices**:
+- **Subject Line**: Catchy, value-driven (30-50 characters)
+- **Preheader**: Complementary preview text
+- **Scannable**: Use short paragraphs, bullet points, subheadings
+- **Sections**: Clear sections with visual separation
+- **Value-First**: Lead with what subscribers will gain
+- **Consistency**: Send on consistent schedule (weekly, bi-weekly, monthly)
+- **Personal**: Write in first person, build relationship
+- **CTA**: 1-2 clear calls-to-action (not overwhelming)
+- **Footer**: Include unsubscribe and contact info
+
+**Generator Flow**:
+1. User selects "Newsletter" tile
+2. User enters newsletter theme and key topics
+3. System generates:
+   - Subject line
+   - Opening section
+   - 2-3 content sections
+   - Closing with CTA
+4. Optional: include promotions, announcements, content links
+
+---
+
+## Content Type Selection Matrix
+
+Choose the right content type based on your goal:
+
+| Goal | Best Content Type(s) |
+|------|---------------------|
+| Build brand awareness | Social Post, Blog Post |
+| Drive engagement | Social Post, Image Caption, Video Script |
+| Generate leads | Social Ads, Newsletter, Blog Post |
+| Make sales | Social Ads, Email Draft, Proposal |
+| Provide customer service | Review Reply, Email Draft |
+| Educate audience | Blog Post, Video Script, Newsletter |
+| Network & build relationships | Email Draft, LinkedIn Post (Social Post) |
+| Promote event | Social Ads, Newsletter, Social Post |
+
 ## Platform & Content Type Taxonomy
 
 ### Current Taxonomy (Before Normalization)
