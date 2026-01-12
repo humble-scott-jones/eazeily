@@ -263,6 +263,11 @@ def _generate_caption_with_ai(
             if target_audience:
                 voice_context += f"\nTarget audience: {target_audience}"
             
+            # Add customers/personas if available (more detailed than target_audience)
+            customers = getattr(profile, 'get_customers', lambda: [])()
+            if customers and isinstance(customers, list) and customers:
+                voice_context += f"\nCustomer personas: {', '.join(str(c) for c in customers[:3])}"
+            
             key_offer = getattr(profile, 'key_offer', None)
             if key_offer:
                 voice_context += f"\nKey offer/hook: {key_offer}"
@@ -270,6 +275,30 @@ def _generate_caption_with_ai(
             voice_rules = getattr(profile, 'voice_rules', None)
             if voice_rules:
                 voice_context += f"\nVoice rules/constraints: {voice_rules}"
+            
+            # Add brand inspirations (what to emulate)
+            brand_inspirations = getattr(profile, 'get_brand_inspirations', lambda: [])()
+            if brand_inspirations and isinstance(brand_inspirations, list) and brand_inspirations:
+                voice_context += f"\nBrand inspirations (emulate): {', '.join(str(b) for b in brand_inspirations[:3])}"
+            
+            # Add brand anti-inspirations (what to avoid)
+            brand_anti_inspirations = getattr(profile, 'get_brand_anti_inspirations', lambda: [])()
+            if brand_anti_inspirations and isinstance(brand_anti_inspirations, list) and brand_anti_inspirations:
+                voice_context += f"\nAvoid (anti-inspirations): {', '.join(str(b) for b in brand_anti_inspirations[:3])}"
+            
+            # Add scraped meta if available (additional brand context from website)
+            scraped_meta = getattr(profile, 'scraped_meta', None)
+            if scraped_meta:
+                try:
+                    import json
+                    meta = json.loads(scraped_meta) if isinstance(scraped_meta, str) else scraped_meta
+                    if isinstance(meta, dict):
+                        if meta.get('tagline'):
+                            voice_context += f"\nBrand tagline: {meta['tagline'][:100]}"
+                        if meta.get('description'):
+                            voice_context += f"\nBrand description: {meta['description'][:200]}"
+                except:
+                    pass  # Skip if parsing fails
             
             # Get writing samples (few-shot examples) - these are critical for voice matching
             writing_samples = getattr(profile, 'get_writing_samples', lambda: [])()
@@ -281,6 +310,18 @@ def _generate_caption_with_ai(
                     else:
                         sample_text = str(sample)
                     voice_context += f"\n{idx}. {sample_text[:200]}"  # Limit length
+            
+            # Add examples if no writing samples available
+            if not writing_samples:
+                examples = getattr(profile, 'get_examples', lambda: [])()
+                if examples and isinstance(examples, list):
+                    voice_context += "\n\nExample content:"
+                    for idx, example in enumerate(examples[:2], 1):
+                        if isinstance(example, dict):
+                            example_text = example.get('text') or example.get('content') or str(example)
+                        else:
+                            example_text = str(example)
+                        voice_context += f"\n{idx}. {example_text[:150]}"
         
         # Fallback to voice_profile dict if profile object not available
         if not voice_context and voice_profile and isinstance(voice_profile, Mapping):

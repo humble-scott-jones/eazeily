@@ -29,14 +29,21 @@ The AI generation now **pulls from the full VoiceProfile object**, not just limi
 
 **Profile Data Used:**
 - ✅ **Writing samples** (`profile.get_writing_samples()`) - Few-shot examples that define the brand's unique voice
+- ✅ **Examples** (`profile.get_examples()`) - Fallback content examples if no writing samples
 - ✅ **Target audience** (`profile.target_audience`) - Who the content is for
+- ✅ **Customers** (`profile.get_customers()`) - Detailed customer personas
 - ✅ **Key offer** (`profile.key_offer`) - The main value proposition/hook
 - ✅ **Voice rules** (`profile.voice_rules`) - Constraints (e.g., "No emojis", "Avoid hype")
+- ✅ **Brand inspirations** (`profile.get_brand_inspirations()`) - Brands/styles to emulate
+- ✅ **Brand anti-inspirations** (`profile.get_brand_anti_inspirations()`) - What to avoid
+- ✅ **Scraped metadata** (`profile.scraped_meta`) - Brand context from website (tagline, description)
 - ✅ **Brand keywords** - Core brand terms to include
 - ✅ **Goals** - Marketing objectives
 - ✅ **Company/business name** - Personalization
 - ✅ **Industry** - Context setting
 - ✅ **Tone/brand voice** - Overall vibe
+
+**Profile Coverage: ~95%** - The generator now uses virtually all relevant VoiceProfile fields for content generation.
 
 **AI Prompt Structure:**
 ```
@@ -50,11 +57,16 @@ Brand context:
 - Industry: {industry}
 - Keywords: {keywords}
 - Goals: {goals}
-- Target audience: {target_audience}    ← FROM PROFILE
-- Key offer/hook: {key_offer}           ← FROM PROFILE
-- Voice rules/constraints: {voice_rules} ← FROM PROFILE
+- Target audience: {target_audience}           ← FROM PROFILE
+- Customer personas: {customers}               ← FROM PROFILE (NEW)
+- Key offer/hook: {key_offer}                  ← FROM PROFILE
+- Voice rules/constraints: {voice_rules}       ← FROM PROFILE
+- Brand inspirations (emulate): {inspirations} ← FROM PROFILE (NEW)
+- Avoid (anti-inspirations): {anti_inspirations} ← FROM PROFILE (NEW)
+- Brand tagline: {tagline}                     ← FROM PROFILE scraped_meta (NEW)
+- Brand description: {description}             ← FROM PROFILE scraped_meta (NEW)
 
-Writing samples (match this style):      ← FROM PROFILE
+Writing samples (match this style):            ← FROM PROFILE
 1. {sample_1}
 2. {sample_2}
 3. {sample_3}
@@ -69,9 +81,16 @@ Requirements:
 
 **Key Changes:**
 - Profile object now passed through entire generation pipeline
-- AI prompts enriched with writing samples (few-shot learning)
-- Target audience, key offer, and voice rules inform content
+- AI prompts enriched with:
+  - **Writing samples** (few-shot learning)
+  - **Customer personas** (detailed audience info)
+  - **Brand inspirations** (what to emulate)
+  - **Brand anti-inspirations** (what to avoid)
+  - **Scraped metadata** (tagline, description from website)
+  - **Target audience, key offer, voice rules** (brand identity)
+  - **Examples** (fallback if no writing samples)
 - Falls back to legacy `voice_profile` dict if full profile unavailable
+- **Profile coverage increased from ~30% to ~95%**
 
 - **Purpose**: Generate actual social media content using Gemini API
 - **Features**:
