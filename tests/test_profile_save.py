@@ -3,11 +3,9 @@ Test suite for PROFILE-FIX-001: Profile Save Functionality
 
 Validates that:
 1. Profile save returns 2xx and persists fields reliably
-2. Required fields are validated
-3. Platforms and details arrays are preserved
-4. Error responses are actionable
+2. Platforms and details arrays are preserved
+3. Response structure includes proper fields
 """
-import pytest
 
 
 def test_profile_save_success_persists_all_fields(client):
@@ -153,12 +151,15 @@ def test_profile_save_update_existing_profile(client):
     assert signup_response.status_code in (200, 201)
     
     # First save
-    client.post('/api/profile', json={
+    first_save_response = client.post('/api/profile', json={
         'company': 'Original Company',
         'industry': 'Business',
         'tone': 'formal',
         'platforms': ['instagram']
     })
+    assert first_save_response.status_code == 200
+    first_save_body = first_save_response.get_json()
+    assert first_save_body.get('ok') is True
     
     # Get profile ID
     first_fetch = client.get('/api/profile')
@@ -189,7 +190,7 @@ def test_profile_save_update_existing_profile(client):
 
 
 def test_profile_save_with_missing_optional_fields(client):
-    """Profile can be saved with only required fields."""
+    """Profile can be saved with minimal data (optional fields omitted)."""
     signup_response = client.post('/api/signup', json={
         'email': 'minimal_test@example.com',
         'password': 'testpass123'
@@ -217,8 +218,8 @@ def test_profile_save_with_missing_optional_fields(client):
     assert profile['goals'] == []
 
 
-def test_profile_save_error_response_structure(client):
-    """Response structure includes 'ok' field and request_id for success cases."""
+def test_profile_save_success_response_structure(client):
+    """Response structure for successful save includes 'ok' and 'request_id' fields."""
     signup_response = client.post('/api/signup', json={
         'email': 'error_test@example.com',
         'password': 'testpass123'
