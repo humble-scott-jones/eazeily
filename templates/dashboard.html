@@ -217,6 +217,70 @@
                         </div>
                     </div>
                     
+                    <!-- Proposal intake (shown for proposal task) -->
+                    <div id="proposal-panel" class="hidden mb-4 bg-white p-4 sm:p-5 rounded-xl border border-gray-200">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg">📄</span>
+                                <h4 class="text-sm font-semibold text-gray-900">Proposal Intake</h4>
+                            </div>
+                            <span class="text-xs text-gray-500">Autosaves locally</span>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="proposal-company" class="block text-sm font-medium text-gray-800 mb-1.5">Prospect company</label>
+                                <input type="text" id="proposal-company" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="e.g., Acme Manufacturing">
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                    <label for="proposal-contact-name" class="block text-sm font-medium text-gray-800 mb-1.5">Contact name</label>
+                                    <input type="text" id="proposal-contact-name" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="e.g., Jordan Smith">
+                                </div>
+                                <div>
+                                    <label for="proposal-contact-email" class="block text-sm font-medium text-gray-800 mb-1.5">Contact email</label>
+                                    <input type="email" id="proposal-contact-email" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="name@company.com">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="proposal-industry" class="block text-sm font-medium text-gray-800 mb-1.5">Industry</label>
+                                <input type="text" id="proposal-industry" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="e.g., B2B SaaS, Home Services">
+                            </div>
+                            <div>
+                                <label for="proposal-headline" class="block text-sm font-medium text-gray-800 mb-1.5">Value prop / headline</label>
+                                <input type="text" id="proposal-headline" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="e.g., Launch a faster quoting portal in 30 days">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="proposal-goals" class="block text-sm font-medium text-gray-800 mb-1.5">Goals & objectives</label>
+                                <textarea id="proposal-goals" rows="3" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base p-3" placeholder="What outcomes matter? e.g., Increase demo bookings by 20%, streamline onboarding."></textarea>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="proposal-scope" class="block text-sm font-medium text-gray-800 mb-1.5">Scope summary</label>
+                                <textarea id="proposal-scope" rows="3" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base p-3" placeholder="Key deliverables, what's included/excluded."></textarea>
+                            </div>
+                            <div>
+                                <label for="proposal-timeline" class="block text-sm font-medium text-gray-800 mb-1.5">Timeline & milestones</label>
+                                <input type="text" id="proposal-timeline" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="e.g., 6 weeks, kickoff > design > launch">
+                            </div>
+                            <div>
+                                <label for="proposal-budget-range" class="block text-sm font-medium text-gray-800 mb-1.5">Budget range</label>
+                                <input type="text" id="proposal-budget-range" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="e.g., $8k - $15k (or TBD)">
+                            </div>
+                            <div>
+                                <label for="proposal-audience" class="block text-sm font-medium text-gray-800 mb-1.5">Primary audience segments</label>
+                                <textarea id="proposal-audience" rows="2" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base p-3" placeholder="e.g., Operations leaders at mid-market distributors"></textarea>
+                            </div>
+                            <div>
+                                <label for="proposal-cta-main" class="block text-sm font-medium text-gray-800 mb-1.5">Primary CTA</label>
+                                <input type="text" id="proposal-cta-main" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="e.g., Schedule a 30-min call">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="proposal-keywords" class="block text-sm font-medium text-gray-800 mb-1.5">Positioning keywords (5–10)</label>
+                                <input type="text" id="proposal-keywords" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4" placeholder="Comma-separated keywords: reliability, fast onboarding, secure, compliant">
+                                <p class="text-xs text-gray-600 mt-1">Used for positioning & success metrics. We’ll cap at 10.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- Visual/Instagram Options (shown for Instagram) -->
                     <div id="visual-options" class="hidden mb-4 bg-purple-50 p-4 sm:p-5 rounded-xl border border-purple-200">
                         <div class="flex items-center gap-2 mb-3">
@@ -319,8 +383,8 @@
             showPlatform: false
         },
         'proposal': {
-            label: 'What service/project is this proposal for?',
-            placeholder: 'e.g., Complete kitchen remodel for 3-bedroom home',
+            label: 'Project summary for this proposal',
+            placeholder: 'e.g., Replatform customer portal for mid-market distributors (objectives + outcomes)',
             buttonText: 'Generate Proposal',
             showPlatform: false
         },
@@ -390,10 +454,18 @@
             const el = document.getElementById(id);
             if (el) el.classList.add('hidden');
         });
+        const proposalPanel = document.getElementById('proposal-panel');
+        if (proposalPanel) proposalPanel.classList.add('hidden');
         
         // Show relevant section based on task type
         const taskType = document.getElementById('task_type').value;
         const platform = document.getElementById('platform')?.value?.toLowerCase() || '';
+
+        // Proposal flow: show structured intake and skip platform-based panels
+        if (taskType === 'proposal') {
+            if (proposalPanel) proposalPanel.classList.remove('hidden');
+            return;
+        }
         
         // Check task type first
         if (DYNAMIC_INPUT_CONFIG[taskType]) {
@@ -414,6 +486,29 @@
      */
     function collectDynamicInputs() {
         const dynamicData = {};
+        const taskType = document.getElementById('task_type').value;
+
+        if (taskType === 'proposal') {
+            const keywordsRaw = document.getElementById('proposal-keywords')?.value || '';
+            const keywordList = keywordsRaw.split(',')
+                .map(v => v.trim())
+                .filter(Boolean)
+                .slice(0, 10);
+
+            dynamicData.proposal_company = document.getElementById('proposal-company')?.value || '';
+            dynamicData.proposal_contact_name = document.getElementById('proposal-contact-name')?.value || '';
+            dynamicData.proposal_contact_email = document.getElementById('proposal-contact-email')?.value || '';
+            dynamicData.proposal_industry = document.getElementById('proposal-industry')?.value || '';
+            dynamicData.proposal_goals = document.getElementById('proposal-goals')?.value || '';
+            dynamicData.proposal_scope = document.getElementById('proposal-scope')?.value || '';
+            dynamicData.proposal_timeline = document.getElementById('proposal-timeline')?.value || '';
+            dynamicData.proposal_budget = document.getElementById('proposal-budget-range')?.value || '';
+            dynamicData.proposal_audience = document.getElementById('proposal-audience')?.value || '';
+            dynamicData.proposal_value_prop = document.getElementById('proposal-headline')?.value || '';
+            dynamicData.proposal_keywords = keywordList;
+            dynamicData.proposal_primary_cta = document.getElementById('proposal-cta-main')?.value || '';
+            return dynamicData;
+        }
         
         // Ad options
         const adOptions = document.getElementById('ad-options');
@@ -458,6 +553,59 @@
         }
         
         return dynamicData;
+    }
+    
+    const PROPOSAL_DRAFT_KEY = 'proposal-intake-draft';
+    const PROPOSAL_FIELDS = [
+        'proposal-company',
+        'proposal-contact-name',
+        'proposal-contact-email',
+        'proposal-industry',
+        'proposal-headline',
+        'proposal-goals',
+        'proposal-scope',
+        'proposal-timeline',
+        'proposal-budget-range',
+        'proposal-audience',
+        'proposal-cta-main',
+        'proposal-keywords'
+    ];
+
+    function saveProposalDraft() {
+        const draft = {};
+        PROPOSAL_FIELDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                draft[id] = el.value;
+            }
+        });
+        localStorage.setItem(PROPOSAL_DRAFT_KEY, JSON.stringify(draft));
+    }
+
+    function loadProposalDraft() {
+        const cached = localStorage.getItem(PROPOSAL_DRAFT_KEY);
+        if (!cached) return;
+        try {
+            const data = JSON.parse(cached);
+            PROPOSAL_FIELDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && data[id]) {
+                    el.value = data[id];
+                }
+            });
+        } catch (e) {
+            console.warn('Unable to load proposal draft', e);
+        }
+    }
+
+    function wireProposalDraftPersistence() {
+        PROPOSAL_FIELDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('input', saveProposalDraft);
+            }
+        });
+        loadProposalDraft();
     }
     
     /**
@@ -677,6 +825,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Check profile status on page load
         checkProfileStatus();
+        wireProposalDraftPersistence();
         
         const form = document.getElementById('generateForm');
         if (form) {
