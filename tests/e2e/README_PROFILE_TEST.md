@@ -4,6 +4,35 @@
 
 This test (`test_profile_creation.py`) was created to reproduce and document the "silent death click" issue where the profile creation submit button becomes disabled (darker) but nothing happens - no redirect, no error message, just a stuck state.
 
+## Quick Start: Standalone Script
+
+For the easiest way to reproduce the issue, use the standalone script:
+
+```bash
+# Move playwright stub temporarily
+mv playwright playwright_stub
+
+# Install dependencies (one time)
+pip install playwright requests
+playwright install chromium
+
+# Run the interactive script (opens browser)
+python3 scripts/test_profile_creation_flow.py
+
+# Restore stub
+mv playwright_stub playwright
+```
+
+The script will:
+- Start the Flask server automatically
+- Open a visible browser window
+- Walk through the entire flow
+- Take screenshots at each step
+- Report what happened (success or silent death click)
+- Wait for you to press Enter before closing
+
+**Screenshots are saved to:** `tmp/screenshots/profile_test/`
+
 ## Test Structure
 
 The test suite includes 5 test cases:
