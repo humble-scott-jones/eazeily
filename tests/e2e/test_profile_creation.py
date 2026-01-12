@@ -16,7 +16,16 @@ import subprocess
 import pathlib
 import requests
 import pytest
+
+# Import playwright - the real one, not the local stub
+# We need to be careful about import order since tests/conftest.py adds ROOT to sys.path
+import sys
+_repo_root = str(pathlib.Path(__file__).resolve().parents[2])
+if _repo_root in sys.path:
+    sys.path.remove(_repo_root)
 from playwright.sync_api import sync_playwright, expect
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.getenv("PORT", "5001"))
@@ -71,10 +80,19 @@ def create_test_user(page):
     # Navigate to app page which has auth
     page.goto(f"{BASE}/app", wait_until="networkidle")
     
-    # Open auth modal
-    auth_link = page.locator('header .auth-link, text=Sign in')
-    auth_link.first.wait_for(timeout=5000)
-    auth_link.first.click()
+    # Wait for page to load
+    page.wait_for_timeout(1000)
+    
+    # Open auth modal - look for Sign in link
+    try:
+        # Try multiple selectors
+        page.click('text="Sign in"', timeout=5000)
+    except Exception:
+        try:
+            page.click('a:has-text("Sign in")', timeout=5000)
+        except Exception:
+            # Try clicking header auth link
+            page.click('header a[href="/account"]', timeout=5000)
     
     # Switch to signup tab
     signup_tab = page.locator('[data-auth-tab="signup"]')
