@@ -20,3 +20,6 @@ pytest-report.xml
 .github/audit-logs/*.json
 .env*
 .envrc
+
+# Test screenshots
+tmp/screenshots/
