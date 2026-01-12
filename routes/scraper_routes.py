@@ -132,22 +132,51 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                     if not profile.target_audience:
                         profile.target_audience = business_info.get('key_customers')
                     else:
-                        # Only append if it's different content
+                        # Only append if it's substantially different content
+                        # Use a more sophisticated check: compare word overlap
                         existing = profile.target_audience.lower()
                         new_data = business_info.get('key_customers').lower()
-                        if new_data not in existing and existing not in new_data:
-                            profile.target_audience = profile.target_audience + '\n\n' + business_info.get('key_customers')
+                        
+                        # Check if either is a substring of the other
+                        if new_data in existing or existing in new_data:
+                            # Skip - data is too similar
+                            pass
+                        else:
+                            # Check word overlap - if less than 70% words overlap, it's different enough
+                            existing_words = set(existing.split())
+                            new_words = set(new_data.split())
+                            if len(existing_words) > 0:
+                                overlap = len(existing_words & new_words) / len(existing_words)
+                                if overlap < 0.7:
+                                    profile.target_audience = profile.target_audience + '\n\n' + business_info.get('key_customers')
+                            else:
+                                # If existing is empty somehow, just add new
+                                profile.target_audience = business_info.get('key_customers')
                 
                 # Merge key_offer instead of only filling empty
                 if business_info.get('key_offer'):
                     if not profile.key_offer:
                         profile.key_offer = business_info.get('key_offer')
                     else:
-                        # Only append if it's different content
+                        # Only append if it's substantially different content
                         existing = profile.key_offer.lower()
                         new_data = business_info.get('key_offer').lower()
-                        if new_data not in existing and existing not in new_data:
-                            profile.key_offer = profile.key_offer + '\n\n' + business_info.get('key_offer')
+                        
+                        # Check if either is a substring of the other
+                        if new_data in existing or existing in new_data:
+                            # Skip - data is too similar
+                            pass
+                        else:
+                            # Check word overlap - if less than 70% words overlap, it's different enough
+                            existing_words = set(existing.split())
+                            new_words = set(new_data.split())
+                            if len(existing_words) > 0:
+                                overlap = len(existing_words & new_words) / len(existing_words)
+                                if overlap < 0.7:
+                                    profile.key_offer = profile.key_offer + '\n\n' + business_info.get('key_offer')
+                            else:
+                                # If existing is empty somehow, just add new
+                                profile.key_offer = business_info.get('key_offer')
                 
                 # Merge keywords if we have AI-extracted ones
                 existing_brand_keywords = profile.get_brand_keywords()

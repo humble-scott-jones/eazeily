@@ -405,8 +405,16 @@ function displayScrapedUrls(url, meta) {
         display.classList.remove('hidden');
         list.innerHTML = '';
         
-        // Handle both single URL and array of URLs
-        const urls = Array.isArray(url) ? url : [url];
+        // Handle both single URL, array of URLs, and comma-separated string
+        let urls;
+        if (Array.isArray(url)) {
+            urls = url;
+        } else if (typeof url === 'string') {
+            // Split by comma or newline and clean up
+            urls = url.split(/[,\n]/).map(u => u.trim()).filter(u => u);
+        } else {
+            urls = [];
+        }
         
         urls.forEach(u => {
             const li = document.createElement('li');
@@ -576,7 +584,9 @@ async function mergeScrapedData(suggestions) {
         }
     }
     
-    // Brand keywords - MERGE with existing
+    // Brand keywords - MERGE with existing in the UI
+    // Note: We merge client-side here because the user needs to review the suggestions
+    // before saving. The final merged data is sent to /api/profile which saves to DB.
     const brandKeywordsField = document.getElementById('brand_keywords');
     if (suggestions.brand_keywords && Array.isArray(suggestions.brand_keywords)) {
         const existing = brandKeywordsField.value.split(',').map(k => k.trim()).filter(k => k);
