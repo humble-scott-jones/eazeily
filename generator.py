@@ -165,6 +165,7 @@ def build_platform_variants(
     theme: Optional[str] = None,
     platforms: Optional[list[str]] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
+    profile: Optional[Any] = None,
 ):
     """
     Generate platform-specific variants of a caption by applying platform rules to a base caption body.
@@ -186,6 +187,8 @@ def build_platform_variants(
         theme (str, optional): An optional theme for the post. Defaults to None.
         platforms (list[str], optional): List of platform keys for which to generate variants.
             If None, uses DEFAULT_VARIANT_PLATFORMS.
+        voice_profile: Legacy dict from profile.get_defaults()
+        profile: Full VoiceProfile object with rich brand data
 
     Returns:
         dict[str, Any]: A dictionary mapping each platform key to its variant payload (caption text and metadata).
@@ -201,6 +204,7 @@ def build_platform_variants(
         company,
         theme,
         voice_profile,
+        profile,
     )
     variant_targets = list(platforms or DEFAULT_VARIANT_PLATFORMS)
     variants = {}
@@ -225,9 +229,14 @@ def _generate_caption_with_ai(
     company: str = "",
     theme: Optional[str] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
+    profile: Optional[Any] = None,
 ) -> Optional[str]:
     """
     Generate actual social media caption content using Gemini AI.
+    
+    Args:
+        profile: Full VoiceProfile object with rich brand data (writing_samples, target_audience, etc.)
+        voice_profile: Legacy dict from profile.get_defaults() for backwards compatibility
     
     Returns:
         str: Generated caption text, or None if AI generation fails
@@ -245,9 +254,36 @@ def _generate_caption_with_ai(
         
         platform_hint = PLATFORM_HINTS.get(platform.lower(), "Make it concise and useful.")
         
-        # Build context from voice profile
+        # Build rich context from full profile object (preferred) or voice_profile dict (fallback)
         voice_context = ""
-        if voice_profile and isinstance(voice_profile, Mapping):
+        
+        if profile:
+            # Use rich profile data - this is the primary source of brand voice
+            target_audience = getattr(profile, 'target_audience', None)
+            if target_audience:
+                voice_context += f"\nTarget audience: {target_audience}"
+            
+            key_offer = getattr(profile, 'key_offer', None)
+            if key_offer:
+                voice_context += f"\nKey offer/hook: {key_offer}"
+            
+            voice_rules = getattr(profile, 'voice_rules', None)
+            if voice_rules:
+                voice_context += f"\nVoice rules/constraints: {voice_rules}"
+            
+            # Get writing samples (few-shot examples) - these are critical for voice matching
+            writing_samples = getattr(profile, 'get_writing_samples', lambda: [])()
+            if writing_samples and isinstance(writing_samples, list):
+                voice_context += "\n\nWriting samples (match this style):"
+                for idx, sample in enumerate(writing_samples[:3], 1):  # Use up to 3 samples
+                    if isinstance(sample, dict):
+                        sample_text = sample.get('text') or sample.get('content') or str(sample)
+                    else:
+                        sample_text = str(sample)
+                    voice_context += f"\n{idx}. {sample_text[:200]}"  # Limit length
+        
+        # Fallback to voice_profile dict if profile object not available
+        if not voice_context and voice_profile and isinstance(voice_profile, Mapping):
             vp_dict = voice_profile  # Use the Mapping directly
             phrases = vp_dict.get('include_phrases') or []
             if phrases and isinstance(phrases, (list, tuple)):
@@ -325,11 +361,12 @@ def build_caption_body(
     company: str = "",
     theme: Optional[str] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
+    profile: Optional[Any] = None,
 ) -> str:
     """
     Generate the main body content for a social media caption, without hashtags.
 
-    First attempts to use AI (Gemini) to generate high-quality content.
+    First attempts to use AI (Gemini) to generate high-quality content using full profile data.
     Falls back to template-based generation if AI is unavailable or fails.
 
     Args:
@@ -342,7 +379,8 @@ def build_caption_body(
         goals: List of business or post goals.
         company: (Optional) Company name.
         theme: (Optional) Theme for the post.
-        voice_profile: (Optional) Voice profile with brand examples.
+        voice_profile: (Optional) Legacy dict from profile.get_defaults()
+        profile: (Optional) Full VoiceProfile object with rich brand data
 
     Returns:
         str: The formatted caption body, ready for platform-specific rule application.
@@ -351,7 +389,7 @@ def build_caption_body(
     if USE_GEMINI_FOR_POSTS:
         ai_content = _generate_caption_with_ai(
             industry, tone, pillar_name, pillar_hint, platform,
-            brand_keywords, goals, company, theme, voice_profile
+            brand_keywords, goals, company, theme, voice_profile, profile
         )
         if ai_content:
             return ai_content
@@ -1096,7 +1134,7 @@ def _coerce_start_day(value: Any) -> date:
 
 
 def generate_posts(
-    profile: Optional[Mapping[str, Any]] = None,
+    profile_dict: Optional[Mapping[str, Any]] = None,
     *,
     days: Optional[int] = None,
     start_day: Optional[date] = None,
@@ -1110,6 +1148,7 @@ def generate_posts(
     company: str = "",
     details: Optional[Mapping[str, Any]] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
+    profile: Optional[Any] = None,
     variant_types: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
     """Generate a list of posts for the requested period.
@@ -1118,13 +1157,16 @@ def generate_posts(
     may contain keys like days, start_day, industry, tone, platforms, etc.
     
     Args:
+        profile_dict: (DEPRECATED) Legacy dict-based profile data
+        profile: Full VoiceProfile object with rich brand data (preferred)
+        voice_profile: Dict from profile.get_defaults() for backwards compatibility
         variant_types: List of variant types to generate. Empty list means no variants.
                       None means default behavior (no variants). 
                       Possible values: ['shorter', 'more_professional', 'more_playful', 'more_direct_cta']
     """
 
-    if isinstance(profile, Mapping):
-        default = profile
+    if isinstance(profile_dict, Mapping):
+        default = profile_dict
         days = days or default.get("days") or default.get("plan_days")
         start_day = start_day or default.get("start_day")
         industry = default.get("industry", industry)
@@ -1181,6 +1223,7 @@ def generate_posts(
             details.get("note"),
             platforms,  # Only generate for selected platforms, not all DEFAULT_VARIANT_PLATFORMS
             voice_profile,
+            profile,  # Pass the full profile object for rich brand data
         )
 
         # Create one post per platform (maintains backward compatibility)

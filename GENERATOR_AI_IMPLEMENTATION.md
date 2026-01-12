@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes the implementation of AI-powered content generation using Google's Gemini API to replace the previous template-based approach.
+This document summarizes the implementation of AI-powered content generation using Google's Gemini API that **pulls from the user's full brand profile** to create personalized, paste-ready social media content.
 
 ## Problem
 
@@ -21,9 +21,57 @@ This output contained meta-commentary and was not ready for direct use in social
 
 ## Solution
 
-Implemented AI-powered content generation with the following features:
+Implemented AI-powered content generation with **deep profile integration** using the following features:
 
-### 1. AI Integration (`_generate_caption_with_ai()`)
+### 1. Profile-Driven AI Generation (`_generate_caption_with_ai()`)
+
+The AI generation now **pulls from the full VoiceProfile object**, not just limited template data:
+
+**Profile Data Used:**
+- ✅ **Writing samples** (`profile.get_writing_samples()`) - Few-shot examples that define the brand's unique voice
+- ✅ **Target audience** (`profile.target_audience`) - Who the content is for
+- ✅ **Key offer** (`profile.key_offer`) - The main value proposition/hook
+- ✅ **Voice rules** (`profile.voice_rules`) - Constraints (e.g., "No emojis", "Avoid hype")
+- ✅ **Brand keywords** - Core brand terms to include
+- ✅ **Goals** - Marketing objectives
+- ✅ **Company/business name** - Personalization
+- ✅ **Industry** - Context setting
+- ✅ **Tone/brand voice** - Overall vibe
+
+**AI Prompt Structure:**
+```
+Write a complete, paste-ready social media post for {platform}.
+
+Content pillar: {pillar_name}
+Direction: {pillar_hint}
+
+Brand context:
+- Company: {company}
+- Industry: {industry}
+- Keywords: {keywords}
+- Goals: {goals}
+- Target audience: {target_audience}    ← FROM PROFILE
+- Key offer/hook: {key_offer}           ← FROM PROFILE
+- Voice rules/constraints: {voice_rules} ← FROM PROFILE
+
+Writing samples (match this style):      ← FROM PROFILE
+1. {sample_1}
+2. {sample_2}
+3. {sample_3}
+
+Requirements:
+- Tone: {tone}
+- Platform style: {platform_hint}
+- Include clear CTA
+- Use structure (bullets/numbers)
+- NO meta commentary
+```
+
+**Key Changes:**
+- Profile object now passed through entire generation pipeline
+- AI prompts enriched with writing samples (few-shot learning)
+- Target audience, key offer, and voice rules inform content
+- Falls back to legacy `voice_profile` dict if full profile unavailable
 
 - **Purpose**: Generate actual social media content using Gemini API
 - **Features**:
