@@ -39,7 +39,6 @@ def _create_test_user(client):
 
 
 def test_quality_gate_rejects_guidance_output(client):
-    _create_test_user(client)
     """Test that quality gate rejects outputs that look like guidance rather than finished content."""
     _create_test_user(client)
     # This test verifies that the output validator catches guidance-style responses

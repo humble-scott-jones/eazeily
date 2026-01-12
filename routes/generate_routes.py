@@ -31,19 +31,23 @@ def model_ready():
     - 200 if model is ready
     - 503 if model is not configured
     """
-    api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    genai_key = os.getenv("GENAI_API_KEY")
+    google_key = os.getenv("GOOGLE_API_KEY")
     
-    if not api_key:
+    if not genai_key and not google_key:
         return jsonify({
             "ok": False,
             "ready": False,
             "error": "AI service is not configured. Set GENAI_API_KEY or GOOGLE_API_KEY environment variable."
         }), 503
     
+    # Determine which provider is configured
+    provider = "gemini" if genai_key else "google"
+    
     return jsonify({
         "ok": True,
         "ready": True,
-        "provider": "gemini" if os.getenv("GENAI_API_KEY") else "google"
+        "provider": provider
     }), 200
 
 
