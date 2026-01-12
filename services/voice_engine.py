@@ -279,6 +279,19 @@ class VoiceEngine:
         if context.get('seo_keywords'):
             prompt_parts.append(f"SEO Keywords: {', '.join(context['seo_keywords'])}")
         
+        # Email-specific context
+        if context.get('email_subtype'):
+            subtype_label = 'Newsletter' if context['email_subtype'] == 'newsletter' else 'Standard Email'
+            prompt_parts.append(f"Email Type: {subtype_label}")
+        if context.get('email_context'):
+            prompt_parts.extend([
+                "",
+                "## Existing Email to Respond To",
+                "Generate a suggested response to this email:",
+                context['email_context'],
+                ""
+            ])
+        
         # Add format-specific output instructions
         prompt_parts.extend([
             "",
