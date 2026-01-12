@@ -89,6 +89,7 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                 'business_name': business_info.get('business_name'),
                 'industry': business_info.get('industry'),
                 'key_customers': business_info.get('key_customers'),
+                'key_offer': business_info.get('key_offer'),
                 'brand_keywords': business_info.get('brand_keywords', []),
                 'niche_keywords': business_info.get('niche_keywords', [])
             }
@@ -110,6 +111,9 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                 
                 if business_info.get('key_customers') and not profile.target_audience:
                     profile.target_audience = business_info.get('key_customers')
+                
+                if business_info.get('key_offer') and not profile.key_offer:
+                    profile.key_offer = business_info.get('key_offer')
                 
                 # Merge keywords if we have AI-extracted ones
                 existing_brand_keywords = profile.get_brand_keywords()
@@ -135,6 +139,7 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                         'company': business_info.get('business_name'),
                         'industry': business_info.get('industry'),
                         'key_customers': business_info.get('key_customers'),
+                        'key_offer': business_info.get('key_offer'),
                         'brand_keywords': business_info.get('brand_keywords', []),
                         'niche_keywords': business_info.get('niche_keywords', []),
                         'scraped_meta': scraped_meta

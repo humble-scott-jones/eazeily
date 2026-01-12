@@ -94,10 +94,13 @@ def test_social_style_extracts_business_info(monkeypatch, client):
         return {
             "business_name": "Acme Real Estate",
             "industry": "Realtor / Real Estate",
-            "key_customers": "Local families looking to upsize or first-time home buyers seeking guidance."
+            "key_customers": "Local families looking to upsize or first-time home buyers seeking guidance.",
+            "key_offer": "Free home valuation and consultation for first-time buyers",
+            "brand_keywords": ["trusted", "local", "family-oriented"],
+            "niche_keywords": ["residential", "first-time buyers", "family homes"]
         }
     
-    monkeypatch.setattr('routes.onboarding_routes.extract_business_info', fake_extract_business_info)
+    monkeypatch.setattr('services.scraper_service.extract_business_info', fake_extract_business_info)
 
     resp = client.post('/onboarding/social-style', json={
         'url': 'https://acmerealestate.com',
@@ -114,6 +117,7 @@ def test_social_style_extracts_business_info(monkeypatch, client):
     assert suggestions['business_name'] == "Acme Real Estate"
     assert suggestions['industry'] == "Realtor / Real Estate"
     assert suggestions['key_customers'] == "Local families looking to upsize or first-time home buyers seeking guidance."
+    assert suggestions['key_offer'] == "Free home valuation and consultation for first-time buyers"
     
     # Verify other fields still work
     assert suggestions['brand_voice']

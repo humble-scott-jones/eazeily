@@ -70,6 +70,7 @@ def test_scrape_endpoint_starts_job(mock_extract, mock_scrape, client):
         'business_name': 'Acme Corp',
         'industry': 'Software / Tech / Startup',
         'key_customers': 'Small businesses looking for productivity tools',
+        'key_offer': 'Free 14-day trial with personalized onboarding',
         'brand_keywords': ['innovative', 'reliable', 'simple'],
         'niche_keywords': ['SaaS', 'productivity', 'workflow']
     }
@@ -126,6 +127,7 @@ def test_scrape_updates_profile(mock_extract, mock_scrape, client):
         'business_name': 'Test Business',
         'industry': 'Retail / Boutique',
         'key_customers': 'Fashion-conscious shoppers',
+        'key_offer': '20% off your first purchase with code WELCOME20',
         'brand_keywords': ['stylish', 'affordable'],
         'niche_keywords': ['vintage', 'sustainable']
     }
