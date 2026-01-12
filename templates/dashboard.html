@@ -436,9 +436,10 @@
         if (emailOptions && !emailOptions.classList.contains('hidden')) {
             const subtype = document.getElementById('email-subtype')?.value;
             const existingEmail = document.getElementById('existing-email')?.value;
+            const trimmedEmail = existingEmail?.trim();
             const cta = document.getElementById('email-cta')?.value;
             if (subtype) dynamicData.email_subtype = subtype;
-            if (existingEmail && existingEmail.trim()) dynamicData.email_context = existingEmail.trim();
+            if (trimmedEmail) dynamicData.email_context = trimmedEmail;
             if (cta) dynamicData.cta = cta;
         }
         

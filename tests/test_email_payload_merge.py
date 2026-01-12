@@ -2,6 +2,9 @@
 import pytest
 from unittest.mock import Mock, patch
 
+# Email context field limit (should match generate_routes.py)
+EMAIL_CONTEXT_MAX_LENGTH = 2000
+
 
 @pytest.fixture
 def mock_profile():
@@ -173,13 +176,13 @@ def test_email_payload_with_all_fields(client, mock_profile):
 def test_email_context_field_truncated(client):
     """Test that email_context field is truncated to prevent abuse."""
     # Simulate the field processor from generate_routes.py
-    long_email = "x" * 3000  # Longer than the 2000 char limit
+    long_email = "x" * (EMAIL_CONTEXT_MAX_LENGTH + 1000)  # Longer than the limit
     
-    processor = lambda v: v[:2000] if v else None
+    processor = lambda v: v[:EMAIL_CONTEXT_MAX_LENGTH] if v else None
     processed = processor(long_email)
     
-    assert len(processed) == 2000
-    assert processed == "x" * 2000
+    assert len(processed) == EMAIL_CONTEXT_MAX_LENGTH
+    assert processed == "x" * EMAIL_CONTEXT_MAX_LENGTH
 
 
 def test_email_subtype_defaults_to_standard(client):
