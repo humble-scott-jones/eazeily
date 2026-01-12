@@ -100,7 +100,7 @@ def test_social_style_extracts_business_info(monkeypatch, client):
             "niche_keywords": ["residential", "first-time buyers", "family homes"]
         }
     
-    monkeypatch.setattr('routes.onboarding_routes.extract_business_info', fake_extract_business_info)
+    monkeypatch.setattr('services.scraper_service.extract_business_info', fake_extract_business_info)
 
     resp = client.post('/onboarding/social-style', json={
         'url': 'https://acmerealestate.com',
