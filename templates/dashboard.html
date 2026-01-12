@@ -59,8 +59,8 @@
                     <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 group-hover:bg-emerald-100 transition-colors">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
                     </div>
-                    <div class="font-semibold text-gray-900">Email Draft</div>
-                    <div class="text-xs text-gray-500 mt-1">Newsletters & More</div>
+                    <div class="font-semibold text-gray-900">Email</div>
+                    <div class="text-xs text-gray-500 mt-1">Newsletters & Outreach</div>
                 </button>
 
                 <button type="button" onclick="selectTask('proposal')" id="task-proposal" 
@@ -99,14 +99,7 @@
                     <div class="text-xs text-gray-500 mt-1">SEO Articles</div>
                 </button>
 
-                <button type="button" onclick="selectTask('newsletter')" id="task-newsletter" 
-                        class="task-btn group relative p-4 rounded-xl border border-gray-200 hover:border-indigo-500 hover:ring-1 hover:ring-indigo-500 hover:bg-indigo-50/30 transition-all duration-200 text-left">
-                    <div class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center mb-3 group-hover:bg-rose-100 transition-colors">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"></path></svg>
-                    </div>
-                    <div class="font-semibold text-gray-900">Newsletter</div>
-                    <div class="text-xs text-gray-500 mt-1">Community Updates</div>
-                </button>
+
             </div>
             
             <form id="generateForm" class="space-y-6">
@@ -200,11 +193,27 @@
                             <span class="text-lg">✉️</span>
                             <h4 class="text-sm font-semibold text-emerald-900">Email Style <span class="text-xs font-normal text-emerald-600">(Optional)</span></h4>
                         </div>
-                        <div>
-                            <label for="email-cta" class="block text-sm font-medium text-gray-800 mb-1.5">What should readers do?</label>
-                            <input type="text" id="email-cta" placeholder="e.g., Book a call, Download the guide, Reply to this email"
-                                   class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4">
-                            <p class="text-xs text-gray-600 mt-1">The main action you want them to take</p>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="email-subtype" class="block text-sm font-medium text-gray-800 mb-1.5">Email Type</label>
+                                <select id="email-subtype" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="standard">Standard Email</option>
+                                    <option value="newsletter">Newsletter</option>
+                                </select>
+                                <p class="text-xs text-gray-600 mt-1">Choose the type of email you're creating</p>
+                            </div>
+                            <div>
+                                <label for="existing-email" class="block text-sm font-medium text-gray-800 mb-1.5">Existing Email (Optional)</label>
+                                <textarea id="existing-email" rows="4" placeholder="Paste an email here to get suggested responses or improvements..."
+                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base p-3"></textarea>
+                                <p class="text-xs text-gray-600 mt-1">Paste an email to get AI-generated response suggestions</p>
+                            </div>
+                            <div>
+                                <label for="email-cta" class="block text-sm font-medium text-gray-800 mb-1.5">What should readers do?</label>
+                                <input type="text" id="email-cta" placeholder="e.g., Book a call, Download the guide, Reply to this email"
+                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4">
+                                <p class="text-xs text-gray-600 mt-1">The main action you want them to take</p>
+                            </div>
                         </div>
                     </div>
                     
@@ -315,12 +324,6 @@
             buttonText: 'Generate Proposal',
             showPlatform: false
         },
-        'newsletter': {
-            label: 'What is the theme of this newsletter?',
-            placeholder: 'e.g., Monthly wellness tips and upcoming class schedule',
-            buttonText: 'Generate Newsletter',
-            showPlatform: false
-        },
         'blog': {
             label: 'What is the blog post topic?',
             placeholder: 'e.g., 5 tips for first-time homebuyers in today\'s market',
@@ -375,8 +378,7 @@
         'linkedin': 'linkedin-options',
         'instagram': 'visual-options',
         'script': 'video-options',
-        'email': 'email-options',
-        'newsletter': 'email-options'
+        'email': 'email-options'
     };
     
     /**
@@ -432,7 +434,12 @@
         // Email options
         const emailOptions = document.getElementById('email-options');
         if (emailOptions && !emailOptions.classList.contains('hidden')) {
+            const subtype = document.getElementById('email-subtype')?.value;
+            const existingEmail = document.getElementById('existing-email')?.value;
+            const trimmedEmail = existingEmail?.trim();
             const cta = document.getElementById('email-cta')?.value;
+            if (subtype) dynamicData.email_subtype = subtype;
+            if (trimmedEmail) dynamicData.email_context = trimmedEmail;
             if (cta) dynamicData.cta = cta;
         }
         
@@ -501,13 +508,6 @@
                 'Case study: How we achieved amazing results',
                 'Industry trends you need to know about',
                 'Expert interview: Insights from a leader'
-            ],
-            'newsletter': [
-                'Monthly highlights and what\'s coming next',
-                'Exclusive tips and resources for subscribers',
-                'Community spotlight and member achievements',
-                'Seasonal guide and special announcements',
-                'Behind-the-scenes update and insider news'
             ],
             'proposal': [
                 'Complete branding package for small businesses',

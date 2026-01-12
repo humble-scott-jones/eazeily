@@ -83,11 +83,15 @@
     },
     {
       "key": "email",
-      "label": "Email Draft",
-      "description": "Personalized outreach emails for customer communication, follow-ups, and relationship building",
+      "label": "Email",
+      "description": "Email communications including newsletters, outreach, follow-ups, and relationship building",
       "platforms": ["email"],
-      "use_cases": ["Customer outreach", "Follow-ups", "Partnership proposals", "Personal connection"],
-      "best_practices": ["Compelling subject line", "Personalized greeting", "Clear value proposition", "Single clear CTA"]
+      "use_cases": ["Newsletters", "Customer outreach", "Follow-ups", "Partnership proposals", "Community updates"],
+      "best_practices": ["Compelling subject line", "Personalized greeting", "Clear value proposition", "Single clear CTA", "Scannable format"],
+      "subtypes": [
+        {"key": "newsletter", "label": "Newsletter"},
+        {"key": "standard", "label": "Standard Email"}
+      ]
     },
     {
       "key": "proposal",
@@ -120,14 +124,6 @@
       "platforms": ["website", "blog"],
       "use_cases": ["Thought leadership", "SEO content", "Education", "Product guides"],
       "best_practices": ["Keyword optimization", "Clear structure with H2/H3", "Actionable takeaways", "Include images", "Strong meta description"]
-    },
-    {
-      "key": "newsletter",
-      "label": "Newsletter",
-      "description": "Email newsletter content for regular communication with subscribers",
-      "platforms": ["email"],
-      "use_cases": ["Community updates", "Product announcements", "Content roundups", "Exclusive offers"],
-      "best_practices": ["Catchy subject line", "Scannable format", "Value-first content", "Clear sections", "Consistent schedule"]
     }
   ],
   "questions": {}

@@ -272,6 +272,9 @@ def _handle_generate(task_type, data):
         'cta': lambda v: v[:100] if v else None,  # Limit length
         'mood': lambda v: v if v in ['inspiring', 'casual', 'educational', 'behind-the-scenes'] else None,
         'video_length': lambda v: v if v in ['15', '30', '60', '90'] else None,
+        # Email-specific fields
+        'email_subtype': lambda v: v if v in ['newsletter', 'standard'] else 'standard',
+        'email_context': lambda v: v[:2000] if v else None,  # Limit length for existing email
         # Proposal-specific fields
         'proposal_type': lambda v: v if v in ['partnership', 'sponsorship', 'funding', 'rfp_response', 'collaboration'] else None,
         'recipient': lambda v: v[:200] if v else None,
