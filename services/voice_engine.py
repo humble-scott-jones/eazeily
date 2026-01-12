@@ -249,10 +249,34 @@ class VoiceEngine:
             prompt_parts.append(f"Proposal Type: {context['proposal_type']}")
         if context.get('recipient'):
             prompt_parts.append(f"Recipient: {context['recipient']}")
+        if context.get('proposal_company'):
+            prompt_parts.append(f"Prospect: {context['proposal_company']}")
+        if context.get('proposal_contact_name'):
+            prompt_parts.append(f"Contact: {context['proposal_contact_name']}")
+        if context.get('proposal_contact_email'):
+            prompt_parts.append(f"Contact Email: {context['proposal_contact_email']}")
+        if context.get('proposal_industry'):
+            prompt_parts.append(f"Prospect Industry: {context['proposal_industry']}")
+        if context.get('proposal_goals'):
+            prompt_parts.append(f"Objectives: {context['proposal_goals']}")
+        if context.get('proposal_scope'):
+            prompt_parts.append(f"Scope Summary: {context['proposal_scope']}")
+        if context.get('proposal_timeline'):
+            prompt_parts.append(f"Timeline: {context['proposal_timeline']}")
+        if context.get('proposal_budget'):
+            prompt_parts.append(f"Budget Range: {context['proposal_budget']}")
+        if context.get('proposal_audience'):
+            prompt_parts.append(f"Primary Audience: {context['proposal_audience']}")
+        if context.get('proposal_value_prop'):
+            prompt_parts.append(f"Value Proposition: {context['proposal_value_prop']}")
+        if context.get('proposal_keywords'):
+            prompt_parts.append(f"Positioning Keywords: {', '.join(context['proposal_keywords'])}")
         if context.get('key_benefits'):
             prompt_parts.append(f"Key Benefits: {', '.join(context['key_benefits'])}")
         if context.get('budget_range'):
             prompt_parts.append(f"Budget Range: {context['budget_range']}")
+        if context.get('proposal_primary_cta'):
+            prompt_parts.append(f"Primary CTA: {context['proposal_primary_cta']}")
         
         # Review reply-specific context
         if context.get('review_source'):

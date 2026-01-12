@@ -78,8 +78,10 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
             if not scraped_text:
                 raise Exception("Failed to extract text from URL")
             
-            # Step 2: Extract business information using AI
+            # Step 2: Extract business information using AI + heuristics
             business_info = extract_business_info(scraped_text, url)
+            target_audience_text = business_info.get('key_customers') or ', '.join(business_info.get('target_audience', []) or [])
+            business_info['key_customers'] = target_audience_text or None
             
             # Step 3: Prepare structured metadata
             scraped_meta = {
@@ -89,10 +91,12 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                 'business_name': business_info.get('business_name'),
                 'industry': business_info.get('industry'),
                 'key_customers': business_info.get('key_customers'),
-                'key_offer': business_info.get('key_offer'),
-                'brand_keywords': business_info.get('brand_keywords', []),
-                'niche_keywords': business_info.get('niche_keywords', [])
-            }
+                 'key_offer': business_info.get('key_offer'),
+                 'brand_keywords': business_info.get('brand_keywords', []),
+                 'niche_keywords': business_info.get('niche_keywords', []),
+                 'required_sections': business_info.get('required_sections', {}),
+                 'validation': business_info.get('validation', {})
+             }
             
             # Step 4: Update profile in database
             profile = VoiceProfile.query.get(profile_id)
@@ -133,16 +137,13 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                         profile.target_audience = business_info.get('key_customers')
                     else:
                         # Only append if it's substantially different content
-                        # Use a more sophisticated check: compare word overlap
                         existing = profile.target_audience.lower()
                         new_data = business_info.get('key_customers').lower()
                         
                         # Check if either is a substring of the other
                         if new_data in existing or existing in new_data:
-                            # Skip - data is too similar
                             pass
                         else:
-                            # Check word overlap - if less than 70% words overlap, it's different enough
                             existing_words = set(existing.split())
                             new_words = set(new_data.split())
                             if len(existing_words) > 0:
@@ -150,7 +151,6 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                                 if overlap < 0.7:
                                     profile.target_audience = profile.target_audience + '\n\n' + business_info.get('key_customers')
                             else:
-                                # If existing is empty somehow, just add new
                                 profile.target_audience = business_info.get('key_customers')
                 
                 # Merge key_offer instead of only filling empty

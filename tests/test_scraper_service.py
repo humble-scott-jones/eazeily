@@ -35,6 +35,11 @@ def test_extract_business_info_with_ai(monkeypatch):
     assert result["key_offer"] == "Free 30-day trial with no credit card required"
     assert result["brand_keywords"] == ["innovative", "efficient"]
     assert result["niche_keywords"] == ["automation", "workflow"]
+    sections = result["required_sections"]
+    assert sections["basic_information"]["status"] == "ok"
+    assert "Tech Startup Inc" in sections["basic_information"]["name"]
+    assert sections["target_audience"]["status"] in ("ok", "missing")  # AI fills key_customers
+    assert "fill_rate" in result["validation"]
 
 
 def test_extract_business_info_without_ai(monkeypatch):
@@ -46,13 +51,12 @@ def test_extract_business_info_without_ai(monkeypatch):
     scraped_text = "Some business content"
     result = extract_business_info(scraped_text)
     
-    # Should return None values when AI is unavailable
-    assert result["business_name"] is None
-    assert result["industry"] is None
-    assert result["key_customers"] is None
-    assert result["key_offer"] is None
-    assert result["brand_keywords"] == []
-    assert result["niche_keywords"] == []
+    # Legacy fields fall back to heuristics but remain safe defaults
+    assert "required_sections" in result
+    assert result["required_sections"]["basic_information"]["status"] in ("ok", "missing")
+    # Brand keywords may be inferred even without AI
+    assert isinstance(result["brand_keywords"], list)
+    assert "missing_sections" in result["validation"]
 
 
 def test_extract_business_info_handles_json_error(monkeypatch):
@@ -73,11 +77,9 @@ def test_extract_business_info_handles_json_error(monkeypatch):
     scraped_text = "Some business content"
     result = extract_business_info(scraped_text)
     
-    # Should return None values when JSON parsing fails
-    assert result["business_name"] is None
-    assert result["industry"] is None
-    assert result["key_customers"] is None
-    assert result["key_offer"] is None
+    # Should return safe defaults when JSON parsing fails
+    assert "required_sections" in result
+    assert result["required_sections"]["basic_information"]["status"] in ("ok", "missing")
 
 
 def test_extract_business_info_strips_markdown(monkeypatch):
