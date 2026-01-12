@@ -493,7 +493,7 @@
             const keywordList = keywordsRaw.split(',')
                 .map(v => v.trim())
                 .filter(Boolean)
-                .slice(0, 10);
+                .slice(0, PROPOSAL_KEYWORD_LIMIT);
 
             dynamicData.proposal_company = document.getElementById('proposal-company')?.value || '';
             dynamicData.proposal_contact_name = document.getElementById('proposal-contact-name')?.value || '';
@@ -556,6 +556,7 @@
     }
     
     const PROPOSAL_DRAFT_KEY = 'proposal-intake-draft';
+    const PROPOSAL_KEYWORD_LIMIT = 10;
     const PROPOSAL_FIELDS = [
         'proposal-company',
         'proposal-contact-name',

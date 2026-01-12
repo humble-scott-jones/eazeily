@@ -23,6 +23,7 @@ GOAL_KEYWORDS = {
 }
 
 CTA_KEYWORDS = ["sign up", "get started", "book", "schedule", "contact", "start", "try", "demo", "learn more", "join"]
+BRAND_KEYWORD_LIMIT = 10
 
 # Industry categories that match the onboarding form options
 INDUSTRY_CATEGORIES = [
@@ -174,7 +175,7 @@ def _extract_key_offer(text: str) -> dict:
     return offer
 
 
-def _extract_brand_keywords(text: str, existing: list[str] | None = None, limit: int = 10) -> list[str]:
+def _extract_brand_keywords(text: str, existing: list[str] | None = None, limit: int = BRAND_KEYWORD_LIMIT) -> list[str]:
     words = re.findall(r'[A-Za-z]{4,}', text.lower())
     filtered = [w for w in words if w not in STOPWORDS]
     counts = Counter(filtered)
