@@ -80,6 +80,84 @@
             </div>
         </div>
 
+        <!-- URL Scraper Section -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-50 to-cyan-50 px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <span class="text-2xl">🔍</span>
+                    Auto-Fill from URL
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">Add content from your website or social profiles</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-start space-x-2">
+                        <span class="text-2xl">✨</span>
+                        <div class="flex-1">
+                            <h3 class="font-semibold text-blue-900 mb-1">Let AI analyze your content</h3>
+                            <p class="text-sm text-blue-800 mb-2">Paste a link to extract brand voice, messaging, and keywords:</p>
+                            <ul class="text-xs text-blue-700 space-y-1 ml-4 list-disc">
+                                <li>Website or landing page</li>
+                                <li>Social media profiles (Instagram, Facebook, LinkedIn)</li>
+                                <li>Booking pages (Airbnb, VRBO, OpenTable)</li>
+                                <li>Portfolio or marketing materials</li>
+                            </ul>
+                            <p class="text-xs text-blue-700 mt-2 font-medium">💡 Add multiple URLs to build a richer profile!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="scraper_url" class="block text-sm font-medium text-gray-700 mb-2">
+                        Paste URL to Analyze
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="url" id="scraper_url" name="scraper_url"
+                               class="flex-1 rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base px-4 py-3"
+                               placeholder="https://yourbusiness.com or social profile URL">
+                        <button type="button" id="scrape-btn" onclick="handleScrapeUrl()"
+                                class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium whitespace-nowrap">
+                            <span id="scrape-btn-text">Analyze</span>
+                            <span id="scrape-btn-loading" class="hidden">
+                                <svg class="animate-spin h-5 w-5 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">We'll extract information and merge it with your existing profile</p>
+                </div>
+
+                <!-- Scraper Status Messages -->
+                <div id="scraper-result" class="hidden border-2 border-green-200 bg-green-50 rounded-lg p-4">
+                    <h4 class="font-semibold text-green-900 mb-2">✅ Analysis Complete!</h4>
+                    <p class="text-sm text-green-800" id="scraper-result-text"></p>
+                </div>
+
+                <div id="scraper-error" class="hidden border-2 border-red-200 bg-red-50 rounded-lg p-4">
+                    <h4 class="font-semibold text-red-900 mb-2">⚠️ Analysis Failed</h4>
+                    <p class="text-sm text-red-800" id="scraper-error-text"></p>
+                </div>
+
+                <div id="scraper-progress" class="hidden border-2 border-blue-200 bg-blue-50 rounded-lg p-4">
+                    <div class="flex items-center space-x-3">
+                        <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="text-sm text-blue-800 font-medium">Analyzing URL... This may take a few seconds.</p>
+                    </div>
+                </div>
+
+                <!-- Display previously scraped URLs -->
+                <div id="scraped-urls-display" class="hidden">
+                    <p class="text-xs font-medium text-gray-700 mb-2">Previously analyzed URLs:</p>
+                    <ul id="scraped-urls-list" class="text-xs text-gray-600 space-y-1 ml-4 list-disc"></ul>
+                </div>
+            </div>
+        </div>
+
         <!-- Brand Voice Section -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div class="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-gray-200">
@@ -311,6 +389,215 @@ function populateForm(profile) {
     if (profile.writing_samples && Array.isArray(profile.writing_samples)) {
         document.getElementById('writing_samples').value = profile.writing_samples.join('\n\n');
     }
+    
+    // Display scraped URL if available
+    if (profile.scraped_url) {
+        displayScrapedUrls(profile.scraped_url, profile.scraped_meta);
+    }
+}
+
+// Display scraped URLs
+function displayScrapedUrls(url, meta) {
+    const display = document.getElementById('scraped-urls-display');
+    const list = document.getElementById('scraped-urls-list');
+    
+    if (url) {
+        display.classList.remove('hidden');
+        list.innerHTML = '';
+        
+        // Handle both single URL and array of URLs
+        const urls = Array.isArray(url) ? url : [url];
+        
+        urls.forEach(u => {
+            const li = document.createElement('li');
+            li.textContent = u;
+            list.appendChild(li);
+        });
+    }
+}
+
+// Handle URL scraping
+async function handleScrapeUrl() {
+    const urlInput = document.getElementById('scraper_url');
+    const url = urlInput.value.trim();
+    
+    if (!url) {
+        showMessage('Please enter a URL to analyze', 'error');
+        return;
+    }
+    
+    // Validate URL format
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        showMessage('URL must start with http:// or https://', 'error');
+        return;
+    }
+    
+    const scrapeBtn = document.getElementById('scrape-btn');
+    const scrapeBtnText = document.getElementById('scrape-btn-text');
+    const scrapeBtnLoading = document.getElementById('scrape-btn-loading');
+    const resultDiv = document.getElementById('scraper-result');
+    const errorDiv = document.getElementById('scraper-error');
+    const progressDiv = document.getElementById('scraper-progress');
+    
+    // Hide previous messages
+    resultDiv.classList.add('hidden');
+    errorDiv.classList.add('hidden');
+    progressDiv.classList.remove('hidden');
+    
+    // Disable button and show loading
+    scrapeBtn.disabled = true;
+    scrapeBtnText.classList.add('hidden');
+    scrapeBtnLoading.classList.remove('hidden');
+    
+    try {
+        // Use the onboarding/social-style endpoint which has better extraction logic
+        const response = await fetch('/onboarding/social-style', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                url: url,
+                consent: true,
+                business_name: document.getElementById('company').value || ''
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Failed to analyze URL');
+        }
+        
+        const data = await response.json();
+        
+        if (data.suggestions) {
+            // Merge extracted data with existing form data
+            await mergeScrapedData(data.suggestions);
+            
+            // Show success message
+            progressDiv.classList.add('hidden');
+            resultDiv.classList.remove('hidden');
+            document.getElementById('scraper-result-text').textContent = 
+                'Data extracted and merged with your profile. Review the updated fields below and save when ready.';
+            
+            // Clear the URL input for next use
+            urlInput.value = '';
+            
+            // Auto-hide success message after 5 seconds
+            setTimeout(() => {
+                resultDiv.classList.add('hidden');
+            }, 5000);
+        } else {
+            throw new Error('No data could be extracted from the URL');
+        }
+        
+    } catch (error) {
+        console.error('Scraping error:', error);
+        progressDiv.classList.add('hidden');
+        errorDiv.classList.remove('hidden');
+        document.getElementById('scraper-error-text').textContent = 
+            error.message || 'Could not analyze the URL. Please try again or enter the information manually.';
+        
+        // Auto-hide error after 8 seconds
+        setTimeout(() => {
+            errorDiv.classList.add('hidden');
+        }, 8000);
+    } finally {
+        // Re-enable button
+        scrapeBtn.disabled = false;
+        scrapeBtnText.classList.remove('hidden');
+        scrapeBtnLoading.classList.add('hidden');
+    }
+}
+
+// Merge scraped data with existing form data
+async function mergeScrapedData(suggestions) {
+    console.log('Merging scraped data:', suggestions);
+    
+    // Business name - only fill if empty
+    if (suggestions.business_name && !document.getElementById('company').value) {
+        document.getElementById('company').value = suggestions.business_name;
+    }
+    
+    // Industry - only fill if empty
+    if (suggestions.industry && !document.getElementById('industry').value) {
+        const industrySelect = document.getElementById('industry');
+        industrySelect.value = suggestions.industry;
+    }
+    
+    // Target audience - merge or fill if empty
+    const audienceField = document.getElementById('target_audience');
+    if (suggestions.key_customers) {
+        if (!audienceField.value) {
+            audienceField.value = suggestions.key_customers;
+        } else {
+            // Append if different
+            const existing = audienceField.value.toLowerCase();
+            const newData = suggestions.key_customers.toLowerCase();
+            if (!existing.includes(newData) && !newData.includes(existing)) {
+                audienceField.value = audienceField.value + '\n\n' + suggestions.key_customers;
+            }
+        }
+    }
+    
+    // Brand voice/tone - only fill if empty
+    if (suggestions.brand_voice && !document.getElementById('tone').value) {
+        document.getElementById('tone').value = suggestions.brand_voice;
+    }
+    
+    // Key offer - merge or fill if empty
+    const offerField = document.getElementById('key_offer');
+    if (suggestions.key_offer) {
+        if (!offerField.value) {
+            offerField.value = suggestions.key_offer;
+        } else {
+            // Append if different
+            const existing = offerField.value.toLowerCase();
+            const newData = suggestions.key_offer.toLowerCase();
+            if (!existing.includes(newData) && !newData.includes(existing)) {
+                offerField.value = offerField.value + '\n\n' + suggestions.key_offer;
+            }
+        }
+    }
+    
+    // Voice rules - merge or fill if empty
+    const rulesField = document.getElementById('voice_rules');
+    if (suggestions.voice_rules) {
+        if (!rulesField.value) {
+            rulesField.value = suggestions.voice_rules;
+        } else {
+            // Append if different
+            const existing = rulesField.value.toLowerCase();
+            const newData = suggestions.voice_rules.toLowerCase();
+            if (!existing.includes(newData) && !newData.includes(existing)) {
+                rulesField.value = rulesField.value + '\n\n' + suggestions.voice_rules;
+            }
+        }
+    }
+    
+    // Brand keywords - MERGE with existing
+    const brandKeywordsField = document.getElementById('brand_keywords');
+    if (suggestions.brand_keywords && Array.isArray(suggestions.brand_keywords)) {
+        const existing = brandKeywordsField.value.split(',').map(k => k.trim()).filter(k => k);
+        const newKeywords = suggestions.brand_keywords.filter(k => k);
+        const merged = [...new Set([...existing, ...newKeywords])]; // Remove duplicates
+        brandKeywordsField.value = merged.join(', ');
+    }
+    
+    // Writing samples - APPEND to existing
+    const samplesField = document.getElementById('writing_samples');
+    if (suggestions.sample_copy && Array.isArray(suggestions.sample_copy)) {
+        const existing = samplesField.value.trim();
+        const newSamples = suggestions.sample_copy.join('\n\n');
+        if (existing) {
+            samplesField.value = existing + '\n\n' + newSamples;
+        } else {
+            samplesField.value = newSamples;
+        }
+    }
+    
+    console.log('Data merged successfully');
 }
 
 // Handle form submission

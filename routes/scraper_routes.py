@@ -97,8 +97,26 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
             # Step 4: Update profile in database
             profile = VoiceProfile.query.get(profile_id)
             if profile:
-                profile.scraped_url = url
-                profile.set_scraped_meta(scraped_meta)
+                # Track multiple scraped URLs - append to existing
+                existing_scraped_url = profile.scraped_url or ''
+                if existing_scraped_url:
+                    # Parse existing URLs (could be comma-separated or newline-separated)
+                    existing_urls = [u.strip() for u in existing_scraped_url.replace('\n', ',').split(',') if u.strip()]
+                    if url not in existing_urls:
+                        existing_urls.append(url)
+                    profile.scraped_url = ', '.join(existing_urls)
+                else:
+                    profile.scraped_url = url
+                
+                # Merge scraped metadata - keep history of all scrapes
+                existing_meta = profile.get_scraped_meta()
+                if not existing_meta.get('scrape_history'):
+                    existing_meta['scrape_history'] = []
+                existing_meta['scrape_history'].append(scraped_meta)
+                existing_meta['last_url'] = url
+                existing_meta['last_scraped_at'] = scraped_meta['extracted_at']
+                profile.set_scraped_meta(existing_meta)
+                
                 profile.scraped_at = datetime.utcnow()
                 profile.scrape_status = 'finished'
                 
@@ -109,11 +127,27 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                 if business_info.get('industry') and not profile.industry:
                     profile.industry = business_info.get('industry')
                 
-                if business_info.get('key_customers') and not profile.target_audience:
-                    profile.target_audience = business_info.get('key_customers')
+                # Merge target_audience instead of only filling empty
+                if business_info.get('key_customers'):
+                    if not profile.target_audience:
+                        profile.target_audience = business_info.get('key_customers')
+                    else:
+                        # Only append if it's different content
+                        existing = profile.target_audience.lower()
+                        new_data = business_info.get('key_customers').lower()
+                        if new_data not in existing and existing not in new_data:
+                            profile.target_audience = profile.target_audience + '\n\n' + business_info.get('key_customers')
                 
-                if business_info.get('key_offer') and not profile.key_offer:
-                    profile.key_offer = business_info.get('key_offer')
+                # Merge key_offer instead of only filling empty
+                if business_info.get('key_offer'):
+                    if not profile.key_offer:
+                        profile.key_offer = business_info.get('key_offer')
+                    else:
+                        # Only append if it's different content
+                        existing = profile.key_offer.lower()
+                        new_data = business_info.get('key_offer').lower()
+                        if new_data not in existing and existing not in new_data:
+                            profile.key_offer = profile.key_offer + '\n\n' + business_info.get('key_offer')
                 
                 # Merge keywords if we have AI-extracted ones
                 existing_brand_keywords = profile.get_brand_keywords()
