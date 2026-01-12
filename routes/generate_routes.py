@@ -103,9 +103,26 @@ def _handle_multi_day_generation(data):
     - image_data_url: base64 image data (optional)
     - image_context: description of image (optional)
     """
+    import uuid
+    request_id = str(uuid.uuid4())
+    
+    logger.info(
+        "multi_day_generation.start",
+        extra={
+            "request_id": request_id,
+            "user_id": current_user.id,
+            "days": data.get('days', 1),
+            "platforms": data.get('platforms', []),
+        }
+    )
+    
     # Check if API key is configured
     api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
+        logger.warning(
+            "multi_day_generation.missing_api_key",
+            extra={"request_id": request_id, "user_id": current_user.id}
+        )
         return _error_response(
             "missing_api_key",
             "AI service is not configured. Set GENAI_API_KEY or GOOGLE_API_KEY environment variable.",
@@ -117,6 +134,10 @@ def _handle_multi_day_generation(data):
     platforms = data.get('platforms', [])
     
     if not platforms or len(platforms) == 0:
+        logger.warning(
+            "multi_day_generation.missing_platforms",
+            extra={"request_id": request_id, "user_id": current_user.id}
+        )
         return _error_response(
             "missing_platforms",
             "At least one platform is required.",
@@ -149,6 +170,15 @@ def _handle_multi_day_generation(data):
             variant_types=data.get('variant_types', [])
         )
         
+        logger.info(
+            "multi_day_generation.success",
+            extra={
+                "request_id": request_id,
+                "user_id": current_user.id,
+                "posts_generated": len(posts),
+            }
+        )
+        
         # Build response
         response = {
             "ok": True,
@@ -156,13 +186,21 @@ def _handle_multi_day_generation(data):
             "posts": posts,
             "days": days,
             "platforms": platforms,
-            "request_id": None,  # Can add request tracking if needed
+            "request_id": request_id,
         }
         
         return jsonify(response), 200
         
     except Exception as e:
-        logger.error(f"Multi-day generation failed: {str(e)}", exc_info=True)
+        logger.error(
+            "multi_day_generation.failed",
+            extra={
+                "request_id": request_id,
+                "user_id": current_user.id,
+                "error": str(e),
+            },
+            exc_info=True
+        )
         return _error_response(
             "generation_failed",
             f"Content generation failed: {str(e)}",
