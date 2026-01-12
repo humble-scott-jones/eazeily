@@ -118,7 +118,7 @@ const platformPresetState = {
   lastPlan: null
 };
 const DEFAULT_GENERATOR_PLATFORM = 'instagram';
-const VIDEO_PLATFORM_KEYS = new Set(['instagram', 'short_video', 'tiktok']);
+const VIDEO_PLATFORM_KEYS = new Set(['instagram', 'short_video', 'tiktok', 'tiktok_ads']);
 const TEMPLATE_LIBRARY_STORAGE_KEY = 'swelly_template_library';
 const DEFAULT_PRESETS = [
   { id: 'product-launch', label: 'Product launch', goals: ['Product launch'], tone: 'inspirational', keywords: ['launch', 'new feature'] },
@@ -217,7 +217,12 @@ async function ensureAccountFormFields() {
   accountFormReadyPromise = (async () => {
     const cfg = await getDashboardConfig();
     populateAccountIndustryOptions(cfg.industries || []);
-    populateAccountPlatformOptions(cfg.platforms || []);
+    // Use platform_groups if available, fallback to flat platforms list
+    if (cfg.platform_groups) {
+      populateAccountPlatformOptionsGrouped(cfg.platform_groups);
+    } else {
+      populateAccountPlatformOptions(cfg.platforms || []);
+    }
   })();
   return accountFormReadyPromise;
 }
@@ -264,6 +269,59 @@ function populateAccountPlatformOptions(list) {
     label.appendChild(span);
     wrap.appendChild(label);
   });
+  wrap.dataset.hydrated = '1';
+}
+
+function populateAccountPlatformOptionsGrouped(platformGroups) {
+  const wrap = document.getElementById('account-platforms');
+  if (!wrap) return;
+  if (wrap.dataset.hydrated === '1') return;
+  wrap.innerHTML = '';
+  
+  // Render platform groups: Social, Social Ads, Reputation
+  const groupOrder = ['social', 'social_ads', 'reputation'];
+  groupOrder.forEach(groupKey => {
+    const group = platformGroups[groupKey];
+    if (!group || !group.platforms) return;
+    
+    // Add group label
+    const groupLabel = document.createElement('div');
+    groupLabel.className = 'text-xs font-semibold text-slate-600 uppercase tracking-wide mt-3 mb-2 first:mt-0';
+    groupLabel.textContent = group.label || groupKey;
+    wrap.appendChild(groupLabel);
+    
+    // Add platforms in this group
+    (group.platforms || []).forEach(item => {
+      if (!item || !item.key) return;
+      const id = `platform-${item.key}`;
+      const label = document.createElement('label');
+      label.className = 'flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 cursor-pointer select-none hover:bg-slate-100 transition-colors';
+      
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.value = item.key;
+      input.id = id;
+      input.dataset.platformCheckbox = '1';
+      input.dataset.platformGroup = groupKey;
+      if (item.video) {
+        input.dataset.video = 'true';
+      }
+      input.className = 'w-4 h-4 text-purple-600 bg-white border-slate-300 rounded focus:ring-purple-500';
+      
+      // Default to Instagram for social group
+      if (item.key === 'instagram') {
+        input.checked = true;
+      }
+      
+      const span = document.createElement('span');
+      span.textContent = item.label;
+      
+      label.appendChild(input);
+      label.appendChild(span);
+      wrap.appendChild(label);
+    });
+  });
+  
   wrap.dataset.hydrated = '1';
 }
 
@@ -4043,7 +4101,13 @@ function escapeAttr(text) {
 
 const PLATFORM_LABEL_OVERRIDES = {
   twitter: 'X / Twitter',
-  short_video: 'Reels / Shorts'
+  short_video: 'Reels / Shorts',
+  facebook_ads: 'Facebook Ads',
+  instagram_ads: 'Instagram Ads',
+  linkedin_ads: 'LinkedIn Ads',
+  twitter_ads: 'X Ads',
+  tiktok_ads: 'TikTok Ads',
+  review_response: 'Review Responses'
 };
 const PLATFORM_CHARACTER_LIMITS = {
   twitter: 280,

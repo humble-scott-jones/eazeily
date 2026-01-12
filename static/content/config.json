@@ -19,6 +19,35 @@
     {"key": "software", "label": "Software"},
     {"key": "other", "label": "Other"}
   ],
+  "platform_groups": {
+    "social": {
+      "label": "Social (Organic)",
+      "platforms": [
+        {"key": "instagram", "label": "Instagram", "video": false},
+        {"key": "facebook", "label": "Facebook", "video": false},
+        {"key": "linkedin", "label": "LinkedIn", "video": false},
+        {"key": "twitter", "label": "X (Twitter)", "video": false},
+        {"key": "tiktok", "label": "TikTok", "video": true},
+        {"key": "short_video", "label": "Reels/Shorts", "video": true}
+      ]
+    },
+    "social_ads": {
+      "label": "Social Ads",
+      "platforms": [
+        {"key": "facebook_ads", "label": "Facebook Ads", "video": false},
+        {"key": "instagram_ads", "label": "Instagram Ads", "video": false},
+        {"key": "linkedin_ads", "label": "LinkedIn Ads", "video": false},
+        {"key": "twitter_ads", "label": "X Ads", "video": false},
+        {"key": "tiktok_ads", "label": "TikTok Ads", "video": true}
+      ]
+    },
+    "reputation": {
+      "label": "Reputation/Support",
+      "platforms": [
+        {"key": "review_response", "label": "Review Responses", "video": false}
+      ]
+    }
+  },
   "platforms": [
     {"key": "instagram", "label": "Instagram"},
     {"key": "facebook", "label": "Facebook"},
