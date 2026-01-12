@@ -2667,6 +2667,68 @@ async function generateReviewResponse(reviewText, tone, companyName = '') {
   }
 }
 
+// Generate multi-day content plan using the API
+async function generate(days, overrides = {}) {
+  // Build complete payload with all required fields
+  const payload = {
+    days: days || 1,
+    platforms: overrides.platforms || profileDefaults.platforms || ['instagram'],
+    tone: overrides.tone || profileDefaults.tone || 'friendly',
+    goals: overrides.goals || profileDefaults.goals || [],
+    brand_keywords: overrides.brand_keywords || profileDefaults.keywords || [],
+    niche_keywords: overrides.niche_keywords || [],
+    details: overrides.details || {},
+    company: overrides.company || profileDefaults.company || '',
+    industry: profileDefaults.industry || profileDefaults.industry_key || 'Business',
+    include_images: false,
+    variant_types: []
+  };
+
+  // Add image context if provided
+  if (overrides.image_data_url) {
+    payload.image_data_url = overrides.image_data_url;
+  }
+  if (overrides.image_context) {
+    payload.image_context = overrides.image_context;
+  }
+
+  try {
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+
+    // Handle non-OK responses with actionable errors
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      // Check for missing AI service configuration
+      if (response.status === 503 || (errorData.error && typeof errorData.error === 'object' && errorData.error.code === 'missing_api_key')) {
+        throw new Error('AI service not configured. Please contact support or check your API key settings.');
+      }
+      
+      // Generic error with message from server
+      const errorMessage = (errorData.error && errorData.error.message) || errorData.error || 'Generation failed';
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    
+    // Validate response has required structure
+    if (!data || data.ok === false) {
+      const msg = (data && data.error) ? data.error : 'Generation returned no posts.';
+      throw new Error(msg);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Content generation API call failed:', error);
+    throw error; // Re-throw to be handled by executeContentGeneration
+  }
+}
+
 // Helper function to show toast messages
 function showToast(message) {
   const toast = document.createElement('div');
