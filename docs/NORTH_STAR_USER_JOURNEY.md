@@ -34,9 +34,9 @@ Profile Creation → Profile Refinement → Content Generation → Publishing
      - ✅ **Key Offer/Value Prop** (required, e.g., "Streamlined workflow automation")
      - ✅ **Writing Samples** (required, 2-3 examples of your best content)
      - ⚪ Voice Rules (optional, e.g., "Never use jargon, always inclusive")
-     - ⚪ Platforms (optional, select where you post)
      - ⚪ Keywords (optional, brand-specific terms)
      - ⚪ Goals (optional, e.g., "engagement", "leads")
+     - ℹ️ **Platforms** (NOT selected during onboarding - chosen per-content on dashboard)
 
 3. **Submit & Success**
    - Click "Save & Continue to Dashboard"
@@ -59,9 +59,9 @@ Profile Creation → Profile Refinement → Content Generation → Publishing
    - User sees organized sections:
      - Basic Information (name, industry, timezone)
      - Brand Voice & Messaging (tone, audience, offer, rules)
-     - Social Platforms (checkboxes for platforms)
      - Keywords & Goals (comma-separated lists)
      - Writing Samples (examples for AI to match)
+   - **Note**: Platform selection is NOT part of profile - platforms are chosen per-content on the dashboard
 
 2. **Update & Save**
    - User edits any fields
@@ -69,6 +69,7 @@ Profile Creation → Profile Refinement → Content Generation → Publishing
    - Validation: Ensures required fields are present
    - Success: "✓ Profile saved successfully!" toast
    - Option to return to dashboard or continue editing
+   - **Note**: Platform selection is NOT part of profile - platforms are chosen per-content on the dashboard
 
 **North Star Outcome**: User's brand profile stays current, ensuring generated content always reflects their latest messaging.
 
