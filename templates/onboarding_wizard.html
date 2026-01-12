@@ -469,10 +469,15 @@ async function fetchAndPrefillData() {
                 fieldsPopulated++;
                 console.log('Populated brand_voice:', data.suggestions.brand_voice);
             }
-            if (data.suggestions.tagline) {
+            // Prefer key_offer if available (from AI extraction), fallback to tagline (from heuristics)
+            if (data.suggestions.key_offer) {
+                document.getElementById('offer').value = data.suggestions.key_offer;
+                fieldsPopulated++;
+                console.log('Populated offer from key_offer:', data.suggestions.key_offer);
+            } else if (data.suggestions.tagline) {
                 document.getElementById('offer').value = data.suggestions.tagline;
                 fieldsPopulated++;
-                console.log('Populated offer:', data.suggestions.tagline);
+                console.log('Populated offer from tagline:', data.suggestions.tagline);
             }
             if (data.suggestions.voice_rules) {
                 document.getElementById('rules').value = data.suggestions.voice_rules;

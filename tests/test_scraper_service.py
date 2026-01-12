@@ -13,7 +13,10 @@ def test_extract_business_info_with_ai(monkeypatch):
                 text = json.dumps({
                     "business_name": "Tech Startup Inc",
                     "industry": "Software / Tech / Startup",
-                    "key_customers": "Small to medium businesses looking for automation solutions."
+                    "key_customers": "Small to medium businesses looking for automation solutions.",
+                    "key_offer": "Free 30-day trial with no credit card required",
+                    "brand_keywords": ["innovative", "efficient"],
+                    "niche_keywords": ["automation", "workflow"]
                 })
             return FakeResponse()
     
@@ -29,6 +32,9 @@ def test_extract_business_info_with_ai(monkeypatch):
     assert result["business_name"] == "Tech Startup Inc"
     assert result["industry"] == "Software / Tech / Startup"
     assert result["key_customers"] == "Small to medium businesses looking for automation solutions."
+    assert result["key_offer"] == "Free 30-day trial with no credit card required"
+    assert result["brand_keywords"] == ["innovative", "efficient"]
+    assert result["niche_keywords"] == ["automation", "workflow"]
 
 
 def test_extract_business_info_without_ai(monkeypatch):
@@ -44,6 +50,9 @@ def test_extract_business_info_without_ai(monkeypatch):
     assert result["business_name"] is None
     assert result["industry"] is None
     assert result["key_customers"] is None
+    assert result["key_offer"] is None
+    assert result["brand_keywords"] == []
+    assert result["niche_keywords"] == []
 
 
 def test_extract_business_info_handles_json_error(monkeypatch):
@@ -68,6 +77,7 @@ def test_extract_business_info_handles_json_error(monkeypatch):
     assert result["business_name"] is None
     assert result["industry"] is None
     assert result["key_customers"] is None
+    assert result["key_offer"] is None
 
 
 def test_extract_business_info_strips_markdown(monkeypatch):
@@ -81,7 +91,10 @@ def test_extract_business_info_strips_markdown(monkeypatch):
 {
     "business_name": "Cafe Deluxe",
     "industry": "Restaurant / Café",
-    "key_customers": "Coffee lovers and breakfast enthusiasts."
+    "key_customers": "Coffee lovers and breakfast enthusiasts.",
+    "key_offer": "Buy one coffee, get one free every Monday",
+    "brand_keywords": ["artisan", "cozy"],
+    "niche_keywords": ["specialty coffee", "breakfast"]
 }
 ```'''
             return FakeResponse()
@@ -97,3 +110,4 @@ def test_extract_business_info_strips_markdown(monkeypatch):
     assert result["business_name"] == "Cafe Deluxe"
     assert result["industry"] == "Restaurant / Café"
     assert result["key_customers"] == "Coffee lovers and breakfast enthusiasts."
+    assert result["key_offer"] == "Buy one coffee, get one free every Monday"

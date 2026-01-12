@@ -515,7 +515,9 @@ def _build_suggestions(samples: list, style: dict, business_name: str = "") -> d
 
     tagline = "" if not business_name else f"{business_name}: {tone_phrase.title()} stories that convert."
     if not tagline and top_sample:
-        tagline = top_sample[:90] + ("…" if len(top_sample) > 90 else "")
+        # Increase limit from 90 to 250 characters to preserve full hook/offer text
+        # This ensures value propositions and CTAs aren't truncated
+        tagline = top_sample[:250] + ("…" if len(top_sample) > 250 else "")
 
     voice_rules = []
     if style.get("emoji_density", 0) > 0.02:
@@ -624,10 +626,11 @@ def social_style():
         suggestions["business_name"] = business_info.get("business_name")
         suggestions["industry"] = business_info.get("industry")
         suggestions["key_customers"] = business_info.get("key_customers")
+        suggestions["key_offer"] = business_info.get("key_offer")
         suggestions["brand_keywords"] = business_info.get("brand_keywords", [])
         suggestions["niche_keywords"] = business_info.get("niche_keywords", [])
         
-        logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}, brand_keywords={suggestions.get('brand_keywords')}, niche_keywords={suggestions.get('niche_keywords')}")
+        logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}, key_offer={suggestions.get('key_offer')}, brand_keywords={suggestions.get('brand_keywords')}, niche_keywords={suggestions.get('niche_keywords')}")
 
         return jsonify({
             "samples": samples,
