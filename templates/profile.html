@@ -132,21 +132,8 @@
             </div>
         </div>
 
-        <!-- Platforms Section -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div class="bg-gradient-to-r from-blue-50 to-cyan-50 px-6 py-4 border-b border-gray-200">
-                <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <span class="text-2xl">📱</span>
-                    Social Platforms
-                </h2>
-                <p class="text-sm text-gray-600 mt-1">Select where you'll be posting content</p>
-            </div>
-            <div class="p-6">
-                <div id="platforms-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    <!-- Platform checkboxes populated dynamically -->
-                </div>
-            </div>
-        </div>
+        <!-- Platforms Section - REMOVED: Platforms are now selected per-content on dashboard -->
+        <!-- Users select the platform when generating content, not during profile setup -->
 
         <!-- Keywords & Goals Section -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -253,25 +240,7 @@ async function loadConfig() {
             industrySelect.appendChild(option);
         });
         
-        // Populate platforms
-        const platformsContainer = document.getElementById('platforms-container');
-        config.platforms.forEach(platform => {
-            const label = document.createElement('label');
-            label.className = 'flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 cursor-pointer hover:bg-slate-100 transition-colors';
-            
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.name = 'platforms';
-            checkbox.value = platform.key;
-            checkbox.className = 'w-4 h-4 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500';
-            
-            const span = document.createElement('span');
-            span.textContent = platform.label;
-            
-            label.appendChild(checkbox);
-            label.appendChild(span);
-            platformsContainer.appendChild(label);
-        });
+        // Platform population removed - platforms are now selected per-content on dashboard
     } catch (error) {
         console.error('Failed to load config:', error);
         showMessage('Failed to load configuration. Please refresh the page.', 'error');
@@ -326,13 +295,7 @@ function populateForm(profile) {
     document.getElementById('key_offer').value = profile.key_offer || '';
     document.getElementById('voice_rules').value = profile.voice_rules || '';
     
-    // Platforms - check the appropriate checkboxes
-    if (profile.platforms && Array.isArray(profile.platforms)) {
-        profile.platforms.forEach(platformKey => {
-            const checkbox = document.querySelector(`input[name="platforms"][value="${platformKey}"]`);
-            if (checkbox) checkbox.checked = true;
-        });
-    }
+    // Platforms removed - selected per-content on dashboard
     
     // Keywords (array to comma-separated string)
     if (profile.brand_keywords && Array.isArray(profile.brand_keywords)) {
@@ -373,16 +336,13 @@ document.getElementById('profile-form').addEventListener('submit', async functio
             target_audience: document.getElementById('target_audience').value.trim(),
             key_offer: document.getElementById('key_offer').value.trim(),
             voice_rules: document.getElementById('voice_rules').value.trim(),
-            platforms: [],
+            // platforms removed - selected per-content on dashboard
             brand_keywords: [],
             goals: [],
             writing_samples: []
         };
         
-        // Collect selected platforms
-        document.querySelectorAll('input[name="platforms"]:checked').forEach(checkbox => {
-            formData.platforms.push(checkbox.value);
-        });
+        // Platform collection removed - platforms are selected per-content on dashboard
         
         // Parse keywords (comma-separated to array)
         const keywordsInput = document.getElementById('brand_keywords').value.trim();
