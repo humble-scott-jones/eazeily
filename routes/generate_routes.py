@@ -22,6 +22,31 @@ def settings():
     from flask import redirect, url_for
     return redirect(url_for('onboarding.onboarding'))
 
+
+@generate_bp.route('/api/model-ready', methods=['GET'])
+def model_ready():
+    """Health check endpoint to verify AI model/provider is configured.
+    
+    Returns:
+    - 200 if model is ready
+    - 503 if model is not configured
+    """
+    api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    
+    if not api_key:
+        return jsonify({
+            "ok": False,
+            "ready": False,
+            "error": "AI service is not configured. Set GENAI_API_KEY or GOOGLE_API_KEY environment variable."
+        }), 503
+    
+    return jsonify({
+        "ok": True,
+        "ready": True,
+        "provider": "gemini" if os.getenv("GENAI_API_KEY") else "google"
+    }), 200
+
+
 def _missing(value):
     return value is None or (isinstance(value, str) and not value.strip())
 
@@ -58,6 +83,91 @@ def _error_response(code: str, message: str, http_status: int = 400, **extra):
     if extra:
         payload["error"].update(extra)
     return jsonify(payload), http_status
+
+
+def _handle_multi_day_generation(data):
+    """Handle multi-day content plan generation.
+    
+    Expected payload:
+    - days: number of days to generate
+    - platforms: list of platform keys
+    - tone: brand tone
+    - goals: list of marketing goals
+    - brand_keywords: list of brand keywords
+    - niche_keywords: list of niche keywords (optional)
+    - details: dict of additional details (e.g., reel_style, reel_length)
+    - company: company name
+    - industry: industry/vertical
+    - include_images: bool
+    - variant_types: list (optional)
+    - image_data_url: base64 image data (optional)
+    - image_context: description of image (optional)
+    """
+    # Check if API key is configured
+    api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        return _error_response(
+            "missing_api_key",
+            "AI service is not configured. Set GENAI_API_KEY or GOOGLE_API_KEY environment variable.",
+            503,
+        )
+    
+    # Extract and validate required fields
+    days = data.get('days', 1)
+    platforms = data.get('platforms', [])
+    
+    if not platforms or len(platforms) == 0:
+        return _error_response(
+            "missing_platforms",
+            "At least one platform is required.",
+            400,
+        )
+    
+    # Build complete payload with defaults
+    from datetime import date, timedelta
+    from generator import generate_posts
+    
+    # Get user profile for defaults
+    profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+    
+    try:
+        # Call generator with complete payload
+        posts = generate_posts(
+            days=days,
+            start_day=date.today(),
+            industry=data.get('industry') or (profile.industry if profile else 'Business'),
+            tone=data.get('tone') or (profile.brand_voice if profile else 'friendly'),
+            platforms=platforms,
+            brand_keywords=data.get('brand_keywords', []),
+            include_images=data.get('include_images', False),
+            niche_keywords=data.get('niche_keywords', []),
+            goals=data.get('goals', []),
+            details=data.get('details', {}),
+            company=data.get('company') or (profile.business_name if profile else ''),
+            voice_profile=profile.get_defaults() if profile else None,
+            profile=profile,
+            variant_types=data.get('variant_types', [])
+        )
+        
+        # Build response
+        response = {
+            "ok": True,
+            "count": len(posts),
+            "posts": posts,
+            "days": days,
+            "platforms": platforms,
+            "request_id": None,  # Can add request tracking if needed
+        }
+        
+        return jsonify(response), 200
+        
+    except Exception as e:
+        logger.error(f"Multi-day generation failed: {str(e)}", exc_info=True)
+        return _error_response(
+            "generation_failed",
+            f"Content generation failed: {str(e)}",
+            500,
+        )
 
 
 def _handle_generate(task_type, data):
@@ -191,7 +301,19 @@ def _handle_generate(task_type, data):
 @generate_bp.route('/api/generate', methods=['POST'])
 @login_required
 def generate():
+    """Handle content generation requests.
+    
+    Supports two modes:
+    1. Multi-day content plan generation (when 'days' param is present)
+    2. Single task generation (when 'task_type' param is present)
+    """
     data = request.get_json(silent=True) or {}
+    
+    # Check if this is a multi-day plan request
+    if 'days' in data:
+        return _handle_multi_day_generation(data)
+    
+    # Otherwise, handle as single task generation
     task_type = data.get('task_type', 'post')
     return _handle_generate(task_type, data)
 
