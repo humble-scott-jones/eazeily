@@ -2,7 +2,7 @@
 
 ## Context
 
-**Persona**: [Specify the role/expertise needed, e.g., "Sr Backend Engineer + Sr AI Prompt Engineer", "Full-stack Developer + UX Designer"]
+**Persona**: [Specify the role/expertise needed, e.g., "Senior Backend Engineer + Senior AI Prompt Engineer", "Full-stack Developer + UX Designer"]
 
 [Provide background information about the task, including any relevant history, dependencies, or prerequisites. Explain what problem this task is solving and why it's important.]
 

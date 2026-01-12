@@ -2706,7 +2706,7 @@ async function generate(days, overrides = {}) {
       
       // Check for missing AI service configuration
       if (response.status === 503 || (errorData.error && typeof errorData.error === 'object' && errorData.error.code === 'missing_api_key')) {
-        const detailedMsg = (errorData.error && errorData.error.message) || 'AI service not configured';
+        const detailedMsg = errorData.error?.message ?? 'AI service not configured';
         throw new Error(`${detailedMsg}. Please contact support or check environment configuration.`);
       }
       
