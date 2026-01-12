@@ -133,6 +133,7 @@ curl http://127.0.0.1:5001/__dev__/ping
 - `GET /api/current_user` — returns the current session user
 - `POST /api/profile` — persist profile details used by the generator
 - `POST /api/generate` — request content generation (reels will be gated to paid users)
+- `GET /api/model-ready` — health check to verify AI model/provider is configured (returns 200 if ready, 503 if not)
 - `GET /api/stripe-price` — returns authoritative Stripe price metadata for paywall copy
 
 ### Generation task registry & aliases
