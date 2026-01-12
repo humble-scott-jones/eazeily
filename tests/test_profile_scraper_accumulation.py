@@ -49,7 +49,7 @@ def test_multiple_scrapes_accumulate_urls(client):
     
     profile = get_data['profile']
     
-    # Verify URLs accumulated
+    # Verify URLs accumulated (testing data storage, not URL security sanitization)
     assert 'example.com' in profile['scraped_url']
     assert 'instagram.com/example' in profile['scraped_url']
     
