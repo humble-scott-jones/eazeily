@@ -247,13 +247,13 @@ def _generate_caption_with_ai(
         
         # Build context from voice profile
         voice_context = ""
-        vp_dict = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
+        vp_dict = dict(voice_profile) if isinstance(voice_profile, Mapping) and voice_profile else {}
         if vp_dict:
             phrases = vp_dict.get('include_phrases') or []
-            if phrases:
+            if phrases and isinstance(phrases, (list, tuple)):
                 voice_context += f"\nBrand phrases to weave in naturally: {', '.join(list(phrases)[:3])}"
             examples = vp_dict.get('example_lines') or []
-            if examples:
+            if examples and isinstance(examples, (list, tuple)):
                 voice_context += f"\nBrand voice example: {examples[0][:120]}"
         
         # Build comprehensive prompt
@@ -286,7 +286,8 @@ Write the complete post now (do NOT include hashtags - they'll be added separate
         
         if result and isinstance(result, dict):
             # Try to extract text from various response formats
-            text = result.get('text') or result.get('content') or result.get('caption')
+            # Note: gemini_adapter normalizes responses, but we handle multiple keys for robustness
+            text = result.get('text') or result.get('content') or result.get('caption') or ''
             if text and isinstance(text, str):
                 # Clean up the response
                 text = text.strip()

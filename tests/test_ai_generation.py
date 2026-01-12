@@ -191,7 +191,8 @@ def test_ai_generation_includes_voice_profile_context():
         # Should have called Gemini with prompt containing voice profile
         assert mock_gemini.called
         call_args = mock_gemini.call_args
-        prompt = call_args[0][0]  # First positional argument
+        # Use call_args.args for positional arguments (more maintainable)
+        prompt = call_args.args[0] if call_args.args else call_args.kwargs.get('prompt', '')
         
         # Check that voice profile elements are in prompt
         assert 'game-changer' in prompt or 'eco-warrior' in prompt
@@ -216,8 +217,10 @@ def test_ai_generation_prompt_structure():
         )
         
         # Check the prompt structure
+        assert mock_gemini.called
         call_args = mock_gemini.call_args
-        prompt = call_args[0][0]
+        # Use call_args.args for positional arguments (more maintainable)
+        prompt = call_args.args[0] if call_args.args else call_args.kwargs.get('prompt', '')
         
         # Verify key elements in prompt
         assert 'instagram' in prompt.lower()
