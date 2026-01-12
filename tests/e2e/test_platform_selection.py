@@ -10,7 +10,7 @@ Tests ensure:
 """
 import os
 import time
-from playwright.sync_api import sync_playwright, expect
+from playwright.sync_api import sync_playwright
 import subprocess
 import requests
 import pathlib
@@ -22,7 +22,7 @@ PORT = int(os.getenv('PORT', '5001'))
 BASE = f'http://127.0.0.1:{PORT}'
 
 pytestmark = pytest.mark.skipif(
-    os.getenv('RUN_UI_SMOKE') != '1', 
+    os.getenv('RUN_UI_SMOKE') != '1',
     reason='UI smoke tests disabled (set RUN_UI_SMOKE=1)'
 )
 
@@ -87,9 +87,9 @@ class TestPlatformSelectionUI:
             
             # Intercept config.json request
             config_loaded = []
-            page.on('response', lambda response: 
-                config_loaded.append(response) if 'config.json' in response.url else None
-            )
+            page.on('response', lambda response:
+                    config_loaded.append(response) if 'config.json' in response.url else None
+                    )
             
             # Load dashboard
             page.goto(f'{BASE}/')
