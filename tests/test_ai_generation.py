@@ -166,6 +166,15 @@ def test_ai_generation_cleans_markdown():
         assert 'Great content here!' in result
 
 
+def _get_prompt_from_call_args(call_args):
+    """Helper to extract prompt from mock call_args in a maintainable way."""
+    if call_args and call_args.args:
+        return call_args.args[0]
+    elif call_args and 'prompt' in call_args.kwargs:
+        return call_args.kwargs['prompt']
+    return ''
+
+
 def test_ai_generation_includes_voice_profile_context():
     """Test that voice profile context is included in AI prompt."""
     with patch('services.generation.gemini_adapter.call_gemini') as mock_gemini:
@@ -190,9 +199,7 @@ def test_ai_generation_includes_voice_profile_context():
         
         # Should have called Gemini with prompt containing voice profile
         assert mock_gemini.called
-        call_args = mock_gemini.call_args
-        # Use call_args.args for positional arguments (more maintainable)
-        prompt = call_args.args[0] if call_args.args else call_args.kwargs.get('prompt', '')
+        prompt = _get_prompt_from_call_args(mock_gemini.call_args)
         
         # Check that voice profile elements are in prompt
         assert 'game-changer' in prompt or 'eco-warrior' in prompt
@@ -218,9 +225,7 @@ def test_ai_generation_prompt_structure():
         
         # Check the prompt structure
         assert mock_gemini.called
-        call_args = mock_gemini.call_args
-        # Use call_args.args for positional arguments (more maintainable)
-        prompt = call_args.args[0] if call_args.args else call_args.kwargs.get('prompt', '')
+        prompt = _get_prompt_from_call_args(mock_gemini.call_args)
         
         # Verify key elements in prompt
         assert 'instagram' in prompt.lower()

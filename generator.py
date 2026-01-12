@@ -247,8 +247,8 @@ def _generate_caption_with_ai(
         
         # Build context from voice profile
         voice_context = ""
-        vp_dict = dict(voice_profile) if isinstance(voice_profile, Mapping) and voice_profile else {}
-        if vp_dict:
+        if voice_profile and isinstance(voice_profile, Mapping):
+            vp_dict = voice_profile  # Use the Mapping directly
             phrases = vp_dict.get('include_phrases') or []
             if phrases and isinstance(phrases, (list, tuple)):
                 voice_context += f"\nBrand phrases to weave in naturally: {', '.join(list(phrases)[:3])}"
