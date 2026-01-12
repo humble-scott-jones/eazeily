@@ -166,6 +166,7 @@ def build_platform_variants(
     platforms: Optional[list[str]] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
     profile: Optional[Any] = None,
+    details: Optional[Mapping[str, Any]] = None,
 ):
     """
     Generate platform-specific variants of a caption by applying platform rules to a base caption body.
@@ -189,6 +190,7 @@ def build_platform_variants(
             If None, uses DEFAULT_VARIANT_PLATFORMS.
         voice_profile: Legacy dict from profile.get_defaults()
         profile: Full VoiceProfile object with rich brand data
+        details: Content-specific options (reel_style, reel_length, production_tier, note, etc.)
 
     Returns:
         dict[str, Any]: A dictionary mapping each platform key to its variant payload (caption text and metadata).
@@ -205,6 +207,7 @@ def build_platform_variants(
         theme,
         voice_profile,
         profile,
+        details,
     )
     variant_targets = list(platforms or DEFAULT_VARIANT_PLATFORMS)
     variants = {}
@@ -230,6 +233,7 @@ def _generate_caption_with_ai(
     theme: Optional[str] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
     profile: Optional[Any] = None,
+    details: Optional[Mapping[str, Any]] = None,
 ) -> Optional[str]:
     """
     Generate actual social media caption content using Gemini AI.
@@ -237,6 +241,7 @@ def _generate_caption_with_ai(
     Args:
         profile: Full VoiceProfile object with rich brand data (writing_samples, target_audience, etc.)
         voice_profile: Legacy dict from profile.get_defaults() for backwards compatibility
+        details: Content-specific options (reel_style, reel_length, production_tier, note, etc.)
     
     Returns:
         str: Generated caption text, or None if AI generation fails
@@ -333,6 +338,39 @@ def _generate_caption_with_ai(
             if examples and isinstance(examples, (list, tuple)):
                 voice_context += f"\nBrand voice example: {examples[0][:120]}"
         
+        # Build content-specific context from details
+        content_context = ""
+        if details and isinstance(details, Mapping):
+            # Add custom note if provided
+            note = details.get('note')
+            if note and isinstance(note, str) and note.strip():
+                content_context += f"\nAdditional context: {note.strip()}"
+            
+            # Add video/reel-specific details for video platforms
+            if platform.lower() in ["instagram", "tiktok", "short_video", "youtube"]:
+                reel_style = details.get('reel_style')
+                if reel_style:
+                    content_context += f"\nVideo style: {reel_style}"
+                
+                reel_length = details.get('reel_length')
+                if reel_length:
+                    try:
+                        length_int = int(reel_length)
+                        content_context += f"\nVideo length: {length_int} seconds"
+                    except (ValueError, TypeError):
+                        pass
+                
+                production_tier = details.get('production_tier')
+                if production_tier:
+                    tier_hints = {
+                        'solo': 'single person, DIY-friendly',
+                        'duo': 'two people, conversational',
+                        'scrappy': 'low-production, authentic feel',
+                        'polished': 'professional production quality'
+                    }
+                    tier_hint = tier_hints.get(production_tier, production_tier)
+                    content_context += f"\nProduction tier: {tier_hint}"
+        
         # Build comprehensive prompt
         prompt = f"""Write a complete, paste-ready social media post for {platform}.
 
@@ -346,6 +384,7 @@ Brand context:
 - Goals: {', '.join(goals) if goals else 'engagement'}
 {f'- Theme: {theme}' if theme else ''}
 {voice_context}
+{content_context}
 
 Requirements:
 - Tone: {tone_desc}
@@ -403,6 +442,7 @@ def build_caption_body(
     theme: Optional[str] = None,
     voice_profile: Optional[Mapping[str, Any]] = None,
     profile: Optional[Any] = None,
+    details: Optional[Mapping[str, Any]] = None,
 ) -> str:
     """
     Generate the main body content for a social media caption, without hashtags.
@@ -422,6 +462,7 @@ def build_caption_body(
         theme: (Optional) Theme for the post.
         voice_profile: (Optional) Legacy dict from profile.get_defaults()
         profile: (Optional) Full VoiceProfile object with rich brand data
+        details: (Optional) Content-specific options (reel_style, reel_length, production_tier, note, etc.)
 
     Returns:
         str: The formatted caption body, ready for platform-specific rule application.
@@ -430,7 +471,7 @@ def build_caption_body(
     if USE_GEMINI_FOR_POSTS:
         ai_content = _generate_caption_with_ai(
             industry, tone, pillar_name, pillar_hint, platform,
-            brand_keywords, goals, company, theme, voice_profile, profile
+            brand_keywords, goals, company, theme, voice_profile, profile, details
         )
         if ai_content:
             return ai_content
@@ -1265,6 +1306,7 @@ def generate_posts(
             platforms,  # Only generate for selected platforms, not all DEFAULT_VARIANT_PLATFORMS
             voice_profile,
             profile,  # Pass the full profile object for rich brand data
+            details,  # Pass content-specific options (reel_style, reel_length, production_tier, note, etc.)
         )
 
         # Create one post per platform (maintains backward compatibility)
