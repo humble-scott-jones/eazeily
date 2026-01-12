@@ -9,10 +9,39 @@ Ensures that:
 
 import json
 import pytest
+import sqlite3
+import uuid
+import app as togetherly_app
+
+
+def _create_test_user(client):
+    """Helper to create a test user and set up session."""
+    from models import db, User
+    import uuid
+    
+    # Use SQLAlchemy to create user with unique email
+    unique_email = f'test-{uuid.uuid4().hex[:8]}@example.com'
+    user = User(email=unique_email)
+    user.set_password('password123')
+    
+    # Need to use app context
+    with client.application.app_context():
+        db.session.add(user)
+        db.session.commit()
+        user_id = user.id
+    
+    # Set up session
+    with client.session_transaction() as sess:
+        sess['user_id'] = str(user_id)
+        sess['_user_id'] = str(user_id)
+    
+    return user_id
 
 
 def test_quality_gate_rejects_guidance_output(client):
+    _create_test_user(client)
     """Test that quality gate rejects outputs that look like guidance rather than finished content."""
+    _create_test_user(client)
     # This test verifies that the output validator catches guidance-style responses
     # In practice, this would be tested at the generator/validator level
     # Here we're testing the integration
@@ -41,6 +70,7 @@ def test_quality_gate_rejects_guidance_output(client):
 
 
 def test_quality_gate_accepts_finished_captions(client):
+    _create_test_user(client)
     """Test that quality gate accepts proper finished content."""
     gen_payload = {
         'days': 1,
@@ -66,6 +96,7 @@ def test_quality_gate_accepts_finished_captions(client):
 
 
 def test_quality_gate_validates_post_structure(client):
+    _create_test_user(client)
     """Test that quality gate ensures posts have required fields."""
     gen_payload = {
         'days': 1,
@@ -93,6 +124,7 @@ def test_quality_gate_validates_post_structure(client):
 
 
 def test_quality_gate_minimum_caption_length(client):
+    _create_test_user(client)
     """Test that captions meet minimum length requirements."""
     gen_payload = {
         'days': 1,
@@ -114,6 +146,7 @@ def test_quality_gate_minimum_caption_length(client):
 
 
 def test_quality_gate_no_placeholder_content(client):
+    _create_test_user(client)
     """Test that generated content doesn't contain placeholders."""
     gen_payload = {
         'days': 1,
@@ -139,6 +172,7 @@ def test_quality_gate_no_placeholder_content(client):
 
 
 def test_repair_retry_attempted_for_low_quality(client, monkeypatch):
+    _create_test_user(client)
     """Test that repair retry is attempted when quality is low.
     
     This test verifies that the quality gate will attempt one repair
@@ -162,6 +196,7 @@ def test_repair_retry_attempted_for_low_quality(client, monkeypatch):
 
 
 def test_quality_gate_allows_creative_content(client):
+    _create_test_user(client)
     """Test that quality gate doesn't over-restrict creative content."""
     gen_payload = {
         'days': 1,
@@ -182,6 +217,7 @@ def test_quality_gate_allows_creative_content(client):
 
 
 def test_quality_gate_validates_image_prompts(client):
+    _create_test_user(client)
     """Test that image prompts are validated for completeness."""
     gen_payload = {
         'days': 1,

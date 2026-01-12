@@ -10,10 +10,39 @@ Ensures that:
 
 import json
 import pytest
+import sqlite3
+import uuid
+import app as togetherly_app
+
+
+def _create_test_user(client):
+    """Helper to create a test user and set up session."""
+    from models import db, User
+    import uuid
+    
+    # Use SQLAlchemy to create user with unique email
+    unique_email = f'test-{uuid.uuid4().hex[:8]}@example.com'
+    user = User(email=unique_email)
+    user.set_password('password123')
+    
+    # Need to use app context
+    with client.application.app_context():
+        db.session.add(user)
+        db.session.commit()
+        user_id = user.id
+    
+    # Set up session
+    with client.session_transaction() as sess:
+        sess['user_id'] = str(user_id)
+        sess['_user_id'] = str(user_id)
+    
+    return user_id
 
 
 def test_payload_preserves_explicit_platforms(client):
     """Test that explicitly provided platforms are preserved, not replaced by profile defaults."""
+    _create_test_user(client)
+    
     # Create profile with default platforms
     profile_data = {
         'company': 'Test Co',
@@ -43,6 +72,8 @@ def test_payload_preserves_explicit_platforms(client):
 
 def test_payload_uses_profile_defaults_when_missing(client):
     """Test that profile defaults are used when fields are not provided."""
+    _create_test_user(client)
+    
     # Create profile with defaults
     profile_data = {
         'company': 'Default Co',
@@ -73,6 +104,8 @@ def test_payload_uses_profile_defaults_when_missing(client):
 
 def test_payload_includes_all_required_fields(client):
     """Test that payload validation ensures all required fields are present."""
+    _create_test_user(client)
+    
     # Try to generate with incomplete payload (missing platforms)
     gen_payload = {
         'days': 1,
@@ -91,6 +124,8 @@ def test_payload_includes_all_required_fields(client):
 
 def test_payload_preserves_explicit_keywords(client):
     """Test that explicitly provided keywords override profile defaults."""
+    _create_test_user(client)
+    
     # Create profile with keywords
     profile_data = {
         'company': 'Keyword Test Co',
@@ -115,6 +150,8 @@ def test_payload_preserves_explicit_keywords(client):
 
 def test_payload_preserves_explicit_goals(client):
     """Test that explicitly provided goals override profile defaults."""
+    _create_test_user(client)
+    
     # Create profile with goals
     profile_data = {
         'company': 'Goals Test Co',
@@ -139,6 +176,8 @@ def test_payload_preserves_explicit_goals(client):
 
 def test_payload_includes_company_from_profile(client):
     """Test that company name is included from profile when not provided."""
+    _create_test_user(client)
+    
     # Create profile with company
     profile_data = {
         'company': 'My Company',
@@ -161,6 +200,8 @@ def test_payload_includes_company_from_profile(client):
 
 def test_payload_includes_details_when_provided(client):
     """Test that details (reel_style, reel_length, etc.) are included when provided."""
+    _create_test_user(client)
+    
     gen_payload = {
         'days': 1,
         'platforms': ['tiktok'],
@@ -178,6 +219,8 @@ def test_payload_includes_details_when_provided(client):
 
 def test_payload_includes_image_context_when_provided(client):
     """Test that image_data_url and image_context are included when provided."""
+    _create_test_user(client)
+    
     gen_payload = {
         'days': 1,
         'platforms': ['instagram'],
@@ -192,6 +235,8 @@ def test_payload_includes_image_context_when_provided(client):
 
 def test_defaults_applied_only_when_missing(client):
     """Test that defaults don't override explicit null/empty values."""
+    _create_test_user(client)
+    
     # Create profile with defaults
     profile_data = {
         'company': 'Test Co',
