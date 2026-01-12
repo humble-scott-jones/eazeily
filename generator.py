@@ -213,6 +213,106 @@ def to_sentence_case(s: str):
         return s
     return s[0].upper() + s[1:]
 
+
+def _generate_caption_with_ai(
+    industry: str,
+    tone: str,
+    pillar_name: str,
+    pillar_hint: str,
+    platform: str,
+    brand_keywords: list[str],
+    goals: list[str],
+    company: str = "",
+    theme: Optional[str] = None,
+    voice_profile: Optional[Mapping[str, Any]] = None,
+) -> Optional[str]:
+    """
+    Generate actual social media caption content using Gemini AI.
+    
+    Returns:
+        str: Generated caption text, or None if AI generation fails
+    """
+    try:
+        from services.generation.gemini_adapter import call_gemini
+        
+        # Build structured prompt for high-quality content generation
+        tone_desc = {
+            "friendly": "warm, encouraging, and conversational",
+            "professional": "clear, confident, and value-focused",
+            "playful": "upbeat, witty, and a bit cheeky",
+            "inspirational": "uplifting, thoughtful, and mission-driven"
+        }.get(tone.lower(), "conversational and helpful")
+        
+        platform_hint = PLATFORM_HINTS.get(platform.lower(), "Make it concise and useful.")
+        
+        # Build context from voice profile
+        voice_context = ""
+        vp_dict = dict(voice_profile) if isinstance(voice_profile, Mapping) else {}
+        if vp_dict:
+            phrases = vp_dict.get('include_phrases') or []
+            if phrases:
+                voice_context += f"\nBrand phrases to weave in naturally: {', '.join(list(phrases)[:3])}"
+            examples = vp_dict.get('example_lines') or []
+            if examples:
+                voice_context += f"\nBrand voice example: {examples[0][:120]}"
+        
+        # Build comprehensive prompt
+        prompt = f"""Write a complete, paste-ready social media post for {platform}.
+
+Content pillar: {pillar_name}
+Direction: {pillar_hint}
+
+Brand context:
+- Company: {company or 'a business'}
+- Industry: {industry}
+- Keywords: {', '.join(brand_keywords) if brand_keywords else 'general'}
+- Goals: {', '.join(goals) if goals else 'engagement'}
+{f'- Theme: {theme}' if theme else ''}
+{voice_context}
+
+Requirements:
+- Tone: {tone_desc}
+- Platform style: {platform_hint}
+- Include a clear call-to-action (CTA) at the end
+- Use numbered steps, bullets, or examples for structure
+- Write in a natural, engaging voice - NO meta commentary
+- NO guidance phrases like "You should", "Make sure to", "Platform tip:"
+- This should be final, copy-paste-ready content
+- Keep it authentic and valuable for the audience
+
+Write the complete post now (do NOT include hashtags - they'll be added separately):"""
+
+        result = call_gemini(prompt, temperature=0.7, timeout=20, max_retries=1)
+        
+        if result and isinstance(result, dict):
+            # Try to extract text from various response formats
+            text = result.get('text') or result.get('content') or result.get('caption')
+            if text and isinstance(text, str):
+                # Clean up the response
+                text = text.strip()
+                
+                # Remove any markdown formatting
+                if text.startswith("```") and text.endswith("```"):
+                    lines = text.split('\n')
+                    text = '\n'.join(lines[1:-1]).strip()
+                
+                # Basic quality check - reject if it contains guidance language
+                from services.generation.social_validator import contains_banned_phrases
+                if contains_banned_phrases(text):
+                    logger.warning("AI generated content with banned phrases, falling back to template")
+                    return None
+                
+                logger.info(f"Successfully generated AI content for {platform}/{pillar_name}")
+                return text
+        
+        logger.warning("AI generation returned invalid format, falling back to template")
+        return None
+        
+    except Exception as e:
+        logger.warning(f"AI content generation failed: {e}, falling back to template")
+        return None
+
+
 def build_caption_body(
     industry: str,
     tone: str,
@@ -228,11 +328,8 @@ def build_caption_body(
     """
     Generate the main body content for a social media caption, without hashtags.
 
-    This function is used as an intermediate step before applying platform-specific rules
-    (such as formatting or hashtag insertion). It returns a formatted string containing
-    the core caption content, ready for further processing.
-
-    Differs from `make_caption`, which adds hashtags and may apply additional formatting.
+    First attempts to use AI (Gemini) to generate high-quality content.
+    Falls back to template-based generation if AI is unavailable or fails.
 
     Args:
         industry: The industry or business type.
@@ -244,10 +341,23 @@ def build_caption_body(
         goals: List of business or post goals.
         company: (Optional) Company name.
         theme: (Optional) Theme for the post.
+        voice_profile: (Optional) Voice profile with brand examples.
 
     Returns:
         str: The formatted caption body, ready for platform-specific rule application.
     """
+    # Try AI generation first if enabled
+    if USE_GEMINI_FOR_POSTS:
+        ai_content = _generate_caption_with_ai(
+            industry, tone, pillar_name, pillar_hint, platform,
+            brand_keywords, goals, company, theme, voice_profile
+        )
+        if ai_content:
+            return ai_content
+    
+    # Fallback to template-based generation
+    logger.info("Using template-based caption generation as fallback")
+    
     tone_blurb = {
         "friendly": "Warm, encouraging, and conversational.",
         "professional": "Clear, confident, and value-focused.",
