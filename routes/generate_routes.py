@@ -72,6 +72,18 @@ def _build_dummy_profile():
 
         def get_examples(self):
             return []
+        
+        def get_brand_keywords(self):
+            return []
+        
+        def get_niche_keywords(self):
+            return []
+        
+        def get_customers(self):
+            return []
+        
+        def get_scraped_meta(self):
+            return {}
 
     return DummyProfile()
 
