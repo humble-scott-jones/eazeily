@@ -137,7 +137,8 @@ def test_content_goals_extraction_from_keywords(client):
     text4 = "Learn more about our services. Sign up for a demo. We're here to help."
     goals4 = _extract_content_goals(text4)
     goal_types4 = _extract_goal_types(goals4)
-    # Use >= instead of == since duplicates are possible
+    # The helper function deduplicates, so we check for at least 3 unique types
+    # (could be exactly 3 or more if additional goal types are detected)
     assert len(goal_types4) >= 3, "Should find at least three unique goal types"
     assert 'awareness/education' in goal_types4
     assert 'lead_gen/conversion' in goal_types4

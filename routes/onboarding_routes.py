@@ -634,8 +634,8 @@ def social_style():
         content_goals_data = business_info.get("required_sections", {}).get("content_goals", {}).get("values", [])
         # Convert goal objects to simple strings for frontend consumption, filtering out None/empty values
         suggestions["content_goals"] = [
-            goal.get("goal") for goal in content_goals_data 
-            if goal and isinstance(goal, dict) and goal.get("goal")
+            goal["goal"] for goal in content_goals_data 
+            if isinstance(goal, dict) and goal.get("goal")
         ]
         
         logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}, key_offer={suggestions.get('key_offer')}, brand_keywords={suggestions.get('brand_keywords')}, niche_keywords={suggestions.get('niche_keywords')}, content_goals={suggestions.get('content_goals')}")
