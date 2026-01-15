@@ -49,6 +49,50 @@ def client(tmp_path, monkeypatch):
         yield client
 
 
+@pytest.fixture
+def authenticated_client(client, tmp_path, monkeypatch):
+    """Fixture that provides a client with an authenticated user session."""
+    # Set fake API key for tests
+    monkeypatch.setenv('GENAI_API_KEY', 'test-fake-api-key-for-testing')
+    
+    from models import User, VoiceProfile, db
+    from app import create_app
+    
+    # Create test app context
+    test_app = create_app()
+    test_app.config['TESTING'] = True
+    test_app.config['WTF_CSRF_ENABLED'] = False
+    
+    with test_app.app_context():
+        # Create a test user
+        user = User(email='test@example.com')
+        user.set_password('testpass123')
+        db.session.add(user)
+        db.session.commit()
+        
+        # Create a test profile for the user
+        profile = VoiceProfile(
+            user_id=user.id,
+            business_name='Test Business',
+            industry='Technology',
+            target_audience='Small businesses',
+            brand_voice='Professional and friendly',
+            key_offer='Quality software solutions'
+        )
+        db.session.add(profile)
+        db.session.commit()
+        
+        # Store user ID for session setup
+        user_id = user.id
+    
+    # Setup authenticated session
+    with client.session_transaction() as sess:
+        sess['_user_id'] = str(user_id)
+        sess['_fresh'] = True
+    
+    return client
+
+
 def get_user_row(db_path, email):
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
