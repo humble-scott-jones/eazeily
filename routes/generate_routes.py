@@ -231,6 +231,10 @@ def _handle_generate(task_type, data):
     # Using select load to ensure all profile fields are loaded efficiently
     profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
     
+    # Helper to check if a field is empty
+    def is_field_empty(field):
+        return not field or not field.strip()
+    
     # Check if profile exists and identify what's missing for better error messages
     if not profile:
         logger.warning(f"User {current_user.id} attempted generation without a brand profile")
@@ -243,9 +247,9 @@ def _handle_generate(task_type, data):
     
     # Profile exists - check for key required fields and provide specific guidance
     missing_fields = []
-    if not profile.business_name or not profile.business_name.strip():
+    if is_field_empty(profile.business_name):
         missing_fields.append("business name")
-    if not profile.industry or not profile.industry.strip():
+    if is_field_empty(profile.industry):
         missing_fields.append("industry")
     
     # If critical fields are missing, provide specific error
@@ -261,11 +265,14 @@ def _handle_generate(task_type, data):
     
     # Profile has minimum required data - log optional missing fields as warnings
     optional_missing = []
-    if not profile.brand_voice or not profile.brand_voice.strip():
+    if is_field_empty(profile.brand_voice):
         optional_missing.append("brand voice")
-    if not profile.target_audience or not profile.target_audience.strip():
+    if is_field_empty(profile.target_audience):
         optional_missing.append("target audience")
-    if not profile.get_brand_keywords() or len(profile.get_brand_keywords()) == 0:
+    
+    # Check brand keywords (avoid redundant method call)
+    brand_keywords = profile.get_brand_keywords()
+    if not brand_keywords or len(brand_keywords) == 0:
         optional_missing.append("brand keywords")
     
     if optional_missing:
