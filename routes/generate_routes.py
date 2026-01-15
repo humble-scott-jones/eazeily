@@ -55,39 +55,6 @@ def _missing(value):
     return value is None or (isinstance(value, str) and not value.strip())
 
 
-def _build_dummy_profile():
-    class DummyProfile:
-        industry = 'general'
-        business_name = 'Your Business'
-        target_audience = 'General audience'
-        brand_voice = 'Professional and friendly'
-        key_offer = ''
-        voice_rules = ''
-
-        def get_writing_samples(self):
-            return []
-
-        def get_defaults(self):
-            return {}
-
-        def get_examples(self):
-            return []
-        
-        def get_brand_keywords(self):
-            return []
-        
-        def get_niche_keywords(self):
-            return []
-        
-        def get_customers(self):
-            return []
-        
-        def get_scraped_meta(self):
-            return {}
-
-    return DummyProfile()
-
-
 def _error_response(code: str, message: str, http_status: int = 400, **extra):
     payload = {
         "status": "error",
@@ -263,15 +230,20 @@ def _handle_generate(task_type, data):
     # OPTIMIZED: Fetch user profile with all needed data in a single query
     # Using select load to ensure all profile fields are loaded efficiently
     profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
-    profile_missing = profile is None
     
-    if profile_missing:
-        logger.info(f"User {current_user.id} generating content without a brand profile, using defaults")
-        profile = _build_dummy_profile()
-    else:
-        # Profile exists - all data is already loaded from the single query above
-        # The VoiceProfile model has all fields as columns, so no additional queries needed
-        logger.debug(f"Loaded profile for user {current_user.id} with brand: {profile.business_name}")
+    # Require profile for generation - ensures profile acts as "master prompt"
+    if not profile:
+        logger.warning(f"User {current_user.id} attempted generation without a brand profile")
+        return _error_response(
+            "profile_required",
+            "Please set up your brand profile before generating content. Your profile provides the context needed for high-quality, on-brand content.",
+            400,
+            redirect="/onboarding"
+        )
+    
+    # Profile exists - all data is already loaded from the single query above
+    # The VoiceProfile model has all fields as columns, so no additional queries needed
+    logger.debug(f"Loaded profile for user {current_user.id} with brand: {profile.business_name}")
 
     # STRUCTURED CONTEXT: Extract and validate dynamic input context
     context = {}
@@ -353,10 +325,6 @@ def _handle_generate(task_type, data):
             "platform": platform,
         }
         
-        if profile_missing:
-            response_payload["profile_missing"] = True
-            response_payload["redirect"] = "/onboarding"
-            
         return jsonify(response_payload)
     except Exception as e:
         logger.error(f"Exception during content generation: {str(e)}", exc_info=True)
