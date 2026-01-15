@@ -8,7 +8,7 @@ import pytest
 
 def _extract_goal_types(goals):
     """Helper to extract unique goal types from goal objects."""
-    return list(set(g['goal'] for g in goals))
+    return list(set(g.get('goal') for g in goals if isinstance(g, dict) and g.get('goal')))
 
 
 def test_onboarding_social_style_returns_content_goals(monkeypatch, client):

@@ -634,7 +634,7 @@ def social_style():
         content_goals_data = business_info.get("required_sections", {}).get("content_goals", {}).get("values", [])
         # Convert goal objects to simple strings for frontend consumption, filtering out None/empty values
         suggestions["content_goals"] = [
-            goal["goal"] for goal in content_goals_data 
+            goal.get("goal") for goal in content_goals_data 
             if isinstance(goal, dict) and goal.get("goal")
         ]
         
