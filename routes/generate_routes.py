@@ -55,27 +55,6 @@ def _missing(value):
     return value is None or (isinstance(value, str) and not value.strip())
 
 
-def _build_dummy_profile():
-    class DummyProfile:
-        industry = 'general'
-        business_name = 'Your Business'
-        target_audience = 'General audience'
-        brand_voice = 'Professional and friendly'
-        key_offer = ''
-        voice_rules = ''
-
-        def get_writing_samples(self):
-            return []
-
-        def get_defaults(self):
-            return {}
-
-        def get_examples(self):
-            return []
-
-    return DummyProfile()
-
-
 def _error_response(code: str, message: str, http_status: int = 400, **extra):
     payload = {
         "status": "error",
@@ -251,15 +230,59 @@ def _handle_generate(task_type, data):
     # OPTIMIZED: Fetch user profile with all needed data in a single query
     # Using select load to ensure all profile fields are loaded efficiently
     profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
-    profile_missing = profile is None
     
-    if profile_missing:
-        logger.info(f"User {current_user.id} generating content without a brand profile, using defaults")
-        profile = _build_dummy_profile()
-    else:
-        # Profile exists - all data is already loaded from the single query above
-        # The VoiceProfile model has all fields as columns, so no additional queries needed
-        logger.debug(f"Loaded profile for user {current_user.id} with brand: {profile.business_name}")
+    # Helper to check if a field is empty
+    def is_field_empty(field):
+        return not field or not field.strip()
+    
+    # Check if profile exists and identify what's missing for better error messages
+    if not profile:
+        logger.warning(f"User {current_user.id} attempted generation without a brand profile")
+        return _error_response(
+            "profile_required",
+            "Please create your brand profile to start generating content. Click 'Settings' or visit /onboarding to set up your business name, industry, and brand voice.",
+            400,
+            redirect="/onboarding"
+        )
+    
+    # Profile exists - check for key required fields and provide specific guidance
+    missing_fields = []
+    required_fields = [
+        ('business_name', 'business name'),
+        ('industry', 'industry')
+    ]
+    
+    for field_attr, field_label in required_fields:
+        if is_field_empty(getattr(profile, field_attr)):
+            missing_fields.append(field_label)
+    
+    # If critical fields are missing, provide specific error
+    if missing_fields:
+        logger.warning(f"User {current_user.id} has incomplete profile: missing {missing_fields}")
+        return _error_response(
+            "incomplete_profile",
+            f"Your profile is missing: {', '.join(missing_fields)}. Please complete these required fields in Settings or /onboarding for better content generation.",
+            400,
+            redirect="/onboarding",
+            missing_fields=missing_fields
+        )
+    
+    # Profile has minimum required data - log optional missing fields as warnings
+    optional_missing = []
+    if is_field_empty(profile.brand_voice):
+        optional_missing.append("brand voice")
+    if is_field_empty(profile.target_audience):
+        optional_missing.append("target audience")
+    
+    # Check brand keywords (avoid redundant method call)
+    brand_keywords = profile.get_brand_keywords()
+    if not brand_keywords:
+        optional_missing.append("brand keywords")
+    
+    if optional_missing:
+        logger.info(f"User {current_user.id} profile could be enhanced with: {optional_missing}")
+    
+    logger.debug(f"Loaded profile for user {current_user.id} with brand: {profile.business_name}")
 
     # STRUCTURED CONTEXT: Extract and validate dynamic input context
     context = {}
@@ -341,10 +364,6 @@ def _handle_generate(task_type, data):
             "platform": platform,
         }
         
-        if profile_missing:
-            response_payload["profile_missing"] = True
-            response_payload["redirect"] = "/onboarding"
-            
         return jsonify(response_payload)
     except Exception as e:
         logger.error(f"Exception during content generation: {str(e)}", exc_info=True)
