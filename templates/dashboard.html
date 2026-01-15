@@ -281,7 +281,7 @@
                         </div>
                     </div>
                     
-                    <!-- Visual/Instagram Options (shown for Instagram) -->
+                    <!-- Visual/Instagram Options (shown for Instagram platform in Social Posts) -->
                     <div id="visual-options" class="hidden mb-4 bg-purple-50 p-4 sm:p-5 rounded-xl border border-purple-200">
                         <div class="flex items-center gap-2 mb-3">
                             <span class="text-lg">📸</span>
@@ -296,6 +296,100 @@
                                 <option value="educational">Teach something new</option>
                                 <option value="behind-the-scenes">Behind the scenes</option>
                             </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Image Caption Options (shown for caption task) -->
+                    <div id="caption-options" class="hidden mb-4 bg-purple-50 p-4 sm:p-5 rounded-xl border border-purple-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">📷</span>
+                            <h4 class="text-sm font-semibold text-purple-900">Caption Style <span class="text-xs font-normal text-purple-600">(Optional)</span></h4>
+                        </div>
+                        <div>
+                            <label for="caption-mood" class="block text-sm font-medium text-gray-800 mb-1.5">What's the vibe?</label>
+                            <select id="caption-mood" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                <option value="">Match your brand style...</option>
+                                <option value="inspiring">Inspiring & uplifting</option>
+                                <option value="casual">Casual & fun</option>
+                                <option value="educational">Informative</option>
+                                <option value="behind-the-scenes">Behind the scenes</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Review Reply Options (shown for review task) -->
+                    <div id="review-options" class="hidden mb-4 bg-teal-50 p-4 sm:p-5 rounded-xl border border-teal-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">⭐</span>
+                            <h4 class="text-sm font-semibold text-teal-900">Review Details <span class="text-xs font-normal text-teal-600">(Optional)</span></h4>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="review-rating" class="block text-sm font-medium text-gray-800 mb-1.5">Star Rating</label>
+                                <select id="review-rating" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="">Not specified</option>
+                                    <option value="5">⭐⭐⭐⭐⭐ (5 stars)</option>
+                                    <option value="4">⭐⭐⭐⭐ (4 stars)</option>
+                                    <option value="3">⭐⭐⭐ (3 stars)</option>
+                                    <option value="2">⭐⭐ (2 stars)</option>
+                                    <option value="1">⭐ (1 star)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="review-sentiment" class="block text-sm font-medium text-gray-800 mb-1.5">Overall Sentiment</label>
+                                <select id="review-sentiment" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="neutral" selected>Neutral</option>
+                                    <option value="positive">Positive</option>
+                                    <option value="negative">Negative</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="review-tone" class="block text-sm font-medium text-gray-800 mb-1.5">Response Tone</label>
+                                <select id="review-tone" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="professional">Professional</option>
+                                    <option value="grateful">Grateful</option>
+                                    <option value="apologetic">Apologetic</option>
+                                    <option value="empathetic">Empathetic</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Blog Post Options (shown for blog task) -->
+                    <div id="blog-options" class="hidden mb-4 bg-indigo-50 p-4 sm:p-5 rounded-xl border border-indigo-200">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-lg">✍️</span>
+                            <h4 class="text-sm font-semibold text-indigo-900">Blog Post Details <span class="text-xs font-normal text-indigo-600">(Optional)</span></h4>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="blog-post-type" class="block text-sm font-medium text-gray-800 mb-1.5">Post Type</label>
+                                <select id="blog-post-type" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="how-to">How-To Guide</option>
+                                    <option value="listicle">Listicle</option>
+                                    <option value="announcement">Announcement</option>
+                                    <option value="thought-leadership">Thought Leadership</option>
+                                    <option value="case-study">Case Study</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="blog-length" class="block text-sm font-medium text-gray-800 mb-1.5">Desired Length</label>
+                                <select id="blog-length" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="short">Short (400-700 words)</option>
+                                    <option value="medium" selected>Medium (700-1200 words)</option>
+                                    <option value="long">Long (1200-2000 words)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="blog-audience" class="block text-sm font-medium text-gray-800 mb-1.5">Target Audience</label>
+                                <input type="text" id="blog-audience" placeholder="e.g., Small business owners, First-time homebuyers"
+                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4">
+                            </div>
+                            <div>
+                                <label for="blog-cta" class="block text-sm font-medium text-gray-800 mb-1.5">Call to Action</label>
+                                <input type="text" id="blog-cta" placeholder="e.g., Subscribe to our newsletter, Download the guide"
+                                       class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-4">
+                            </div>
                         </div>
                     </div>
                     
@@ -442,7 +536,10 @@
         'linkedin': 'linkedin-options',
         'instagram': 'visual-options',
         'script': 'video-options',
-        'email': 'email-options'
+        'email': 'email-options',
+        'caption': 'caption-options',
+        'review': 'review-options',
+        'blog': 'blog-options'
     };
     
     /**
@@ -450,7 +547,7 @@
      */
     function updateDynamicInputs() {
         // Hide all dynamic sections
-        ['ad-options', 'linkedin-options', 'visual-options', 'video-options', 'email-options'].forEach(id => {
+        ['ad-options', 'linkedin-options', 'visual-options', 'video-options', 'email-options', 'caption-options', 'review-options', 'blog-options'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('hidden');
         });
@@ -543,6 +640,37 @@
         if (visualOptions && !visualOptions.classList.contains('hidden')) {
             const mood = document.getElementById('instagram-mood')?.value;
             if (mood) dynamicData.mood = mood;
+        }
+        
+        // Caption options
+        const captionOptions = document.getElementById('caption-options');
+        if (captionOptions && !captionOptions.classList.contains('hidden')) {
+            const mood = document.getElementById('caption-mood')?.value;
+            if (mood) dynamicData.mood = mood;
+        }
+        
+        // Review options
+        const reviewOptions = document.getElementById('review-options');
+        if (reviewOptions && !reviewOptions.classList.contains('hidden')) {
+            const rating = document.getElementById('review-rating')?.value;
+            const sentiment = document.getElementById('review-sentiment')?.value;
+            const tone = document.getElementById('review-tone')?.value;
+            if (rating) dynamicData.star_rating = rating;
+            if (sentiment) dynamicData.sentiment = sentiment;
+            if (tone) dynamicData.desired_tone = tone;
+        }
+        
+        // Blog options
+        const blogOptions = document.getElementById('blog-options');
+        if (blogOptions && !blogOptions.classList.contains('hidden')) {
+            const postType = document.getElementById('blog-post-type')?.value;
+            const length = document.getElementById('blog-length')?.value;
+            const audience = document.getElementById('blog-audience')?.value;
+            const cta = document.getElementById('blog-cta')?.value;
+            if (postType) dynamicData.post_type = postType;
+            if (length) dynamicData.desired_length = length;
+            if (audience) dynamicData.audience = audience;
+            if (cta) dynamicData.cta = cta;
         }
         
         // Video options
