@@ -237,12 +237,12 @@ def call_gemini_with_image(
                             'max_output_tokens': 2048,
                         }
                     )
-                except (ImportError, AttributeError):
-                    # Fallback: try simpler format
-                    logger.warning("Using fallback multimodal format")
+                except (ImportError, AttributeError) as e:
+                    # Fallback: try simpler format with bytes data
+                    logger.warning(f"Using fallback multimodal format: {e}")
                     response = client.models.generate_content(
                         model=model,
-                        contents=[full_prompt, {"mime_type": mime_type, "data": base64_data}],
+                        contents=[full_prompt, {"mime_type": mime_type, "data": image_bytes}],
                         config={
                             'temperature': temperature,
                             'max_output_tokens': 2048,

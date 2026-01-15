@@ -116,7 +116,8 @@ def test_gemini_multimodal_adapter_handles_image():
     """Test that the Gemini multimodal adapter can handle image data."""
     from services.generation.gemini_adapter import call_gemini_with_image
     
-    # Create minimal test image data
+    # Create a complete minimal 1x1 pixel PNG (transparent)
+    # This is a valid PNG file with proper header, IHDR, IDAT, and IEND chunks
     tiny_png = base64.b64encode(
         b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
         b'\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01'
