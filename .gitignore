@@ -29,3 +29,6 @@ test_scraper_goals_manual.py
 test_endpoint_goals_manual.py
 test_merge_frontend.html
 test.db
+
+# Implementation summary
+IMPLEMENTATION_SUMMARY.md
