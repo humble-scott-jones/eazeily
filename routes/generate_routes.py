@@ -247,10 +247,14 @@ def _handle_generate(task_type, data):
     
     # Profile exists - check for key required fields and provide specific guidance
     missing_fields = []
-    if is_field_empty(profile.business_name):
-        missing_fields.append("business name")
-    if is_field_empty(profile.industry):
-        missing_fields.append("industry")
+    required_fields = [
+        ('business_name', 'business name'),
+        ('industry', 'industry')
+    ]
+    
+    for field_attr, field_label in required_fields:
+        if is_field_empty(getattr(profile, field_attr)):
+            missing_fields.append(field_label)
     
     # If critical fields are missing, provide specific error
     if missing_fields:
@@ -272,7 +276,7 @@ def _handle_generate(task_type, data):
     
     # Check brand keywords (avoid redundant method call)
     brand_keywords = profile.get_brand_keywords()
-    if not brand_keywords or len(brand_keywords) == 0:
+    if not brand_keywords:
         optional_missing.append("brand keywords")
     
     if optional_missing:
