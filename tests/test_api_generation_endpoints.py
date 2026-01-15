@@ -34,7 +34,8 @@ def test_api_generate_post_endpoint(authenticated_client, mock_gemini):
     assert resp.status_code == 200
     body = resp.get_json()
     
-    # Check response structure
+    # API response format: {'content': str, 'status': 'success', 'task_type': str, 'platform': str}
+    # On error: {'status': 'error', 'error': {'code': str, 'message': str}}
     assert 'content' in body or 'error' in body
     if 'content' in body:
         assert body['status'] == 'success'
