@@ -582,6 +582,15 @@ async function mergeScrapedData(suggestions) {
         brandKeywordsField.value = merged.join(', ');
     }
     
+    // Content goals - MERGE with existing in the UI
+    const goalsField = document.getElementById('goals');
+    if (suggestions.content_goals && Array.isArray(suggestions.content_goals)) {
+        const existing = goalsField.value.split(',').map(g => g.trim()).filter(g => g);
+        const newGoals = suggestions.content_goals.filter(g => g);
+        const merged = [...new Set([...existing, ...newGoals])]; // Remove duplicates
+        goalsField.value = merged.join(', ');
+    }
+    
     // Writing samples - APPEND to existing
     const samplesField = document.getElementById('writing_samples');
     if (suggestions.sample_copy && Array.isArray(suggestions.sample_copy)) {

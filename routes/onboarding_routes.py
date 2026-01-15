@@ -630,7 +630,12 @@ def social_style():
         suggestions["brand_keywords"] = business_info.get("brand_keywords", [])
         suggestions["niche_keywords"] = business_info.get("niche_keywords", [])
         
-        logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}, key_offer={suggestions.get('key_offer')}, brand_keywords={suggestions.get('brand_keywords')}, niche_keywords={suggestions.get('niche_keywords')}")
+        # Extract content goals from required_sections
+        content_goals_data = business_info.get("required_sections", {}).get("content_goals", {}).get("values", [])
+        # Convert goal objects to simple strings for frontend consumption
+        suggestions["content_goals"] = [goal.get("goal") for goal in content_goals_data if goal.get("goal")]
+        
+        logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}, key_offer={suggestions.get('key_offer')}, brand_keywords={suggestions.get('brand_keywords')}, niche_keywords={suggestions.get('niche_keywords')}, content_goals={suggestions.get('content_goals')}")
 
         return jsonify({
             "samples": samples,
