@@ -287,6 +287,18 @@ def _handle_generate(task_type, data):
     # STRUCTURED CONTEXT: Extract and validate dynamic input context
     context = {}
     
+    # Handle image data for caption task
+    if task_type == 'caption':
+        image_data = data.get('image_data')
+        if image_data and isinstance(image_data, str):
+            # Validate base64 image data format
+            if image_data.startswith('data:image/'):
+                context['image_data'] = image_data
+                context['image_filename'] = data.get('image_filename', 'uploaded_image')
+                logger.info(f"Image data received for caption generation (user {current_user.id})")
+            else:
+                logger.warning(f"Invalid image_data format for caption (user {current_user.id})")
+    
     # Map of dynamic fields with their validation/cleaning
     dynamic_field_processors = {
         'ad_objective': lambda v: v if v in ['traffic', 'awareness', 'leads', 'conversions', 'engagement'] else None,

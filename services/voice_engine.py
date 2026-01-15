@@ -337,9 +337,39 @@ class VoiceEngine:
             return f"Generated {task_type} content for {platform}"
         
         try:
-            # Generate content with structured prompt
-            response = self.model.generate_content(prompt)
-            generated_content = response.text if response else f"Generated {task_type} content"
+            # Check if image data is present for multimodal generation
+            image_data = context.get('image_data')
+            
+            if image_data and task_type == 'caption':
+                # Use multimodal generation for caption with image
+                logger.info("Using multimodal generation for caption with image")
+                try:
+                    # Import the multimodal function
+                    from services.generation.gemini_adapter import call_gemini_with_image
+                    
+                    # Call Gemini with image
+                    result = call_gemini_with_image(
+                        prompt=prompt,
+                        image_data=image_data,
+                        context=context,
+                        temperature=0.7
+                    )
+                    
+                    if result and 'text' in result:
+                        generated_content = result['text']
+                    elif result:
+                        generated_content = str(result)
+                    else:
+                        logger.error("Multimodal generation returned None")
+                        return "Error: Failed to generate caption with image."
+                    
+                except Exception as e:
+                    logger.error(f"Multimodal generation failed: {e}", exc_info=True)
+                    return f"Error: Failed to generate caption with image: {str(e)}"
+            else:
+                # Regular text-only generation
+                response = self.model.generate_content(prompt)
+                generated_content = response.text if response else f"Generated {task_type} content"
             
             # Post-process to ensure clean, copy-paste-ready output
             return self._clean_generated_content(generated_content, task_type, platform)

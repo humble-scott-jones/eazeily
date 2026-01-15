@@ -303,17 +303,32 @@
                     <div id="caption-options" class="hidden mb-4 bg-purple-50 p-4 sm:p-5 rounded-xl border border-purple-200">
                         <div class="flex items-center gap-2 mb-3">
                             <span class="text-lg">📷</span>
-                            <h4 class="text-sm font-semibold text-purple-900">Caption Style <span class="text-xs font-normal text-purple-600">(Optional)</span></h4>
+                            <h4 class="text-sm font-semibold text-purple-900">Caption Style & Image Upload</h4>
                         </div>
-                        <div>
-                            <label for="caption-mood" class="block text-sm font-medium text-gray-800 mb-1.5">What's the vibe?</label>
-                            <select id="caption-mood" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
-                                <option value="">Match your brand style...</option>
-                                <option value="inspiring">Inspiring & uplifting</option>
-                                <option value="casual">Casual & fun</option>
-                                <option value="educational">Informative</option>
-                                <option value="behind-the-scenes">Behind the scenes</option>
-                            </select>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="caption-image" class="block text-sm font-medium text-gray-800 mb-1.5">Upload Photo <span class="text-xs font-normal text-purple-600">(Optional - AI will analyze it)</span></label>
+                                <input type="file" id="caption-image" accept="image/jpeg,image/jpg,image/png,image/webp" 
+                                       class="block w-full text-sm text-gray-700 border border-gray-300 rounded-lg cursor-pointer bg-white focus:outline-none focus:border-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                       onchange="handleCaptionImageUpload(event)">
+                                <p class="text-xs text-gray-600 mt-1">Upload a photo to generate an AI-powered caption (Max 5MB, JPG/PNG/WEBP)</p>
+                                <div id="caption-image-preview" class="hidden mt-2">
+                                    <div class="relative inline-block">
+                                        <img id="caption-image-preview-img" src="" alt="Preview" class="max-h-32 rounded-lg border border-purple-200">
+                                        <button type="button" onclick="clearCaptionImage()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 text-xs">×</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label for="caption-mood" class="block text-sm font-medium text-gray-800 mb-1.5">What's the vibe?</label>
+                                <select id="caption-mood" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base h-11 px-3">
+                                    <option value="">Match your brand style...</option>
+                                    <option value="inspiring">Inspiring & uplifting</option>
+                                    <option value="casual">Casual & fun</option>
+                                    <option value="educational">Informative</option>
+                                    <option value="behind-the-scenes">Behind the scenes</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     
@@ -1017,17 +1032,25 @@
                     // Collect dynamic inputs
                     const dynamicInputs = collectDynamicInputs();
                     
+                    // Include caption image if present and task is caption
+                    const requestPayload = {
+                        topic,
+                        platform,
+                        task_type: taskType,
+                        ...dynamicInputs
+                    };
+                    
+                    if (taskType === 'caption' && captionImageState.dataUrl) {
+                        requestPayload.image_data = captionImageState.dataUrl;
+                        requestPayload.image_filename = captionImageState.fileName;
+                    }
+                    
                     const response = await fetch('/api/generate', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            topic,
-                            platform,
-                            task_type: taskType,
-                            ...dynamicInputs
-                        }),
+                        body: JSON.stringify(requestPayload),
                         signal: abortController.signal
                     });
                     
@@ -1093,6 +1116,69 @@
             });
         }
     });
+
+    // Caption image upload handlers
+    const captionImageState = { dataUrl: null, fileName: '' };
+    
+    function handleCaptionImageUpload(event) {
+        const file = event.target.files?.[0];
+        if (!file) {
+            clearCaptionImage();
+            return;
+        }
+        
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('Image is too large. Please upload a file smaller than 5MB.', 'error', 4000);
+            clearCaptionImage();
+            return;
+        }
+        
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            showToast('Invalid file type. Please upload JPG, PNG, or WEBP.', 'error', 4000);
+            clearCaptionImage();
+            return;
+        }
+        
+        // Read and preview the image
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            captionImageState.dataUrl = e.target.result;
+            captionImageState.fileName = file.name;
+            
+            const preview = document.getElementById('caption-image-preview');
+            const previewImg = document.getElementById('caption-image-preview-img');
+            
+            if (preview && previewImg) {
+                previewImg.src = captionImageState.dataUrl;
+                preview.classList.remove('hidden');
+            }
+            
+            showToast('Image uploaded successfully! AI will analyze it when generating caption.', 'success', 3000);
+        };
+        
+        reader.onerror = () => {
+            showToast('Failed to read image file. Please try again.', 'error', 4000);
+            clearCaptionImage();
+        };
+        
+        reader.readAsDataURL(file);
+    }
+    
+    function clearCaptionImage() {
+        captionImageState.dataUrl = null;
+        captionImageState.fileName = '';
+        
+        const input = document.getElementById('caption-image');
+        const preview = document.getElementById('caption-image-preview');
+        const previewImg = document.getElementById('caption-image-preview-img');
+        
+        if (input) input.value = '';
+        if (preview) preview.classList.add('hidden');
+        if (previewImg) previewImg.src = '';
+    }
 
     function copyToClipboard() {
         const text = document.getElementById('postContent').textContent;
