@@ -2,6 +2,43 @@
 
 This module provides the /api/chat endpoint that handles all conversational
 interactions including onboarding flows and content creation tasks.
+
+The endpoint supports multi-turn conversations through a stateless design where
+all conversation state is passed in the request payload via the `pending_task`
+field.
+
+## Key Features:
+- Profile readiness checking (routes to onboarding if incomplete)
+- Multi-turn conversation support via pending_task state
+- Intent parsing to detect task type and extract initial parameters
+- Content generation via VoiceEngine integration
+- Comprehensive error handling and request logging
+
+## API Contract:
+
+Request:
+    {
+        "message": "user's input text",
+        "history": [{"role": "user"|"assistant", "message": "..."}],  # optional
+        "pending_task": {  # optional, null for new conversations
+            "task_type": "post"|"caption"|"reel"|"email"|"ad",
+            "collected": {"platform": "instagram", "topic": "...", ...}
+        }
+    }
+
+Response:
+    {
+        "response": "AI response text to display",
+        "action": "continue"|"generated"|"onboarding"|"error",
+        "pending_task": {...} | null,  # present if more info needed
+        "content": "generated content" | null,  # present when action="generated"
+        "suggestions": ["..."] | null  # optional suggestions for user
+    }
+
+## Future Enhancements:
+- Replace stub intent parser with ConversationRouter AI service
+- Add support for conversation history context in generation
+- Add retry logic for transient API failures
 """
 
 from flask import Blueprint, request, jsonify
