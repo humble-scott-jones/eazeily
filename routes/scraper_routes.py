@@ -137,8 +137,8 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                         profile.target_audience = business_info.get('key_customers')
                     else:
                         # Only append if it's substantially different content
-                        existing = profile.target_audience.lower()
-                        new_data = business_info.get('key_customers').lower()
+                        existing = (profile.target_audience or "").lower()
+                        new_data = (business_info.get('key_customers') or "").lower()
                         
                         # Check if either is a substring of the other
                         if new_data in existing or existing in new_data:
@@ -159,8 +159,8 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                         profile.key_offer = business_info.get('key_offer')
                     else:
                         # Only append if it's substantially different content
-                        existing = profile.key_offer.lower()
-                        new_data = business_info.get('key_offer').lower()
+                        existing = (profile.key_offer or "").lower()
+                        new_data = (business_info.get('key_offer') or "").lower()
                         
                         # Check if either is a substring of the other
                         if new_data in existing or existing in new_data:
@@ -189,6 +189,40 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                     new_keywords = list(set(existing_niche_keywords + business_info['niche_keywords']))
                     profile.set_niche_keywords(new_keywords)
                 
+                # Merge voice rules
+                ai_voice_rules = business_info.get('voice_tone_and_style')
+                if ai_voice_rules:
+                    if not profile.voice_rules:
+                        profile.voice_rules = ai_voice_rules
+                    elif ai_voice_rules not in profile.voice_rules:
+                         # Append if not present
+                         profile.voice_rules += f"\n\n{ai_voice_rules}"
+
+                # Merge content goals
+                ai_goals = business_info.get('content_goals_ai', [])
+                if ai_goals:
+                    # ai_goals is expected to be a list of strings from the AI
+                    current_goals = profile.get_goals()
+                    # Normalize and merge
+                    new_goals = []
+                    for g in ai_goals:
+                        if isinstance(g, str):
+                            new_goals.append(g)
+                        elif isinstance(g, dict) and 'goal' in g:
+                            new_goals.append(g['goal'])
+                    
+                    merged_goals = list(set(current_goals + new_goals))
+                    profile.set_goals(merged_goals)
+
+                # Merge writing samples (sample posts)
+                ai_samples = business_info.get('sample_posts', [])
+                if ai_samples:
+                    current_samples = profile.get_writing_samples()
+                    # Filter duplicates
+                    new_unique_samples = [s for s in ai_samples if s not in current_samples]
+                    if new_unique_samples:
+                        profile.set_writing_samples(current_samples + new_unique_samples)
+
                 db.session.commit()
                 logger.info(f"Scrape job {job_id} completed successfully")
             

@@ -630,6 +630,18 @@ def social_style():
         suggestions["brand_keywords"] = business_info.get("brand_keywords", [])
         suggestions["niche_keywords"] = business_info.get("niche_keywords", [])
         
+        # Add richer AI-extracted fields
+        if business_info.get("voice_tone_and_style"):
+            # Prefer AI-extracted voice rules over heuristics
+            suggestions["voice_rules"] = business_info.get("voice_tone_and_style")
+            
+        if business_info.get("content_goals_ai"):
+            suggestions["goals"] = business_info.get("content_goals_ai")
+            
+        if business_info.get("sample_posts"):
+            # Prefer AI-identified posts over simple sentence splitting
+            suggestions["sample_copy"] = business_info.get("sample_posts")
+        
         logger.info(f"Final suggestions for {normalized_url}: business_name={suggestions.get('business_name')}, industry={suggestions.get('industry')}, key_customers={suggestions.get('key_customers')}, key_offer={suggestions.get('key_offer')}, brand_keywords={suggestions.get('brand_keywords')}, niche_keywords={suggestions.get('niche_keywords')}")
 
         return jsonify({
