@@ -565,8 +565,22 @@ def chat():
         
         # Handle pending task based on flow type
         if pending_task:
-            flow = pending_task.get('flow', 'onboarding')
-            logger.info(f"[{request_id}] Continuing {flow} flow for task: {pending_task.get('task_type')}")
+            task_type = pending_task.get('task_type')
+            flow = pending_task.get('flow')
+            
+            # Auto-detect flow if not specified based on task_type
+            if not flow:
+                if task_type == 'onboarding':
+                    flow = 'onboarding'
+                else:
+                    # If profile is complete and task_type is a content type, assume content flow
+                    content_task_types = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel']
+                    if profile_ready and task_type in content_task_types:
+                        flow = 'content'
+                    else:
+                        flow = 'onboarding'
+            
+            logger.info(f"[{request_id}] Continuing {flow} flow for task: {task_type}")
             
             if flow == 'content':
                 # Continue content generation flow

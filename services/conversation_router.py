@@ -47,7 +47,7 @@ class ConversationRouter:
             'required': ['topic', 'platform'],
             'optional': ['mood', 'cta'],
             'prompts': {
-                'topic': "What's this post about? (product, tip, announcement...)",
+                'topic': "What topic should this post be about? (product, tip, announcement...)",
                 'platform': "Which platform? (Instagram, Facebook, LinkedIn, TikTok, Twitter)",
             }
         },
@@ -153,7 +153,13 @@ class ConversationRouter:
                 logger.info(f"Classified with Gemini: {gemini_result}")
                 return self._build_response(gemini_result, profile)
         
-        # Fallback: Ask user to clarify
+        # Fallback: Try simple keyword matching
+        keyword_result = self._classify_with_keywords(user_input)
+        if keyword_result:
+            logger.info(f"Classified with keywords: {keyword_result}")
+            return self._build_response(keyword_result, profile)
+        
+        # Last resort: Ask user to clarify
         logger.warning(f"Could not classify user input: {user_input[:50]}")
         return {
             'intent': 'unknown',
@@ -165,6 +171,47 @@ class ConversationRouter:
                 "Try using a command like /post, /caption, /script, /email, /review, /ad, or /blog"
             ),
             'missing_fields': []
+        }
+    
+    def _classify_with_keywords(self, user_input: str) -> Optional[Dict[str, Any]]:
+        """
+        Fallback keyword-based classification when Gemini is unavailable.
+        
+        Args:
+            user_input: User's natural language message
+        
+        Returns:
+            dict with task_type and extracted_params, or None if no match
+        """
+        message_lower = user_input.lower()
+        
+        # Task type keywords (ordered by specificity to avoid false matches)
+        task_patterns = [
+            (['reel'], 'script'),  # Map reel to script (as per COMMAND_MAP)
+            (['caption'], 'caption'),
+            (['email', 'newsletter'], 'email'),
+            (['review', 'respond to review', 'review response'], 'review'),
+            (['ad', 'advertisement'], 'ad'),
+            (['blog', 'article'], 'blog'),
+            (['script', 'video'], 'script'),
+            (['post'], 'post'),  # Most generic, check last
+        ]
+        
+        task_type = None
+        for keywords, ttype in task_patterns:
+            if any(keyword in message_lower for keyword in keywords):
+                task_type = ttype
+                break
+        
+        if not task_type:
+            return None
+        
+        # Extract parameters using existing method
+        extracted_params = self._extract_params_from_text(user_input, task_type)
+        
+        return {
+            'task_type': task_type,
+            'extracted_params': extracted_params
         }
     
     def _parse_slash_command(self, user_input: str) -> Optional[Dict[str, Any]]:
@@ -319,13 +366,22 @@ Rules:
             for word in words:
                 topic_text = re.sub(r'\b' + re.escape(word) + r'\b', '', topic_text, flags=re.IGNORECASE)
         
+        # Remove task-type related words
+        task_words = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel', 
+                      'create', 'write', 'draft', 'generate', 'make', 'a ', 'an ', 'the ']
+        for word in task_words:
+            topic_text = re.sub(r'\b' + re.escape(word.strip()) + r'\b', '', topic_text, flags=re.IGNORECASE)
+        
         # Remove common filler words
         filler_words = ['about', 'for', 'on', 'regarding', 'concerning']
         for word in filler_words:
             topic_text = re.sub(r'\b' + re.escape(word) + r'\b', '', topic_text, flags=re.IGNORECASE)
         
-        topic_text = topic_text.strip()
-        if topic_text:
+        # Clean up extra whitespace
+        topic_text = ' '.join(topic_text.split()).strip()
+        
+        # Only add topic if there's meaningful content left (more than just whitespace or very short)
+        if topic_text and len(topic_text) > 2:
             params['topic'] = topic_text
         
         return params
