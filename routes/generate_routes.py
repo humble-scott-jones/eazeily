@@ -486,14 +486,14 @@ def _generate_mock_chat_response(message, context, pending_task):
             command = message.split()[0][1:].lower()
             
             commands = {
-                'post': 'I'll help you create a social media post. What topic or message do you want to share?',
-                'caption': 'Let's create a caption for your image. Describe the image or paste a URL.',
-                'reel': 'Great! I'll script a short video for you. What's the video about?',
-                'email': 'I'll draft an email for you. Who is it for and what's the main message?',
-                'review': 'I can help respond to customer reviews. Paste the review you want to respond to.',
-                'blog': 'Let's write a blog post! What's your topic or title?',
-                'ad': 'I'll create ad copy for you. What product/service are you advertising?',
-                'proposal': 'I'll help draft a business proposal. What's the project or opportunity?'
+                'post': "I'll help you create a social media post. What topic or message do you want to share?",
+                'caption': "Let's create a caption for your image. Describe the image or paste a URL.",
+                'reel': "Great! I'll script a short video for you. What's the video about?",
+                'email': "I'll draft an email for you. Who is it for and what's the main message?",
+                'review': "I can help respond to customer reviews. Paste the review you want to respond to.",
+                'blog': "Let's write a blog post! What's your topic or title?",
+                'ad': "I'll create ad copy for you. What product/service are you advertising?",
+                'proposal': "I'll help draft a business proposal. What's the project or opportunity?"
             }
             
             response = commands.get(command, f"I don't recognize the command `/{command}`. Try `/post`, `/email`, or `/reel`.")
