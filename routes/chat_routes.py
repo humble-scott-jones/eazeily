@@ -447,6 +447,134 @@ def _validate_profile_field(field_name: str, value: str) -> tuple[bool, str]:
     return True, ""
 
 
+def _get_smart_suggestions_for_field(field_name: str, profile: VoiceProfile) -> list:
+    """Generate intelligent suggestions based on profile data and industry.
+    
+    Args:
+        field_name: The field being updated
+        profile: User's VoiceProfile with context data
+        
+    Returns:
+        List of contextual suggestions for the field
+    """
+    suggestions = []
+    
+    try:
+        # Get industry context if available
+        industry = profile.industry
+        scraped_meta = profile.get_scraped_meta() if hasattr(profile, 'get_scraped_meta') else {}
+        
+        if field_name == 'brand_voice':
+            # Load industry pack for voice suggestions
+            if industry:
+                try:
+                    import json
+                    industry_key = industry.lower().replace(' ', '_').replace('&', 'and').replace('/', '_')
+                    industry_file = f'industry_packs/v1/{industry_key}.json'
+                    
+                    if os.path.exists(industry_file):
+                        with open(industry_file, 'r') as f:
+                            industry_data = json.load(f)
+                            keywords = industry_data.get('keyword_banks', {}).get('seed_keywords', [])
+                            # Create voice suggestions from keywords
+                            if keywords:
+                                suggestions.append(f"{keywords[3]} and {keywords[4]}" if len(keywords) > 4 else "professional and friendly")
+                                suggestions.append(f"{keywords[5]} and {keywords[6]}" if len(keywords) > 6 else "expert and trustworthy")
+                except:
+                    pass
+            
+            # Fallback to general suggestions
+            if not suggestions:
+                suggestions.extend([
+                    "professional and authoritative",
+                    "warm and friendly",
+                    "bold and confident",
+                    "casual and conversational"
+                ])
+        
+        elif field_name == 'target_audience':
+            # Use scraped data or industry defaults
+            if scraped_meta.get('key_customers'):
+                suggestions.append(scraped_meta['key_customers'])
+            
+            # Industry-based audience suggestions
+            if industry:
+                industry_audiences = {
+                    'fitness': ['health-conscious individuals', 'busy professionals seeking fitness', 'athletes and fitness enthusiasts'],
+                    'restaurant': ['food lovers and foodies', 'families looking for dining experiences', 'local community members'],
+                    'software': ['tech-savvy businesses', 'enterprise clients', 'startups and SMBs'],
+                    'realtor': ['first-time home buyers', 'growing families', 'real estate investors'],
+                    'salon': ['style-conscious individuals', 'professionals wanting self-care', 'special event clients'],
+                    'healthcare': ['patients seeking quality care', 'families prioritizing health', 'individuals with specific health needs'],
+                    'coach': ['individuals seeking personal growth', 'professionals wanting advancement', 'people in life transitions'],
+                }
+                industry_lower = industry.lower()
+                for key, audiences in industry_audiences.items():
+                    if key in industry_lower:
+                        suggestions.extend(audiences[:3])
+                        break
+            
+            if not suggestions:
+                suggestions.extend([
+                    "busy professionals",
+                    "young families",
+                    "local community members"
+                ])
+        
+        elif field_name == 'key_offer':
+            # Use scraped data if available
+            if scraped_meta.get('key_offer'):
+                suggestions.append(scraped_meta['key_offer'])
+            
+            # Industry-specific offers
+            if industry:
+                industry_offers = {
+                    'fitness': ['personalized training programs', 'flexible membership options', 'results-driven fitness coaching'],
+                    'restaurant': ['fresh, locally-sourced cuisine', 'authentic dining experience', 'catering for special events'],
+                    'software': ['scalable cloud solutions', '24/7 customer support', 'custom integrations'],
+                    'realtor': ['expert local market knowledge', 'seamless home buying process', 'investment property expertise'],
+                    'salon': ['personalized beauty services', 'premium hair care products', 'relaxing spa experience'],
+                }
+                industry_lower = industry.lower()
+                for key, offers in industry_offers.items():
+                    if key in industry_lower:
+                        suggestions.extend(offers[:2])
+                        break
+            
+            if not suggestions:
+                suggestions.extend([
+                    "exceptional customer service",
+                    "quality products and services"
+                ])
+        
+        elif field_name == 'business_name':
+            # Suggest variations based on scraped data
+            if scraped_meta.get('business_name'):
+                base_name = scraped_meta['business_name']
+                suggestions.append(base_name)
+                # Don't suggest variations for business name - too risky
+        
+        elif field_name == 'industry':
+            # Load available industries from config
+            try:
+                import json
+                config_file = 'static/content/config.json'
+                if os.path.exists(config_file):
+                    with open(config_file, 'r') as f:
+                        config = json.load(f)
+                        industries = config.get('industries', [])
+                        # Suggest top industries
+                        suggestions.extend([ind['label'] for ind in industries[:5]])
+            except:
+                pass
+    
+    except Exception as e:
+        logger.warning(f"Error generating smart suggestions: {e}")
+    
+    # Return up to 4 suggestions
+    return suggestions[:4] if suggestions else []
+
+
 def _apply_profile_update(profile: VoiceProfile, field_name: str, new_value: str, db) -> dict:
     """Apply the update and save to database.
     
@@ -569,15 +697,26 @@ def _continue_profile_update(pending_task: dict, message: str, profile: VoicePro
         # User provided field name
         normalized = conversation_router.normalize_field_name(message)
         if normalized:
+            # Get smart suggestions for this field
+            smart_suggestions = _get_smart_suggestions_for_field(normalized, profile)
+            
+            # Build prompt with suggestions
+            prompt = f"What would you like to change your **{_format_field_name(normalized)}** to?"
+            if smart_suggestions:
+                prompt += "\n\nHere are some suggestions based on your profile:"
+                for suggestion in smart_suggestions:
+                    prompt += f"\n• {suggestion}"
+            
             # Ask for new value
             return _build_response(
-                f"What would you like to change your **{_format_field_name(normalized)}** to?",
+                prompt,
                 action='continue',
                 pending_task={
                     'flow': 'profile_update',
                     'task_type': 'profile_update',
                     'field_name': normalized
-                }
+                },
+                suggestions=smart_suggestions if smart_suggestions else None
             )
         else:
             # Reset pending task to avoid infinite loop
@@ -633,15 +772,26 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
             return _apply_profile_update(profile, field_name, new_value, db)
         
         if field_name:
+            # Get smart suggestions for this field
+            smart_suggestions = _get_smart_suggestions_for_field(field_name, profile)
+            
+            # Build prompt with suggestions
+            prompt = f"What would you like to change your **{_format_field_name(field_name)}** to?"
+            if smart_suggestions:
+                prompt += "\n\nHere are some suggestions based on your profile:"
+                for suggestion in smart_suggestions:
+                    prompt += f"\n• {suggestion}"
+            
             # Ask for new value
             return _build_response(
-                f"What would you like to change your **{_format_field_name(field_name)}** to?",
+                prompt,
                 action='continue',
                 pending_task={
                     'flow': 'profile_update',
                     'task_type': intent_result['task_type'],
                     'field_name': field_name
-                }
+                },
+                suggestions=smart_suggestions if smart_suggestions else None
             )
         
         # No field specified - ask which field
