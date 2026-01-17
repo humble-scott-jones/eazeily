@@ -1,34 +1,69 @@
 /**
  * PromptBox Component Styles
- * Mobile-responsive conversational UI
+ * Mobile-first, Eazeily brand styling with slash command autocomplete
  */
 
-.promptbox {
+/* ===== CSS Custom Properties (Brand Colors) ===== */
+:root {
+  /* Eazeily Brand Colors */
+  --eazeily-primary: #6366F1;      /* Indigo - main brand color */
+  --eazeily-primary-dark: #4F46E5;
+  --eazeily-primary-light: #818CF8;
+  --eazeily-accent: #10B981;        /* Emerald - success/action */
+  --eazeily-surface: #FFFFFF;
+  --eazeily-surface-alt: #F9FAFB;
+  --eazeily-text: #111827;
+  --eazeily-text-secondary: #6B7280;
+  --eazeily-border: #E5E7EB;
+  --eazeily-error: #EF4444;
+  
+  /* Spacing */
+  --promptbox-radius: 12px;
+  --promptbox-radius-pill: 20px;
+  --promptbox-transition: 0.2s ease;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --eazeily-surface: #1F2937;
+    --eazeily-surface-alt: #111827;
+    --eazeily-text: #F9FAFB;
+    --eazeily-text-secondary: #9CA3AF;
+    --eazeily-border: #374151;
+  }
+}
+
+/* ===== Container Layout (Mobile-First) ===== */
+.promptbox-container {
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 400px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  max-height: 100dvh; /* Dynamic viewport height for mobile */
+  background: var(--eazeily-surface);
+  border-radius: var(--promptbox-radius);
   overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* Conversation Area */
-.promptbox__conversation {
+/* ===== Messages Area ===== */
+.promptbox-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  padding: 16px;
+  padding-bottom: 120px; /* Space for input area */
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 12px;
   scroll-behavior: smooth;
 }
 
-/* Individual Messages */
-.promptbox__message {
+/* ===== Individual Messages ===== */
+.promptbox-message {
   display: flex;
   animation: slideIn 0.3s ease-out;
+  position: relative;
 }
 
 @keyframes slideIn {
@@ -42,97 +77,225 @@
   }
 }
 
-.promptbox__message--user {
+.promptbox-message-user {
   justify-content: flex-end;
 }
 
-.promptbox__message--assistant {
+.promptbox-message-assistant {
   justify-content: flex-start;
 }
 
-/* Message Bubbles */
-.promptbox__bubble {
-  max-width: 80%;
-  padding: 0.875rem 1.125rem;
+/* ===== Message Bubbles (Brand Styling) ===== */
+.promptbox-bubble {
+  max-width: 85%;
+  padding: 12px 16px;
   border-radius: 18px;
   line-height: 1.5;
   word-wrap: break-word;
+  font-size: 15px;
+  transition: all var(--promptbox-transition);
 }
 
-.promptbox__message--user .promptbox__bubble {
-  background: #4f46e5;
+@media (min-width: 768px) {
+  .promptbox-bubble {
+    max-width: 70%;
+  }
+}
+
+.promptbox-message-user .promptbox-bubble {
+  background: var(--eazeily-primary);
   color: white;
   border-bottom-right-radius: 4px;
 }
 
-.promptbox__message--assistant .promptbox__bubble {
-  background: #f3f4f6;
-  color: #1f2937;
+.promptbox-message-assistant .promptbox-bubble {
+  background: var(--eazeily-surface-alt);
+  color: var(--eazeily-text);
   border-bottom-left-radius: 4px;
+  border: 1px solid var(--eazeily-border);
 }
 
-.promptbox__message--error .promptbox__bubble {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fca5a5;
+.promptbox-message-error .promptbox-bubble {
+  background: #FEF2F2;
+  color: var(--eazeily-error);
+  border: 1px solid var(--eazeily-error);
 }
 
-/* Markdown in bubbles */
-.promptbox__bubble strong {
+/* ===== Markdown Styling in Bubbles ===== */
+.promptbox-bubble strong {
   font-weight: 600;
 }
 
-.promptbox__bubble em {
+.promptbox-bubble em {
   font-style: italic;
 }
 
-.promptbox__bubble code {
+.promptbox-bubble code {
   background: rgba(0, 0, 0, 0.1);
-  padding: 0.125rem 0.375rem;
+  padding: 2px 6px;
   border-radius: 4px;
   font-family: 'Courier New', monospace;
-  font-size: 0.875em;
+  font-size: 0.9em;
 }
 
-.promptbox__bubble ul {
-  margin: 0.5rem 0;
-  padding-left: 1.5rem;
+.promptbox-bubble ul {
+  margin: 8px 0;
+  padding-left: 20px;
 }
 
-.promptbox__bubble li {
-  margin: 0.25rem 0;
+.promptbox-bubble li {
+  margin: 4px 0;
 }
 
-/* Input Area */
-.promptbox__input-area {
-  border-top: 1px solid #e5e7eb;
-  padding: 1rem;
-  background: white;
-}
-
-/* Suggestions */
-.promptbox__suggestions {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-  min-height: 32px;
-}
-
-.promptbox__suggestion {
-  padding: 0.375rem 0.875rem;
-  font-size: 0.875rem;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  color: #6b7280;
+/* ===== Copy Button ===== */
+.promptbox-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: var(--eazeily-surface);
+  border: 1px solid var(--eazeily-primary);
+  color: var(--eazeily-primary);
+  border-radius: var(--promptbox-radius-pill);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--promptbox-transition);
+}
+
+.promptbox-copy-btn:hover {
+  background: var(--eazeily-primary);
+  color: white;
+  transform: scale(1.02);
+}
+
+.promptbox-copy-btn:active {
+  transform: scale(0.98);
+}
+
+.promptbox-copy-btn.copied {
+  background: var(--eazeily-accent);
+  border-color: var(--eazeily-accent);
+  color: white;
+}
+
+.promptbox-copy-btn .copy-icon {
+  font-size: 16px;
+}
+
+.promptbox-copy-btn .copy-text {
+  font-size: 13px;
+}
+
+/* ===== Input Area (Sticky Bottom) ===== */
+.promptbox-input-area {
+  position: sticky;
+  bottom: 0;
+  background: var(--eazeily-surface);
+  padding: 12px 16px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom)); /* Safe area for notch */
+  border-top: 1px solid var(--eazeily-border);
+  z-index: 10;
+}
+
+/* ===== Autocomplete Dropdown ===== */
+.promptbox-autocomplete {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  background: var(--eazeily-surface);
+  border: 1px solid var(--eazeily-border);
+  border-radius: var(--promptbox-radius);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  margin-bottom: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 20;
+}
+
+.promptbox-autocomplete.hidden {
+  display: none;
+}
+
+.promptbox-autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background var(--promptbox-transition);
+  border-bottom: 1px solid var(--eazeily-border);
+}
+
+.promptbox-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.promptbox-autocomplete-item:hover,
+.promptbox-autocomplete-item.selected {
+  background: var(--eazeily-surface-alt);
+}
+
+.promptbox-autocomplete-item .icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.promptbox-autocomplete-item .autocomplete-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.promptbox-autocomplete-item .command {
+  font-weight: 600;
+  color: var(--eazeily-primary);
+  font-size: 14px;
+}
+
+.promptbox-autocomplete-item .description {
+  color: var(--eazeily-text-secondary);
+  font-size: 13px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Suggestions Pills (Horizontally Scrollable) ===== */
+.promptbox-suggestions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  padding-bottom: 4px;
+}
+
+.promptbox-suggestions::-webkit-scrollbar {
+  display: none; /* Chrome, Safari */
+}
+
+.promptbox-suggestion {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  background: var(--eazeily-surface);
+  border: 1px solid var(--eazeily-primary);
+  color: var(--eazeily-primary);
+  border-radius: var(--promptbox-radius-pill);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--promptbox-transition);
   opacity: 0.7;
 }
 
-.promptbox__suggestion.active {
+.promptbox-suggestion.active {
   opacity: 1;
   animation: fadeIn 0.3s ease-in;
 }
@@ -140,215 +303,333 @@
 @keyframes fadeIn {
   from {
     opacity: 0;
+    transform: scale(0.95);
   }
   to {
     opacity: 1;
+    transform: scale(1);
   }
 }
 
-.promptbox__suggestion:hover {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: #4f46e5;
+.promptbox-suggestion:hover {
+  background: var(--eazeily-primary);
+  color: white;
   opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(99, 102, 241, 0.2);
 }
 
-/* Input Wrapper */
-.promptbox__input-wrapper {
+.promptbox-suggestion:active {
+  transform: translateY(0);
+}
+
+/* ===== Input Wrapper ===== */
+.promptbox-input-wrapper {
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
   align-items: flex-end;
+  position: relative;
 }
 
-.promptbox__textarea {
+/* ===== Textarea (Auto-resize, Mobile-friendly) ===== */
+.promptbox-textarea {
   flex: 1;
-  min-height: 44px;
-  max-height: 150px;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
+  min-height: 44px; /* Minimum touch target size */
+  max-height: 120px;
+  padding: 12px 16px;
+  font-size: 16px; /* Prevent zoom on iOS */
   line-height: 1.5;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
+  border: 2px solid var(--eazeily-border);
+  border-radius: var(--promptbox-radius);
   resize: none;
   font-family: inherit;
-  transition: border-color 0.2s ease;
+  background: var(--eazeily-surface);
+  color: var(--eazeily-text);
+  transition: all var(--promptbox-transition);
 }
 
-.promptbox__textarea:focus {
+.promptbox-textarea:focus {
   outline: none;
-  border-color: #4f46e5;
+  border-color: var(--eazeily-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-.promptbox__textarea.has-slash-command {
-  border-color: #8b5cf6;
-  background: #faf5ff;
+.promptbox-textarea.has-slash-command {
+  border-color: var(--eazeily-primary-light);
+  background: #F5F3FF; /* Light purple tint */
 }
 
-.promptbox__send-btn {
+@media (prefers-color-scheme: dark) {
+  .promptbox-textarea.has-slash-command {
+    background: #4C1D95;
+  }
+}
+
+/* ===== Send Button (Brand Styling) ===== */
+.promptbox-send-btn {
   width: 44px;
   height: 44px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #4f46e5;
+  background: var(--eazeily-primary);
   color: white;
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--promptbox-transition);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
-.promptbox__send-btn:hover:not(:disabled) {
-  background: #4338ca;
+.promptbox-send-btn:hover:not(:disabled) {
+  background: var(--eazeily-primary-dark);
   transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
 
-.promptbox__send-btn:disabled {
-  background: #d1d5db;
+.promptbox-send-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.promptbox-send-btn:disabled {
+  background: var(--eazeily-text-secondary);
   cursor: not-allowed;
   opacity: 0.5;
+  box-shadow: none;
 }
 
-/* Loading Indicator */
-.promptbox__loading {
+/* Haptic feedback on send (visual only) */
+@keyframes haptic-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+.promptbox-send-btn:active:not(:disabled) {
+  animation: haptic-pulse 0.2s ease;
+}
+
+/* ===== Loading Indicator (Enhanced) ===== */
+.promptbox-loading {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  background: #f9fafb;
-  border-top: 1px solid #e5e7eb;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--eazeily-surface-alt);
+  border-top: 1px solid var(--eazeily-border);
 }
 
-.promptbox__loading.hidden {
+.promptbox-loading.hidden {
   display: none;
 }
 
-.promptbox__typing {
+.promptbox-typing {
   display: flex;
   gap: 4px;
 }
 
-.promptbox__typing span {
+.promptbox-typing span {
   width: 8px;
   height: 8px;
-  background: #9ca3af;
+  background: var(--eazeily-text-secondary);
   border-radius: 50%;
-  animation: bounce 1.4s infinite ease-in-out both;
+  animation: typing-bounce 1.4s infinite ease-in-out;
 }
 
-.promptbox__typing span:nth-child(1) {
-  animation-delay: -0.32s;
+.promptbox-typing span:nth-child(1) {
+  animation-delay: 0s;
 }
 
-.promptbox__typing span:nth-child(2) {
-  animation-delay: -0.16s;
+.promptbox-typing span:nth-child(2) {
+  animation-delay: 0.2s;
 }
 
-@keyframes bounce {
+.promptbox-typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
   0%, 80%, 100% {
-    transform: scale(0);
+    transform: translateY(0);
     opacity: 0.5;
   }
   40% {
-    transform: scale(1);
+    transform: translateY(-6px);
     opacity: 1;
   }
 }
 
-.promptbox__loading-text {
-  font-size: 0.875rem;
-  color: #6b7280;
+.promptbox-loading-text {
+  font-size: 14px;
+  color: var(--eazeily-text-secondary);
+  font-weight: 500;
 }
 
-/* Mobile Responsiveness */
+/* ===== Error State ===== */
+.promptbox-error {
+  background: #FEF2F2;
+  border: 1px solid var(--eazeily-error);
+  color: var(--eazeily-error);
+  border-radius: var(--promptbox-radius);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px;
+  animation: slideIn 0.3s ease-out;
+}
+
+.promptbox-error-icon {
+  font-size: 20px;
+}
+
+.promptbox-error-text {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.promptbox-error-retry {
+  margin-left: auto;
+  color: var(--eazeily-primary);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  transition: background var(--promptbox-transition);
+}
+
+.promptbox-error-retry:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* ===== Accessibility & Reduced Motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus styles for keyboard navigation */
+.promptbox-textarea:focus-visible,
+.promptbox-send-btn:focus-visible,
+.promptbox-suggestion:focus-visible,
+.promptbox-autocomplete-item:focus-visible,
+.promptbox-copy-btn:focus-visible {
+  outline: 2px solid var(--eazeily-primary);
+  outline-offset: 2px;
+}
+
+/* ===== Responsive Adjustments ===== */
 @media (max-width: 640px) {
-  .promptbox {
-    min-height: 300px;
-    border-radius: 8px;
+  .promptbox-messages {
+    padding: 12px;
+    padding-bottom: 100px;
+    gap: 10px;
   }
 
-  .promptbox__conversation {
-    padding: 1rem;
-    gap: 0.75rem;
-  }
-
-  .promptbox__bubble {
+  .promptbox-bubble {
     max-width: 90%;
-    padding: 0.75rem 1rem;
-    font-size: 0.9375rem;
+    padding: 10px 14px;
+    font-size: 14px;
   }
 
-  .promptbox__input-area {
-    padding: 0.75rem;
+  .promptbox-input-area {
+    padding: 10px 12px;
   }
 
-  .promptbox__suggestions {
-    gap: 0.375rem;
-    margin-bottom: 0.5rem;
+  .promptbox-suggestions {
+    gap: 6px;
+    margin-bottom: 10px;
   }
 
-  .promptbox__suggestion {
-    padding: 0.25rem 0.75rem;
-    font-size: 0.8125rem;
+  .promptbox-suggestion {
+    padding: 6px 12px;
+    font-size: 13px;
   }
 
-  .promptbox__textarea {
-    font-size: 1rem; /* Prevent zoom on iOS */
-    padding: 0.625rem 0.875rem;
+  .promptbox-textarea {
+    font-size: 16px; /* Keep at 16px to prevent zoom */
+    padding: 10px 14px;
   }
 
-  .promptbox__send-btn {
+  .promptbox-send-btn {
     width: 40px;
     height: 40px;
   }
+
+  .promptbox-autocomplete-item {
+    padding: 10px 12px;
+  }
+
+  .promptbox-autocomplete-item .command {
+    font-size: 13px;
+  }
+
+  .promptbox-autocomplete-item .description {
+    font-size: 12px;
+  }
 }
 
-/* Dark Mode Support (if app uses it) */
-@media (prefers-color-scheme: dark) {
-  .promptbox {
-    background: #1f2937;
+/* ===== Ultra-small screens (320px+) ===== */
+@media (max-width: 375px) {
+  .promptbox-messages {
+    padding: 10px;
   }
 
-  .promptbox__conversation {
-    background: #111827;
+  .promptbox-bubble {
+    font-size: 13px;
+    padding: 8px 12px;
   }
 
-  .promptbox__message--assistant .promptbox__bubble {
-    background: #374151;
-    color: #f9fafb;
+  .promptbox-suggestion {
+    font-size: 12px;
+    padding: 5px 10px;
+  }
+}
+
+/* ===== Desktop Enhancements ===== */
+@media (min-width: 1024px) {
+  .promptbox-container {
+    max-height: 600px; /* Cap height on desktop */
   }
 
-  .promptbox__input-area {
-    background: #1f2937;
-    border-top-color: #374151;
+  .promptbox-messages {
+    padding: 20px;
+    gap: 16px;
   }
 
-  .promptbox__suggestion {
-    background: #374151;
-    border-color: #4b5563;
-    color: #d1d5db;
+  .promptbox-bubble {
+    font-size: 16px;
   }
 
-  .promptbox__suggestion:hover {
-    background: #4338ca;
-    border-color: #6366f1;
-    color: white;
+  .promptbox-input-area {
+    padding: 16px 20px;
   }
 
-  .promptbox__textarea {
-    background: #374151;
-    border-color: #4b5563;
-    color: #f9fafb;
+  .promptbox-textarea {
+    font-size: 15px;
   }
 
-  .promptbox__textarea.has-slash-command {
-    background: #4c1d95;
-    border-color: #7c3aed;
-  }
-
-  .promptbox__loading {
-    background: #1f2937;
-    border-top-color: #374151;
+  .promptbox-send-btn {
+    width: 48px;
+    height: 48px;
   }
 }

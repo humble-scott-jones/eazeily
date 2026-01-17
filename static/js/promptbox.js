@@ -3,6 +3,18 @@
  * Provides Copilot-style interface for onboarding and content creation
  */
 
+// Slash command definitions
+const SLASH_COMMANDS = [
+  { command: '/post', description: 'Create a social media post', icon: '📝' },
+  { command: '/caption', description: 'Write an image caption', icon: '📸' },
+  { command: '/script', description: 'Write a video script', icon: '🎬' },
+  { command: '/reel', description: 'Create a reel/short video script', icon: '🎥' },
+  { command: '/email', description: 'Draft an email', icon: '✉️' },
+  { command: '/review', description: 'Respond to a review', icon: '⭐' },
+  { command: '/ad', description: 'Create ad copy', icon: '📢' },
+  { command: '/blog', description: 'Write a blog post', icon: '📰' },
+];
+
 class PromptBox {
   constructor(containerId, options = {}) {
     this.container = document.getElementById(containerId);
@@ -22,6 +34,9 @@ class PromptBox {
     this.isLoading = false;
     this.suggestionIndex = 0;
     this.suggestionTimer = null;
+    this.lastAction = null; // Track last action for contextual suggestions
+    this.selectedAutocompleteIndex = -1; // Track selected autocomplete item
+    this.lastGeneratedContent = null; // Track last generated content for copy
 
     // Get suggestions based on context
     this.suggestions = this.getSuggestions();
@@ -38,55 +53,71 @@ class PromptBox {
       : "What do you want to create today?";
   }
 
-  getSuggestions() {
-    if (this.context === 'onboarding') {
+  getSuggestions(contextOverride, lastAction) {
+    // Use provided context or instance context
+    const ctx = contextOverride || this.context;
+    const action = lastAction || this.lastAction;
+    
+    // Onboarding context
+    if (ctx === 'onboarding') {
       return [
         "Drop your website URL",
-        "Describe your brand in 3 words",
-        "What makes your business unique?",
-        "Who is your target customer?",
-        "Paste an existing social post you love"
-      ];
-    } else {
-      return [
-        "/post - Create a social media post",
-        "/caption - Generate an image caption",
-        "/reel - Script a short video",
-        "/email - Draft an email or newsletter",
-        "/review - Respond to a customer review",
-        "/blog - Write a blog post",
-        "/ad - Create social ads copy",
-        "/proposal - Generate a business proposal"
+        "Describe your brand in a few sentences",
+        "Tell me about your ideal customer",
+        "What makes your business unique?"
       ];
     }
+    
+    // Post-generation context - show refinement suggestions
+    if (action === 'generated') {
+      return [
+        "Regenerate",
+        "Make it shorter",
+        "Make it more casual",
+        "Try a different angle"
+      ];
+    }
+    
+    // Default dashboard suggestions - rotate through content types
+    return [
+      "/post about your latest product",
+      "/caption for a behind-the-scenes photo",
+      "/email announcing your summer sale",
+      "/script for a 30s Instagram reel"
+    ];
   }
 
   render() {
     const html = `
-      <div class="promptbox">
+      <div class="promptbox-container">
         <!-- Conversation History -->
-        <div class="promptbox__conversation" id="${this.container.id}-conversation">
+        <div class="promptbox-messages" id="${this.container.id}-conversation">
           <!-- Messages will be appended here -->
         </div>
 
         <!-- Input Area -->
-        <div class="promptbox__input-area">
+        <div class="promptbox-input-area">
+          <!-- Autocomplete Dropdown (hidden by default) -->
+          <div class="promptbox-autocomplete hidden" id="${this.container.id}-autocomplete" role="listbox"></div>
+          
           <!-- Rotating Suggestions -->
-          <div class="promptbox__suggestions" id="${this.container.id}-suggestions">
+          <div class="promptbox-suggestions" id="${this.container.id}-suggestions" role="region" aria-label="Suggestions">
             <!-- Suggestions will be rendered here -->
           </div>
 
           <!-- Input Field -->
-          <div class="promptbox__input-wrapper">
+          <div class="promptbox-input-wrapper">
             <textarea
               id="${this.container.id}-textarea"
-              class="promptbox__textarea"
+              class="promptbox-textarea"
               placeholder="${this.placeholder}"
               rows="1"
+              aria-label="Message input"
+              aria-describedby="${this.container.id}-suggestions"
             ></textarea>
             <button
               id="${this.container.id}-send"
-              class="promptbox__send-btn"
+              class="promptbox-send-btn"
               aria-label="Send message"
               disabled
             >
@@ -98,13 +129,13 @@ class PromptBox {
         </div>
 
         <!-- Loading Indicator -->
-        <div class="promptbox__loading hidden" id="${this.container.id}-loading">
-          <div class="promptbox__typing">
+        <div class="promptbox-loading hidden" id="${this.container.id}-loading" role="status" aria-live="polite">
+          <div class="promptbox-typing">
             <span></span>
             <span></span>
             <span></span>
           </div>
-          <span class="promptbox__loading-text">Thinking...</span>
+          <span class="promptbox-loading-text">Thinking...</span>
         </div>
       </div>
     `;
@@ -119,8 +150,9 @@ class PromptBox {
 
     const html = this.suggestions.map((suggestion, index) => `
       <button
-        class="promptbox__suggestion ${index === this.suggestionIndex ? 'active' : ''}"
+        class="promptbox-suggestion ${index === this.suggestionIndex ? 'active' : ''}"
         data-suggestion="${this.escapeHtml(suggestion)}"
+        aria-label="${this.escapeHtml(suggestion)}"
       >
         ${this.escapeHtml(suggestion)}
       </button>
@@ -134,15 +166,40 @@ class PromptBox {
     const sendBtn = document.getElementById(`${this.container.id}-send`);
     const suggestionsContainer = document.getElementById(`${this.container.id}-suggestions`);
 
-    // Auto-resize textarea
-    textarea.addEventListener('input', () => {
+    // Auto-resize textarea and handle slash commands
+    textarea.addEventListener('input', (e) => {
       this.autoResizeTextarea(textarea);
       this.updateSendButton(textarea, sendBtn);
-      this.highlightSlashCommands(textarea);
+      this.handleSlashCommand(e.target.value);
     });
 
     // Send on Enter (Shift+Enter for new line)
     textarea.addEventListener('keydown', (e) => {
+      // Handle autocomplete navigation
+      const autocomplete = document.getElementById(`${this.container.id}-autocomplete`);
+      if (!autocomplete.classList.contains('hidden')) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.navigateAutocomplete('down');
+          return;
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.navigateAutocomplete('up');
+          return;
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+          if (this.selectedAutocompleteIndex >= 0) {
+            e.preventDefault();
+            this.selectAutocompleteItem(this.selectedAutocompleteIndex);
+            return;
+          }
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          this.hideAutocomplete();
+          return;
+        }
+      }
+      
+      // Normal enter handling
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         if (textarea.value.trim()) {
@@ -160,7 +217,7 @@ class PromptBox {
 
     // Suggestion clicks
     suggestionsContainer.addEventListener('click', (e) => {
-      const suggestionBtn = e.target.closest('.promptbox__suggestion');
+      const suggestionBtn = e.target.closest('.promptbox-suggestion');
       if (suggestionBtn) {
         const suggestion = suggestionBtn.dataset.suggestion;
         this.fillSuggestion(suggestion);
@@ -170,8 +227,9 @@ class PromptBox {
 
   autoResizeTextarea(textarea) {
     textarea.style.height = 'auto';
-    const maxHeight = 150; // Max height in pixels
-    const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+    const minHeight = 44; // Min height for touch targets
+    const maxHeight = 120; // Max 4 lines approx (30px per line)
+    const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
     textarea.style.height = `${newHeight}px`;
   }
 
@@ -180,14 +238,117 @@ class PromptBox {
     sendBtn.disabled = !hasContent;
   }
 
-  highlightSlashCommands(textarea) {
-    const value = textarea.value;
-    // Check if the message starts with a slash command
-    if (value.match(/^\/\w+/)) {
-      textarea.classList.add('has-slash-command');
+  handleSlashCommand(value) {
+    const textarea = document.getElementById(`${this.container.id}-textarea`);
+    
+    // Check if value starts with /
+    if (value.startsWith('/')) {
+      const query = value.slice(1).toLowerCase();
+      const matches = SLASH_COMMANDS.filter(cmd => 
+        cmd.command.slice(1).toLowerCase().startsWith(query)
+      );
+      
+      if (matches.length > 0) {
+        this.showAutocomplete(matches);
+        textarea.classList.add('has-slash-command');
+      } else {
+        this.hideAutocomplete();
+        textarea.classList.remove('has-slash-command');
+      }
     } else {
+      this.hideAutocomplete();
       textarea.classList.remove('has-slash-command');
     }
+  }
+
+  showAutocomplete(commands) {
+    const autocomplete = document.getElementById(`${this.container.id}-autocomplete`);
+    if (!autocomplete) return;
+
+    const html = commands.map((cmd, index) => `
+      <div 
+        class="promptbox-autocomplete-item ${index === this.selectedAutocompleteIndex ? 'selected' : ''}" 
+        data-index="${index}"
+        data-command="${this.escapeHtml(cmd.command)}"
+        role="option"
+        aria-selected="${index === this.selectedAutocompleteIndex}"
+      >
+        <span class="icon">${cmd.icon}</span>
+        <div class="autocomplete-text">
+          <span class="command">${this.escapeHtml(cmd.command)}</span>
+          <span class="description">${this.escapeHtml(cmd.description)}</span>
+        </div>
+      </div>
+    `).join('');
+
+    autocomplete.innerHTML = html;
+    autocomplete.classList.remove('hidden');
+    this.selectedAutocompleteIndex = 0; // Auto-select first item
+
+    // Add click handlers to autocomplete items
+    autocomplete.querySelectorAll('.promptbox-autocomplete-item').forEach((item, index) => {
+      item.addEventListener('click', () => {
+        this.selectAutocompleteItem(index);
+      });
+    });
+  }
+
+  hideAutocomplete() {
+    const autocomplete = document.getElementById(`${this.container.id}-autocomplete`);
+    if (autocomplete) {
+      autocomplete.classList.add('hidden');
+      autocomplete.innerHTML = '';
+    }
+    this.selectedAutocompleteIndex = -1;
+  }
+
+  navigateAutocomplete(direction) {
+    const autocomplete = document.getElementById(`${this.container.id}-autocomplete`);
+    if (!autocomplete || autocomplete.classList.contains('hidden')) return;
+
+    const items = autocomplete.querySelectorAll('.promptbox-autocomplete-item');
+    if (items.length === 0) return;
+
+    // Remove current selection
+    if (this.selectedAutocompleteIndex >= 0 && this.selectedAutocompleteIndex < items.length) {
+      items[this.selectedAutocompleteIndex].classList.remove('selected');
+      items[this.selectedAutocompleteIndex].setAttribute('aria-selected', 'false');
+    }
+
+    // Update index
+    if (direction === 'down') {
+      this.selectedAutocompleteIndex = (this.selectedAutocompleteIndex + 1) % items.length;
+    } else if (direction === 'up') {
+      this.selectedAutocompleteIndex = this.selectedAutocompleteIndex <= 0 
+        ? items.length - 1 
+        : this.selectedAutocompleteIndex - 1;
+    }
+
+    // Add new selection
+    items[this.selectedAutocompleteIndex].classList.add('selected');
+    items[this.selectedAutocompleteIndex].setAttribute('aria-selected', 'true');
+    
+    // Scroll into view
+    items[this.selectedAutocompleteIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  selectAutocompleteItem(index) {
+    const autocomplete = document.getElementById(`${this.container.id}-autocomplete`);
+    if (!autocomplete) return;
+
+    const items = autocomplete.querySelectorAll('.promptbox-autocomplete-item');
+    if (index < 0 || index >= items.length) return;
+
+    const command = items[index].dataset.command;
+    const textarea = document.getElementById(`${this.container.id}-textarea`);
+    const sendBtn = document.getElementById(`${this.container.id}-send`);
+
+    // Fill input with command + space
+    textarea.value = command + ' ';
+    this.autoResizeTextarea(textarea);
+    this.updateSendButton(textarea, sendBtn);
+    this.hideAutocomplete();
+    textarea.focus();
   }
 
   fillSuggestion(suggestion) {
@@ -274,7 +435,17 @@ class PromptBox {
     const data = await response.json();
     
     // Add assistant message
-    this.addMessage('assistant', data.response);
+    const isGenerated = data.action === 'generated' || (data.content && data.content.length > 100);
+    this.addMessage('assistant', data.response, false, isGenerated);
+    
+    // Store generated content for copy
+    if (isGenerated && data.content) {
+      this.lastGeneratedContent = data.content;
+      this.lastAction = 'generated';
+      // Update suggestions to show refinement options
+      this.suggestions = this.getSuggestions(null, 'generated');
+      this.renderSuggestions();
+    }
     
     // Update pending task if provided
     if (data.pending_task) {
@@ -289,15 +460,12 @@ class PromptBox {
       setTimeout(() => {
         window.location.href = data.redirect || '/dashboard';
       }, 1500);
-    } else if (data.action === 'generated' && data.content) {
-      // Content was generated - could add special handling here
-      // For now, just display the response (already added above)
     } else if (data.action === 'error') {
       // Error occurred - already displayed in response
     }
   }
 
-  addMessage(role, content, isError = false) {
+  addMessage(role, content, isError = false, isGenerated = false) {
     const timestamp = Date.now();
     
     // Add to history
@@ -311,15 +479,28 @@ class PromptBox {
     const conversation = document.getElementById(`${this.container.id}-conversation`);
     
     const messageDiv = document.createElement('div');
-    messageDiv.className = `promptbox__message promptbox__message--${role}`;
-    if (isError) messageDiv.classList.add('promptbox__message--error');
+    messageDiv.className = `promptbox-message promptbox-message-${role}`;
+    if (isError) messageDiv.classList.add('promptbox-message-error');
 
     const bubbleDiv = document.createElement('div');
-    bubbleDiv.className = 'promptbox__bubble';
+    bubbleDiv.className = 'promptbox-bubble';
 
     // For assistant messages, render markdown
     if (role === 'assistant') {
       bubbleDiv.innerHTML = this.renderMarkdown(content);
+      
+      // Add copy button for generated content
+      if (isGenerated) {
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'promptbox-copy-btn';
+        copyBtn.setAttribute('aria-label', 'Copy content');
+        copyBtn.innerHTML = `
+          <span class="copy-icon">📋</span>
+          <span class="copy-text">Copy</span>
+        `;
+        copyBtn.onclick = () => this.copyContent(content, copyBtn);
+        messageDiv.appendChild(copyBtn);
+      }
     } else {
       bubbleDiv.textContent = content;
     }
@@ -359,8 +540,58 @@ class PromptBox {
   scrollToBottom() {
     const conversation = document.getElementById(`${this.container.id}-conversation`);
     if (conversation) {
-      conversation.scrollTop = conversation.scrollHeight;
+      // Smooth scroll to bottom
+      conversation.scrollTo({
+        top: conversation.scrollHeight,
+        behavior: 'smooth'
+      });
     }
+  }
+
+  copyContent(content, button) {
+    // Use Clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(content).then(() => {
+        this.showCopyFeedback(button);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+        // Fallback for older browsers
+        this.fallbackCopy(content, button);
+      });
+    } else {
+      this.fallbackCopy(content, button);
+    }
+  }
+
+  fallbackCopy(content, button) {
+    // Fallback method for browsers without Clipboard API
+    const textarea = document.createElement('textarea');
+    textarea.value = content;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      this.showCopyFeedback(button);
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+    }
+    document.body.removeChild(textarea);
+  }
+
+  showCopyFeedback(button) {
+    const originalHTML = button.innerHTML;
+    button.innerHTML = `
+      <span class="copy-icon">✓</span>
+      <span class="copy-text">Copied!</span>
+    `;
+    button.classList.add('copied');
+    
+    setTimeout(() => {
+      button.innerHTML = originalHTML;
+      button.classList.remove('copied');
+    }, 2000);
   }
 
   setLoading(isLoading) {
