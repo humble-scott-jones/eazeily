@@ -13,6 +13,10 @@ const SLASH_COMMANDS = [
   { command: '/review', description: 'Respond to a review', icon: '⭐' },
   { command: '/ad', description: 'Create ad copy', icon: '📢' },
   { command: '/blog', description: 'Write a blog post', icon: '📰' },
+  { command: '/profile', description: 'View or edit your brand profile', icon: '👤' },
+  { command: '/update', description: 'Update a profile field', icon: '✏️' },
+  { command: '/voice', description: 'Change your brand voice', icon: '🎤' },
+  { command: '/audience', description: 'Update your target audience', icon: '🎯' },
 ];
 
 class PromptBox {
@@ -65,6 +69,16 @@ class PromptBox {
         "Describe your brand in a few sentences",
         "Tell me about your ideal customer",
         "What makes your business unique?"
+      ];
+    }
+    
+    // Profile view/update context
+    if (action === 'profile_view' || action === 'profile_updated') {
+      return [
+        'Update brand voice',
+        'Update target audience',
+        'Update key offer',
+        'Create content',
       ];
     }
     
@@ -444,6 +458,14 @@ class PromptBox {
       this.lastAction = 'generated';
       // Update suggestions to show refinement options
       this.suggestions = this.getSuggestions(null, 'generated');
+      this.renderSuggestions();
+    }
+    
+    // Handle profile actions
+    if (data.action === 'profile_view' || data.action === 'profile_updated') {
+      this.lastAction = data.action;
+      // Update suggestions for profile context
+      this.suggestions = this.getSuggestions(null, data.action);
       this.renderSuggestions();
     }
     

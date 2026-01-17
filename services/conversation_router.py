@@ -19,6 +19,16 @@ SUPPORTED_PLATFORMS = {
     'tiktok': ['tiktok', 'tik tok'],
 }
 
+# Field name aliases for profile updates
+FIELD_ALIASES = {
+    'business_name': ['business', 'company', 'name', 'business name', 'company name'],
+    'industry': ['industry', 'sector', 'field', 'niche'],
+    'target_audience': ['audience', 'target', 'customers', 'target audience', 'ideal customer', 'customer'],
+    'brand_voice': ['voice', 'tone', 'style', 'brand voice', 'writing style'],
+    'key_offer': ['offer', 'value prop', 'unique offer', 'key offer', 'usp', 'value proposition'],
+    'writing_samples': ['samples', 'examples', 'writing samples', 'copy examples'],
+}
+
 
 class ConversationRouter:
     """Routes user prompts to the correct generation flow."""
@@ -37,6 +47,10 @@ class ConversationRouter:
         '/blog': 'blog',
         '/reel': 'script',  # alias
         '/custom': 'custom',  # flexible custom content
+        '/profile': 'profile',           # View/edit profile
+        '/update': 'profile_update',     # Update specific field
+        '/voice': 'update_voice',        # Quick update brand voice
+        '/audience': 'update_audience',  # Quick update target audience
     }
     
     # Required fields per task type (from task_registry.py patterns)
@@ -103,6 +117,33 @@ class ConversationRouter:
                 'content_type': "What type of content do you want to create? (e.g., case study, whitepaper, landing page, press release, etc.)",
                 'topic': "What's the main topic or subject?",
                 'purpose': "What's the purpose of this content? (e.g., educate, convert, inform, entertain)",
+            }
+        },
+        'profile': {
+            'required': [],
+            'optional': ['field_to_update'],
+            'prompts': {}
+        },
+        'profile_update': {
+            'required': ['field_name', 'new_value'],
+            'optional': [],
+            'prompts': {
+                'field_name': "Which field would you like to update? (business_name, industry, target_audience, brand_voice, key_offer, writing_samples)",
+                'new_value': "What's the new value?",
+            }
+        },
+        'update_voice': {
+            'required': ['new_value'],
+            'optional': [],
+            'prompts': {
+                'new_value': "How would you describe your new brand voice? (e.g., 'professional and authoritative', 'warm and friendly')",
+            }
+        },
+        'update_audience': {
+            'required': ['new_value'],
+            'optional': [],
+            'prompts': {
+                'new_value': "Who is your new target audience? (e.g., 'young professionals seeking work-life balance')",
             }
         },
     }
@@ -208,6 +249,11 @@ class ConversationRouter:
         """
         message_lower = user_input.lower()
         
+        # First check for profile update intents
+        profile_intent = self.detect_profile_update_intent(user_input)
+        if profile_intent:
+            return profile_intent
+        
         # Use class constant for task patterns
         task_type = None
         for keywords, ttype in self.TASK_PATTERNS:
@@ -282,53 +328,88 @@ class ConversationRouter:
         platform_list = '|'.join(sorted(SUPPORTED_PLATFORMS.keys()))
         
         # Build task type list from COMMAND_MAP to ensure consistency
-        task_types = '|'.join(sorted(set(self.COMMAND_MAP.values()))) + '|unknown'
+        content_task_types = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'custom']
+        profile_task_types = ['profile', 'profile_update', 'update_voice', 'update_audience']
+        all_task_types = content_task_types + profile_task_types
+        task_types = '|'.join(sorted(set(self.COMMAND_MAP.values()).union({'unknown'})))
         
-        prompt = f"""Analyze this user request for content creation:
+        prompt = f"""Analyze this user request:
 
 User: "{user_input}"
 
 Business context: {business_name}, {industry}
 
-Extract and return as JSON:
+Determine if this is:
+1. Content creation (post, email, script, etc.)
+2. Profile update (changing business info, voice, audience, etc.)
+3. Profile view (asking about current settings)
+
+If content creation, extract:
+- task_type: post|caption|script|email|review|ad|blog|custom
+- topic: the main subject/topic if mentioned
+- platform: {platform_list}|null
+- video_length: 15s|30s|60s|90s|null (only for script/video)
+- other_params: any other relevant parameters
+
+If profile update, extract:
+- task_type: profile_update|update_voice|update_audience
+- field_name: business_name|industry|target_audience|brand_voice|key_offer|writing_samples|null
+- new_value: the new value they want to set
+
+If profile view:
+- task_type: profile
+
+Return JSON:
 {{
-    "task_type": "{task_types}",
-    "topic": "the main subject/topic if mentioned",
-    "platform": "{platform_list}|null",
-    "video_length": "15s|30s|60s|90s|null",
+    "intent": "content|profile_update|profile_view|unknown",
+    "task_type": "...",
+    "topic": "..." or null,
+    "platform": "..." or null,
+    "video_length": "..." or null,
+    "field_name": "..." or null,
+    "new_value": "..." or null,
     "other_params": {{}}
 }}
 
 Rules:
 - task_type must be one of: {', '.join(sorted(set(self.COMMAND_MAP.values()).union({'unknown'})))}
-- Set platform to null if not mentioned
-- Set video_length to null if not mentioned (only for script/video requests)
-- Include any other relevant parameters in other_params
+- For profile updates, set field_name and new_value
 - Only return valid JSON, no explanation."""
-
+        
         result = call_gemini(prompt, temperature=0.3)
         
         if not result:
             logger.warning("Gemini returned no result")
             return None
         
-        # Extract fields
+        # Extract intent
+        intent = result.get('intent', 'unknown')
         task_type = result.get('task_type', 'unknown')
+        
         if task_type == 'unknown':
             return None
         
-        # Build extracted params
+        # Build extracted params based on intent
         extracted_params = {}
-        if result.get('topic'):
-            extracted_params['topic'] = result['topic']
-        if result.get('platform'):
-            extracted_params['platform'] = result['platform'].lower()
-        if result.get('video_length'):
-            extracted_params['video_length'] = result['video_length']
         
-        # Add other params
-        if result.get('other_params') and isinstance(result['other_params'], dict):
-            extracted_params.update(result['other_params'])
+        if intent in ['profile_update', 'profile_view']:
+            # Profile-related intent
+            if result.get('field_name'):
+                extracted_params['field_name'] = result['field_name']
+            if result.get('new_value'):
+                extracted_params['new_value'] = result['new_value']
+        else:
+            # Content creation intent
+            if result.get('topic'):
+                extracted_params['topic'] = result['topic']
+            if result.get('platform'):
+                extracted_params['platform'] = result['platform'].lower()
+            if result.get('video_length'):
+                extracted_params['video_length'] = result['video_length']
+            
+            # Add other params
+            if result.get('other_params') and isinstance(result['other_params'], dict):
+                extracted_params.update(result['other_params'])
         
         return {
             'task_type': task_type,
@@ -488,3 +569,99 @@ Rules:
         """
         missing = self.get_missing_fields(task_type, collected)
         return len(missing) == 0
+    
+    def normalize_field_name(self, input_text: str) -> Optional[str]:
+        """
+        Convert user input to actual field name.
+        
+        Args:
+            input_text: User's field reference (e.g., 'voice', 'target audience')
+        
+        Returns:
+            Normalized field name or None if not recognized
+        """
+        input_lower = input_text.lower().strip()
+        for field_name, aliases in FIELD_ALIASES.items():
+            if input_lower in aliases or field_name in input_lower:
+                return field_name
+        return None
+    
+    def detect_profile_update_intent(self, user_input: str) -> Optional[Dict[str, Any]]:
+        """
+        Detect if user input is a profile update request using keywords.
+        
+        Args:
+            user_input: User's message
+        
+        Returns:
+            dict with task_type, field_name, new_value or None if not a profile update
+        """
+        message_lower = user_input.lower()
+        
+        # Keywords that indicate profile update intent
+        update_keywords = ['change', 'update', 'modify', 'set', 'edit', 'my profile', 'brand settings']
+        view_keywords = ['show', 'view', 'see', 'what is my', 'current', 'profile', 'settings']
+        
+        is_update = any(keyword in message_lower for keyword in update_keywords)
+        is_view = any(keyword in message_lower for keyword in view_keywords)
+        
+        if is_view and not is_update:
+            return {
+                'task_type': 'profile',
+                'extracted_params': {}
+            }
+        
+        if is_update:
+            # Try to extract field name and new value
+            # Pattern: "change my <field> to <value>"
+            # Pattern: "update <field> to <value>"
+            # Pattern: "set <field> to <value>"
+            
+            field_name = None
+            new_value = None
+            
+            # Check each field alias
+            for fname, aliases in FIELD_ALIASES.items():
+                for alias in aliases:
+                    if alias in message_lower:
+                        field_name = fname
+                        # Try to extract value after 'to'
+                        pattern = rf'{re.escape(alias)}\s+(?:is\s+now\s+|to\s+)?(.+?)(?:\.|$)'
+                        match = re.search(pattern, message_lower, re.IGNORECASE)
+                        if match:
+                            new_value = match.group(1).strip()
+                        break
+                if field_name:
+                    break
+            
+            # Special handling for quick update shortcuts
+            if 'brand voice' in message_lower or 'voice' in message_lower:
+                field_name = 'brand_voice'
+            elif 'target audience' in message_lower or 'audience' in message_lower:
+                field_name = 'target_audience'
+            
+            if field_name:
+                extracted_params = {'field_name': field_name}
+                if new_value:
+                    extracted_params['new_value'] = new_value
+                
+                # Determine task type based on field
+                if field_name == 'brand_voice':
+                    task_type = 'update_voice'
+                elif field_name == 'target_audience':
+                    task_type = 'update_audience'
+                else:
+                    task_type = 'profile_update'
+                
+                return {
+                    'task_type': task_type,
+                    'extracted_params': extracted_params
+                }
+            else:
+                # Generic update request without specific field
+                return {
+                    'task_type': 'profile_update',
+                    'extracted_params': {}
+                }
+        
+        return None

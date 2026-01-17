@@ -409,6 +409,258 @@ def _continue_task_flow(pending_task: dict, message: str, profile: VoiceProfile)
     return _continue_content_task(pending_task, message, profile)
 
 
+def _format_field_name(field_name: str) -> str:
+    """Format field name for display.
+    
+    Args:
+        field_name: Internal field name (e.g., 'brand_voice')
+        
+    Returns:
+        Human-readable field name (e.g., 'Brand Voice')
+    """
+    return field_name.replace('_', ' ').title()
+
+
+def _validate_profile_field(field_name: str, value: str) -> tuple[bool, str]:
+    """Validate field value before saving.
+    
+    Args:
+        field_name: Name of the field being validated
+        value: Value to validate
+        
+    Returns:
+        Tuple of (is_valid: bool, error_message: str)
+    """
+    if not value or len(value.strip()) < 2:
+        return False, "Please provide a more detailed value."
+    
+    if field_name == 'writing_samples':
+        # Expect meaningful content
+        if len(value) < 20:
+            return False, "Writing samples should be at least a few sentences."
+    
+    if field_name == 'brand_voice':
+        # Encourage descriptive voices
+        if len(value.split()) < 2:
+            return False, "Try describing your voice with 2-3 words (e.g., 'warm and friendly')."
+    
+    return True, ""
+
+
+def _apply_profile_update(profile: VoiceProfile, field_name: str, new_value: str, db) -> dict:
+    """Apply the update and save to database.
+    
+    Args:
+        profile: VoiceProfile instance to update
+        field_name: Field to update
+        new_value: New value to set
+        db: Database session
+        
+    Returns:
+        Response dict with confirmation message
+    """
+    # Validate the value
+    is_valid, error_msg = _validate_profile_field(field_name, new_value)
+    if not is_valid:
+        return _build_response(
+            f"❌ {error_msg}",
+            action='error'
+        )
+    
+    # Get old value for comparison
+    if field_name == 'writing_samples':
+        old_samples = profile.get_writing_samples()
+        old_value = f"{len(old_samples)} samples" if old_samples else "No samples"
+    else:
+        old_value = getattr(profile, field_name, None) or "Not set"
+    
+    # Apply the update
+    if field_name == 'writing_samples':
+        # Handle writing samples specially
+        if '\n\n' in new_value:
+            samples = [s.strip() for s in new_value.split('\n\n') if s.strip()]
+        else:
+            samples = [new_value.strip()]
+        profile.set_writing_samples(samples)
+    else:
+        setattr(profile, field_name, new_value)
+    
+    try:
+        db.session.commit()
+        logger.info(f"Updated profile field '{field_name}' for user {current_user.id}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Database error updating profile: {e}", exc_info=True)
+        return _build_response(
+            "I had trouble saving that update. Please try again.",
+            action='error'
+        )
+    
+    # Format the new value for display
+    if field_name == 'writing_samples':
+        display_new_value = f"{len(samples)} samples"
+    else:
+        display_new_value = new_value[:100] + "..." if len(new_value) > 100 else new_value
+    
+    return _build_response(
+        f"✅ Updated your **{_format_field_name(field_name)}**!\n\n"
+        f"~~{old_value}~~ → **{display_new_value}**\n\n"
+        f"Your content will now reflect this change.",
+        action='profile_updated',
+        suggestions=['Create content with new profile', 'Update another field', 'View full profile']
+    )
+
+
+def _show_profile_summary(profile: VoiceProfile) -> dict:
+    """Show current profile with update options.
+    
+    Args:
+        profile: VoiceProfile instance to display
+        
+    Returns:
+        Response dict with profile summary
+    """
+    writing_samples = profile.get_writing_samples()
+    sample_count = len(writing_samples) if writing_samples else 0
+    
+    summary = f"""📋 **Your Brand Profile**
+
+**Business:** {profile.business_name or 'Not set'}
+**Industry:** {profile.industry or 'Not set'}
+**Target Audience:** {profile.target_audience or 'Not set'}
+**Brand Voice:** {profile.brand_voice or 'Not set'}
+**Key Offer:** {profile.key_offer or 'Not set'}
+**Writing Samples:** {sample_count} sample(s)
+
+What would you like to update? You can say things like:
+- "Change my brand voice to professional and authoritative"
+- "Update target audience to small business owners"
+- Or use `/update` to pick a field"""
+    
+    return _build_response(
+        summary,
+        action='profile_view',
+        suggestions=[
+            'Update brand voice',
+            'Update target audience', 
+            'Update key offer',
+            'Back to content creation'
+        ]
+    )
+
+
+def _continue_profile_update(pending_task: dict, message: str, profile: VoiceProfile, db) -> dict:
+    """Continue a multi-turn profile update flow.
+    
+    Args:
+        pending_task: Current task state with field_name
+        message: User's latest input
+        profile: VoiceProfile instance
+        db: Database session
+        
+    Returns:
+        Response dict with next prompt or confirmation
+    """
+    field_name = pending_task.get('field_name')
+    
+    if not field_name:
+        # User provided field name
+        normalized = conversation_router.normalize_field_name(message)
+        if normalized:
+            # Ask for new value
+            return _build_response(
+                f"What would you like to change your **{_format_field_name(normalized)}** to?",
+                action='continue',
+                pending_task={
+                    'flow': 'profile_update',
+                    'task_type': 'profile_update',
+                    'field_name': normalized
+                }
+            )
+        else:
+            return _build_response(
+                f"I don't recognize that field. Please choose from: business_name, industry, target_audience, brand_voice, key_offer, or writing_samples",
+                action='continue',
+                pending_task=pending_task
+            )
+    else:
+        # User provided new value
+        return _apply_profile_update(profile, field_name, message, db)
+
+
+def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfile, db) -> dict:
+    """Handle profile field updates.
+    
+    Args:
+        message: User's input message
+        pending_task: Optional pending task state
+        profile: VoiceProfile instance
+        db: Database session
+        
+    Returns:
+        Response dict with next step or confirmation
+    """
+    if pending_task and pending_task.get('flow') == 'profile_update':
+        return _continue_profile_update(pending_task, message, profile, db)
+    
+    # Parse the intent for profile updates
+    intent_result = conversation_router.parse_intent(message, profile)
+    
+    if intent_result['task_type'] == 'profile':
+        # Show profile summary
+        return _show_profile_summary(profile)
+    
+    if intent_result['task_type'] in ['profile_update', 'update_voice', 'update_audience']:
+        extracted = intent_result.get('extracted_params', {})
+        field_name = extracted.get('field_name')
+        new_value = extracted.get('new_value')
+        
+        # Handle quick shortcuts
+        if intent_result['task_type'] == 'update_voice':
+            field_name = 'brand_voice'
+        elif intent_result['task_type'] == 'update_audience':
+            field_name = 'target_audience'
+        
+        if field_name and new_value:
+            # Direct update - we have both field and value
+            return _apply_profile_update(profile, field_name, new_value, db)
+        
+        if field_name:
+            # Ask for new value
+            return _build_response(
+                f"What would you like to change your **{_format_field_name(field_name)}** to?",
+                action='continue',
+                pending_task={
+                    'flow': 'profile_update',
+                    'task_type': intent_result['task_type'],
+                    'field_name': field_name
+                }
+            )
+        
+        # No field specified - ask which field
+        return _build_response(
+            "Which field would you like to update?\n\n"
+            "• **Business Name**\n"
+            "• **Industry**\n"
+            "• **Target Audience**\n"
+            "• **Brand Voice**\n"
+            "• **Key Offer**\n"
+            "• **Writing Samples**",
+            action='continue',
+            pending_task={
+                'flow': 'profile_update',
+                'task_type': 'profile_update',
+                'field_name': None
+            }
+        )
+    
+    # Not a profile update - should not reach here
+    return _build_response(
+        "I'm not sure what you'd like to do. Try saying 'update my profile' or '/profile'",
+        action='error'
+    )
+
+
 def _get_field_prompt(field: str, task_type: str) -> str:
     """Get a conversational prompt for collecting a specific field.
     
@@ -573,6 +825,8 @@ def chat():
             if not flow:
                 if task_type == 'onboarding':
                     flow = 'onboarding'
+                elif task_type in ['profile', 'profile_update', 'update_voice', 'update_audience']:
+                    flow = 'profile_update'
                 else:
                     # If profile is complete and task_type is a content type, assume content flow
                     content_task_types = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel', 'custom']
@@ -583,7 +837,11 @@ def chat():
             
             logger.info(f"[{request_id}] Continuing {flow} flow for task: {task_type}")
             
-            if flow == 'content':
+            if flow == 'profile_update':
+                # Continue profile update flow
+                result = _handle_profile_update(message, pending_task, profile, db)
+                return jsonify(result), 200
+            elif flow == 'content':
                 # Continue content generation flow
                 result = _continue_content_task(pending_task, message, profile)
                 return jsonify(result), 200
@@ -648,6 +906,12 @@ def chat():
         # Parse new intent using ConversationRouter
         intent_result = conversation_router.parse_intent(message, profile)
         logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
+        
+        # Handle profile-related intents
+        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience']:
+            logger.info(f"[{request_id}] Handling profile update request")
+            result = _handle_profile_update(message, None, profile, db)
+            return jsonify(result), 200
         
         if intent_result['intent'] == 'unknown':
             return jsonify(_build_response(
