@@ -36,6 +36,7 @@ class ConversationRouter:
         '/ad': 'ad',
         '/blog': 'blog',
         '/reel': 'script',  # alias
+        '/custom': 'custom',  # flexible custom content
     }
     
     # Required fields per task type (from task_registry.py patterns)
@@ -95,6 +96,15 @@ class ConversationRouter:
                 'topic': "What's the blog post about?",
             }
         },
+        'custom': {
+            'required': ['content_type', 'topic', 'purpose'],
+            'optional': ['target_audience', 'tone', 'format', 'length'],
+            'prompts': {
+                'content_type': "What type of content do you want to create? (e.g., case study, whitepaper, landing page, press release, etc.)",
+                'topic': "What's the main topic or subject?",
+                'purpose': "What's the purpose of this content? (e.g., educate, convert, inform, entertain)",
+            }
+        },
     }
     
     # Task type keywords for fallback classification (ordered by specificity)
@@ -106,6 +116,7 @@ class ConversationRouter:
         (['ad', 'advertisement'], 'ad'),
         (['blog', 'article'], 'blog'),
         (['script', 'video'], 'script'),
+        (['custom', 'flexible', 'anything'], 'custom'),
         (['post'], 'post'),  # Most generic, check last
     ]
     

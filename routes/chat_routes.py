@@ -289,6 +289,7 @@ def _format_generated_content(task_type: str, content: str) -> str:
         'review': '⭐',
         'ad': '📢',
         'blog': '📰',
+        'custom': '✨',
     }
     emoji = emoji_map.get(task_type, '✨')
     
@@ -305,7 +306,8 @@ def _get_content_suggestions() -> list:
         'Try /post for social media',
         'Try /email for newsletters',
         'Try /script for video content',
-        'Try /review for review responses'
+        'Try /review for review responses',
+        'Try /custom for flexible content'
     ]
 
 
@@ -573,7 +575,7 @@ def chat():
                     flow = 'onboarding'
                 else:
                     # If profile is complete and task_type is a content type, assume content flow
-                    content_task_types = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel']
+                    content_task_types = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel', 'custom']
                     if profile_ready and task_type in content_task_types:
                         flow = 'content'
                     else:

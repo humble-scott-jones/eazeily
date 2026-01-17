@@ -509,3 +509,212 @@ def test_chat_formats_generated_content_with_emoji(authenticated_client):
         if data['action'] == 'generated':
             expected_emoji = emoji_map.get(task_type, '✨')
             assert expected_emoji in data['response']
+
+
+def test_chat_end_to_end_post_creation(authenticated_client):
+    """Test complete end-to-end journey for post creation."""
+    # Step 1: Start with slash command
+    response = authenticated_client.post('/api/chat', json={
+        'message': '/post about new product launch'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'continue'
+    assert data['pending_task']['task_type'] == 'post'
+    assert 'topic' in data['pending_task']['collected']
+    
+    # Step 2: Provide platform
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'linkedin',
+        'pending_task': data['pending_task']
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'generated'
+    assert data['content'] is not None
+    assert '📝' in data['response']
+
+
+def test_chat_end_to_end_email_creation(authenticated_client):
+    """Test complete end-to-end journey for email creation."""
+    # Step 1: Natural language request
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'Create an email about our summer sale'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    # Email only needs topic, so should generate immediately
+    assert data['action'] == 'generated'
+    assert data['content'] is not None
+    assert '✉️' in data['response']
+
+
+def test_chat_end_to_end_script_creation(authenticated_client):
+    """Test complete end-to-end journey for video script creation."""
+    # Step 1: Start with /script command
+    response = authenticated_client.post('/api/chat', json={
+        'message': '/script for product demo'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'continue'
+    assert data['pending_task']['task_type'] == 'script'
+    
+    # Step 2: Provide video length
+    response = authenticated_client.post('/api/chat', json={
+        'message': '60 seconds',
+        'pending_task': data['pending_task']
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'generated'
+    assert data['content'] is not None
+    assert '🎬' in data['response']
+
+
+def test_chat_end_to_end_review_response(authenticated_client):
+    """Test complete end-to-end journey for review response."""
+    # Step 1: Start with /review command
+    response = authenticated_client.post('/api/chat', json={
+        'message': '/review'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'continue'
+    assert 'review' in data['response'].lower()
+    
+    # Step 2: Provide review text
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'Great product! Love it!',
+        'pending_task': data['pending_task']
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'generated'
+    assert data['content'] is not None
+    assert '⭐' in data['response']
+
+
+def test_chat_end_to_end_ad_creation(authenticated_client):
+    """Test complete end-to-end journey for ad creation."""
+    # Step 1: Natural language with platform
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'Create a Facebook ad for our fitness app'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    # Should have platform and topic, ready to generate
+    assert data['action'] == 'generated'
+    assert data['content'] is not None
+    assert '📢' in data['response']
+
+
+def test_chat_end_to_end_blog_creation(authenticated_client):
+    """Test complete end-to-end journey for blog post creation."""
+    # Step 1: Start with /blog command
+    response = authenticated_client.post('/api/chat', json={
+        'message': '/blog about sustainable living tips'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    # Blog only needs topic, should generate immediately
+    assert data['action'] == 'generated'
+    assert data['content'] is not None
+    assert '📰' in data['response']
+
+
+def test_chat_end_to_end_caption_creation(authenticated_client):
+    """Test complete end-to-end journey for caption creation."""
+    # Step 1: Natural language request
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'Write a caption for beach sunset photo'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    # Caption only needs topic, should generate immediately
+    assert data['action'] == 'generated'
+    assert data['content'] is not None
+    assert '📸' in data['response']
+
+
+def test_chat_end_to_end_custom_content_creation(authenticated_client):
+    """Test complete end-to-end journey for custom content creation."""
+    # Step 1: Start with /custom command
+    response = authenticated_client.post('/api/chat', json={
+        'message': '/custom'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'continue'
+    assert data['pending_task']['task_type'] == 'custom'
+    assert 'type' in data['response'].lower()
+    
+    # Step 2: Provide content type
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'case study',
+        'pending_task': data['pending_task']
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'continue'
+    assert 'topic' in data['response'].lower()
+    
+    # Step 3: Provide topic
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'How we increased customer retention by 40%',
+        'pending_task': data['pending_task']
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'continue'
+    assert 'purpose' in data['response'].lower()
+    
+    # Step 4: Provide purpose - should generate
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'educate and demonstrate our expertise',
+        'pending_task': data['pending_task']
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'generated'
+    assert data['content'] is not None
+    assert '✨' in data['response']
+
+
+def test_chat_custom_content_with_natural_language(authenticated_client):
+    """Test custom content creation via natural language."""
+    response = authenticated_client.post('/api/chat', json={
+        'message': 'I need something custom - a whitepaper about AI trends'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    # Should recognize 'custom' keyword and start custom flow
+    if data['action'] == 'continue':
+        assert data['pending_task']['task_type'] == 'custom'
+
+
+def test_chat_slash_commands_include_custom(authenticated_client):
+    """Test that /custom command is recognized."""
+    response = authenticated_client.post('/api/chat', json={
+        'message': '/custom for landing page content'
+    })
+    
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['action'] == 'continue'
+    assert data['pending_task']['task_type'] == 'custom'
