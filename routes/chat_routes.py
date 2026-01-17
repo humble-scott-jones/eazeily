@@ -179,7 +179,7 @@ def _parse_intent(message: str, history: list) -> tuple[str, dict]:
     """Stub for ConversationRouter - parse user intent from message.
     
     This is a simple placeholder until ConversationRouter is implemented.
-    Looks for keywords to determine task type.
+    Looks for keywords to determine task type and extracts initial fields.
     
     Args:
         message: User's input message
@@ -189,21 +189,36 @@ def _parse_intent(message: str, history: list) -> tuple[str, dict]:
         Tuple of (task_type, initial_collected_fields)
     """
     message_lower = message.lower()
+    initial_collected = {}
     
-    # Simple keyword matching
+    # Extract platform mentions
+    platform_map = {
+        'linkedin': 'LinkedIn',
+        'facebook': 'Facebook',
+        'instagram': 'Instagram',
+        'twitter': 'Twitter',
+        'tiktok': 'TikTok',
+    }
+    
+    for keyword, platform_name in platform_map.items():
+        if keyword in message_lower:
+            initial_collected['platform'] = platform_name
+            break
+    
+    # Simple keyword matching for task type
     if 'post' in message_lower or 'linkedin' in message_lower or 'facebook' in message_lower:
-        return 'post', {}
+        return 'post', initial_collected
     elif 'caption' in message_lower or 'instagram' in message_lower:
-        return 'caption', {}
+        return 'caption', initial_collected
     elif 'reel' in message_lower or 'tiktok' in message_lower or 'video' in message_lower:
-        return 'reel', {}
+        return 'reel', initial_collected
     elif 'email' in message_lower:
-        return 'email', {}
+        return 'email', initial_collected
     elif 'ad' in message_lower or 'advertisement' in message_lower:
-        return 'ad', {}
+        return 'ad', initial_collected
     
     # Default to post
-    return 'post', {}
+    return 'post', initial_collected
 
 
 @chat_bp.route('/api/chat', methods=['POST'])
@@ -291,11 +306,51 @@ def chat():
         
         # Parse new intent from message
         task_type, initial_collected = _parse_intent(message, history)
-        logger.info(f"[{request_id}] Parsed intent: task_type={task_type}")
+        logger.info(f"[{request_id}] Parsed intent: task_type={task_type}, collected={initial_collected}")
         
-        # Check if we have enough information to generate immediately
-        # For now, always ask for more details to enable multi-turn conversation
-        next_prompt = _get_field_prompt('topic', task_type)
+        # Define required fields for this task type
+        required_fields = {
+            'post': ['platform', 'topic'],
+            'caption': ['platform', 'topic'],
+            'reel': ['topic', 'style'],
+            'email': ['subject', 'goal'],
+            'ad': ['platform', 'objective', 'target_audience'],
+        }
+        
+        fields_needed = required_fields.get(task_type, ['topic', 'platform'])
+        missing_fields = [f for f in fields_needed if f not in initial_collected]
+        
+        if not missing_fields:
+            # We have everything we need - generate immediately
+            topic = initial_collected.get('topic', message)
+            platform = initial_collected.get('platform', 'LinkedIn')
+            
+            try:
+                extra_context = {k: v for k, v in initial_collected.items() if k not in ['topic', 'platform']}
+                content = voice_engine.generate_expert_content(
+                    user_profile=profile,
+                    topic=topic,
+                    task_type=task_type,
+                    platform=platform,
+                    **extra_context
+                )
+                
+                return jsonify(_build_response(
+                    f"Here's your {task_type} for {platform}:",
+                    action='generated',
+                    content=content,
+                    pending_task=None
+                )), 200
+            except Exception as e:
+                logger.error(f"[{request_id}] Content generation failed: {e}", exc_info=True)
+                return jsonify(_build_response(
+                    "I encountered an error generating your content. Please try again.",
+                    action='error',
+                    pending_task=None
+                )), 500
+        
+        # Ask for the first missing field
+        next_prompt = _get_field_prompt(missing_fields[0], task_type)
         
         return jsonify(_build_response(
             f"I'll help you create a {task_type}. {next_prompt}",
