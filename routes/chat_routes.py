@@ -409,6 +409,438 @@ def _continue_task_flow(pending_task: dict, message: str, profile: VoiceProfile)
     return _continue_content_task(pending_task, message, profile)
 
 
+def _format_field_name(field_name: str) -> str:
+    """Format field name for display.
+    
+    Args:
+        field_name: Internal field name (e.g., 'brand_voice')
+        
+    Returns:
+        Human-readable field name (e.g., 'Brand Voice')
+    """
+    return field_name.replace('_', ' ').title()
+
+
+def _validate_profile_field(field_name: str, value: str) -> tuple[bool, str]:
+    """Validate field value before saving.
+    
+    Args:
+        field_name: Name of the field being validated
+        value: Value to validate
+        
+    Returns:
+        Tuple of (is_valid: bool, error_message: str)
+    """
+    if not value or len(value.strip()) < 2:
+        return False, "Please provide a more detailed value."
+    
+    if field_name == 'writing_samples':
+        # Expect meaningful content
+        if len(value) < 20:
+            return False, "Writing samples should be at least a few sentences."
+    
+    if field_name == 'brand_voice':
+        # Encourage descriptive voices
+        if len(value.split()) < 2:
+            return False, "Try describing your voice with 2-3 words (e.g., 'warm and friendly')."
+    
+    return True, ""
+
+
+def _get_prefilled_value_for_field(field_name: str, profile: VoiceProfile) -> tuple[str | None, str]:
+    """Get pre-filled value and source description for a field based on profile data.
+    
+    Args:
+        field_name: The field being updated
+        profile: User's VoiceProfile with context data
+        
+    Returns:
+        Tuple of (prefilled_value, source_description)
+        - prefilled_value: The best value we found, or None
+        - source_description: Where it came from (e.g., "from your website", "based on your industry")
+    """
+    try:
+        # Get context data
+        industry = profile.industry
+        scraped_meta = profile.get_scraped_meta() if hasattr(profile, 'get_scraped_meta') else {}
+        
+        # Priority: scraped data > industry defaults > generic
+        
+        if field_name == 'brand_voice':
+            # Check scraped data first
+            if scraped_meta.get('voice_tone_and_style'):
+                return scraped_meta['voice_tone_and_style'], "from your website"
+            
+            # Use industry defaults
+            if industry:
+                try:
+                    import json
+                    industry_key = industry.lower().replace(' ', '_').replace('&', 'and').replace('/', '_')
+                    industry_file = f'industry_packs/v1/{industry_key}.json'
+                    
+                    if os.path.exists(industry_file):
+                        with open(industry_file, 'r') as f:
+                            industry_data = json.load(f)
+                            keywords = industry_data.get('keyword_banks', {}).get('seed_keywords', [])
+                            if len(keywords) > 6:
+                                value = f"{keywords[3]} and {keywords[4]}"
+                                return value, f"based on typical {industry} businesses"
+                except:
+                    pass
+            
+            # Generic default
+            return "professional and friendly", "a common starting point"
+        
+        elif field_name == 'target_audience':
+            # Check scraped data first
+            if scraped_meta.get('key_customers'):
+                return scraped_meta['key_customers'], "from your website"
+            
+            # Industry defaults
+            if industry:
+                industry_audiences = {
+                    'fitness': 'health-conscious individuals seeking results',
+                    'restaurant': 'food lovers looking for quality dining experiences',
+                    'software': 'businesses seeking reliable tech solutions',
+                    'realtor': 'individuals and families looking for their dream home',
+                    'salon': 'people who value self-care and looking their best',
+                    'healthcare': 'patients and families seeking quality care',
+                    'coach': 'individuals ready for personal or professional growth',
+                }
+                industry_lower = industry.lower()
+                for key, audience in industry_audiences.items():
+                    if key in industry_lower:
+                        return audience, f"typical for {industry} businesses"
+            
+            return "busy professionals and families", "a common audience"
+        
+        elif field_name == 'key_offer':
+            # Check scraped data first
+            if scraped_meta.get('key_offer'):
+                return scraped_meta['key_offer'], "from your website"
+            
+            # Industry defaults
+            if industry:
+                industry_offers = {
+                    'fitness': 'personalized training programs that deliver real results',
+                    'restaurant': 'fresh, quality food in a welcoming atmosphere',
+                    'software': 'reliable solutions with outstanding support',
+                    'realtor': 'expert guidance through every step of your real estate journey',
+                    'salon': 'personalized beauty services that make you feel amazing',
+                }
+                industry_lower = industry.lower()
+                for key, offer in industry_offers.items():
+                    if key in industry_lower:
+                        return offer, f"common for {industry} businesses"
+            
+            return "exceptional service and quality", "a solid foundation"
+        
+        elif field_name == 'business_name':
+            if scraped_meta.get('business_name'):
+                return scraped_meta['business_name'], "from your website"
+            return None, ""
+        
+        elif field_name == 'industry':
+            # Don't pre-fill industry - let them choose
+            return None, ""
+    
+    except Exception as e:
+        logger.warning(f"Error getting prefilled value: {e}")
+    
+    return None, ""
+
+
+def _apply_profile_update(profile: VoiceProfile, field_name: str, new_value: str, db) -> dict:
+    """Apply the update and save to database.
+    
+    Args:
+        profile: VoiceProfile instance to update
+        field_name: Field to update
+        new_value: New value to set
+        db: Database session
+        
+    Returns:
+        Response dict with confirmation message
+    """
+    # Validate the value
+    is_valid, error_msg = _validate_profile_field(field_name, new_value)
+    if not is_valid:
+        return _build_response(
+            f"❌ {error_msg}",
+            action='error'
+        )
+    
+    # Get old value for comparison
+    if field_name == 'writing_samples':
+        old_samples = profile.get_writing_samples()
+        old_value = f"{len(old_samples)} samples" if old_samples else "No samples"
+    else:
+        old_value = getattr(profile, field_name, "Not set")
+        if old_value is None:
+            old_value = "Not set"
+    
+    # Apply the update
+    if field_name == 'writing_samples':
+        # Handle writing samples specially
+        if '\n\n' in new_value:
+            samples = [s.strip() for s in new_value.split('\n\n') if s.strip()]
+        else:
+            samples = [new_value.strip()]
+        profile.set_writing_samples(samples)
+    else:
+        setattr(profile, field_name, new_value)
+    
+    try:
+        db.session.commit()
+        logger.info(f"Updated profile field '{field_name}' for user {current_user.id}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Database error updating profile: {e}", exc_info=True)
+        return _build_response(
+            "I had trouble saving that update. Please try again.",
+            action='error'
+        )
+    
+    # Format the new value for display
+    if field_name == 'writing_samples':
+        display_new_value = f"{len(samples)} samples"
+    else:
+        display_new_value = new_value[:100] + "..." if len(new_value) > 100 else new_value
+    
+    return _build_response(
+        f"Perfect! I've updated your **{_format_field_name(field_name)}** to:\n\n"
+        f"**{display_new_value}**\n\n"
+        f"This will help me create content that feels more authentically you. Ready to create something?",
+        action='profile_updated',
+        suggestions=['Create content', 'Update another field', 'View my profile']
+    )
+
+
+def _show_profile_summary(profile: VoiceProfile) -> dict:
+    """Show current profile with update options.
+    
+    Args:
+        profile: VoiceProfile instance to display
+        
+    Returns:
+        Response dict with profile summary
+    """
+    writing_samples = profile.get_writing_samples()
+    sample_count = len(writing_samples) if writing_samples else 0
+    
+    summary = f"""Here's your brand profile:\n\n"""
+    summary += f"**Business:** {profile.business_name or 'Not set'}\n"
+    summary += f"**Industry:** {profile.industry or 'Not set'}\n"
+    summary += f"**Target Audience:** {profile.target_audience or 'Not set'}\n"
+    summary += f"**Brand Voice:** {profile.brand_voice or 'Not set'}\n"
+    summary += f"**Key Offer:** {profile.key_offer or 'Not set'}\n"
+    summary += f"**Writing Samples:** {sample_count} sample(s)\n\n"
+    summary += "Want to update something? Just tell me which part, like:"
+    summary += '- "I want to update my brand voice"\n'
+    summary += '- "Change my target audience"\n'
+    summary += '- Or just type `/update`'
+    
+    return _build_response(
+        summary,
+        action='profile_view',
+        suggestions=[
+            'Update brand voice',
+            'Update target audience', 
+            'Update key offer',
+            'Create content'
+        ]
+    )
+
+
+def _continue_profile_update(pending_task: dict, message: str, profile: VoiceProfile, db) -> dict:
+    """Continue a multi-turn profile update flow.
+    
+    Args:
+        pending_task: Current task state with field_name
+        message: User's latest input
+        profile: VoiceProfile instance
+        db: Database session
+        
+    Returns:
+        Response dict with next prompt or confirmation
+    """
+    field_name = pending_task.get('field_name')
+    
+    if not field_name:
+        # User provided field name
+        normalized = conversation_router.normalize_field_name(message)
+        if normalized:
+            # Get prefilled value for this field
+            prefilled_value, source = _get_prefilled_value_for_field(normalized, profile)
+            
+            # Build prompt showing what we found
+            field_display = _format_field_name(normalized)
+            
+            if prefilled_value:
+                # We have data - show it and let them edit or accept
+                prompt = f"Great! Here's what I found for your **{field_display}** {source}:\n\n"
+                prompt += f"**{prefilled_value}**\n\n"
+                prompt += "Does this capture your brand? You can edit it or just hit enter to keep it as is."
+                
+                # Store the prefilled value in pending task
+                return _build_response(
+                    prompt,
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': 'profile_update',
+                        'field_name': normalized,
+                        'prefilled_value': prefilled_value
+                    }
+                )
+            else:
+                # No data found - guide them to define it
+                prompts_by_field = {
+                    'business_name': "What's the name of your business?",
+                    'industry': "What industry are you in? This helps me understand your audience and create better content for you.",
+                    'target_audience': "Who are you trying to reach? Tell me about your ideal customers - who they are, what they need, and what matters to them.",
+                    'brand_voice': "How would you describe your brand's personality? Think about how you want to sound when talking to your customers.",
+                    'key_offer': "What makes your business special? What's the main value you provide that sets you apart?",
+                    'writing_samples': "Share a few examples of your writing - social posts, emails, or website copy. This helps me match your style."
+                }
+                
+                prompt = prompts_by_field.get(normalized, f"What would you like for your {field_display}?")
+                
+                return _build_response(
+                    prompt,
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': 'profile_update',
+                        'field_name': normalized
+                    }
+                )
+        else:
+            # Reset pending task to avoid infinite loop
+            return _build_response(
+                "I don't recognize that field. Which one would you like to update? You can choose from business name, industry, target audience, brand voice, key offer, or writing samples.",
+                action='continue',
+                pending_task={
+                    'flow': 'profile_update',
+                    'task_type': 'profile_update',
+                    'field_name': None  # Reset to ask again
+                }
+            )
+    else:
+        # User provided new value (or accepted prefilled by hitting enter)
+        prefilled = pending_task.get('prefilled_value')
+        
+        # If message is empty and we have a prefilled value, use it
+        if not message.strip() and prefilled:
+            return _apply_profile_update(profile, field_name, prefilled, db)
+        else:
+            return _apply_profile_update(profile, field_name, message, db)
+
+
+def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfile, db) -> dict:
+    """Handle profile field updates.
+    
+    Args:
+        message: User's input message
+        pending_task: Optional pending task state
+        profile: VoiceProfile instance
+        db: Database session
+        
+    Returns:
+        Response dict with next step or confirmation
+    """
+    if pending_task and pending_task.get('flow') == 'profile_update':
+        return _continue_profile_update(pending_task, message, profile, db)
+    
+    # Parse the intent for profile updates
+    intent_result = conversation_router.parse_intent(message, profile)
+    
+    if intent_result['task_type'] == 'profile':
+        # Show profile summary
+        return _show_profile_summary(profile)
+    
+    if intent_result['task_type'] in ['profile_update', 'update_voice', 'update_audience']:
+        extracted = intent_result.get('extracted_params', {})
+        field_name = extracted.get('field_name')
+        new_value = extracted.get('new_value')
+        
+        # Handle quick shortcuts
+        if intent_result['task_type'] == 'update_voice':
+            field_name = 'brand_voice'
+        elif intent_result['task_type'] == 'update_audience':
+            field_name = 'target_audience'
+        
+        if field_name and new_value:
+            # Direct update - we have both field and value
+            return _apply_profile_update(profile, field_name, new_value, db)
+        
+        if field_name:
+            # Get prefilled value for this field
+            prefilled_value, source = _get_prefilled_value_for_field(field_name, profile)
+            
+            # Build prompt showing what we found
+            field_display = _format_field_name(field_name)
+            
+            if prefilled_value:
+                # We have data - show it and let them edit or accept
+                prompt = f"Great! Here's what I found for your **{field_display}** {source}:\n\n"
+                prompt += f"**{prefilled_value}**\n\n"
+                prompt += "Does this work for you? You can edit it or just hit enter to keep it."
+                
+                return _build_response(
+                    prompt,
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': intent_result['task_type'],
+                        'field_name': field_name,
+                        'prefilled_value': prefilled_value
+                    }
+                )
+            else:
+                # No data found - guide them to define it
+                prompts_by_field = {
+                    'brand_voice': "How would you describe your brand's personality? Think about how you want to sound when talking to your customers.",
+                    'target_audience': "Who are you trying to reach? Tell me about your ideal customers - who they are, what they need, and what matters to them.",
+                    'key_offer': "What makes your business special? What's the main value you provide that sets you apart?",
+                }
+                
+                prompt = prompts_by_field.get(field_name, f"What would you like for your {field_display}?")
+                
+                return _build_response(
+                    prompt,
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': intent_result['task_type'],
+                        'field_name': field_name
+                    }
+                )
+        
+        # No field specified - ask which field
+        return _build_response(
+            "Which part of your profile would you like to update? I can help you with:\n\n"
+            "• **Business Name**\n"
+            "• **Industry**\n"
+            "• **Target Audience**\n"
+            "• **Brand Voice**\n"
+            "• **Key Offer**\n"
+            "• **Writing Samples**",
+            action='continue',
+            pending_task={
+                'flow': 'profile_update',
+                'task_type': 'profile_update',
+                'field_name': None
+            }
+        )
+    
+    # Not a profile update - should not reach here
+    return _build_response(
+        "I'm not sure what you'd like to do. Try saying 'update my profile' or '/profile'",
+        action='error'
+    )
+
+
 def _get_field_prompt(field: str, task_type: str) -> str:
     """Get a conversational prompt for collecting a specific field.
     
@@ -573,6 +1005,8 @@ def chat():
             if not flow:
                 if task_type == 'onboarding':
                     flow = 'onboarding'
+                elif task_type in ['profile', 'profile_update', 'update_voice', 'update_audience']:
+                    flow = 'profile_update'
                 else:
                     # If profile is complete and task_type is a content type, assume content flow
                     content_task_types = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel', 'custom']
@@ -583,7 +1017,11 @@ def chat():
             
             logger.info(f"[{request_id}] Continuing {flow} flow for task: {task_type}")
             
-            if flow == 'content':
+            if flow == 'profile_update':
+                # Continue profile update flow
+                result = _handle_profile_update(message, pending_task, profile, db)
+                return jsonify(result), 200
+            elif flow == 'content':
                 # Continue content generation flow
                 result = _continue_content_task(pending_task, message, profile)
                 return jsonify(result), 200
@@ -648,6 +1086,12 @@ def chat():
         # Parse new intent using ConversationRouter
         intent_result = conversation_router.parse_intent(message, profile)
         logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
+        
+        # Handle profile-related intents
+        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience']:
+            logger.info(f"[{request_id}] Handling profile update request")
+            result = _handle_profile_update(message, None, profile, db)
+            return jsonify(result), 200
         
         if intent_result['intent'] == 'unknown':
             return jsonify(_build_response(
