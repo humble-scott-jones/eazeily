@@ -74,6 +74,7 @@ class VoiceProfile(db.Model):
     customers = db.Column(db.Text)             # Target customers/audiences (stored as JSON)
     scraped_at = db.Column(db.DateTime)        # When scraping was performed
     scrape_status = db.Column(db.String(50), default='none')  # Status: none, pending, finished, failed
+    voice_dna = db.Column(db.Text)             # Voice DNA attributes (stored as JSON)
     
     def set_defaults(self, defaults_dict):
         self.defaults = json.dumps(defaults_dict)
@@ -158,6 +159,14 @@ class VoiceProfile(db.Model):
     def get_scraped_meta(self):
         """Get scraped metadata as a dict."""
         return json.loads(self.scraped_meta) if self.scraped_meta else {}
+    
+    def set_voice_dna(self, dna_dict):
+        """Set voice DNA attributes from a dict."""
+        self.voice_dna = json.dumps(dna_dict)
+    
+    def get_voice_dna(self):
+        """Get voice DNA attributes as a dict."""
+        return json.loads(self.voice_dna) if self.voice_dna else {}
     
     @property
     def style_guide(self):
