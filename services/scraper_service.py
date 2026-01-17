@@ -405,7 +405,7 @@ Return only valid JSON, no markdown formatting, no explanations."""
         return result
         
     except json.JSONDecodeError as e:
-        # More detailed error logging
+        # Log the parsing error with the raw response for debugging
         logger.error(f"Failed to parse AI response as JSON: {e}")
         logger.error(f"Raw response that failed to parse: {response_text[:500]}...")
         fallback = {
