@@ -447,25 +447,31 @@ def _validate_profile_field(field_name: str, value: str) -> tuple[bool, str]:
     return True, ""
 
 
-def _get_smart_suggestions_for_field(field_name: str, profile: VoiceProfile) -> list:
-    """Generate intelligent suggestions based on profile data and industry.
+def _get_prefilled_value_for_field(field_name: str, profile: VoiceProfile) -> tuple[str | None, str]:
+    """Get pre-filled value and source description for a field based on profile data.
     
     Args:
         field_name: The field being updated
         profile: User's VoiceProfile with context data
         
     Returns:
-        List of contextual suggestions for the field
+        Tuple of (prefilled_value, source_description)
+        - prefilled_value: The best value we found, or None
+        - source_description: Where it came from (e.g., "from your website", "based on your industry")
     """
-    suggestions = []
-    
     try:
-        # Get industry context if available
+        # Get context data
         industry = profile.industry
         scraped_meta = profile.get_scraped_meta() if hasattr(profile, 'get_scraped_meta') else {}
         
+        # Priority: scraped data > industry defaults > generic
+        
         if field_name == 'brand_voice':
-            # Load industry pack for voice suggestions
+            # Check scraped data first
+            if scraped_meta.get('voice_tone_and_style'):
+                return scraped_meta['voice_tone_and_style'], "from your website"
+            
+            # Use industry defaults
             if industry:
                 try:
                     import json
@@ -476,103 +482,72 @@ def _get_smart_suggestions_for_field(field_name: str, profile: VoiceProfile) -> 
                         with open(industry_file, 'r') as f:
                             industry_data = json.load(f)
                             keywords = industry_data.get('keyword_banks', {}).get('seed_keywords', [])
-                            # Create voice suggestions from keywords
-                            if keywords:
-                                suggestions.append(f"{keywords[3]} and {keywords[4]}" if len(keywords) > 4 else "professional and friendly")
-                                suggestions.append(f"{keywords[5]} and {keywords[6]}" if len(keywords) > 6 else "expert and trustworthy")
+                            if len(keywords) > 6:
+                                value = f"{keywords[3]} and {keywords[4]}"
+                                return value, f"based on typical {industry} businesses"
                 except:
                     pass
             
-            # Fallback to general suggestions
-            if not suggestions:
-                suggestions.extend([
-                    "professional and authoritative",
-                    "warm and friendly",
-                    "bold and confident",
-                    "casual and conversational"
-                ])
+            # Generic default
+            return "professional and friendly", "a common starting point"
         
         elif field_name == 'target_audience':
-            # Use scraped data or industry defaults
+            # Check scraped data first
             if scraped_meta.get('key_customers'):
-                suggestions.append(scraped_meta['key_customers'])
+                return scraped_meta['key_customers'], "from your website"
             
-            # Industry-based audience suggestions
+            # Industry defaults
             if industry:
                 industry_audiences = {
-                    'fitness': ['health-conscious individuals', 'busy professionals seeking fitness', 'athletes and fitness enthusiasts'],
-                    'restaurant': ['food lovers and foodies', 'families looking for dining experiences', 'local community members'],
-                    'software': ['tech-savvy businesses', 'enterprise clients', 'startups and SMBs'],
-                    'realtor': ['first-time home buyers', 'growing families', 'real estate investors'],
-                    'salon': ['style-conscious individuals', 'professionals wanting self-care', 'special event clients'],
-                    'healthcare': ['patients seeking quality care', 'families prioritizing health', 'individuals with specific health needs'],
-                    'coach': ['individuals seeking personal growth', 'professionals wanting advancement', 'people in life transitions'],
+                    'fitness': 'health-conscious individuals seeking results',
+                    'restaurant': 'food lovers looking for quality dining experiences',
+                    'software': 'businesses seeking reliable tech solutions',
+                    'realtor': 'individuals and families looking for their dream home',
+                    'salon': 'people who value self-care and looking their best',
+                    'healthcare': 'patients and families seeking quality care',
+                    'coach': 'individuals ready for personal or professional growth',
                 }
                 industry_lower = industry.lower()
-                for key, audiences in industry_audiences.items():
+                for key, audience in industry_audiences.items():
                     if key in industry_lower:
-                        suggestions.extend(audiences[:3])
-                        break
+                        return audience, f"typical for {industry} businesses"
             
-            if not suggestions:
-                suggestions.extend([
-                    "busy professionals",
-                    "young families",
-                    "local community members"
-                ])
+            return "busy professionals and families", "a common audience"
         
         elif field_name == 'key_offer':
-            # Use scraped data if available
+            # Check scraped data first
             if scraped_meta.get('key_offer'):
-                suggestions.append(scraped_meta['key_offer'])
+                return scraped_meta['key_offer'], "from your website"
             
-            # Industry-specific offers
+            # Industry defaults
             if industry:
                 industry_offers = {
-                    'fitness': ['personalized training programs', 'flexible membership options', 'results-driven fitness coaching'],
-                    'restaurant': ['fresh, locally-sourced cuisine', 'authentic dining experience', 'catering for special events'],
-                    'software': ['scalable cloud solutions', '24/7 customer support', 'custom integrations'],
-                    'realtor': ['expert local market knowledge', 'seamless home buying process', 'investment property expertise'],
-                    'salon': ['personalized beauty services', 'premium hair care products', 'relaxing spa experience'],
+                    'fitness': 'personalized training programs that deliver real results',
+                    'restaurant': 'fresh, quality food in a welcoming atmosphere',
+                    'software': 'reliable solutions with outstanding support',
+                    'realtor': 'expert guidance through every step of your real estate journey',
+                    'salon': 'personalized beauty services that make you feel amazing',
                 }
                 industry_lower = industry.lower()
-                for key, offers in industry_offers.items():
+                for key, offer in industry_offers.items():
                     if key in industry_lower:
-                        suggestions.extend(offers[:2])
-                        break
+                        return offer, f"common for {industry} businesses"
             
-            if not suggestions:
-                suggestions.extend([
-                    "exceptional customer service",
-                    "quality products and services"
-                ])
+            return "exceptional service and quality", "a solid foundation"
         
         elif field_name == 'business_name':
-            # Suggest variations based on scraped data
             if scraped_meta.get('business_name'):
-                base_name = scraped_meta['business_name']
-                suggestions.append(base_name)
-                # Don't suggest variations for business name - too risky
+                return scraped_meta['business_name'], "from your website"
+            return None, ""
         
         elif field_name == 'industry':
-            # Load available industries from config
-            try:
-                import json
-                config_file = 'static/content/config.json'
-                if os.path.exists(config_file):
-                    with open(config_file, 'r') as f:
-                        config = json.load(f)
-                        industries = config.get('industries', [])
-                        # Suggest top industries
-                        suggestions.extend([ind['label'] for ind in industries[:5]])
-            except:
-                pass
+            # Don't pre-fill industry - let them choose
+            return None, ""
     
     except Exception as e:
-        logger.warning(f"Error generating smart suggestions: {e}")
+        logger.warning(f"Error getting prefilled value: {e}")
     
-    # Return up to 4 suggestions
-    return suggestions[:4] if suggestions else []
+    return None, ""
 
 
 def _apply_profile_update(profile: VoiceProfile, field_name: str, new_value: str, db) -> dict:
@@ -633,11 +608,11 @@ def _apply_profile_update(profile: VoiceProfile, field_name: str, new_value: str
         display_new_value = new_value[:100] + "..." if len(new_value) > 100 else new_value
     
     return _build_response(
-        f"✅ Updated your **{_format_field_name(field_name)}**!\n\n"
-        f"~~{old_value}~~ → **{display_new_value}**\n\n"
-        f"Your content will now reflect this change.",
+        f"Perfect! I've updated your **{_format_field_name(field_name)}** to:\n\n"
+        f"**{display_new_value}**\n\n"
+        f"This will help me create content that feels more authentically you. Ready to create something?",
         action='profile_updated',
-        suggestions=['Create content with new profile', 'Update another field', 'View full profile']
+        suggestions=['Create content', 'Update another field', 'View my profile']
     )
 
 
@@ -653,19 +628,17 @@ def _show_profile_summary(profile: VoiceProfile) -> dict:
     writing_samples = profile.get_writing_samples()
     sample_count = len(writing_samples) if writing_samples else 0
     
-    summary = f"""📋 **Your Brand Profile**
-
-**Business:** {profile.business_name or 'Not set'}
-**Industry:** {profile.industry or 'Not set'}
-**Target Audience:** {profile.target_audience or 'Not set'}
-**Brand Voice:** {profile.brand_voice or 'Not set'}
-**Key Offer:** {profile.key_offer or 'Not set'}
-**Writing Samples:** {sample_count} sample(s)
-
-What would you like to update? You can say things like:
-- "Change my brand voice to professional and authoritative"
-- "Update target audience to small business owners"
-- Or use `/update` to pick a field"""
+    summary = f"""Here's your brand profile:\n\n"""
+    summary += f"**Business:** {profile.business_name or 'Not set'}\n"
+    summary += f"**Industry:** {profile.industry or 'Not set'}\n"
+    summary += f"**Target Audience:** {profile.target_audience or 'Not set'}\n"
+    summary += f"**Brand Voice:** {profile.brand_voice or 'Not set'}\n"
+    summary += f"**Key Offer:** {profile.key_offer or 'Not set'}\n"
+    summary += f"**Writing Samples:** {sample_count} sample(s)\n\n"
+    summary += "Want to update something? Just tell me which part, like:"
+    summary += '- "I want to update my brand voice"\n'
+    summary += '- "Change my target audience"\n'
+    summary += '- Or just type `/update`'
     
     return _build_response(
         summary,
@@ -674,7 +647,7 @@ What would you like to update? You can say things like:
             'Update brand voice',
             'Update target audience', 
             'Update key offer',
-            'Back to content creation'
+            'Create content'
         ]
     )
 
@@ -697,31 +670,55 @@ def _continue_profile_update(pending_task: dict, message: str, profile: VoicePro
         # User provided field name
         normalized = conversation_router.normalize_field_name(message)
         if normalized:
-            # Get smart suggestions for this field
-            smart_suggestions = _get_smart_suggestions_for_field(normalized, profile)
+            # Get prefilled value for this field
+            prefilled_value, source = _get_prefilled_value_for_field(normalized, profile)
             
-            # Build prompt with suggestions
-            prompt = f"What would you like to change your **{_format_field_name(normalized)}** to?"
-            if smart_suggestions:
-                prompt += "\n\nHere are some suggestions based on your profile:"
-                for suggestion in smart_suggestions:
-                    prompt += f"\n• {suggestion}"
+            # Build prompt showing what we found
+            field_display = _format_field_name(normalized)
             
-            # Ask for new value
-            return _build_response(
-                prompt,
-                action='continue',
-                pending_task={
-                    'flow': 'profile_update',
-                    'task_type': 'profile_update',
-                    'field_name': normalized
-                },
-                suggestions=smart_suggestions if smart_suggestions else None
-            )
+            if prefilled_value:
+                # We have data - show it and let them edit or accept
+                prompt = f"Great! Here's what I found for your **{field_display}** {source}:\n\n"
+                prompt += f"**{prefilled_value}**\n\n"
+                prompt += "Does this capture your brand? You can edit it or just hit enter to keep it as is."
+                
+                # Store the prefilled value in pending task
+                return _build_response(
+                    prompt,
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': 'profile_update',
+                        'field_name': normalized,
+                        'prefilled_value': prefilled_value
+                    }
+                )
+            else:
+                # No data found - guide them to define it
+                prompts_by_field = {
+                    'business_name': "What's the name of your business?",
+                    'industry': "What industry are you in? This helps me understand your audience and create better content for you.",
+                    'target_audience': "Who are you trying to reach? Tell me about your ideal customers - who they are, what they need, and what matters to them.",
+                    'brand_voice': "How would you describe your brand's personality? Think about how you want to sound when talking to your customers.",
+                    'key_offer': "What makes your business special? What's the main value you provide that sets you apart?",
+                    'writing_samples': "Share a few examples of your writing - social posts, emails, or website copy. This helps me match your style."
+                }
+                
+                prompt = prompts_by_field.get(normalized, f"What would you like for your {field_display}?")
+                
+                return _build_response(
+                    prompt,
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': 'profile_update',
+                        'field_name': normalized
+                    }
+                )
         else:
             # Reset pending task to avoid infinite loop
             return _build_response(
-                f"I don't recognize that field. Please choose from: business_name, industry, target_audience, brand_voice, key_offer, or writing_samples",
+                "I don't recognize that field. Which one would you like to update? You can choose from business name, industry, target audience, brand voice, key offer, or writing samples.",
                 action='continue',
                 pending_task={
                     'flow': 'profile_update',
@@ -730,8 +727,14 @@ def _continue_profile_update(pending_task: dict, message: str, profile: VoicePro
                 }
             )
     else:
-        # User provided new value
-        return _apply_profile_update(profile, field_name, message, db)
+        # User provided new value (or accepted prefilled by hitting enter)
+        prefilled = pending_task.get('prefilled_value')
+        
+        # If message is empty and we have a prefilled value, use it
+        if not message.strip() and prefilled:
+            return _apply_profile_update(profile, field_name, prefilled, db)
+        else:
+            return _apply_profile_update(profile, field_name, message, db)
 
 
 def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfile, db) -> dict:
@@ -772,31 +775,51 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
             return _apply_profile_update(profile, field_name, new_value, db)
         
         if field_name:
-            # Get smart suggestions for this field
-            smart_suggestions = _get_smart_suggestions_for_field(field_name, profile)
+            # Get prefilled value for this field
+            prefilled_value, source = _get_prefilled_value_for_field(field_name, profile)
             
-            # Build prompt with suggestions
-            prompt = f"What would you like to change your **{_format_field_name(field_name)}** to?"
-            if smart_suggestions:
-                prompt += "\n\nHere are some suggestions based on your profile:"
-                for suggestion in smart_suggestions:
-                    prompt += f"\n• {suggestion}"
+            # Build prompt showing what we found
+            field_display = _format_field_name(field_name)
             
-            # Ask for new value
-            return _build_response(
-                prompt,
-                action='continue',
-                pending_task={
-                    'flow': 'profile_update',
-                    'task_type': intent_result['task_type'],
-                    'field_name': field_name
-                },
-                suggestions=smart_suggestions if smart_suggestions else None
-            )
+            if prefilled_value:
+                # We have data - show it and let them edit or accept
+                prompt = f"Great! Here's what I found for your **{field_display}** {source}:\n\n"
+                prompt += f"**{prefilled_value}**\n\n"
+                prompt += "Does this work for you? You can edit it or just hit enter to keep it."
+                
+                return _build_response(
+                    prompt,
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': intent_result['task_type'],
+                        'field_name': field_name,
+                        'prefilled_value': prefilled_value
+                    }
+                )
+            else:
+                # No data found - guide them to define it
+                prompts_by_field = {
+                    'brand_voice': "How would you describe your brand's personality? Think about how you want to sound when talking to your customers.",
+                    'target_audience': "Who are you trying to reach? Tell me about your ideal customers - who they are, what they need, and what matters to them.",
+                    'key_offer': "What makes your business special? What's the main value you provide that sets you apart?",
+                }
+                
+                prompt = prompts_by_field.get(field_name, f"What would you like for your {field_display}?")
+                
+                return _build_response(
+                    prompt,
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': intent_result['task_type'],
+                        'field_name': field_name
+                    }
+                )
         
         # No field specified - ask which field
         return _build_response(
-            "Which field would you like to update?\n\n"
+            "Which part of your profile would you like to update? I can help you with:\n\n"
             "• **Business Name**\n"
             "• **Industry**\n"
             "• **Target Audience**\n"

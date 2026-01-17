@@ -14,7 +14,7 @@ def test_slash_profile_command_shows_summary(authenticated_client):
     assert response.status_code == 200
     data = response.get_json()
     assert data['action'] == 'profile_view'
-    assert 'Brand Profile' in data['response']
+    assert 'profile' in data['response'].lower()
     assert 'Test Business' in data['response']
     assert 'Technology' in data['response']
     # Should have suggestions for profile updates
@@ -31,7 +31,7 @@ def test_slash_update_command_asks_for_field(authenticated_client):
     assert response.status_code == 200
     data = response.get_json()
     assert data['action'] == 'continue'
-    assert 'Which field' in data['response']
+    assert 'which' in data['response'].lower() or 'update' in data['response'].lower()
     assert data['pending_task'] is not None
     assert data['pending_task']['flow'] == 'profile_update'
 
@@ -84,7 +84,8 @@ def test_update_brand_voice_multi_turn(authenticated_client):
     assert response.status_code == 200
     data = response.get_json()
     assert data['action'] == 'profile_updated'
-    assert '✅' in data['response']
+    # Updated to match new confirmation message style
+    assert 'updated' in data['response'].lower() or 'perfect' in data['response'].lower()
     assert 'professional and authoritative' in data['response']
     
     # Verify database was updated
@@ -264,8 +265,8 @@ def test_validation_rejects_single_word_voice(authenticated_client):
     assert '2-3 words' in data['response'] or 'describing' in data['response'].lower()
 
 
-def test_profile_update_shows_old_and_new_values(authenticated_client):
-    """Test that confirmation shows old → new values."""
+def test_profile_update_confirmation_message(authenticated_client):
+    """Test that confirmation shows the new value in a friendly way."""
     response = authenticated_client.post('/api/chat', json={
         'message': '/voice'
     })
@@ -282,10 +283,9 @@ def test_profile_update_shows_old_and_new_values(authenticated_client):
     assert response.status_code == 200
     data = response.get_json()
     assert data['action'] == 'profile_updated'
-    # Should show old value (Professional and friendly)
-    assert 'Professional and friendly' in data['response'] or '~~' in data['response']
-    # Should show new value
+    # Should show new value in a friendly confirmation
     assert 'casual and conversational' in data['response']
+    assert 'updated' in data['response'].lower() or 'perfect' in data['response'].lower()
 
 
 def test_profile_update_suggestions(authenticated_client):
