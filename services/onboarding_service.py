@@ -75,7 +75,12 @@ class OnboardingService:
             logger.info(f"Scraping URL for onboarding: {url}")
             scraped_text = scrape_url(url, max_length=6000)
             
-            if not scraped_text:
+            # Log scraped text info
+            if scraped_text:
+                logger.info(f"Scraped {len(scraped_text)} chars from {url}")
+                logger.debug(f"Scraped text preview: {scraped_text[:300]}...")
+            else:
+                logger.warning(f"No text scraped from {url}")
                 return {
                     'success': False,
                     'error': 'Failed to scrape URL',
@@ -84,6 +89,13 @@ class OnboardingService:
             
             # Extract business info using AI
             business_info = extract_business_info(scraped_text, url)
+            
+            # Log what extract_business_info returned
+            logger.info(f"extract_business_info returned: business_name={business_info.get('business_name')}, "
+                       f"industry={business_info.get('industry')}, "
+                       f"key_customers={business_info.get('key_customers')}, "
+                       f"key_offer={business_info.get('key_offer')}, "
+                       f"voice_tone_and_style={business_info.get('voice_tone_and_style')}")
             
             # Build extracted fields
             extracted_fields = {}
@@ -107,9 +119,24 @@ class OnboardingService:
             if business_info.get('sample_posts'):
                 extracted_fields['writing_samples'] = business_info['sample_posts']
             
+            # Log final extracted_fields
+            logger.info(f"Final extracted_fields: {list(extracted_fields.keys())}")
+            if not extracted_fields:
+                logger.warning("No fields were extracted from business_info!")
+            
             # Update profile with extracted fields
             for field, value in extracted_fields.items():
                 self.update_profile_field(profile, field, value)
+            
+            # If nothing was extracted, show a more helpful message
+            if not extracted_fields:
+                logger.warning(f"No fields extracted from URL {url}")
+                return {
+                    'success': True,  # Still success, just no auto-fill
+                    'message': f"I visited your website but couldn't automatically extract your brand details. "
+                               f"Let me ask you some specific questions instead...",
+                    'extracted_fields': {}
+                }
             
             # Build success message
             biz_name = extracted_fields.get('business_name', 'your business')
