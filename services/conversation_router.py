@@ -598,12 +598,24 @@ Rules:
         """
         message_lower = user_input.lower()
         
-        # Keywords that indicate profile update intent
-        update_keywords = ['change', 'update', 'modify', 'set', 'edit', 'my profile', 'brand settings']
-        view_keywords = ['show', 'view', 'see', 'what is my', 'current', 'profile', 'settings']
+        # Keywords that indicate profile update intent (use word boundaries)
+        update_keywords = ['change', 'update', 'modify', 'edit']
+        view_keywords = ['show', 'view', 'see', 'what is my', 'current']
         
-        is_update = any(keyword in message_lower for keyword in update_keywords)
-        is_view = any(keyword in message_lower for keyword in view_keywords)
+        # Check for specific phrases that indicate view vs update
+        # Use word boundaries for single words, exact match for phrases
+        has_view_keyword = any(
+            (re.search(r'\b' + re.escape(kw) + r'\b', message_lower) if ' ' not in kw 
+             else kw in message_lower)
+            for kw in view_keywords
+        )
+        has_profile_mention = 'profile' in message_lower or 'settings' in message_lower
+        is_view = has_view_keyword and has_profile_mention
+        
+        is_update = any(
+            re.search(r'\b' + re.escape(kw) + r'\b', message_lower)
+            for kw in update_keywords
+        )
         
         if is_view and not is_update:
             return {
