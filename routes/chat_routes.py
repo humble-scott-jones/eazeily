@@ -45,15 +45,18 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
 from services.onboarding_service import OnboardingService
+from services.conversation_router import ConversationRouter
 from models import VoiceProfile, db
 import os
 import logging
 import uuid
+import re
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint('chat', __name__)
 voice_engine = VoiceEngine()
 onboarding_service = OnboardingService()
+conversation_router = ConversationRouter()
 
 
 def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str]]:
@@ -258,7 +261,6 @@ def _normalize_field_value(field_name: str, value: str) -> str:
         return value_lower
     
     if field_name == 'video_length':
-        import re
         match = re.search(r'(\d+)', value)
         if match:
             seconds = int(match.group(1))
@@ -318,14 +320,11 @@ def _continue_content_task(pending_task: dict, message: str, profile: VoiceProfi
     Returns:
         Response dict with next prompt or generation result
     """
-    from services.conversation_router import ConversationRouter
-    router = ConversationRouter()
-    
     task_type = pending_task.get('task_type', 'post')
     collected = pending_task.get('collected', {})
     
     # Get missing fields to know what we were asking for
-    missing_before = router.get_missing_fields(task_type, collected)
+    missing_before = conversation_router.get_missing_fields(task_type, collected)
     
     if missing_before:
         # Store the response for the first missing field
@@ -333,10 +332,10 @@ def _continue_content_task(pending_task: dict, message: str, profile: VoiceProfi
         collected[field_name] = _normalize_field_value(field_name, message)
     
     # Check if still missing fields
-    missing_after = router.get_missing_fields(task_type, collected)
+    missing_after = conversation_router.get_missing_fields(task_type, collected)
     
     if missing_after:
-        next_prompt = router.get_next_prompt(task_type, missing_after)
+        next_prompt = conversation_router.get_next_prompt(task_type, missing_after)
         return _build_response(
             next_prompt,
             action='continue',
@@ -645,10 +644,7 @@ def chat():
             )), 200
         
         # Parse new intent using ConversationRouter
-        from services.conversation_router import ConversationRouter
-        router = ConversationRouter()
-        
-        intent_result = router.parse_intent(message, profile)
+        intent_result = conversation_router.parse_intent(message, profile)
         logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
         
         if intent_result['intent'] == 'unknown':

@@ -97,6 +97,18 @@ class ConversationRouter:
         },
     }
     
+    # Task type keywords for fallback classification (ordered by specificity)
+    TASK_PATTERNS = [
+        (['reel'], 'script'),  # Map reel to script (as per COMMAND_MAP)
+        (['caption'], 'caption'),
+        (['email', 'newsletter'], 'email'),
+        (['review', 'respond to review', 'review response'], 'review'),
+        (['ad', 'advertisement'], 'ad'),
+        (['blog', 'article'], 'blog'),
+        (['script', 'video'], 'script'),
+        (['post'], 'post'),  # Most generic, check last
+    ]
+    
     def __init__(self):
         """Initialize the conversation router."""
         self.gemini_available = self._check_gemini()
@@ -185,20 +197,9 @@ class ConversationRouter:
         """
         message_lower = user_input.lower()
         
-        # Task type keywords (ordered by specificity to avoid false matches)
-        task_patterns = [
-            (['reel'], 'script'),  # Map reel to script (as per COMMAND_MAP)
-            (['caption'], 'caption'),
-            (['email', 'newsletter'], 'email'),
-            (['review', 'respond to review', 'review response'], 'review'),
-            (['ad', 'advertisement'], 'ad'),
-            (['blog', 'article'], 'blog'),
-            (['script', 'video'], 'script'),
-            (['post'], 'post'),  # Most generic, check last
-        ]
-        
+        # Use class constant for task patterns
         task_type = None
-        for keywords, ttype in task_patterns:
+        for keywords, ttype in self.TASK_PATTERNS:
             if any(keyword in message_lower for keyword in keywords):
                 task_type = ttype
                 break
