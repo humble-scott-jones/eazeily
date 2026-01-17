@@ -300,14 +300,16 @@ def _build_required_sections(scraped_text: str, url: str, ai_data: dict) -> dict
 
 def extract_business_info(scraped_text: str, url: str = "") -> dict:
     """
-    Uses AI to extract business name, industry, key customers, key offer, and keywords from scraped text.
+    Uses AI to extract business information, brand attributes, and voice DNA from scraped text.
     
     Args:
         scraped_text (str): The text content from the webpage.
         url (str): The URL of the webpage (optional, for context).
         
     Returns:
-        dict: Contains business_name, industry, key_customers, key_offer, brand_keywords, and niche_keywords fields.
+        dict: Contains business_name, industry, key_customers, key_offer, brand_keywords, 
+              niche_keywords, voice_tone_and_style, content_goals_ai, sample_posts, voice_dna,
+              required_sections, validation, and target_audience fields.
               Returns None/empty values if extraction fails or AI is unavailable.
     """
     try:
@@ -322,7 +324,8 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
                 "key_customers": None,
                 "key_offer": None,
                 "brand_keywords": [],
-                "niche_keywords": []
+                "niche_keywords": [],
+                "voice_dna": {}
             }
             required = _build_required_sections(scraped_text, url, base)
             base["required_sections"] = required["sections"]
@@ -405,7 +408,8 @@ Return only valid JSON, no markdown formatting, no explanations."""
             "key_customers": None,
             "key_offer": None,
             "brand_keywords": [],
-            "niche_keywords": []
+            "niche_keywords": [],
+            "voice_dna": {}
         }
         required = _build_required_sections(scraped_text, url, fallback)
         fallback["required_sections"] = required["sections"]
@@ -420,7 +424,8 @@ Return only valid JSON, no markdown formatting, no explanations."""
             "key_customers": None,
             "key_offer": None,
             "brand_keywords": [],
-            "niche_keywords": []
+            "niche_keywords": [],
+            "voice_dna": {}
         }
         required = _build_required_sections(scraped_text, url, fallback)
         fallback["required_sections"] = required["sections"]
