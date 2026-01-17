@@ -368,7 +368,8 @@ Rules:
         
         # Remove task-type related words
         task_words = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel', 
-                      'create', 'write', 'draft', 'generate', 'make', 'a ', 'an ', 'the ']
+                      'create', 'write', 'draft', 'generate', 'make', 'need', 'want',
+                      'a ', 'an ', 'the ', 'i ']
         for word in task_words:
             topic_text = re.sub(r'\b' + re.escape(word.strip()) + r'\b', '', topic_text, flags=re.IGNORECASE)
         
