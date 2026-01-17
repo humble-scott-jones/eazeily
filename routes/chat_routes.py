@@ -45,7 +45,8 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
 from services.conversation_router import ConversationRouter
-from models import VoiceProfile
+from services.onboarding_service import OnboardingService
+from models import VoiceProfile, db
 import os
 import logging
 import uuid
@@ -55,6 +56,7 @@ logger = logging.getLogger(__name__)
 chat_bp = Blueprint('chat', __name__)
 voice_engine = VoiceEngine()
 conversation_router = ConversationRouter()
+onboarding_service = OnboardingService()
 
 
 def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str]]:
@@ -89,6 +91,147 @@ def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str]]:
         missing_fields.append('writing_samples')
     
     return len(missing_fields) == 0, missing_fields
+
+
+def _handle_onboarding_chat(message: str, history: list, profile: VoiceProfile, pending_task: dict = None) -> dict:
+    """Handle onboarding conversation flow.
+    
+    Args:
+        message: User's latest message
+        history: Conversation history
+        profile: VoiceProfile instance (may be incomplete)
+        pending_task: Optional pending onboarding task state
+        
+    Returns:
+        Response dict for the chat API
+    """
+    try:
+        # Check if this is a continuation of field collection
+        if pending_task and pending_task.get('task_type') == 'onboarding':
+            collecting_field = pending_task.get('collecting_field')
+            
+            if collecting_field:
+                # Update the specific field being collected
+                onboarding_service.update_profile_field(profile, collecting_field, message)
+                
+                try:
+                    db.session.commit()
+                    logger.info(f"Updated profile field '{collecting_field}' for user {current_user.id}")
+                except Exception as db_error:
+                    db.session.rollback()
+                    logger.error(f"Database error updating profile: {db_error}", exc_info=True)
+                    return _build_response(
+                        "I had trouble saving that. Let me try again...",
+                        action='error'
+                    )
+        
+        # Check for URL in message
+        detected_url = onboarding_service.detect_url(message)
+        
+        if detected_url:
+            logger.info(f"Detected URL in onboarding: {detected_url}")
+            result = onboarding_service.process_url(detected_url, profile)
+            
+            if result['success']:
+                try:
+                    db.session.commit()
+                    logger.info(f"Saved URL-scraped profile data for user {current_user.id}")
+                except Exception as db_error:
+                    db.session.rollback()
+                    logger.error(f"Database error saving profile: {db_error}", exc_info=True)
+                
+                # Check if profile is now complete
+                is_complete, missing = onboarding_service.is_profile_complete(profile)
+                
+                if is_complete:
+                    return _build_response(
+                        result['message'] + "\n\n✨ Your brand profile is ready! Redirecting to dashboard...",
+                        action='onboarding_complete',
+                        pending_task=None,
+                        redirect='/dashboard'
+                    )
+                
+                # Ask for next missing field
+                next_question = onboarding_service.get_next_question(missing)
+                response_message = result['message'] + f"\n\n{next_question}"
+                
+                return _build_response(
+                    response_message,
+                    action='continue',
+                    pending_task={
+                        'task_type': 'onboarding',
+                        'collecting_field': missing[0]
+                    }
+                )
+            else:
+                # URL processing failed, ask for description
+                return _build_response(
+                    result['message'],
+                    action='continue',
+                    pending_task={'task_type': 'onboarding', 'collecting_field': None}
+                )
+        
+        # Try to extract fields from description
+        missing_fields = onboarding_service.get_missing_fields(profile)
+        
+        # If we know what field we're collecting, use that context
+        collecting_field = None
+        if pending_task and pending_task.get('task_type') == 'onboarding':
+            collecting_field = pending_task.get('collecting_field')
+        
+        # If we're not collecting a specific field, try to extract from description
+        if not collecting_field:
+            result = onboarding_service.process_description(message, profile, context=None)
+        else:
+            # We already updated this field above, so just acknowledge
+            result = {
+                'success': True,
+                'message': f"Got it! I've saved your {collecting_field.replace('_', ' ')}.",
+                'extracted_fields': {collecting_field: message}
+            }
+        
+        if result['success']:
+            try:
+                db.session.commit()
+                logger.info(f"Saved profile updates for user {current_user.id}")
+            except Exception as db_error:
+                db.session.rollback()
+                logger.error(f"Database error: {db_error}", exc_info=True)
+        
+        # Check if profile is complete
+        is_complete, missing = onboarding_service.is_profile_complete(profile)
+        
+        if is_complete:
+            return _build_response(
+                result.get('message', 'Perfect!') + "\n\n🎉 Your brand profile is ready! Redirecting to dashboard...",
+                action='onboarding_complete',
+                pending_task=None,
+                redirect='/dashboard'
+            )
+        
+        # Ask for next missing field
+        next_question = onboarding_service.get_next_question(missing)
+        response_message = result.get('message', 'Thanks!') + f"\n\n{next_question}"
+        
+        return _build_response(
+            response_message,
+            action='continue',
+            pending_task={
+                'task_type': 'onboarding',
+                'collecting_field': missing[0]
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in onboarding chat: {e}", exc_info=True)
+        return _build_response(
+            "I encountered an error. Let me ask you directly: What's your business name?",
+            action='continue',
+            pending_task={
+                'task_type': 'onboarding',
+                'collecting_field': 'business_name'
+            }
+        )
 
 
 def _generate_content(profile: VoiceProfile, task_type: str, collected: dict) -> str:
@@ -286,8 +429,8 @@ def _build_response(message: str, action: str, **kwargs) -> dict:
     
     Args:
         message: Main response text to display to user
-        action: Action type (continue|generated|onboarding|error)
-        **kwargs: Additional response fields (pending_task, content, suggestions)
+        action: Action type (continue|generated|onboarding|onboarding_complete|error)
+        **kwargs: Additional response fields (pending_task, content, suggestions, redirect)
         
     Returns:
         Response dictionary
@@ -299,6 +442,10 @@ def _build_response(message: str, action: str, **kwargs) -> dict:
         'content': kwargs.get('content'),
         'suggestions': kwargs.get('suggestions'),
     }
+    
+    # Add redirect if provided
+    if 'redirect' in kwargs:
+        response['redirect'] = kwargs['redirect']
     
     return response
 
@@ -424,14 +571,27 @@ def chat():
         profile_ready, missing_fields = _check_profile_ready(profile)
         
         if not profile_ready:
-            # Route to onboarding - don't check API key yet since we're not generating
+            # Route to onboarding flow
             logger.info(f"[{request_id}] User {current_user.id} needs onboarding - missing: {missing_fields}")
-            return jsonify(_build_response(
-                "I'd love to help you create amazing content! First, let's set up your brand profile. "
-                "This helps me write in your unique voice and style. Click here to complete your profile setup.",
-                action='onboarding',
-                suggestions=['Complete your profile', 'Learn more about brand profiles']
-            )), 200
+            
+            # Get or create profile if needed
+            if not profile:
+                logger.info(f"Creating new VoiceProfile for user {current_user.id}")
+                profile = VoiceProfile(user_id=current_user.id)
+                db.session.add(profile)
+                try:
+                    db.session.commit()
+                except Exception as db_error:
+                    db.session.rollback()
+                    logger.error(f"Failed to create profile: {db_error}", exc_info=True)
+                    return jsonify(_build_response(
+                        "I had trouble setting up your profile. Please try again.",
+                        action='error'
+                    )), 500
+            
+            # Handle onboarding conversation
+            result = _handle_onboarding_chat(message, history, profile, pending_task)
+            return jsonify(result), 200
         
         # Check API key configuration (only if we have a complete profile)
         api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")

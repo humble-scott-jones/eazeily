@@ -51,9 +51,13 @@ def test_chat_routes_to_onboarding_when_profile_missing(client):
     
     assert response.status_code == 200
     data = response.get_json()
-    assert data['action'] == 'onboarding'
-    assert 'profile' in data['response'].lower()
-    assert data['pending_task'] is None
+    # Now routes to continue with onboarding flow instead of static 'onboarding' action
+    assert data['action'] == 'continue'
+    # Should ask for business information
+    assert 'response' in data
+    # Should have pending onboarding task
+    assert data['pending_task'] is not None
+    assert data['pending_task']['task_type'] == 'onboarding'
 
 
 def test_chat_routes_to_onboarding_when_profile_incomplete(client):
@@ -89,7 +93,13 @@ def test_chat_routes_to_onboarding_when_profile_incomplete(client):
     
     assert response.status_code == 200
     data = response.get_json()
-    assert data['action'] == 'onboarding'
+    # Now routes to continue with onboarding flow instead of static 'onboarding' action
+    assert data['action'] == 'continue'
+    # Should ask for missing information
+    assert 'response' in data
+    # Should have pending onboarding task
+    assert data['pending_task'] is not None
+    assert data['pending_task']['task_type'] == 'onboarding'
 
 
 def test_chat_starts_task_flow_with_complete_profile(authenticated_client):
