@@ -147,6 +147,159 @@ def call_gemini(
     return None
 
 
+def call_gemini_with_image(
+    prompt: str,
+    image_data: str,
+    context: Optional[Dict[str, Any]] = None,
+    model: str = 'gemini-1.5-flash',
+    temperature: float = 0.7,
+    timeout: int = DEFAULT_TIMEOUT,
+    max_retries: int = MAX_RETRIES
+) -> Optional[Dict[str, Any]]:
+    """Call Gemini API with image input for multimodal generation.
+    
+    Args:
+        prompt: The prompt text to send to Gemini
+        image_data: Base64-encoded image data URL (e.g., "data:image/jpeg;base64,...")
+        context: Optional context dictionary to include in the prompt
+        model: Model name to use (default: gemini-1.5-flash for vision support)
+        temperature: Generation temperature (0.0-1.0)
+        timeout: Request timeout in seconds
+        max_retries: Maximum number of retry attempts
+    
+    Returns:
+        Parsed JSON response from Gemini, or None on failure
+    """
+    client = _get_client()
+    if not client:
+        logger.error("Gemini client not available")
+        return None
+    
+    # Build full prompt with context
+    full_prompt = prompt
+    if context:
+        # Extract non-image context
+        context_without_image = {k: v for k, v in context.items() if k not in ['image_data', 'image_filename']}
+        if context_without_image:
+            context_str = json.dumps(context_without_image, indent=2)
+            full_prompt = f"{prompt}\n\nContext:\n{context_str}"
+    
+    # Parse base64 image data
+    import base64
+    import re
+    
+    # Extract base64 data from data URL
+    match = re.match(r'data:image/(\w+);base64,(.+)', image_data)
+    if not match:
+        logger.error("Invalid image data URL format")
+        return None
+    
+    mime_type = f"image/{match.group(1)}"
+    base64_data = match.group(2)
+    
+    try:
+        image_bytes = base64.b64decode(base64_data)
+    except Exception as e:
+        logger.error(f"Failed to decode base64 image data: {e}")
+        return None
+    
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            start_time = time.time()
+            
+            # Call Gemini API with multimodal content
+            if hasattr(client, "models") and hasattr(client.models, "generate_content"):
+                # New client API - use multimodal content format
+                try:
+                    import google.genai.types as genai_types
+                    
+                    # Create multimodal content with text and image
+                    contents = [
+                        genai_types.Content(
+                            parts=[
+                                genai_types.Part(text=full_prompt),
+                                genai_types.Part(
+                                    inline_data=genai_types.Blob(
+                                        mime_type=mime_type,
+                                        data=image_bytes
+                                    )
+                                )
+                            ]
+                        )
+                    ]
+                    
+                    response = client.models.generate_content(
+                        model=model,
+                        contents=contents,
+                        config={
+                            'temperature': temperature,
+                            'max_output_tokens': 2048,
+                        }
+                    )
+                except (ImportError, AttributeError) as e:
+                    # Fallback: try simpler format with bytes data
+                    logger.warning(f"Using fallback multimodal format: {e}")
+                    response = client.models.generate_content(
+                        model=model,
+                        contents=[full_prompt, {"mime_type": mime_type, "data": image_bytes}],
+                        config={
+                            'temperature': temperature,
+                            'max_output_tokens': 2048,
+                        }
+                    )
+            elif hasattr(client, "GenerativeModel"):
+                # Legacy API
+                model_instance = client.GenerativeModel(model)
+                # Legacy API supports multimodal by passing list of content parts
+                response = model_instance.generate_content(
+                    [full_prompt, {"mime_type": mime_type, "data": image_bytes}],
+                    generation_config={
+                        'temperature': temperature,
+                        'max_output_tokens': 2048,
+                    }
+                )
+            else:
+                logger.error("Unknown Gemini client interface")
+                return None
+            
+            duration = time.time() - start_time
+            logger.info(f"Gemini multimodal API call completed in {duration:.2f}s")
+            
+            # Extract text response
+            response_text = response.text if hasattr(response, 'text') else str(response)
+            
+            # Try to parse as JSON
+            try:
+                # Remove markdown code blocks if present
+                if response_text.strip().startswith("```json"):
+                    response_text = response_text.strip()[7:]
+                if response_text.strip().startswith("```"):
+                    response_text = response_text.strip()[3:]
+                if response_text.strip().endswith("```"):
+                    response_text = response_text.strip()[:-3]
+                response_text = response_text.strip()
+                
+                result = json.loads(response_text)
+                return result
+            except json.JSONDecodeError:
+                # Return as text if not JSON
+                logger.warning("Gemini response is not JSON, returning as text")
+                return {'text': response_text}
+        
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Gemini multimodal API call attempt {attempt + 1} failed: {e}")
+            
+            if attempt < max_retries:
+                # Wait before retrying
+                time.sleep(RETRY_DELAY * (attempt + 1))
+            else:
+                logger.error(f"All Gemini multimodal API retry attempts failed: {last_error}")
+    
+    return None
+
+
 def generate_content_with_profile(
     profile: Dict[str, Any],
     content_type: str,
