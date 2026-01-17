@@ -273,22 +273,27 @@ class PromptBox {
 
     const data = await response.json();
     
-    if (data.status === 'success') {
-      this.addMessage('assistant', data.message);
-      
-      // Update pending task if provided
-      if (data.pending_task) {
-        this.pendingTask = data.pending_task;
-      }
-
-      // Handle redirect if provided
-      if (data.redirect) {
-        setTimeout(() => {
-          window.location.href = data.redirect;
-        }, 1000);
-      }
+    // Add assistant message
+    this.addMessage('assistant', data.response);
+    
+    // Update pending task if provided
+    if (data.pending_task) {
+      this.pendingTask = data.pending_task;
     } else {
-      throw new Error(data.error || 'Unknown error');
+      this.pendingTask = null;
+    }
+
+    // Handle different actions
+    if (data.action === 'onboarding_complete' || data.redirect) {
+      // Profile complete - redirect after a short delay
+      setTimeout(() => {
+        window.location.href = data.redirect || '/dashboard';
+      }, 1500);
+    } else if (data.action === 'generated' && data.content) {
+      // Content was generated - could add special handling here
+      // For now, just display the response (already added above)
+    } else if (data.action === 'error') {
+      // Error occurred - already displayed in response
     }
   }
 
