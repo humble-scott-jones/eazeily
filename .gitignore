@@ -23,3 +23,5 @@ pytest-report.xml
 
 # Test screenshots
 tmp/screenshots/
+test.db
+server.log
