@@ -203,14 +203,16 @@ class TestConversationRouter:
     
     @patch('services.conversation_router.ConversationRouter._check_gemini')
     def test_parse_intent_gemini_unavailable(self, mock_check, router, mock_profile):
-        """Test parse_intent falls back when Gemini unavailable."""
+        """Test parse_intent uses keyword fallback when Gemini unavailable."""
         mock_check.return_value = False
         router.gemini_available = False
         
         result = router.parse_intent('I need a post about our sale', mock_profile)
-        assert result['intent'] == 'unknown'
-        assert result['follow_up_needed'] is True
-        assert 'command' in result['follow_up_question'].lower()
+        # Should use keyword fallback to detect 'post'
+        assert result['intent'] == 'generate'
+        assert result['task_type'] == 'post'
+        assert 'topic' in result['extracted_params']
+        assert result['extracted_params']['topic'] == 'our sale'
     
     @patch('services.generation.gemini_adapter.call_gemini')
     def test_classify_with_gemini_post(self, mock_call, router, mock_profile):
