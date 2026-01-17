@@ -432,11 +432,8 @@
 
     <div id="resultBox" class="mt-8 hidden">
         <h3 class="text-lg font-medium text-gray-900 mb-2">Generated Content:</h3>
-        <div class="bg-gray-50 p-4 rounded-md border border-gray-200 relative">
-            <pre id="postContent" class="whitespace-pre-wrap text-gray-700 font-sans"></pre>
-            <button onclick="copyToClipboard()" class="absolute top-2 right-2 bg-white px-3 py-1 rounded border border-gray-300 text-gray-600 hover:text-gray-800 hover:border-gray-400 text-sm">
-                📋 Copy
-            </button>
+        <div id="resultsContainer" class="space-y-4">
+            <!-- Dynamic content will be inserted here -->
         </div>
     </div>
                     </div>
@@ -968,13 +965,14 @@
                 const btnText = document.getElementById('btnText');
                 const spinner = document.getElementById('loadingSpinner');
                 const resultBox = document.getElementById('resultBox');
-                const postContent = document.getElementById('postContent');
+                const resultsContainer = document.getElementById('resultsContainer');
 
                 // Loading State
                 btn.disabled = true;
                 btnText.textContent = 'Generating...';
                 spinner.classList.remove('hidden');
                 resultBox.classList.add('hidden');
+                resultsContainer.innerHTML = ''; // Clear previous results
 
                 // Minimal client-side validation to match backend contract
                 clearStatus();
@@ -1038,7 +1036,31 @@
                     const data = await response.json();
 
                     if (response.ok && data.status === 'success') {
-                        postContent.textContent = data.content;
+                        // Handle splitting content if possible, or just treat as one block
+                        // Heuristic: Split by "Option X:" or double newlines if appropriate
+                        let segments = [];
+                        const content = data.content || '';
+                        
+                        // Try to identify clear multiple options
+                        // Use regex to find pattern "Option 1:", "Variant 1:", etc.
+                        const optionPattern = /(?:Option|Variant)\s+\d+[:.]/i;
+                        if (optionPattern.test(content) && content.length > 50) {
+                             // Split by the pattern but try to keep text associated. 
+                             // Simple split might lose the header, but that's okay or we can reconstruct.
+                             // Let's just split by double newline for now to represent paragraphs/sections
+                             // If user wants distinct "boxes", paragraphs usually denote sections in generation.
+                             // However, usually AI returns "Option 1: ... \n\n Option 2: ..."
+                             // Let's try to split by double newline (\n\n) as a safe default for "chunks"
+                             segments = content.split(/\n{2,}/).filter(s => s.trim().length > 0);
+                        } else {
+                            segments = [content];
+                        }
+                        
+                        segments.forEach(text => {
+                            const item = createResultItem(text);
+                            resultsContainer.appendChild(item);
+                        });
+
                         resultBox.classList.remove('hidden');
                         showToast('Generated successfully.', 'success');
                     } else {
@@ -1094,16 +1116,43 @@
         }
     });
 
-    function copyToClipboard() {
-        const text = document.getElementById('postContent').textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            const btn = event.target;
-            const originalText = btn.textContent;
-            btn.textContent = '✓ Copied!';
-            setTimeout(() => {
-                btn.textContent = originalText;
-            }, 2000);
-        });
+    function createResultItem(text) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'bg-white rounded-md border border-gray-200 shadow-sm relative group overflow-hidden';
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'flex justify-end px-2 py-1 bg-gray-50 border-b border-gray-200';
+        
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'text-xs text-gray-500 hover:text-blue-600 font-medium py-1 px-2 rounded hover:bg-white flex items-center gap-1 transition-colors';
+        copyBtn.innerHTML = '📋 Copy';
+        copyBtn.type = 'button'; // Prevent form submission
+        
+        const textarea = document.createElement('textarea');
+        textarea.className = 'w-full p-4 text-gray-700 font-sans text-sm focus:ring-blue-500 focus:border-blue-500 border-0 resize-y min-h-[120px] bg-white block';
+        textarea.value = text.trim();
+        // Auto-expand height slightly based on content
+        textarea.rows = Math.max(4, text.split('\n').length + 2);
+        
+        copyBtn.onclick = function(e) {
+            e.preventDefault();
+            const txt = textarea.value;
+            navigator.clipboard.writeText(txt).then(() => {
+                const original = copyBtn.innerHTML;
+                copyBtn.innerHTML = '✓ Copied!';
+                copyBtn.classList.add('text-emerald-600');
+                setTimeout(() => {
+                    copyBtn.innerHTML = original;
+                    copyBtn.classList.remove('text-emerald-600');
+                }, 2000);
+            });
+        };
+        
+        toolbar.appendChild(copyBtn);
+        wrapper.appendChild(toolbar);
+        wrapper.appendChild(textarea);
+        
+        return wrapper;
     }
 </script>
 {% endblock %}

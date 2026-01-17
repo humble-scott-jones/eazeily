@@ -48,6 +48,24 @@ def verify_scraper(url):
     print(f"Business Name:     {business_info.get('business_name') or 'Not found'}")
     print(f"Industry:          {business_info.get('industry') or 'Not found'}")
     print(f"Key Customers:     {business_info.get('key_customers') or 'Not found'}")
+    print(f"Key Offer:         {business_info.get('key_offer') or 'Not found'}")
+    
+    # New fields
+    print(f"\n{'─'*60}")
+    print("Strategy & Voice:")
+    print(f"{'─'*60}")
+    print(f"Voice Rules:       {business_info.get('voice_tone_and_style') or 'Not found'}")
+    print(f"Content Goals:     {json.dumps(business_info.get('content_goals_ai'), indent=2) if business_info.get('content_goals_ai') else 'Not found'}")
+    
+    print(f"\n{'─'*60}")
+    print("Sample Posts:")
+    print(f"{'─'*60}")
+    samples = business_info.get('sample_posts')
+    if samples:
+        for i, post in enumerate(samples, 1):
+            print(f"[{i}] {post}\n")
+    else:
+        print("No sample posts generated.")
     print(f"\nBrand Keywords:    {', '.join(business_info.get('brand_keywords', [])) or 'None'}")
     print(f"Niche Keywords:    {', '.join(business_info.get('niche_keywords', [])) or 'None'}")
     print(f"{'─'*60}\n")

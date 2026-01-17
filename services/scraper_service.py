@@ -227,6 +227,15 @@ def _build_required_sections(scraped_text: str, url: str, ai_data: dict) -> dict
     brand_keywords = _extract_brand_keywords(text, ai_data.get("brand_keywords", []))
     content_goals = _extract_content_goals(text)
 
+    # Merge AI content goals
+    ai_goals = ai_data.get("content_goals_ai") or []
+    if ai_goals:
+        current_goals = {g['goal'].lower() for g in content_goals}
+        for goal in ai_goals:
+            if isinstance(goal, str) and goal.lower() not in current_goals:
+                content_goals.append({"goal": goal, "rationale": "Identified by AI analysis"})
+                current_goals.add(goal.lower())
+
     basic_information = {
         "name": ai_data.get("business_name") or domain_name,
         "description": ai_data.get("key_customers") or _first_sentence(text),
@@ -246,6 +255,10 @@ def _build_required_sections(scraped_text: str, url: str, ai_data: dict) -> dict
         "content_goals": {
             "values": content_goals,
         },
+        "voice_profile": {
+            "tone_guide": ai_data.get("voice_tone_and_style"),
+            "sample_posts": ai_data.get("sample_posts", []),
+        }
     }
 
     # Apply status/missing_reason to each section
@@ -256,6 +269,8 @@ def _build_required_sections(scraped_text: str, url: str, ai_data: dict) -> dict
             ok = bool(payload["values"])
         elif key == "content_goals":
             ok = bool(payload["values"])
+        elif key == "voice_profile":
+            ok = bool(payload["tone_guide"])
         else:
             ok = any(v for v in payload.values() if v)
         payload["status"] = "ok" if ok else "missing"
@@ -329,6 +344,9 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
 - key_offer: The main value proposition, hook, or unique offer that this business promotes (e.g., "Free consultation", "30-day money-back guarantee", "Same-day delivery"). This should be their primary call-to-action or compelling offer, NOT truncated. Extract the complete offer text. (string, or null if not found)
 - brand_keywords: A list of 3-5 key brand descriptors or values that represent this business (e.g., ["sustainable", "premium", "innovative"]) (array of strings)
 - niche_keywords: A list of 3-5 niche-specific terms or specializations for this business (e.g., ["organic coffee", "artisan roasted", "fair trade"]) (array of strings)
+- voice_tone_and_style: Analyze the writing style (formal, playful, authoritative, etc.) and provide 2-3 sentences describing the brand voice guidelines (string).
+- content_goals: Infer 3-5 high-level content goals based on the site's calls to action (e.g., "Educate customers on X", "Drive sales for Y", "Build community") (array of strings).
+- sample_posts: Generate 3 solid, high-quality sample social media posts (caption only) that perfectly fit this brand's voice and industry. (array of strings).
 
 Website content:
 {text_sample}
@@ -357,7 +375,10 @@ Return only valid JSON, no markdown formatting, no explanations."""
             "key_customers": extracted_data.get("key_customers") or None,
             "key_offer": extracted_data.get("key_offer") or None,
             "brand_keywords": extracted_data.get("brand_keywords") or [],
-            "niche_keywords": extracted_data.get("niche_keywords") or []
+            "niche_keywords": extracted_data.get("niche_keywords") or [],
+            "voice_tone_and_style": extracted_data.get("voice_tone_and_style") or None,
+            "content_goals_ai": extracted_data.get("content_goals") or [],
+            "sample_posts": extracted_data.get("sample_posts") or []
         }
 
         required = _build_required_sections(scraped_text, url, result)
