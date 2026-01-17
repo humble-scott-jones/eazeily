@@ -361,6 +361,20 @@ class TestConversationRouter:
         params = router._extract_params_from_text('FaceBook post', 'post')
         assert params.get('platform') == 'facebook'
     
+    def test_platform_extraction_word_boundaries(self, router):
+        """Test platform extraction uses word boundaries to avoid partial matches."""
+        # Should NOT match 'instagram' in 'instagramming'
+        params = router._extract_params_from_text('instagramming is fun', 'post')
+        assert params.get('platform') is None
+        
+        # Should match 'instagram' as a word
+        params = router._extract_params_from_text('instagram post', 'post')
+        assert params.get('platform') == 'instagram'
+        
+        # Should match with punctuation
+        params = router._extract_params_from_text('post on instagram!', 'post')
+        assert params.get('platform') == 'instagram'
+    
     def test_topic_extraction_removes_filler_words(self, router):
         """Test that topic extraction removes common filler words."""
         params = router._extract_params_from_text('about our new product for customers', 'post')

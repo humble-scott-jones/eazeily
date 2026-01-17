@@ -289,9 +289,9 @@ Rules:
         params = {}
         text_lower = text.lower()
         
-        # Extract platform using shared constant
+        # Extract platform using shared constant with word boundaries
         for platform, keywords in SUPPORTED_PLATFORMS.items():
-            if any(kw in text_lower for kw in keywords):
+            if any(re.search(r'\b' + re.escape(kw) + r'\b', text_lower) for kw in keywords):
                 params['platform'] = platform
                 break
         
