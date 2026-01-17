@@ -300,16 +300,14 @@ def _build_required_sections(scraped_text: str, url: str, ai_data: dict) -> dict
 
 def extract_business_info(scraped_text: str, url: str = "") -> dict:
     """
-    Uses AI to extract business information, brand attributes, and voice DNA from scraped text.
+    Uses AI to extract business name, industry, key customers, key offer, and keywords from scraped text.
     
     Args:
         scraped_text (str): The text content from the webpage.
         url (str): The URL of the webpage (optional, for context).
         
     Returns:
-        dict: Contains business_name, industry, key_customers, key_offer, brand_keywords, 
-              niche_keywords, voice_tone_and_style, content_goals_ai, sample_posts, voice_dna,
-              required_sections, validation, and target_audience fields.
+        dict: Contains business_name, industry, key_customers, key_offer, brand_keywords, and niche_keywords fields.
               Returns None/empty values if extraction fails or AI is unavailable.
     """
     try:
@@ -324,8 +322,7 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
                 "key_customers": None,
                 "key_offer": None,
                 "brand_keywords": [],
-                "niche_keywords": [],
-                "voice_dna": {}
+                "niche_keywords": []
             }
             required = _build_required_sections(scraped_text, url, base)
             base["required_sections"] = required["sections"]
@@ -350,12 +347,6 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
 - voice_tone_and_style: Analyze the writing style (formal, playful, authoritative, etc.) and provide 2-3 sentences describing the brand voice guidelines (string).
 - content_goals: Infer 3-5 high-level content goals based on the site's calls to action (e.g., "Educate customers on X", "Drive sales for Y", "Build community") (array of strings).
 - sample_posts: Generate 3 solid, high-quality sample social media posts (caption only) that perfectly fit this brand's voice and industry. (array of strings).
-- voice_dna: Extract granular "Voice DNA" attributes from the content. This should be a JSON object with the following keys:
-  - voice_rhythm: Describe the sentence length and pacing (e.g., "short and punchy", "long and flowing", "mixed cadence") (string)
-  - emoji_style: Describe emoji usage patterns (e.g., "minimal", "heaps of ✨", "only at end", "scattered throughout", "none") (string)
-  - forbidden_words: List words or phrases this brand avoids (e.g., ["jargon", "corporate speak", "buzzwords"]) (array of strings)
-  - signature_signoffs: Common ways they end messages or posts (e.g., ["Cheers,", "Best,", "Stay awesome!"]) (array of strings)
-  - sentence_structure: Notable sentence patterns or structures (e.g., "starts with verbs", "uses questions", "declarative statements") (string)
 
 Website content:
 {text_sample}
@@ -387,8 +378,7 @@ Return only valid JSON, no markdown formatting, no explanations."""
             "niche_keywords": extracted_data.get("niche_keywords") or [],
             "voice_tone_and_style": extracted_data.get("voice_tone_and_style") or None,
             "content_goals_ai": extracted_data.get("content_goals") or [],
-            "sample_posts": extracted_data.get("sample_posts") or [],
-            "voice_dna": extracted_data.get("voice_dna") or {}
+            "sample_posts": extracted_data.get("sample_posts") or []
         }
 
         required = _build_required_sections(scraped_text, url, result)
@@ -408,8 +398,7 @@ Return only valid JSON, no markdown formatting, no explanations."""
             "key_customers": None,
             "key_offer": None,
             "brand_keywords": [],
-            "niche_keywords": [],
-            "voice_dna": {}
+            "niche_keywords": []
         }
         required = _build_required_sections(scraped_text, url, fallback)
         fallback["required_sections"] = required["sections"]
@@ -424,8 +413,7 @@ Return only valid JSON, no markdown formatting, no explanations."""
             "key_customers": None,
             "key_offer": None,
             "brand_keywords": [],
-            "niche_keywords": [],
-            "voice_dna": {}
+            "niche_keywords": []
         }
         required = _build_required_sections(scraped_text, url, fallback)
         fallback["required_sections"] = required["sections"]

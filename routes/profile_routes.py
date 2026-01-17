@@ -77,8 +77,7 @@ def api_profile():
                         'scraped_url': '',
                         'scraped_meta': {},
                         'scraped_at': None,
-                        'scrape_status': 'none',
-                        'voice_dna': {}
+                        'scrape_status': 'none'
                     }
                 }), 200
             
@@ -107,8 +106,7 @@ def api_profile():
                 'scraped_url': profile.scraped_url or '',
                 'scraped_meta': profile.get_scraped_meta(),
                 'scraped_at': profile.scraped_at.isoformat() if profile.scraped_at else None,
-                'scrape_status': profile.scrape_status or 'none',
-                'voice_dna': profile.get_voice_dna()
+                'scrape_status': profile.scrape_status or 'none'
             }
             
             return jsonify({
@@ -242,14 +240,6 @@ def api_profile():
             if 'scrape_status' in data:
                 profile.scrape_status = data['scrape_status']
             
-            if 'voice_dna' in data:
-                dna = data['voice_dna']
-                if isinstance(dna, dict):
-                    profile.set_voice_dna(dna)
-                elif isinstance(dna, str):
-                    # If sent as JSON string, store directly
-                    profile.voice_dna = dna
-            
             # Commit changes
             db.session.commit()
             
@@ -321,8 +311,7 @@ def api_profile_v2():
             'scraped_url': profile.scraped_url or '',
             'scraped_meta': profile.get_scraped_meta(),
             'scraped_at': profile.scraped_at.isoformat() if profile.scraped_at else None,
-            'scrape_status': profile.scrape_status or 'none',
-            'voice_dna': profile.get_voice_dna()
+            'scrape_status': profile.scrape_status or 'none'
         }
         
         return jsonify({
