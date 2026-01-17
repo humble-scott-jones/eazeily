@@ -89,6 +89,14 @@ class TestConversationRouter:
         
         params = router._extract_params_from_text('60 seconds explainer', 'script')
         assert params.get('video_length') == '60s'
+        
+        # Test that partial matches are avoided (e.g., '115s' should not match '15s')
+        params = router._extract_params_from_text('115s video', 'script')
+        assert params.get('video_length') is None
+        
+        # Test '15 seconds' with spacing
+        params = router._extract_params_from_text('15 seconds quick tip', 'script')
+        assert params.get('video_length') == '15s'
     
     def test_extract_params_topic(self, router):
         """Test extracting topic from text."""

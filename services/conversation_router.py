@@ -10,11 +10,23 @@ from typing import Optional, Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
+# Supported social media platforms with their recognized keywords
+SUPPORTED_PLATFORMS = {
+    'instagram': ['instagram', 'ig', 'insta'],
+    'facebook': ['facebook', 'fb'],
+    'linkedin': ['linkedin'],
+    'twitter': ['twitter', 'x', 'tweet'],
+    'tiktok': ['tiktok', 'tik tok'],
+}
+
 
 class ConversationRouter:
     """Routes user prompts to the correct generation flow."""
     
     # Map slash commands to task types (from task_registry.py)
+    # Note: This is intentionally defined here rather than derived from task_registry
+    # because it defines the conversational UX interface, not just task capabilities.
+    # Not all task types need slash commands, and commands can have aliases (/reel -> script).
     COMMAND_MAP = {
         '/post': 'post',
         '/caption': 'caption',
@@ -27,6 +39,9 @@ class ConversationRouter:
     }
     
     # Required fields per task type (from task_registry.py patterns)
+    # Note: This defines the conversational field collection flow, which is separate from
+    # task_registry's generation templates. These fields drive the interactive dialogue,
+    # including what questions to ask and in what order. Changes here affect UX flow.
     TASK_FIELDS = {
         'post': {
             'required': ['topic', 'platform'],
@@ -204,6 +219,9 @@ class ConversationRouter:
         business_name = getattr(profile, 'business_name', 'Unknown Business')
         industry = getattr(profile, 'industry', 'Unknown Industry')
         
+        # Build platform list from supported platforms
+        platform_list = '|'.join(sorted(SUPPORTED_PLATFORMS.keys()))
+        
         prompt = f"""Analyze this user request for content creation:
 
 User: "{user_input}"
@@ -214,7 +232,7 @@ Extract and return as JSON:
 {{
     "task_type": "post|caption|script|email|review|ad|blog|unknown",
     "topic": "the main subject/topic if mentioned",
-    "platform": "instagram|facebook|linkedin|twitter|tiktok|null",
+    "platform": "{platform_list}|null",
     "video_length": "15s|30s|60s|90s|null",
     "other_params": {{}}
 }}
@@ -271,33 +289,30 @@ Rules:
         params = {}
         text_lower = text.lower()
         
-        # Extract platform
-        platform_patterns = {
-            'instagram': ['instagram', 'ig', 'insta'],
-            'facebook': ['facebook', 'fb'],
-            'linkedin': ['linkedin'],
-            'twitter': ['twitter', 'x', 'tweet'],
-            'tiktok': ['tiktok', 'tik tok'],
-        }
-        
-        for platform, keywords in platform_patterns.items():
+        # Extract platform using shared constant
+        for platform, keywords in SUPPORTED_PLATFORMS.items():
             if any(kw in text_lower for kw in keywords):
                 params['platform'] = platform
                 break
         
         # Extract video length (for scripts)
         if task_type == 'script':
-            length_patterns = ['15s', '30s', '60s', '90s', '15 seconds', '30 seconds', '60 seconds', '90 seconds']
-            for pattern in length_patterns:
-                if pattern in text_lower:
-                    # Normalize to short form
-                    params['video_length'] = pattern.split()[0] + 's' if ' ' in pattern else pattern
+            # Use regex with word boundaries to avoid partial matches (e.g., '115s' matching '15s')
+            length_regex_patterns = [
+                (r'\b15\s*s(?:econds?)?\b', '15s'),
+                (r'\b30\s*s(?:econds?)?\b', '30s'),
+                (r'\b60\s*s(?:econds?)?\b', '60s'),
+                (r'\b90\s*s(?:econds?)?\b', '90s'),
+            ]
+            for pattern, normalized in length_regex_patterns:
+                if re.search(pattern, text_lower):
+                    params['video_length'] = normalized
                     break
         
         # Extract topic (what remains after removing command words)
         # Remove platform names and command-related words
         topic_text = text
-        for words in platform_patterns.values():
+        for words in SUPPORTED_PLATFORMS.values():
             for word in words:
                 topic_text = re.sub(r'\b' + re.escape(word) + r'\b', '', topic_text, flags=re.IGNORECASE)
         
