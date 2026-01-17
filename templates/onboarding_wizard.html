@@ -34,37 +34,75 @@
     <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
         <form id="onboardingForm" method="POST" action="/onboarding" class="space-y-6">
             
-            <!-- Step 1: URL Scraper (Front and Center) -->
+            <!-- Step 1: URL Scraper OR PromptBox (Front and Center) -->
             <div id="step1" class="wizard-step">
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-2">🚀 Start with what you already have</h2>
-                <p class="text-gray-600 mb-6">Share any existing content and we'll auto-fill your profile to save you time</p>
+                <p class="text-gray-600 mb-6">Choose how you'd like to set up your profile</p>
 
-                <div class="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
-                    <div class="flex items-start space-x-3">
-                        <span class="text-3xl">✨</span>
-                        <div class="flex-1">
-                            <h3 class="font-bold text-blue-900 mb-2">Let AI do the heavy lifting</h3>
-                            <p class="text-sm text-blue-900 mb-3">Paste a link to any of these and we'll extract your brand voice, messaging, and writing style:</p>
-                            <ul class="text-sm text-blue-800 space-y-1 ml-5 list-disc">
-                                <li><strong>Website</strong> - Your company site or landing page</li>
-                                <li><strong>Social Media</strong> - Instagram, Facebook, LinkedIn profiles</li>
-                                <li><strong>Booking Pages</strong> - Airbnb, VRBO, OpenTable listings</li>
-                                <li><strong>Previous Work</strong> - Proposals, ads, marketing materials (if public)</li>
-                                <li><strong>Portfolio Sites</strong> - Behance, Dribbble, personal portfolio</li>
-                            </ul>
-                        </div>
-                    </div>
+                <!-- Tab Selector -->
+                <div class="flex gap-4 mb-6 border-b border-gray-200">
+                    <button 
+                        type="button" 
+                        id="tab-chat"
+                        class="tab-btn px-4 py-2 font-medium text-purple-600 border-b-2 border-purple-600"
+                        onclick="switchOnboardingTab('chat')"
+                    >
+                        💬 Chat with AI
+                    </button>
+                    <button 
+                        type="button" 
+                        id="tab-url"
+                        class="tab-btn px-4 py-2 font-medium text-gray-500 hover:text-gray-700"
+                        onclick="switchOnboardingTab('url')"
+                    >
+                        🔗 Paste URL
+                    </button>
                 </div>
 
-                <div class="space-y-5">
-                    <div>
-                        <label for="website_url" class="block text-base font-bold text-gray-900 mb-2">
-                            📎 Paste your link here
-                        </label>
-                        <input type="url" id="website_url"
-                               placeholder="https://yourbusiness.com"
-                               class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-4 text-lg">
-                        <p class="mt-2 text-sm text-gray-500">Examples: yoursite.com, instagram.com/yourbrand, airbnb.com/rooms/12345</p>
+                <!-- Chat Tab -->
+                <div id="onboarding-chat-tab" class="tab-content">
+                    <div class="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-6 mb-6">
+                        <div class="flex items-start space-x-3">
+                            <span class="text-3xl">🤖</span>
+                            <div class="flex-1">
+                                <h3 class="font-bold text-purple-900 mb-2">Let's chat!</h3>
+                                <p class="text-sm text-purple-900">Tell me about your business in your own words, and I'll help build your brand profile.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- PromptBox Container -->
+                    <div id="onboarding-promptbox" style="height: 400px;"></div>
+                </div>
+
+                <!-- URL Tab -->
+                <div id="onboarding-url-tab" class="tab-content hidden">
+                    <div class="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-6 mb-6">
+                        <div class="flex items-start space-x-3">
+                            <span class="text-3xl">✨</span>
+                            <div class="flex-1">
+                                <h3 class="font-bold text-blue-900 mb-2">Let AI do the heavy lifting</h3>
+                                <p class="text-sm text-blue-900 mb-3">Paste a link to any of these and we'll extract your brand voice, messaging, and writing style:</p>
+                                <ul class="text-sm text-blue-800 space-y-1 ml-5 list-disc">
+                                    <li><strong>Website</strong> - Your company site or landing page</li>
+                                    <li><strong>Social Media</strong> - Instagram, Facebook, LinkedIn profiles</li>
+                                    <li><strong>Booking Pages</strong> - Airbnb, VRBO, OpenTable listings</li>
+                                    <li><strong>Previous Work</strong> - Proposals, ads, marketing materials (if public)</li>
+                                    <li><strong>Portfolio Sites</strong> - Behance, Dribbble, personal portfolio</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-5">
+                        <div>
+                            <label for="website_url" class="block text-base font-bold text-gray-900 mb-2">
+                                📎 Paste your link here
+                            </label>
+                            <input type="url" id="website_url"
+                                   placeholder="https://yourbusiness.com"
+                                   class="block w-full rounded-lg border-2 border-gray-300 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 px-4 py-4 text-lg">
+                            <p class="mt-2 text-sm text-gray-500">Examples: yoursite.com, instagram.com/yourbrand, airbnb.com/rooms/12345</p>
                         
                         <div class="mt-3 flex items-start space-x-2">
                             <input type="checkbox" id="website_consent" checked class="h-6 w-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0 mt-0.5">
@@ -96,7 +134,9 @@
                             Skip - I'll enter everything manually →
                         </button>
                     </div>
+                    </div>
                 </div>
+                <!-- End URL Tab -->
             </div>
 
             <!-- Step 2: Review & Edit Pre-filled Profile -->
@@ -671,5 +711,69 @@ function showSuccessToast(message) {
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
+
+// Tab Switching for Onboarding
+function switchOnboardingTab(tab) {
+    const chatTab = document.getElementById('onboarding-chat-tab');
+    const urlTab = document.getElementById('onboarding-url-tab');
+    const chatBtn = document.getElementById('tab-chat');
+    const urlBtn = document.getElementById('tab-url');
+    
+    if (tab === 'chat') {
+        chatTab.classList.remove('hidden');
+        urlTab.classList.add('hidden');
+        chatBtn.classList.add('text-purple-600', 'border-b-2', 'border-purple-600');
+        chatBtn.classList.remove('text-gray-500');
+        urlBtn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
+        urlBtn.classList.add('text-gray-500');
+    } else {
+        chatTab.classList.add('hidden');
+        urlTab.classList.remove('hidden');
+        urlBtn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+        urlBtn.classList.remove('text-gray-500');
+        chatBtn.classList.remove('text-purple-600', 'border-b-2', 'border-purple-600');
+        chatBtn.classList.add('text-gray-500');
+    }
+}
+
+// PromptBox Integration for Onboarding
+let onboardingPromptBox = null;
+
+function initOnboardingPromptBox() {
+    if (onboardingPromptBox) {
+        onboardingPromptBox.destroy();
+    }
+    
+    onboardingPromptBox = new PromptBox('onboarding-promptbox', {
+        context: 'onboarding',
+        placeholder: "Drop your website URL and I'll help build your brand profile",
+        onSend: async (message, promptBox) => {
+            // Custom handler for onboarding
+            await handleOnboardingMessage(message, promptBox);
+        }
+    });
+}
+
+async function handleOnboardingMessage(message, promptBox) {
+    // Use the default API handler
+    try {
+        await promptBox.sendToAPI(message);
+    } catch (error) {
+        console.error('Error handling onboarding message:', error);
+        promptBox.addMessage('assistant', 'Sorry, I encountered an error. Please try again.', true);
+    }
+}
+
+// Initialize PromptBox when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initOnboardingPromptBox);
+} else {
+    initOnboardingPromptBox();
+}
 </script>
+
+<!-- PromptBox Styles and Script -->
+<link rel="stylesheet" href="/static/css/promptbox.css">
+<script src="/static/js/promptbox.js"></script>
+
 {% endblock %}

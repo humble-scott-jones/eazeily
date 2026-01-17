@@ -15,8 +15,34 @@
         </div>
     </div>
 
-    <!-- Main Creation Card -->
+    <!-- PromptBox - Conversational UI -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="p-8">
+            <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                </span>
+                AI Chat - What do you want to create today?
+            </h2>
+            
+            <!-- PromptBox Container -->
+            <div id="dashboard-promptbox" style="height: 500px;"></div>
+            
+            <!-- Toggle to show classic form -->
+            <div class="mt-4 text-center">
+                <button 
+                    type="button" 
+                    onclick="toggleCreationMode()"
+                    class="text-sm text-indigo-600 hover:text-indigo-800 underline"
+                >
+                    Or use the classic form instead
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Creation Card (Classic Form - Hidden by default) -->
+    <div id="classic-form-card" class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hidden">
         <div class="p-8">
             <h2 class="text-xl font-semibold mb-6 flex items-center gap-2">
                 <span class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
@@ -24,6 +50,17 @@
                 </span>
                 Create New Content
             </h2>
+            
+            <!-- Toggle back to chat -->
+            <div class="mb-4 text-center">
+                <button 
+                    type="button" 
+                    onclick="toggleCreationMode()"
+                    class="text-sm text-purple-600 hover:text-purple-800 underline"
+                >
+                    ← Back to AI Chat
+                </button>
+            </div>
             
             <!-- Task Selector -->
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -1240,5 +1277,61 @@
         if (preview) preview.classList.add('hidden');
         if (previewImg) previewImg.src = '';
     }
+
+    // PromptBox Integration
+    let dashboardPromptBox = null;
+    
+    function initPromptBox() {
+        if (dashboardPromptBox) {
+            dashboardPromptBox.destroy();
+        }
+        
+        dashboardPromptBox = new PromptBox('dashboard-promptbox', {
+            context: 'dashboard',
+            placeholder: 'What do you want to create today?',
+            onSend: async (message, promptBox) => {
+                // Custom handler to integrate with existing dashboard logic
+                await handlePromptBoxMessage(message, promptBox);
+            }
+        });
+    }
+    
+    async function handlePromptBoxMessage(message, promptBox) {
+        // For now, use the default API handler
+        // This can be customized later to integrate with existing form submission logic
+        try {
+            await promptBox.sendToAPI(message);
+        } catch (error) {
+            console.error('Error handling message:', error);
+            promptBox.addMessage('assistant', 'Sorry, I encountered an error. Please try again.', true);
+        }
+    }
+    
+    function toggleCreationMode() {
+        const promptBoxCard = document.querySelector('#dashboard-promptbox').closest('.bg-white');
+        const classicFormCard = document.getElementById('classic-form-card');
+        
+        if (promptBoxCard.classList.contains('hidden')) {
+            // Show chat, hide form
+            promptBoxCard.classList.remove('hidden');
+            classicFormCard.classList.add('hidden');
+        } else {
+            // Show form, hide chat
+            promptBoxCard.classList.add('hidden');
+            classicFormCard.classList.remove('hidden');
+        }
+    }
+    
+    // Initialize PromptBox when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initPromptBox);
+    } else {
+        initPromptBox();
+    }
 </script>
+
+<!-- PromptBox Styles and Script -->
+<link rel="stylesheet" href="/static/css/promptbox.css">
+<script src="/static/js/promptbox.js"></script>
+
 {% endblock %}
