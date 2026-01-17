@@ -231,37 +231,84 @@ def _handle_onboarding_chat(message: str, history: list, profile: VoiceProfile, 
         )
 
 
-def _generate_content(profile: VoiceProfile, task_type: str, collected: dict) -> str:
-    """Generate content using VoiceEngine with collected task parameters.
+def _normalize_field_value(field_name: str, value: str) -> str:
+    """Normalize conversational field values.
     
     Args:
-        profile: User's voice profile
-        task_type: Type of content to generate
-        collected: Dictionary of collected fields for the task
+        field_name: Name of the field being normalized
+        value: Raw user input value
         
     Returns:
-        Generated content string
-        
-    Raises:
-        Exception: If content generation fails
+        Normalized value string
     """
-    topic = collected.get('topic', '')
-    platform = collected.get('platform', 'LinkedIn')
+    value = value.strip()
     
-    # Remove fields that are explicit parameters from collected dict to avoid duplicates
-    extra_context = {k: v for k, v in collected.items() if k not in ['topic', 'platform']}
+    if field_name == 'platform':
+        platform_map = {
+            'ig': 'instagram', 'insta': 'instagram',
+            'fb': 'facebook',
+            'x': 'twitter', 'tweet': 'twitter',
+            'li': 'linkedin',
+            'tt': 'tiktok',
+        }
+        value_lower = value.lower()
+        for alias, canonical in platform_map.items():
+            if alias in value_lower or canonical in value_lower:
+                return canonical
+        return value_lower
     
-    return voice_engine.generate_expert_content(
-        user_profile=profile,
-        topic=topic,
-        task_type=task_type,
-        platform=platform,
-        **extra_context
-    )
+    if field_name == 'video_length':
+        import re
+        match = re.search(r'(\d+)', value)
+        if match:
+            seconds = int(match.group(1))
+            if seconds in [15, 30, 60, 90]:
+                return f"{seconds}s"
+        return '30s'
+    
+    return value
 
 
-def _continue_task_flow(pending_task: dict, message: str, profile: VoiceProfile) -> dict:
-    """Continue an in-progress task flow by collecting the next required field.
+def _format_generated_content(task_type: str, content: str) -> str:
+    """Format generated content for chat display.
+    
+    Args:
+        task_type: Type of content generated
+        content: Raw generated content
+        
+    Returns:
+        Formatted content string with emoji and instructions
+    """
+    emoji_map = {
+        'post': '📝',
+        'caption': '📸',
+        'script': '🎬',
+        'email': '✉️',
+        'review': '⭐',
+        'ad': '📢',
+        'blog': '📰',
+    }
+    emoji = emoji_map.get(task_type, '✨')
+    
+    return f"{emoji} **Your {task_type} is ready!**\n\n{content}\n\n---\n_Copy this content or say 'regenerate' for a new version._"
+
+
+def _get_content_suggestions() -> list:
+    """Get contextual suggestions for content creation.
+    
+    Returns:
+        List of suggestion strings
+    """
+    return [
+        'Try /post for social media',
+        'Try /email for newsletters',
+        'Try /script for video content',
+        'Try /review for review responses'
+    ]
+
+
+def _continue_content_task(pending_task: dict, message: str, profile: VoiceProfile) -> dict:
+    """Continue collecting fields for content generation.
     
     Args:
         pending_task: Current task state with task_type and collected fields
@@ -271,60 +318,94 @@ def _continue_task_flow(pending_task: dict, message: str, profile: VoiceProfile)
     Returns:
         Response dict with next prompt or generation result
     """
+    from services.conversation_router import ConversationRouter
+    router = ConversationRouter()
+    
     task_type = pending_task.get('task_type', 'post')
     collected = pending_task.get('collected', {})
     
-    # Define required fields per task type
-    required_fields = {
-        'post': ['platform', 'topic'],
-        'caption': ['platform', 'topic'],
-        'reel': ['topic', 'style'],
-        'email': ['subject', 'goal'],
-        'ad': ['platform', 'objective', 'target_audience'],
-    }
+    # Get missing fields to know what we were asking for
+    missing_before = router.get_missing_fields(task_type, collected)
     
-    fields_needed = required_fields.get(task_type, ['topic', 'platform'])
+    if missing_before:
+        # Store the response for the first missing field
+        field_name = missing_before[0]
+        collected[field_name] = _normalize_field_value(field_name, message)
     
-    # Try to extract the next missing field from the message
-    missing = [f for f in fields_needed if f not in collected]
+    # Check if still missing fields
+    missing_after = router.get_missing_fields(task_type, collected)
     
-    if missing:
-        # Store the user's message as the first missing field's value
-        next_field = missing[0]
-        collected[next_field] = message
+    if missing_after:
+        next_prompt = router.get_next_prompt(task_type, missing_after)
+        return _build_response(
+            next_prompt,
+            action='continue',
+            pending_task={'task_type': task_type, 'collected': collected, 'flow': 'content'}
+        )
+    
+    # All fields collected - generate!
+    return _generate_content_response(task_type, collected, profile)
+
+
+def _generate_content_response(task_type: str, params: dict, profile: VoiceProfile) -> dict:
+    """Generate content using VoiceEngine and return formatted response.
+    
+    Args:
+        task_type: Type of content to generate
+        params: Dictionary of collected parameters
+        profile: User's voice profile
         
-        # Check if we still need more fields
-        still_missing = [f for f in fields_needed if f not in collected]
-        
-        if still_missing:
-            # Ask for the next field
-            next_prompt = _get_field_prompt(still_missing[0], task_type)
-            return _build_response(
-                next_prompt,
-                action='continue',
-                pending_task={
-                    'task_type': task_type,
-                    'collected': collected
-                }
-            )
-    
-    # All fields collected - generate content
+    Returns:
+        Response dict with generated content
+    """
     try:
-        content = _generate_content(profile, task_type, collected)
+        topic = params.get('topic', '')
+        platform = params.get('platform', 'instagram')
+        
+        # Remove fields that are explicit parameters from params dict to avoid duplicates
+        extra_context = {k: v for k, v in params.items() if k not in ['topic', 'platform']}
+        
+        content = voice_engine.generate_expert_content(
+            user_profile=profile,
+            topic=topic,
+            task_type=task_type,
+            platform=platform,
+            **extra_context
+        )
+        
+        formatted = _format_generated_content(task_type, content)
         
         return _build_response(
-            f"Here's your {task_type} for {collected.get('platform', 'your platform')}:",
+            formatted,
             action='generated',
             content=content,
-            pending_task=None
+            pending_task=None,
+            suggestions=['Create another', 'Try /post', 'Try /email']
         )
     except Exception as e:
         logger.error(f"Content generation failed: {e}", exc_info=True)
         return _build_response(
-            "I encountered an error generating your content. Please try again.",
-            action='error',
-            pending_task=None
+            f"Sorry, I couldn't generate that. Please try again.",
+            action='error'
         )
+
+
+def _continue_task_flow(pending_task: dict, message: str, profile: VoiceProfile) -> dict:
+    """Continue an in-progress task flow by collecting the next required field.
+    
+    This function is kept for backwards compatibility but now delegates to
+    _continue_content_task for the updated implementation.
+    
+    Args:
+        pending_task: Current task state with task_type and collected fields
+        message: User's latest input message
+        profile: User's voice profile
+        
+    Returns:
+        Response dict with next prompt or generation result
+    """
+    # Delegate to the new implementation
+    return _continue_content_task(pending_task, message, profile)
 
 
 def _get_field_prompt(field: str, task_type: str) -> str:
@@ -434,7 +515,8 @@ def chat():
         "history": [{"role": "user"|"assistant", "message": "..."}],
         "pending_task": {
             "task_type": "post"|"caption"|etc,
-            "collected": {"platform": "instagram", ...}
+            "collected": {"platform": "instagram", ...},
+            "flow": "content"|"onboarding"
         } | null
     }
     
@@ -481,6 +563,21 @@ def chat():
         # Check if profile is ready for content generation
         profile_ready, missing_fields = _check_profile_ready(profile)
         
+        # Handle pending task based on flow type
+        if pending_task:
+            flow = pending_task.get('flow', 'onboarding')
+            logger.info(f"[{request_id}] Continuing {flow} flow for task: {pending_task.get('task_type')}")
+            
+            if flow == 'content':
+                # Continue content generation flow
+                result = _continue_content_task(pending_task, message, profile)
+                return jsonify(result), 200
+            else:
+                # Continue onboarding flow
+                result = _handle_onboarding_chat(message, history, profile, pending_task)
+                return jsonify(result), 200
+        
+        # Route based on profile completeness
         if not profile_ready:
             # Route to onboarding flow
             logger.info(f"[{request_id}] User {current_user.id} needs onboarding - missing: {missing_fields}")
@@ -504,7 +601,7 @@ def chat():
             result = _handle_onboarding_chat(message, history, profile, pending_task)
             return jsonify(result), 200
         
-        # Check API key configuration (only if we have a complete profile)
+        # Profile complete - check API key configuration
         api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
             logger.warning(f"[{request_id}] Missing API key")
@@ -513,58 +610,59 @@ def chat():
                 action='error'
             )), 503
         
-        # Handle pending task continuation
-        if pending_task:
-            logger.info(f"[{request_id}] Continuing task: {pending_task.get('task_type')}")
-            result = _continue_task_flow(pending_task, message, profile)
-            return jsonify(result), 200
+        # Check for regeneration request
+        message_lower = message.lower().strip()
+        if message_lower in ['regenerate', 'try again', 'new version', 'another']:
+            # Check history for last generated content
+            if history:
+                for msg in reversed(history):
+                    if msg.get('pending_task') and msg['pending_task'].get('flow') == 'content':
+                        last_task = msg['pending_task']
+                        logger.info(f"[{request_id}] Regenerating content for task: {last_task.get('task_type')}")
+                        return jsonify(_generate_content_response(
+                            last_task['task_type'], 
+                            last_task.get('collected', {}), 
+                            profile
+                        )), 200
+            return jsonify(_build_response(
+                "What would you like me to create?",
+                action='continue',
+                suggestions=_get_content_suggestions()
+            )), 200
         
-        # Parse new intent from message
-        task_type, initial_collected = _parse_intent(message, history)
-        logger.info(f"[{request_id}] Parsed intent: task_type={task_type}, collected={initial_collected}")
+        # Parse new intent using ConversationRouter
+        from services.conversation_router import ConversationRouter
+        router = ConversationRouter()
         
-        # Define required fields for this task type
-        required_fields = {
-            'post': ['platform', 'topic'],
-            'caption': ['platform', 'topic'],
-            'reel': ['topic', 'style'],
-            'email': ['subject', 'goal'],
-            'ad': ['platform', 'objective', 'target_audience'],
-        }
+        intent_result = router.parse_intent(message, profile)
+        logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
         
-        fields_needed = required_fields.get(task_type, ['topic', 'platform'])
-        missing_fields = [f for f in fields_needed if f not in initial_collected]
+        if intent_result['intent'] == 'unknown':
+            return jsonify(_build_response(
+                intent_result['follow_up_question'],
+                action='continue',
+                suggestions=_get_content_suggestions()
+            )), 200
         
-        if not missing_fields:
-            # We have everything we need - generate immediately
-            try:
-                content = _generate_content(profile, task_type, initial_collected)
-                
-                return jsonify(_build_response(
-                    f"Here's your {task_type} for {initial_collected.get('platform', 'your platform')}:",
-                    action='generated',
-                    content=content,
-                    pending_task=None
-                )), 200
-            except Exception as e:
-                logger.error(f"[{request_id}] Content generation failed: {e}", exc_info=True)
-                return jsonify(_build_response(
-                    "I encountered an error generating your content. Please try again.",
-                    action='error',
-                    pending_task=None
-                )), 500
+        if intent_result['follow_up_needed']:
+            return jsonify(_build_response(
+                intent_result['follow_up_question'],
+                action='continue',
+                pending_task={
+                    'task_type': intent_result['task_type'],
+                    'collected': intent_result['extracted_params'],
+                    'flow': 'content'  # Distinguish from onboarding flow
+                }
+            )), 200
         
-        # Ask for the first missing field
-        next_prompt = _get_field_prompt(missing_fields[0], task_type)
-        
-        return jsonify(_build_response(
-            f"I'll help you create a {task_type}. {next_prompt}",
-            action='continue',
-            pending_task={
-                'task_type': task_type,
-                'collected': initial_collected
-            }
-        )), 200
+        # Ready to generate - all required fields collected
+        logger.info(f"[{request_id}] Generating content immediately for task: {intent_result['task_type']}")
+        result = _generate_content_response(
+            intent_result['task_type'], 
+            intent_result['extracted_params'], 
+            profile
+        )
+        return jsonify(result), 200
         
     except Exception as e:
         logger.error(f"[{request_id}] Unexpected error: {e}", exc_info=True)
