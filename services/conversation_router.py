@@ -328,9 +328,6 @@ class ConversationRouter:
         platform_list = '|'.join(sorted(SUPPORTED_PLATFORMS.keys()))
         
         # Build task type list from COMMAND_MAP to ensure consistency
-        content_task_types = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'custom']
-        profile_task_types = ['profile', 'profile_update', 'update_voice', 'update_audience']
-        all_task_types = content_task_types + profile_task_types
         task_types = '|'.join(sorted(set(self.COMMAND_MAP.values()).union({'unknown'})))
         
         prompt = f"""Analyze this user request:

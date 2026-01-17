@@ -472,7 +472,9 @@ def _apply_profile_update(profile: VoiceProfile, field_name: str, new_value: str
         old_samples = profile.get_writing_samples()
         old_value = f"{len(old_samples)} samples" if old_samples else "No samples"
     else:
-        old_value = getattr(profile, field_name, None) or "Not set"
+        old_value = getattr(profile, field_name, "Not set")
+        if old_value is None:
+            old_value = "Not set"
     
     # Apply the update
     if field_name == 'writing_samples':
@@ -578,10 +580,15 @@ def _continue_profile_update(pending_task: dict, message: str, profile: VoicePro
                 }
             )
         else:
+            # Reset pending task to avoid infinite loop
             return _build_response(
                 f"I don't recognize that field. Please choose from: business_name, industry, target_audience, brand_voice, key_offer, or writing_samples",
                 action='continue',
-                pending_task=pending_task
+                pending_task={
+                    'flow': 'profile_update',
+                    'task_type': 'profile_update',
+                    'field_name': None  # Reset to ask again
+                }
             )
     else:
         # User provided new value
