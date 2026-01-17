@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 # Preferred models in order of priority
 PREFERRED_MODELS = [
+    'gemini-2.0-flash',
+    'gemini-2.5-flash',
     'gemini-1.5-flash',
     'gemini-1.5-flash-001',
     'gemini-1.5-pro',
@@ -46,7 +48,7 @@ def get_best_available_model():
     client = _get_client()
     if client is None:
         logger.error("No API key configured for AI service or genai client unavailable.")
-        return 'gemini-1.5-flash'  # Default expectation
+        return 'gemini-2.0-flash'  # Default expectation
 
     try:
         available_models = []
@@ -77,11 +79,11 @@ def get_best_available_model():
                 logger.warning(f"Preferred models not found. Falling back to: {m}")
                 return m
 
+
     except Exception as e:
-        logger.error(f"Failed to list models: {e}. Defaulting to gemini-1.5-flash")
-
-    return 'gemini-1.5-flash'
-
+        logger.error(f"Failed to list models: {e}. Defaulting to gemini-2.0-flash")
+    
+    return 'gemini-2.0-flash'
 
 def get_generative_model(model_name=None, system_instruction=None):
     """Factory returning an object with generate_content compatible interface."""

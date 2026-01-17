@@ -18,7 +18,7 @@ except ImportError:
     genai = None
 
 # Constants
-DEFAULT_MODEL = 'gemini-1.5-flash'
+DEFAULT_MODEL = 'gemini-2.0-flash'
 DEFAULT_TIMEOUT = 30
 MAX_RETRIES = 2
 RETRY_DELAY = 1.0

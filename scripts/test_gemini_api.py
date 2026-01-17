@@ -81,7 +81,7 @@ def test_api_connection():
         print("Sending test prompt to Gemini API...")
         prompt = "Say 'Hello from Gemini!' in one sentence."
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=prompt,
         )
         
@@ -132,7 +132,7 @@ Focus on adjectives that describe the tone (e.g., professional, friendly, author
         
         print(f"Testing voice helper for: {business_name} ({industry})")
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=prompt,
         )
         

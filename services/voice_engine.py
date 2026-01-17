@@ -52,7 +52,7 @@ class VoiceEngine:
                             self._client = client_ref
                         def generate_content(self, contents):
                             return self._client.models.generate_content(
-                                model="gemini-1.5-flash", contents=contents
+                                model="gemini-2.0-flash", contents=contents
                             )
                     return _ModelAdapter(client)
             except Exception:  # pragma: no cover
