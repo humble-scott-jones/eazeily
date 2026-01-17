@@ -222,6 +222,9 @@ class ConversationRouter:
         # Build platform list from supported platforms
         platform_list = '|'.join(sorted(SUPPORTED_PLATFORMS.keys()))
         
+        # Build task type list from COMMAND_MAP to ensure consistency
+        task_types = '|'.join(sorted(set(self.COMMAND_MAP.values()))) + '|unknown'
+        
         prompt = f"""Analyze this user request for content creation:
 
 User: "{user_input}"
@@ -230,7 +233,7 @@ Business context: {business_name}, {industry}
 
 Extract and return as JSON:
 {{
-    "task_type": "post|caption|script|email|review|ad|blog|unknown",
+    "task_type": "{task_types}",
     "topic": "the main subject/topic if mentioned",
     "platform": "{platform_list}|null",
     "video_length": "15s|30s|60s|90s|null",
@@ -238,7 +241,7 @@ Extract and return as JSON:
 }}
 
 Rules:
-- task_type must be one of: post, caption, script, email, review, ad, blog, or unknown
+- task_type must be one of: {', '.join(sorted(set(self.COMMAND_MAP.values()).union({'unknown'})))}
 - Set platform to null if not mentioned
 - Set video_length to null if not mentioned (only for script/video requests)
 - Include any other relevant parameters in other_params
