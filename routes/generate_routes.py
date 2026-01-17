@@ -411,3 +411,97 @@ def generate():
 def generate_task(task_type):
     data = request.get_json(silent=True) or {}
     return _handle_generate(task_type, data)
+
+
+@generate_bp.route('/api/chat', methods=['POST'])
+@login_required
+def chat():
+    """Handle conversational chat requests from PromptBox component.
+    
+    Accepts:
+    - message: User's message
+    - history: Conversation history array
+    - pending_task: Any pending task state
+    - context: 'dashboard' or 'onboarding'
+    
+    Returns mock responses for now (as per spec - actual AI integration in parallel task)
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        message = data.get('message', '').strip()
+        history = data.get('history', [])
+        pending_task = data.get('pending_task')
+        context = data.get('context', 'dashboard')
+        
+        if not message:
+            return jsonify({
+                'status': 'error',
+                'error': 'Message is required'
+            }), 400
+        
+        # Mock responses based on context and message patterns
+        response_message = _generate_mock_chat_response(message, context, pending_task)
+        
+        # Build response
+        response = {
+            'status': 'success',
+            'message': response_message,
+            'pending_task': pending_task  # Return updated task if modified
+        }
+        
+        # Add redirect for onboarding completion
+        if context == 'onboarding' and 'profile created' in response_message.lower():
+            response['redirect'] = '/dashboard'
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"Chat endpoint error: {str(e)}", exc_info=True)
+        return jsonify({
+            'status': 'error',
+            'error': 'An error occurred processing your request'
+        }), 500
+
+
+def _generate_mock_chat_response(message, context, pending_task):
+    """Generate mock AI responses for chat.
+    
+    This is a placeholder - actual AI integration will be built in parallel task.
+    """
+    message_lower = message.lower()
+    
+    if context == 'onboarding':
+        # Onboarding flow mock responses
+        if 'http' in message_lower or 'www.' in message_lower:
+            return "Great! I found your website. Let me analyze your brand...\n\n**What I discovered:**\n- Industry: Technology\n- Tone: Professional and approachable\n- Key themes: Innovation, reliability, customer success\n\nDoes this look right?"
+        elif any(word in message_lower for word in ['yes', 'correct', 'looks good']):
+            return "Perfect! Your brand profile has been created. Redirecting to your dashboard..."
+        else:
+            return f"I understand you want to tell me about: *{message}*\n\nThat's helpful! Can you also share your website URL so I can learn more about your brand?"
+    
+    else:
+        # Dashboard flow mock responses
+        if message.startswith('/'):
+            # Slash command handling
+            command = message.split()[0][1:].lower()
+            
+            commands = {
+                'post': 'I'll help you create a social media post. What topic or message do you want to share?',
+                'caption': 'Let's create a caption for your image. Describe the image or paste a URL.',
+                'reel': 'Great! I'll script a short video for you. What's the video about?',
+                'email': 'I'll draft an email for you. Who is it for and what's the main message?',
+                'review': 'I can help respond to customer reviews. Paste the review you want to respond to.',
+                'blog': 'Let's write a blog post! What's your topic or title?',
+                'ad': 'I'll create ad copy for you. What product/service are you advertising?',
+                'proposal': 'I'll help draft a business proposal. What's the project or opportunity?'
+            }
+            
+            response = commands.get(command, f"I don't recognize the command `/{command}`. Try `/post`, `/email`, or `/reel`.")
+            return response
+        
+        else:
+            # General conversation
+            if any(word in message_lower for word in ['help', 'what can', 'how do']):
+                return "I can help you create:\n- **/post** - Social media posts\n- **/caption** - Image captions\n- **/reel** - Video scripts\n- **/email** - Emails and newsletters\n- **/review** - Review responses\n- **/blog** - Blog posts\n\nJust type a slash command or describe what you need!"
+            else:
+                return f"I understand you want to work on: **{message}**\n\nTo get started quickly, try one of these commands:\n- `/post` for social posts\n- `/email` for emails\n- `/reel` for video scripts\n\nOr keep chatting and I'll help you refine your idea!"
