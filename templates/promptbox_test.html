@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptBox Test - Eazeily</title>
+    <link rel="stylesheet" href="/static/css/promptbox.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #F3F4F6;
+            padding: 20px;
+        }
+        
+        .test-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #111827;
+            margin-bottom: 10px;
+            font-size: 24px;
+        }
+        
+        .test-info {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-info h2 {
+            font-size: 16px;
+            color: #6366F1;
+            margin-bottom: 8px;
+        }
+        
+        .test-info ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .test-info li {
+            padding: 4px 0;
+            color: #6B7280;
+            font-size: 14px;
+        }
+        
+        .test-info li:before {
+            content: "✓ ";
+            color: #10B981;
+            font-weight: bold;
+        }
+        
+        #promptbox-test {
+            height: 600px;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .controls {
+            margin-top: 20px;
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .controls button {
+            background: #6366F1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .controls button:hover {
+            background: #4F46E5;
+        }
+        
+        @media (max-width: 640px) {
+            body {
+                padding: 10px;
+            }
+            
+            #promptbox-test {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🚀 PromptBox Component Test</h1>
+        
+        <div class="test-info">
+            <h2>Features to Test:</h2>
+            <ul>
+                <li>Type "/" to trigger slash command autocomplete</li>
+                <li>Use arrow keys (↑/↓) to navigate autocomplete</li>
+                <li>Press Enter or Tab to select a command</li>
+                <li>Press Escape to dismiss autocomplete</li>
+                <li>Click suggestions pills to auto-fill input</li>
+                <li>Auto-resize textarea (min 1 line, max 4 lines)</li>
+                <li>Smooth scroll to bottom on new messages</li>
+                <li>Copy button on generated content</li>
+                <li>Mobile-friendly touch targets (44px minimum)</li>
+                <li>Dark mode support (system preference)</li>
+            </ul>
+        </div>
+        
+        <div id="promptbox-test"></div>
+        
+        <div class="controls">
+            <button onclick="testAutocomplete()">Test "/" Autocomplete</button>
+            <button onclick="testGeneratedContent()">Add Generated Content</button>
+            <button onclick="testError()">Test Error State</button>
+            <button onclick="testSuggestions()">Cycle Suggestions</button>
+            <button onclick="clearMessages()">Clear Messages</button>
+        </div>
+    </div>
+    
+    <script src="/static/js/promptbox.js"></script>
+    <script>
+        let promptBox;
+        
+        // Initialize PromptBox
+        document.addEventListener('DOMContentLoaded', function() {
+            promptBox = new PromptBox('promptbox-test', {
+                context: 'dashboard',
+                placeholder: 'What do you want to create today?',
+                onSend: async (message, pb) => {
+                    // Simulate API response
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    // Check if it's a slash command
+                    if (message.startsWith('/')) {
+                        const command = message.split(' ')[0];
+                        pb.addMessage('assistant', 
+                            `Great! I'll help you create ${command}. Here's a sample generated content that you can copy and use:\n\n"Your amazing ${command} content goes here. This is a longer piece of text to demonstrate the copy functionality. It includes multiple sentences and shows how generated content can be easily copied to your clipboard."`,
+                            false,
+                            true // isGenerated
+                        );
+                    } else {
+                        pb.addMessage('assistant', 
+                            `I received your message: "${message}". Try typing "/" to see the slash command autocomplete menu!`
+                        );
+                    }
+                }
+            });
+            
+            // Add a welcome message
+            promptBox.addMessage('assistant', 
+                'Welcome! I\'m your AI assistant. Type "/" to see available commands, or just tell me what you want to create.'
+            );
+        });
+        
+        // Test functions
+        function testAutocomplete() {
+            const textarea = document.querySelector('.promptbox-textarea');
+            textarea.value = '/';
+            textarea.dispatchEvent(new Event('input'));
+            textarea.focus();
+        }
+        
+        function testGeneratedContent() {
+            promptBox.addMessage('assistant', 
+                'Here\'s a sample social media post I created for you:\n\n"🌟 Exciting news! We\'re launching our new product line this Friday. Be the first to experience innovation like never before. Limited quantities available. #NewProduct #Innovation #ExcitingTimes"\n\nFeel free to edit and use this content!',
+                false,
+                true
+            );
+        }
+        
+        function testError() {
+            promptBox.addMessage('assistant', 
+                'Sorry, I encountered an error processing your request. Please try again.',
+                true
+            );
+        }
+        
+        function testSuggestions() {
+            promptBox.suggestionIndex = (promptBox.suggestionIndex + 1) % promptBox.suggestions.length;
+            promptBox.renderSuggestions();
+        }
+        
+        function clearMessages() {
+            promptBox.clearHistory();
+            promptBox.addMessage('assistant', 
+                'Messages cleared! Ready to start fresh.'
+            );
+        }
+    </script>
+</body>
+</html>
