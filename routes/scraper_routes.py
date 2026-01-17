@@ -223,15 +223,6 @@ def _run_scrape_job(job_id: str, url: str, profile_id: int, app):
                     if new_unique_samples:
                         profile.set_writing_samples(current_samples + new_unique_samples)
 
-                # Merge voice_dna
-                ai_voice_dna = business_info.get('voice_dna', {})
-                if ai_voice_dna:
-                    # Get existing voice_dna and merge with new data
-                    current_dna = profile.get_voice_dna()
-                    # Merge by updating with new values (new values take precedence)
-                    merged_dna = {**current_dna, **ai_voice_dna}
-                    profile.set_voice_dna(merged_dna)
-
                 db.session.commit()
                 logger.info(f"Scrape job {job_id} completed successfully")
             
