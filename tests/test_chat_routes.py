@@ -164,11 +164,10 @@ def test_chat_handles_missing_api_key(client, monkeypatch):
         'password': 'testpass123'
     })
     
-    # Create complete profile
+    # Create complete profile using the client's app context
     from models import User, VoiceProfile, db
-    from app import create_app
     
-    test_app = create_app()
+    test_app = client.application
     with test_app.app_context():
         user = User.query.filter_by(email='apitest@example.com').first()
         profile = VoiceProfile(

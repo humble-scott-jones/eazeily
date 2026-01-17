@@ -51,6 +51,35 @@ def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str]]:
     return len(missing_fields) == 0, missing_fields
 
 
+def _generate_content(profile: VoiceProfile, task_type: str, collected: dict) -> str:
+    """Generate content using VoiceEngine with collected task parameters.
+    
+    Args:
+        profile: User's voice profile
+        task_type: Type of content to generate
+        collected: Dictionary of collected fields for the task
+        
+    Returns:
+        Generated content string
+        
+    Raises:
+        Exception: If content generation fails
+    """
+    topic = collected.get('topic', '')
+    platform = collected.get('platform', 'LinkedIn')
+    
+    # Remove fields that are explicit parameters from collected dict to avoid duplicates
+    extra_context = {k: v for k, v in collected.items() if k not in ['topic', 'platform']}
+    
+    return voice_engine.generate_expert_content(
+        user_profile=profile,
+        topic=topic,
+        task_type=task_type,
+        platform=platform,
+        **extra_context
+    )
+
+
 def _continue_task_flow(pending_task: dict, message: str, profile: VoiceProfile) -> dict:
     """Continue an in-progress task flow by collecting the next required field.
     
@@ -101,22 +130,10 @@ def _continue_task_flow(pending_task: dict, message: str, profile: VoiceProfile)
     
     # All fields collected - generate content
     try:
-        topic = collected.get('topic', message)
-        platform = collected.get('platform', 'LinkedIn')
-        
-        # Remove fields that are explicit parameters from collected dict to avoid duplicates
-        extra_context = {k: v for k, v in collected.items() if k not in ['topic', 'platform']}
-        
-        content = voice_engine.generate_expert_content(
-            user_profile=profile,
-            topic=topic,
-            task_type=task_type,
-            platform=platform,
-            **extra_context
-        )
+        content = _generate_content(profile, task_type, collected)
         
         return _build_response(
-            f"Here's your {task_type} for {platform}:",
+            f"Here's your {task_type} for {collected.get('platform', 'your platform')}:",
             action='generated',
             content=content,
             pending_task=None
@@ -205,17 +222,18 @@ def _parse_intent(message: str, history: list) -> tuple[str, dict]:
             initial_collected['platform'] = platform_name
             break
     
-    # Simple keyword matching for task type
-    if 'post' in message_lower or 'linkedin' in message_lower or 'facebook' in message_lower:
-        return 'post', initial_collected
-    elif 'caption' in message_lower or 'instagram' in message_lower:
-        return 'caption', initial_collected
-    elif 'reel' in message_lower or 'tiktok' in message_lower or 'video' in message_lower:
+    # Check for more specific patterns first to avoid false matches
+    # Order matters: check specific patterns before generic ones
+    if 'reel' in message_lower or 'tiktok' in message_lower or 'video' in message_lower:
         return 'reel', initial_collected
+    elif 'caption' in message_lower or ('instagram' in message_lower and 'post' not in message_lower):
+        return 'caption', initial_collected
     elif 'email' in message_lower:
         return 'email', initial_collected
     elif 'ad' in message_lower or 'advertisement' in message_lower:
         return 'ad', initial_collected
+    elif 'post' in message_lower or 'linkedin' in message_lower or 'facebook' in message_lower:
+        return 'post', initial_collected
     
     # Default to post
     return 'post', initial_collected
@@ -322,21 +340,11 @@ def chat():
         
         if not missing_fields:
             # We have everything we need - generate immediately
-            topic = initial_collected.get('topic', message)
-            platform = initial_collected.get('platform', 'LinkedIn')
-            
             try:
-                extra_context = {k: v for k, v in initial_collected.items() if k not in ['topic', 'platform']}
-                content = voice_engine.generate_expert_content(
-                    user_profile=profile,
-                    topic=topic,
-                    task_type=task_type,
-                    platform=platform,
-                    **extra_context
-                )
+                content = _generate_content(profile, task_type, initial_collected)
                 
                 return jsonify(_build_response(
-                    f"Here's your {task_type} for {platform}:",
+                    f"Here's your {task_type} for {initial_collected.get('platform', 'your platform')}:",
                     action='generated',
                     content=content,
                     pending_task=None
