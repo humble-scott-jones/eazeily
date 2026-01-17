@@ -44,14 +44,17 @@ Response:
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
+from services.conversation_router import ConversationRouter
 from models import VoiceProfile
 import os
 import logging
 import uuid
+import re
 
 logger = logging.getLogger(__name__)
 chat_bp = Blueprint('chat', __name__)
 voice_engine = VoiceEngine()
+conversation_router = ConversationRouter()
 
 
 def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str]]:
@@ -131,54 +134,45 @@ def _continue_task_flow(pending_task: dict, message: str, profile: VoiceProfile)
     task_type = pending_task.get('task_type', 'post')
     collected = pending_task.get('collected', {})
     
-    # Define required fields per task type
-    required_fields = {
-        'post': ['platform', 'topic'],
-        'caption': ['platform', 'topic'],
-        'reel': ['topic', 'style'],
-        'email': ['subject', 'goal'],
-        'ad': ['platform', 'objective', 'target_audience'],
-    }
+    # Get missing fields before storing the response
+    missing_before = conversation_router.get_missing_fields(task_type, collected)
     
-    fields_needed = required_fields.get(task_type, ['topic', 'platform'])
+    if missing_before:
+        # Store the user's message as value for the first missing field
+        field_name = missing_before[0]
+        collected[field_name] = _normalize_field_value(field_name, message)
     
-    # Try to extract the next missing field from the message
-    missing = [f for f in fields_needed if f not in collected]
+    # Check if we still need more fields after storing the response
+    missing_after = conversation_router.get_missing_fields(task_type, collected)
     
-    if missing:
-        # Store the user's message as the first missing field's value
-        next_field = missing[0]
-        collected[next_field] = message
-        
-        # Check if we still need more fields
-        still_missing = [f for f in fields_needed if f not in collected]
-        
-        if still_missing:
-            # Ask for the next field
-            next_prompt = _get_field_prompt(still_missing[0], task_type)
-            return _build_response(
-                next_prompt,
-                action='continue',
-                pending_task={
-                    'task_type': task_type,
-                    'collected': collected
-                }
-            )
+    if missing_after:
+        # Ask for the next field
+        next_prompt = conversation_router.get_next_prompt(task_type, missing_after)
+        return _build_response(
+            next_prompt,
+            action='continue',
+            pending_task={
+                'task_type': task_type,
+                'collected': collected
+            }
+        )
     
     # All fields collected - generate content
     try:
         content = _generate_content(profile, task_type, collected)
+        formatted_content = _format_generated_content(task_type, content)
         
         return _build_response(
-            f"Here's your {task_type} for {collected.get('platform', 'your platform')}:",
+            formatted_content,
             action='generated',
             content=content,
-            pending_task=None
+            pending_task=None,
+            suggestions=['Regenerate', 'Create another', f'Try /{task_type} again']
         )
     except Exception as e:
         logger.error(f"Content generation failed: {e}", exc_info=True)
         return _build_response(
-            "I encountered an error generating your content. Please try again.",
+            f"Sorry, I couldn't generate that content. Error: {str(e)}",
             action='error',
             pending_task=None
         )
@@ -205,6 +199,86 @@ def _get_field_prompt(field: str, task_type: str) -> str:
     }
     
     return prompts.get(field, f"Please provide the {field} for your {task_type}")
+
+
+def _normalize_field_value(field_name: str, value: str) -> str:
+    """Normalize field values from conversational input.
+    
+    Args:
+        field_name: Name of the field to normalize
+        value: Raw value from user
+        
+    Returns:
+        Normalized value
+    """
+    value = value.strip()
+    
+    if field_name == 'platform':
+        # Normalize platform names
+        platform_map = {
+            'ig': 'instagram', 'insta': 'instagram',
+            'fb': 'facebook',
+            'x': 'twitter', 'tweet': 'twitter',
+            'li': 'linkedin',
+            'tt': 'tiktok',
+        }
+        value_lower = value.lower()
+        for alias, canonical in platform_map.items():
+            if alias in value_lower:
+                return canonical
+        return value_lower
+    
+    if field_name == 'video_length':
+        # Extract seconds
+        match = re.search(r'(\d+)', value)
+        if match:
+            seconds = int(match.group(1))
+            if seconds in [15, 30, 60, 90]:
+                return f"{seconds}s"
+        return '30s'  # default
+    
+    return value
+
+
+def _format_generated_content(task_type: str, content: str) -> str:
+    """Format generated content for chat display.
+    
+    Args:
+        task_type: Type of content that was generated
+        content: The generated content
+        
+    Returns:
+        Formatted string for display
+    """
+    emoji_map = {
+        'post': '📝',
+        'caption': '📸',
+        'script': '🎬',
+        'email': '✉️',
+        'review': '⭐',
+        'ad': '📢',
+        'blog': '📰',
+    }
+    emoji = emoji_map.get(task_type, '✨')
+    
+    return f"{emoji} **Your {task_type} is ready!**\n\n{content}\n\n---\n_Copy this content or ask me to regenerate._"
+
+
+def _get_content_suggestions() -> list:
+    """Get default content creation suggestions.
+    
+    Returns:
+        List of suggestion strings
+    """
+    return [
+        'Try /post for a social post',
+        'Try /caption for an image',
+        'Try /script for a video',
+        'Try /email for an email',
+        'Try /review to respond to a review',
+        'Try /ad for ad copy',
+        'Try /blog for a blog post'
+    ]
 
 
 def _build_response(message: str, action: str, **kwargs) -> dict:
@@ -274,6 +348,21 @@ def _parse_intent(message: str, history: list) -> tuple[str, dict]:
     
     # Default to post
     return 'post', initial_collected
+
+
+def _check_for_regenerate(message: str, history: list) -> bool:
+    """Check if user is asking to regenerate previous content.
+    
+    Args:
+        message: User's input message
+        history: Conversation history
+        
+    Returns:
+        True if this is a regenerate request
+    """
+    message_lower = message.lower()
+    regenerate_keywords = ['regenerate', 'try again', 'another', 'different version', 'rewrite', 'redo']
+    return any(keyword in message_lower for keyword in regenerate_keywords)
 
 
 @chat_bp.route('/api/chat', methods=['POST'])
@@ -359,52 +448,70 @@ def chat():
             result = _continue_task_flow(pending_task, message, profile)
             return jsonify(result), 200
         
-        # Parse new intent from message
-        task_type, initial_collected = _parse_intent(message, history)
-        logger.info(f"[{request_id}] Parsed intent: task_type={task_type}, collected={initial_collected}")
+        # Check for regenerate request in history
+        if _check_for_regenerate(message, history) and history:
+            # Try to find the last generation task from history
+            for item in reversed(history):
+                if item.get('role') == 'assistant' and 'pending_task' in item:
+                    last_task = item.get('pending_task')
+                    if last_task and last_task.get('task_type'):
+                        logger.info(f"[{request_id}] Regenerating {last_task['task_type']}")
+                        try:
+                            content = _generate_content(profile, last_task['task_type'], last_task.get('collected', {}))
+                            formatted_content = _format_generated_content(last_task['task_type'], content)
+                            return jsonify(_build_response(
+                                formatted_content,
+                                action='generated',
+                                content=content,
+                                pending_task=None,
+                                suggestions=['Try another variation', 'Create something else']
+                            )), 200
+                        except Exception as e:
+                            logger.error(f"[{request_id}] Regeneration failed: {e}", exc_info=True)
+                            break
         
-        # Define required fields for this task type
-        required_fields = {
-            'post': ['platform', 'topic'],
-            'caption': ['platform', 'topic'],
-            'reel': ['topic', 'style'],
-            'email': ['subject', 'goal'],
-            'ad': ['platform', 'objective', 'target_audience'],
-        }
+        # Parse new intent using ConversationRouter
+        intent_result = conversation_router.parse_intent(message, profile)
+        logger.info(f"[{request_id}] Parsed intent: {intent_result.get('task_type')}, follow_up_needed={intent_result.get('follow_up_needed')}")
         
-        fields_needed = required_fields.get(task_type, ['topic', 'platform'])
-        missing_fields = [f for f in fields_needed if f not in initial_collected]
+        # Handle unknown intent
+        if intent_result['intent'] == 'unknown':
+            return jsonify(_build_response(
+                intent_result['follow_up_question'],
+                action='continue',
+                suggestions=_get_content_suggestions()
+            )), 200
         
-        if not missing_fields:
-            # We have everything we need - generate immediately
-            try:
-                content = _generate_content(profile, task_type, initial_collected)
-                
-                return jsonify(_build_response(
-                    f"Here's your {task_type} for {initial_collected.get('platform', 'your platform')}:",
-                    action='generated',
-                    content=content,
-                    pending_task=None
-                )), 200
-            except Exception as e:
-                logger.error(f"[{request_id}] Content generation failed: {e}", exc_info=True)
-                return jsonify(_build_response(
-                    "I encountered an error generating your content. Please try again.",
-                    action='error',
-                    pending_task=None
-                )), 500
+        # Check if we need to collect more fields
+        if intent_result['follow_up_needed']:
+            return jsonify(_build_response(
+                intent_result['follow_up_question'],
+                action='continue',
+                pending_task={
+                    'task_type': intent_result['task_type'],
+                    'collected': intent_result['extracted_params']
+                }
+            )), 200
         
-        # Ask for the first missing field
-        next_prompt = _get_field_prompt(missing_fields[0], task_type)
-        
-        return jsonify(_build_response(
-            f"I'll help you create a {task_type}. {next_prompt}",
-            action='continue',
-            pending_task={
-                'task_type': task_type,
-                'collected': initial_collected
-            }
-        )), 200
+        # All fields collected - generate immediately
+        try:
+            content = _generate_content(profile, intent_result['task_type'], intent_result['extracted_params'])
+            formatted_content = _format_generated_content(intent_result['task_type'], content)
+            
+            return jsonify(_build_response(
+                formatted_content,
+                action='generated',
+                content=content,
+                pending_task=None,
+                suggestions=['Regenerate', 'Create another', f"Try /{intent_result['task_type']} again"]
+            )), 200
+        except Exception as e:
+            logger.error(f"[{request_id}] Content generation failed: {e}", exc_info=True)
+            return jsonify(_build_response(
+                f"Sorry, I couldn't generate that content. Please try again.",
+                action='error',
+                pending_task=None
+            )), 500
         
     except Exception as e:
         logger.error(f"[{request_id}] Unexpected error: {e}", exc_info=True)
