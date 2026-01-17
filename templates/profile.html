@@ -611,11 +611,6 @@ async function mergeScrapedData(suggestions) {
     // Writing samples - Show as suggestions instead of massive dump
     if (suggestions.sample_copy && Array.isArray(suggestions.sample_copy)) {
         renderSuggestedSamples(suggestions.sample_copy);
-        // Also auto-fill if empty, but nicely
-        const samplesField = document.getElementById('writing_samples');
-        if (!samplesField.value.trim()) {
-            samplesField.value = suggestions.sample_copy.join('\n\n');
-        }
     }
     
     console.log('Data merged successfully');
