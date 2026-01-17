@@ -79,6 +79,7 @@ def authenticated_client(client, tmp_path, monkeypatch):
             brand_voice='Professional and friendly',
             key_offer='Quality software solutions'
         )
+        profile.set_writing_samples(['Sample post about technology.', 'Another example post.'])
         db.session.add(profile)
         db.session.commit()
         
