@@ -333,6 +333,10 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
         # Limit text length for AI processing
         text_sample = scraped_text[:3000] if len(scraped_text) > 3000 else scraped_text
         
+        # Log what we're sending to Gemini
+        logger.info(f"Extracting business info from {len(text_sample)} chars of scraped text")
+        logger.debug(f"Text sample preview: {text_sample[:500]}...")
+        
         # Format industry categories as properly quoted strings
         industries_list = ', '.join(json.dumps(cat) for cat in INDUSTRY_CATEGORIES)
         
@@ -356,6 +360,10 @@ Return only valid JSON, no markdown formatting, no explanations."""
         response = model.generate_content(prompt)
         response_text = response.text.strip()
         
+        # Log raw Gemini response
+        logger.info(f"Gemini response length: {len(response_text)} chars")
+        logger.debug(f"Gemini raw response: {response_text[:1000]}...")
+        
         # Remove markdown code blocks if present
         if response_text.startswith("```json"):
             response_text = response_text[7:]
@@ -367,6 +375,12 @@ Return only valid JSON, no markdown formatting, no explanations."""
         
         # Parse JSON response
         extracted_data = json.loads(response_text)
+        
+        # Log parsed fields
+        logger.info(f"Parsed business_name: {extracted_data.get('business_name')}")
+        logger.info(f"Parsed industry: {extracted_data.get('industry')}")
+        logger.info(f"Parsed key_customers: {extracted_data.get('key_customers')}")
+        logger.info(f"Parsed key_offer: {extracted_data.get('key_offer')}")
         
         # Validate and clean the extracted data
         result = {
@@ -391,7 +405,9 @@ Return only valid JSON, no markdown formatting, no explanations."""
         return result
         
     except json.JSONDecodeError as e:
+        # Log the parsing error with the raw response for debugging
         logger.error(f"Failed to parse AI response as JSON: {e}")
+        logger.error(f"Raw response that failed to parse: {response_text[:500]}...")
         fallback = {
             "business_name": None,
             "industry": None,
@@ -406,7 +422,7 @@ Return only valid JSON, no markdown formatting, no explanations."""
         fallback["target_audience"] = fallback["required_sections"]["target_audience"]["values"]
         return fallback
     except Exception as e:
-        logger.error(f"Failed to extract business info: {e}")
+        logger.error(f"Failed to extract business info: {e}", exc_info=True)
         fallback = {
             "business_name": None,
             "industry": None,
