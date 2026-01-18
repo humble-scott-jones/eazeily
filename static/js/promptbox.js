@@ -82,10 +82,10 @@ class PromptBox {
     // Profile view/update context
     if (action === 'profile_view' || action === 'profile_updated') {
       return [
-        'Update brand voice',
-        'Update target audience',
-        'Update key offer',
-        'Create content',
+        '/voice - Update brand voice',
+        '/audience - Define target audience',
+        '/samples - Add writing samples',
+        '/import - Import from URL',
       ];
     }
     
@@ -431,6 +431,12 @@ class PromptBox {
         
         // Handle profile command
         await handleProfileCommand(this, command, args);
+        
+        // Update suggestions to show profile commands after handling profile action
+        this.lastAction = 'profile_view';
+        this.suggestions = this.getSuggestions(null, 'profile_view');
+        this.renderSuggestions();
+        
         this.setLoading(false);
         return;
       }
