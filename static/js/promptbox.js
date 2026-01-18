@@ -332,6 +332,7 @@ class PromptBox {
   }
 
   autoResizeTextarea(textarea) {
+    if (!textarea) return;  // Add null check
     textarea.style.height = 'auto';
     const minHeight = 44; // Min height for touch targets
     const maxHeight = 120; // Max 4 lines approx (30px per line)
@@ -340,6 +341,7 @@ class PromptBox {
   }
 
   updateSendButton(textarea, sendBtn) {
+    if (!textarea || !sendBtn) return;  // Add null check
     const hasContent = textarea.value.trim().length > 0;
     sendBtn.disabled = !hasContent;
   }
@@ -867,18 +869,30 @@ class PromptBox {
 
   setLoading(isLoading) {
     this.isLoading = isLoading;
+    
+    // In embedded mode, page handles loading state - skip DOM manipulation
+    if (this.embedded) {
+      // Optionally emit event for page to handle
+      if (typeof window.handleLoadingStateChange === 'function') {
+        window.handleLoadingStateChange(isLoading);
+      }
+      return;
+    }
+    
+    // Non-embedded mode: manage our own loading state
     const loadingEl = document.getElementById(`${this.container.id}-loading`);
     const textarea = document.getElementById(`${this.container.id}-textarea`);
     const sendBtn = document.getElementById(`${this.container.id}-send`);
 
+    // Additional safety: check if elements exist before accessing
     if (isLoading) {
-      loadingEl.classList.remove('hidden');
-      textarea.disabled = true;
-      sendBtn.disabled = true;
+      if (loadingEl) loadingEl.classList.remove('hidden');
+      if (textarea) textarea.disabled = true;
+      if (sendBtn) sendBtn.disabled = true;
     } else {
-      loadingEl.classList.add('hidden');
-      textarea.disabled = false;
-      this.updateSendButton(textarea, sendBtn);
+      if (loadingEl) loadingEl.classList.add('hidden');
+      if (textarea) textarea.disabled = false;
+      if (textarea && sendBtn) this.updateSendButton(textarea, sendBtn);
     }
   }
 

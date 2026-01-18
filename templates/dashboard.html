@@ -123,6 +123,30 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
+ * Optional: Handle loading state changes from embedded PromptBox
+ * This function is called by PromptBox when in embedded mode to notify
+ * the page about loading state changes. Uncomment and customize if needed.
+ * 
+ * @param {boolean} isLoading - Whether PromptBox is in loading state
+ */
+// window.handleLoadingStateChange = function(isLoading) {
+//     const chatInput = document.getElementById('chat-input');
+//     const sendBtn = document.getElementById('send-btn');
+//     
+//     if (chatInput) {
+//         chatInput.disabled = isLoading;
+//     }
+//     
+//     if (sendBtn) {
+//         sendBtn.disabled = isLoading;
+//     }
+//     
+//     // Optional: Add loading spinner or visual indicator
+//     // const spinner = document.getElementById('loading-spinner');
+//     // if (spinner) spinner.style.display = isLoading ? 'block' : 'none';
+// };
+
+/**
  * Auto-resize textarea
  * @param {HTMLTextAreaElement} textarea - Textarea element
  */
