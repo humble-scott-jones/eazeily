@@ -379,3 +379,65 @@ def api_current_user():
                 'message': 'Failed to get current user'
             }
         }), 500
+
+
+@profile_bp.route('/api/profile/suggest', methods=['POST'])
+@login_required
+def suggest_profile_field():
+    """Generate AI-powered suggestions for a profile field."""
+    
+    data = request.get_json()
+    field = data.get('field')
+    
+    if not field:
+        return jsonify({
+            'success': False,
+            'error': 'Field is required'
+        }), 400
+    
+    valid_fields = ['target_audience', 'brand_voice', 'key_offer', 'writing_samples', 'voice_rules']
+    if field not in valid_fields:
+        return jsonify({
+            'success': False,
+            'error': f'Invalid field. Must be one of: {", ".join(valid_fields)}'
+        }), 400
+    
+    # Get user's current profile
+    profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+    
+    if not profile:
+        return jsonify({
+            'success': False,
+            'error': 'No profile found. Please create a profile first.'
+        }), 404
+    
+    # Convert profile to dict for the service
+    profile_dict = {
+        'company': profile.business_name,
+        'business_name': profile.business_name,
+        'industry': profile.industry,
+        'tone': profile.brand_voice,
+        'brand_voice': profile.brand_voice,
+        'target_audience': profile.target_audience,
+        'key_offer': profile.key_offer,
+        'voice_rules': profile.voice_rules,
+        'writing_samples': profile.get_writing_samples() if hasattr(profile, 'get_writing_samples') else [],
+    }
+    
+    # Import here to handle missing OpenAI gracefully
+    try:
+        from services.profile_expert import generate_profile_suggestions_sync
+        result = generate_profile_suggestions_sync(field, profile_dict)
+        return jsonify(result)
+    except ImportError as e:
+        logger.error(f"Failed to import profile_expert: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'AI suggestions are not available. Please check OpenAI configuration.'
+        }), 500
+    except Exception as e:
+        logger.error(f"Error generating profile suggestions: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

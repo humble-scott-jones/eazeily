@@ -601,6 +601,9 @@ class PromptBox {
             textarea.value = btn.value;
             this.handleSend();
           }
+        } else if (btn.action === 'select-suggestion') {
+          // Handle suggestion selection
+          selectProfileSuggestion(this, btn.field, btn.value);
         }
       };
       
@@ -1198,44 +1201,117 @@ Tell me about your business, or use \`/import <url>\` to import from your websit
 }
 
 async function showVoiceUpdateFlow(promptBox, existingValue) {
-  // Get current profile for industry context
-  const response = await fetch('/api/profile', { credentials: 'include' });
-  const data = await response.json();
-  const industry = data.profile?.industry || '';
+  // Show thinking message
+  promptBox.addAssistantMessage(`Let me analyze your profile and create some personalized suggestions for **Brand Voice**...`);
+  promptBox.showLoading();
   
-  // Industry-specific suggestions
-  const suggestions = promptBox.getVoiceSuggestionsForIndustry(industry);
-  
-  let message = `## Update Brand Voice 🎤\n\n`;
-  if (data.profile?.tone || data.profile?.brand_voice) {
-    message += `**Current:** ${data.profile.tone || data.profile.brand_voice}\n\n`;
+  try {
+    const response = await fetch('/api/profile/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ field: 'brand_voice' })
+    });
+    
+    const data = await response.json();
+    promptBox.hideLoading();
+    
+    if (data.success && data.suggestions && data.suggestions.length > 0) {
+      let message = `## Update Brand Voice 🎤\n\n`;
+      message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**:\n\n`;
+      
+      data.suggestions.forEach((suggestion, i) => {
+        message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
+      });
+      
+      message += `---\n\nClick an option to use it, or type your own:`;
+      
+      // Create buttons for each suggestion
+      const buttons = data.suggestions.map((suggestion, i) => ({
+        label: `Use Option ${i + 1}`,
+        action: 'select-suggestion',
+        value: suggestion,
+        field: 'brand_voice'
+      }));
+      
+      buttons.push({
+        label: '✏️ Write my own',
+        action: 'focus'
+      });
+      
+      promptBox.addAssistantMessage(message, { buttons });
+      
+    } else {
+      // Fallback - ask for manual input
+      promptBox.addAssistantMessage(
+        `I couldn't generate suggestions right now. What would you like your **Brand Voice** to be?\n\nJust type it below:`
+      );
+    }
+    
+  } catch (error) {
+    promptBox.hideLoading();
+    console.error('Error getting profile suggestions:', error);
+    promptBox.addAssistantMessage(
+      `Something went wrong. What would you like your **Brand Voice** to be?\n\nJust type it below:`
+    );
   }
-  message += `How would you like your brand to sound? Pick one or describe your own:\n`;
-  
-  const buttons = suggestions.map(s => ({
-    label: s,
-    action: 'command',
-    value: `/voice ${s}`
-  }));
-  
-  promptBox.addAssistantMessage(message, { buttons });
 }
 
 async function showAudienceUpdateFlow(promptBox, existingValue) {
-  const response = await fetch('/api/profile', { credentials: 'include' });
-  const data = await response.json();
+  // Show thinking message
+  promptBox.addAssistantMessage(`Let me analyze your profile and create some personalized suggestions for **Target Audience**...`);
+  promptBox.showLoading();
   
-  let message = `## Define Target Audience 🎯\n\n`;
-  if (data.profile?.target_audience) {
-    message += `**Current:** ${data.profile.target_audience}\n\n`;
+  try {
+    const response = await fetch('/api/profile/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ field: 'target_audience' })
+    });
+    
+    const data = await response.json();
+    promptBox.hideLoading();
+    
+    if (data.success && data.suggestions && data.suggestions.length > 0) {
+      let message = `## Define Target Audience 🎯\n\n`;
+      message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**:\n\n`;
+      
+      data.suggestions.forEach((suggestion, i) => {
+        message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
+      });
+      
+      message += `---\n\nClick an option to use it, or type your own:`;
+      
+      // Create buttons for each suggestion
+      const buttons = data.suggestions.map((suggestion, i) => ({
+        label: `Use Option ${i + 1}`,
+        action: 'select-suggestion',
+        value: suggestion,
+        field: 'target_audience'
+      }));
+      
+      buttons.push({
+        label: '✏️ Write my own',
+        action: 'focus'
+      });
+      
+      promptBox.addAssistantMessage(message, { buttons });
+      
+    } else {
+      // Fallback - ask for manual input
+      promptBox.addAssistantMessage(
+        `I couldn't generate suggestions right now. What would you like your **Target Audience** to be?\n\nJust type it below:`
+      );
+    }
+    
+  } catch (error) {
+    promptBox.hideLoading();
+    console.error('Error getting profile suggestions:', error);
+    promptBox.addAssistantMessage(
+      `Something went wrong. What would you like your **Target Audience** to be?\n\nJust type it below:`
+    );
   }
-  message += `Who is your ideal customer? Be specific! Examples:\n`;
-  message += `• "Busy professionals aged 30-45 looking for quick healthy meals"\n`;
-  message += `• "First-time homebuyers in Austin with $400k budget"\n`;
-  message += `• "Small business owners who struggle with social media"\n\n`;
-  message += `Type your target audience description:`;
-  
-  promptBox.addAssistantMessage(message);
 }
 
 async function showSamplesCollectionFlow(promptBox) {
@@ -1304,6 +1380,69 @@ async function showImportFlow(promptBox, url) {
   }
 }
 
+// Helper function to select and save a profile suggestion
+async function selectProfileSuggestion(promptBox, field, suggestion) {
+  // Show confirmation
+  const preview = suggestion.length > 80 ? suggestion.substring(0, 77) + '...' : suggestion;
+  promptBox.addMessage('user', `Use: "${preview}"`);
+  
+  try {
+    // Map field names to API keys
+    const fieldMapping = {
+      'brand_voice': 'brand_voice',
+      'target_audience': 'target_audience',
+      'key_offer': 'key_offer',
+      'writing_samples': 'writing_samples',
+      'voice_rules': 'voice_rules',
+    };
+    
+    const apiField = fieldMapping[field] || field;
+    
+    // Save to profile
+    const response = await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        [apiField]: suggestion
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.ok) {
+      const fieldLabels = {
+        'brand_voice': 'Brand Voice',
+        'target_audience': 'Target Audience',
+        'key_offer': 'Key Offer',
+        'writing_samples': 'Writing Samples',
+        'voice_rules': 'Voice Rules',
+      };
+      
+      promptBox.addAssistantMessage(
+        `✅ **${fieldLabels[field]}** updated!\n\nThis will now be used when generating content. Want to update anything else?`,
+        {
+          buttons: [
+            { label: '/profile', action: 'prompt', value: '/profile' },
+            { label: 'Create content', action: 'focus' }
+          ]
+        }
+      );
+      
+      // Refresh profile badge if exists
+      if (typeof refreshProfileBadge === 'function') {
+        refreshProfileBadge();
+      }
+    } else {
+      throw new Error(data.error?.message || 'Failed to update profile');
+    }
+    
+  } catch (error) {
+    console.error('Error saving profile field:', error);
+    promptBox.addAssistantMessage(`❌ Couldn't save that. Please try again or type /profile to edit manually.`);
+  }
+}
+
 async function handleProfileCommand(promptBox, command, args) {
   switch (command) {
     case '/profile':
@@ -1332,4 +1471,5 @@ if (typeof window !== 'undefined') {
   window.showAudienceUpdateFlow = showAudienceUpdateFlow;
   window.showSamplesCollectionFlow = showSamplesCollectionFlow;
   window.showImportFlow = showImportFlow;
+  window.selectProfileSuggestion = selectProfileSuggestion;
 }

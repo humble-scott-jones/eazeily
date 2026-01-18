@@ -4,6 +4,7 @@ flask-login
 flask-bcrypt
 flask-migrate
 google-genai==0.3.0
+openai
 python-dotenv
 requests
 gunicorn
