@@ -1,0 +1,76 @@
+/**
+ * Theme System - Matches User's OS Preference (Light/Dark)
+ * Mobile-first, accessible color system
+ */
+
+/* ===== Theme Variables (System Preference) ===== */
+:root {
+  /* Light mode (default) */
+  --page-bg: #F3F4F6;
+  --surface: #FFFFFF;
+  --surface-alt: #F9FAFB;
+  --card-bg: #FFFFFF;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --border: #E5E7EB;
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  
+  /* Brand colors (same in both modes) */
+  --accent: #6366F1;
+  --accent-hover: #4F46E5;
+  --accent-soft: rgba(99, 102, 241, 0.1);
+  --success: #10B981;
+  --error: #EF4444;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode - matches user's OS/browser setting */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: #0a0a0f;
+    --surface: #1F2937;
+    --surface-alt: #111827;
+    --card-bg: #1a1a2e;
+    --text-primary: #F9FAFB;
+    --text-secondary: #9CA3AF;
+    --text-muted: #6B7280;
+    --border: #374151;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --accent-soft: rgba(99, 102, 241, 0.2);
+    
+    /* Darker shadows for dark mode */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Global base styles */
+body {
+  background: var(--page-bg);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ensure smooth transitions on theme changes */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

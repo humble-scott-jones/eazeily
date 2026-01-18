@@ -1060,6 +1060,82 @@ What would you like to create?`;
     ];
   }
 
+  /**
+   * Render generated content with per-option copy buttons
+   * @param {string} content - Raw content (may contain options)
+   * @param {array} options - Array of option objects with text/label
+   * @returns {string} HTML string for rendering
+   */
+  renderGeneratedContent(content, options) {
+    if (options && options.length > 0) {
+      // Store for copy functionality
+      window.lastGeneratedOptions = options;
+      
+      let html = `
+        <div class="message-assistant">
+          <p class="message-intro">📝 Your post is ready!</p>
+          <div class="options-container">
+      `;
+      
+      options.forEach((opt, index) => {
+        html += `
+          <div class="option-card" data-option-index="${index}">
+            <div class="option-header">
+              <span class="option-label">Option ${index + 1}${opt.label ? ': ' + opt.label : ''}</span>
+              <button class="copy-btn" onclick="copyOption(${index})" data-index="${index}">
+                <span class="copy-icon">📋</span>
+                <span class="copy-text">Copy</span>
+              </button>
+            </div>
+            <div class="option-content">${this.escapeHtml(opt.text || opt)}</div>
+          </div>
+        `;
+      });
+      
+      html += `
+          </div>
+          <div class="action-bar">
+            <button class="action-btn" onclick="handleAction('regenerate')" title="Regenerate">
+              <span class="action-icon">🔄</span>
+              <span class="action-label">Regenerate</span>
+            </button>
+            <button class="action-btn" onclick="handleAction('shorter')" title="Make shorter">
+              <span class="action-icon">✂️</span>
+              <span class="action-label">Shorter</span>
+            </button>
+            <button class="action-btn" onclick="handleAction('casual')" title="More casual">
+              <span class="action-icon">😊</span>
+              <span class="action-label">Casual</span>
+            </button>
+            <button class="action-btn" onclick="handleAction('different')" title="Different angle">
+              <span class="action-icon">🎨</span>
+              <span class="action-label">Different</span>
+            </button>
+          </div>
+        </div>
+      `;
+      
+      return html;
+    }
+    
+    // Single content (no options)
+    window.lastGeneratedContent = content;
+    return `
+      <div class="message-assistant">
+        <div class="option-card">
+          <div class="option-header">
+            <span class="option-label">Your content</span>
+            <button class="copy-btn" onclick="copySingleContent()">
+              <span class="copy-icon">📋</span>
+              <span class="copy-text">Copy</span>
+            </button>
+          </div>
+          <div class="option-content">${this.escapeHtml(content)}</div>
+        </div>
+      </div>
+    `;
+  }
+
   destroy() {
     this.stopSuggestionRotation();
     if (this.container) {
