@@ -46,6 +46,26 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+/* ===== Embedded Mode - Messages Only ===== */
+.promptbox-embedded {
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.promptbox-embedded .promptbox-messages {
+  padding-bottom: 16px; /* Less padding since input is on page level */
+}
+
+/* Force hide input area and suggestions in embedded mode */
+.promptbox-embedded .promptbox-input-area,
+.promptbox-embedded .promptbox-suggestions,
+.promptbox-embedded .promptbox-autocomplete,
+.promptbox-embedded .promptbox-slash-hint,
+.promptbox-embedded .promptbox-loading {
+  display: none !important;
+}
+
 /* ===== Messages Area ===== */
 .promptbox-messages {
   flex: 1;

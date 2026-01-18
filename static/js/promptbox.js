@@ -36,6 +36,7 @@ class PromptBox {
     this.context = options.context || 'dashboard'; // 'dashboard' or 'onboarding'
     this.placeholder = options.placeholder || this.getDefaultPlaceholder();
     this.onSend = options.onSend || null;
+    this.embedded = options.embedded || false; // NEW: When true, only render messages area
     
     // State
     this.conversationHistory = [];
@@ -112,6 +113,20 @@ class PromptBox {
   render() {
     const showHint = !this.hasUsedSlashCommand;
     
+    // In embedded mode, only render the messages container
+    if (this.embedded) {
+      const html = `
+        <div class="promptbox-container promptbox-embedded">
+          <!-- Conversation History (embedded mode - messages only) -->
+          <div class="promptbox-messages" id="${this.container.id}-conversation">
+            <!-- Messages will be appended here -->
+          </div>
+        </div>
+      `;
+      this.container.innerHTML = html;
+      return; // Skip input area and suggestions rendering
+    }
+    
     const html = `
       <div class="promptbox-container">
         <!-- Conversation History -->
@@ -176,6 +191,11 @@ class PromptBox {
   }
 
   renderSuggestions() {
+    // Skip suggestions in embedded mode
+    if (this.embedded) {
+      return;
+    }
+    
     const suggestionsContainer = document.getElementById(`${this.container.id}-suggestions`);
     if (!suggestionsContainer) return;
 
@@ -193,6 +213,11 @@ class PromptBox {
   }
 
   attachEventListeners() {
+    // Skip event listeners in embedded mode (page handles input)
+    if (this.embedded) {
+      return;
+    }
+    
     const textarea = document.getElementById(`${this.container.id}-textarea`);
     const sendBtn = document.getElementById(`${this.container.id}-send`);
     const suggestionsContainer = document.getElementById(`${this.container.id}-suggestions`);
@@ -436,6 +461,56 @@ class PromptBox {
     this.autoResizeTextarea(textarea);
     const sendBtn = document.getElementById(`${this.container.id}-send`);
     this.updateSendButton(textarea, sendBtn);
+
+    // Show loading
+    this.setLoading(true);
+
+    try {
+      // Check if this is a profile command that should be handled client-side
+      const profileCommands = ['/profile', '/voice', '/audience', '/samples', '/import'];
+      const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
+      
+      if (isProfileCommand) {
+        // Extract command and args
+        const parts = message.split(/\s+/);
+        const command = parts[0];
+        const args = parts.slice(1).join(' ');
+        
+        // Handle profile command
+        await handleProfileCommand(this, command, args);
+        
+        // Update suggestions to show profile commands after handling profile action
+        this.lastAction = 'profile_view';
+        this.suggestions = this.getSuggestions(null, 'profile_view');
+        this.renderSuggestions();
+        
+        this.setLoading(false);
+        return;
+      }
+      
+      // Call custom handler if provided, otherwise use API
+      if (this.onSend && typeof this.onSend === 'function') {
+        await this.onSend(message, this);
+      } else {
+        await this.sendToAPI(message);
+      }
+    } catch (error) {
+      console.error('PromptBox error:', error);
+      this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+    } finally {
+      this.setLoading(false);
+    }
+  }
+
+  /**
+   * Send a message from external source (e.g., page input when in embedded mode)
+   * @param {string} message - Message text to send
+   */
+  async sendMessage(message) {
+    if (!message || this.isLoading) return;
+
+    // Add user message to conversation
+    this.addMessage('user', message);
 
     // Show loading
     this.setLoading(true);
