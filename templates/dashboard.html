@@ -1281,7 +1281,7 @@
     // PromptBox Integration
     let dashboardPromptBox = null;
     
-    function initPromptBox() {
+    async function initPromptBox() {
         if (dashboardPromptBox) {
             dashboardPromptBox.destroy();
         }
@@ -1294,6 +1294,9 @@
                 await handlePromptBoxMessage(message, promptBox);
             }
         });
+        
+        // Check profile and show contextual welcome
+        await dashboardPromptBox.initWithProfileContext();
     }
     
     async function handlePromptBoxMessage(message, promptBox) {

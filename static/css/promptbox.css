@@ -633,3 +633,50 @@
     height: 48px;
   }
 }
+
+/* ===== Action Buttons for Messages ===== */
+.promptbox-button-container {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.promptbox-action-btn {
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: #EEF2FF; /* indigo-50 */
+  color: #4F46E5; /* indigo-700 */
+  border: 1px solid #C7D2FE; /* indigo-200 */
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all var(--promptbox-transition);
+  white-space: nowrap;
+}
+
+.promptbox-action-btn:hover {
+  background-color: #E0E7FF; /* indigo-100 */
+  border-color: #A5B4FC; /* indigo-300 */
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.promptbox-action-btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Dark mode support for action buttons */
+@media (prefers-color-scheme: dark) {
+  .promptbox-action-btn {
+    background-color: #312E81; /* indigo-900 */
+    color: #C7D2FE; /* indigo-200 */
+    border-color: #4C1D95; /* indigo-950 */
+  }
+
+  .promptbox-action-btn:hover {
+    background-color: #3730A3; /* indigo-800 */
+    border-color: #6366F1; /* indigo-500 */
+  }
+}
