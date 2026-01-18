@@ -65,13 +65,23 @@
     <!-- Chat Messages Area -->
     <main id="chat-container" class="chat-container">
         <div id="chat-messages" class="chat-messages">
-            <!-- Messages render here via PromptBox -->
+            <!-- Messages render here via PromptBox in embedded mode -->
             <div id="dashboard-promptbox" class="promptbox-full-height"></div>
         </div>
     </main>
 
     <!-- Sticky Input Area -->
     <footer class="input-container">
+        <!-- Autocomplete for slash commands -->
+        <div id="autocomplete-container" class="autocomplete-container hidden" role="listbox">
+            <!-- Slash command autocomplete will be rendered here -->
+        </div>
+        
+        <!-- Slash command hint -->
+        <div id="slash-hint" class="slash-hint hidden">
+            💡 Type <kbd>/</kbd> to see commands
+        </div>
+        
         <div class="input-wrapper">
             <textarea 
                 id="chat-input" 
@@ -96,30 +106,6 @@
 <script>
 // Initialize chat input handlers
 document.addEventListener('DOMContentLoaded', function() {
-    const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-btn');
-    
-    if (chatInput && sendBtn) {
-        // Auto-resize textarea
-        chatInput.addEventListener('input', function() {
-            autoResizeTextarea(chatInput);
-            sendBtn.disabled = !chatInput.value.trim();
-        });
-        
-        // Send on Enter (Shift+Enter for new line)
-        chatInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (chatInput.value.trim()) {
-                    handleChatSend();
-                }
-            }
-        });
-        
-        // Send button click
-        sendBtn.addEventListener('click', handleChatSend);
-    }
-    
     // Initialize profile badge
     initProfileBadge();
     
@@ -128,180 +114,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * Handle chat message send
+ * Auto-resize textarea
+ * @param {HTMLTextAreaElement} textarea - Textarea element
  */
-async function handleChatSend() {
-    const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-btn');
-    const message = chatInput.value.trim();
-    
-    if (!message) return;
-    
-    // Add user message to chat
-    addChatMessage('user', message);
-    
-    // Clear input
-    chatInput.value = '';
-    autoResizeTextarea(chatInput);
-    sendBtn.disabled = true;
-    
-    // Show loading
-    showChatLoading(true);
-    
-    try {
-        // Send to API
-        const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: message,
-                context: 'dashboard'
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok && data.response) {
-            // Check if we have options/variants
-            if (data.options && data.options.length > 0) {
-                // Render with per-option copy buttons
-                const html = renderOptionsContent(data.options);
-                addChatMessageHTML(html);
-                window.lastGeneratedOptions = data.options;
-            } else {
-                // Single response
-                addChatMessage('assistant', data.response);
-                window.lastGeneratedContent = data.response;
-            }
-        } else {
-            addChatMessage('assistant', data.error || 'Sorry, something went wrong. Please try again.');
-        }
-    } catch (error) {
-        console.error('Chat error:', error);
-        addChatMessage('assistant', 'Sorry, something went wrong. Please try again.');
-    } finally {
-        showChatLoading(false);
-    }
-}
-
-/**
- * Add a chat message
- * @param {string} role - 'user' or 'assistant'
- * @param {string} content - Message content
- */
-function addChatMessage(role, content) {
-    const messagesContainer = document.getElementById('chat-messages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message message-${role}`;
-    messageDiv.textContent = content;
-    messagesContainer.appendChild(messageDiv);
-    
-    // Scroll to bottom
-    const chatContainer = document.getElementById('chat-container');
-    if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-}
-
-/**
- * Add chat message from HTML
- * @param {string} html - HTML content
- */
-function addChatMessageHTML(html) {
-    const messagesContainer = document.getElementById('chat-messages');
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'chat-message';
-    messageDiv.innerHTML = html;
-    messagesContainer.appendChild(messageDiv);
-    
-    // Scroll to bottom
-    const chatContainer = document.getElementById('chat-container');
-    if (chatContainer) {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-    }
-}
-
-/**
- * Render options with individual copy buttons
- * @param {array} options - Array of option objects
- * @returns {string} HTML string
- */
-function renderOptionsContent(options) {
-    let html = `
-        <div class="message-assistant">
-            <p class="message-intro">📝 Your content is ready!</p>
-            <div class="options-container">
-    `;
-    
-    options.forEach((opt, index) => {
-        const text = opt.text || opt;
-        const label = opt.label || '';
-        html += `
-            <div class="option-card" data-option-index="${index}">
-                <div class="option-header">
-                    <span class="option-label">Option ${index + 1}${label ? ': ' + label : ''}</span>
-                    <button class="copy-btn" onclick="copyOption(${index})" data-index="${index}">
-                        <span class="copy-icon">📋</span>
-                        <span class="copy-text">Copy</span>
-                    </button>
-                </div>
-                <div class="option-content">${escapeHtml(text)}</div>
-            </div>
-        `;
-    });
-    
-    html += `
-            </div>
-            <div class="action-bar">
-                <button class="action-btn" onclick="handleAction('regenerate')" title="Regenerate">
-                    <span class="action-icon">🔄</span>
-                    <span class="action-label">Regenerate</span>
-                </button>
-                <button class="action-btn" onclick="handleAction('shorter')" title="Make shorter">
-                    <span class="action-icon">✂️</span>
-                    <span class="action-label">Shorter</span>
-                </button>
-                <button class="action-btn" onclick="handleAction('casual')" title="More casual">
-                    <span class="action-icon">😊</span>
-                    <span class="action-label">Casual</span>
-                </button>
-                <button class="action-btn" onclick="handleAction('different')" title="Different angle">
-                    <span class="action-icon">🎨</span>
-                    <span class="action-label">Different</span>
-                </button>
-            </div>
-        </div>
-    `;
-    
-    return html;
-}
-
-/**
- * Escape HTML to prevent XSS
- * @param {string} text - Text to escape
- * @returns {string} Escaped text
- */
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-/**
- * Show/hide loading indicator
- * @param {boolean} show - Whether to show loading
- */
-function showChatLoading(show) {
-    // For now, just disable the input
-    const chatInput = document.getElementById('chat-input');
-    const sendBtn = document.getElementById('send-btn');
-    
-    if (chatInput) chatInput.disabled = show;
-    if (sendBtn) sendBtn.disabled = show;
-    
-    // Could add a loading message here if needed
+function autoResizeTextarea(textarea) {
+    textarea.style.height = 'auto';
+    const minHeight = 44; // Min height for touch targets
+    const maxHeight = 120; // Max 4 lines approx
+    const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight));
+    textarea.style.height = `${newHeight}px`;
 }
 
 /**
@@ -381,9 +202,10 @@ function checkProfileCompleteness(profile) {
  * Initialize PromptBox
  */
 async function initPromptBox() {
-    // PromptBox handles its own container rendering
+    // PromptBox handles its own container rendering in embedded mode
     if (typeof PromptBox !== 'undefined') {
         const promptBox = new PromptBox('dashboard-promptbox', {
+            embedded: true, // Only render messages, page provides header/input
             context: 'dashboard',
             placeholder: 'What do you want to create today?',
             onSend: async (message, pb) => {
@@ -392,9 +214,245 @@ async function initPromptBox() {
             }
         });
         
+        // Store globally for page input integration
+        window.dashboardPromptBox = promptBox;
+        
         // Check profile and show contextual welcome
         await promptBox.initWithProfileContext();
+        
+        // Connect page input to PromptBox
+        connectPageInputToPromptBox(promptBox);
     }
+}
+
+/**
+ * Connect page-level input to PromptBox in embedded mode
+ * @param {PromptBox} promptBox - The PromptBox instance
+ */
+function connectPageInputToPromptBox(promptBox) {
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    
+    if (!chatInput || !sendBtn) return;
+    
+    // Handle input changes for autocomplete
+    chatInput.addEventListener('input', (e) => {
+        const value = e.target.value;
+        autoResizeTextarea(chatInput);
+        sendBtn.disabled = !value.trim();
+        
+        // Handle slash commands for autocomplete
+        handleSlashCommandAutocomplete(value);
+    });
+    
+    // Handle Enter key
+    chatInput.addEventListener('keydown', (e) => {
+        // Check if autocomplete is open
+        const autocomplete = document.getElementById('autocomplete-container');
+        if (autocomplete && !autocomplete.classList.contains('hidden')) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                navigateAutocomplete('down');
+                return;
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateAutocomplete('up');
+                return;
+            } else if (e.key === 'Enter' || e.key === 'Tab') {
+                const selectedItem = autocomplete.querySelector('.autocomplete-item.selected');
+                if (selectedItem) {
+                    e.preventDefault();
+                    selectAutocompleteItem(selectedItem.dataset.command);
+                    return;
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                hideAutocomplete();
+                return;
+            }
+        }
+        
+        // Normal Enter handling
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (e.target.value.trim()) {
+                handlePageChatSend(promptBox);
+            }
+        }
+    });
+    
+    // Handle send button click
+    sendBtn.addEventListener('click', () => {
+        handlePageChatSend(promptBox);
+    });
+}
+
+/**
+ * Handle sending message from page input to PromptBox
+ * @param {PromptBox} promptBox - The PromptBox instance
+ */
+async function handlePageChatSend(promptBox) {
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    const message = chatInput.value.trim();
+    
+    if (!message) return;
+    
+    // Clear input
+    chatInput.value = '';
+    autoResizeTextarea(chatInput);
+    sendBtn.disabled = true;
+    hideAutocomplete();
+    
+    // Send message to PromptBox
+    await promptBox.sendMessage(message);
+}
+
+/**
+ * Handle slash command autocomplete
+ * @param {string} value - Input value
+ */
+function handleSlashCommandAutocomplete(value) {
+    const chatInput = document.getElementById('chat-input');
+    
+    // Check if value starts with /
+    if (value.startsWith('/')) {
+        // Show slash hint on first use
+        const slashHint = document.getElementById('slash-hint');
+        const hasUsedSlash = localStorage.getItem('eazeily_used_slash') === 'true';
+        if (!hasUsedSlash && slashHint) {
+            slashHint.classList.remove('hidden');
+            localStorage.setItem('eazeily_used_slash', 'true');
+            // Hide after showing briefly
+            setTimeout(() => {
+                slashHint.classList.add('fade-out');
+                setTimeout(() => slashHint.classList.add('hidden'), 300);
+            }, 2000);
+        }
+        
+        const query = value.slice(1).toLowerCase();
+        
+        // Use global SLASH_COMMANDS from promptbox.js (loaded via script tag)
+        if (typeof SLASH_COMMANDS === 'undefined') {
+            console.error('SLASH_COMMANDS not loaded from promptbox.js - autocomplete disabled');
+            hideAutocomplete();
+            return;
+        }
+        
+        const matches = SLASH_COMMANDS.filter(cmd => 
+            cmd.command.slice(1).toLowerCase().startsWith(query)
+        );
+        
+        if (matches.length > 0) {
+            showAutocomplete(matches);
+            chatInput.classList.add('has-slash-command');
+        } else {
+            hideAutocomplete();
+            chatInput.classList.remove('has-slash-command');
+        }
+    } else {
+        hideAutocomplete();
+        chatInput.classList.remove('has-slash-command');
+    }
+}
+
+/**
+ * Show autocomplete dropdown
+ * @param {Array} commands - Array of command objects
+ */
+function showAutocomplete(commands) {
+    const container = document.getElementById('autocomplete-container');
+    if (!container) return;
+    
+    const html = commands.map((cmd, index) => `
+        <div class="autocomplete-item ${index === 0 ? 'selected' : ''}" data-index="${index}" data-command="${escapeHtml(cmd.command)}">
+            <span class="autocomplete-icon">${cmd.icon}</span>
+            <div class="autocomplete-text">
+                <span class="autocomplete-command">${escapeHtml(cmd.command)}</span>
+                <span class="autocomplete-desc">${escapeHtml(cmd.description)}</span>
+            </div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = html;
+    container.classList.remove('hidden');
+    
+    // Add click handlers
+    container.querySelectorAll('.autocomplete-item').forEach((item, index) => {
+        item.addEventListener('click', () => {
+            selectAutocompleteItem(item.dataset.command);
+        });
+    });
+}
+
+/**
+ * Navigate autocomplete with arrow keys
+ * @param {string} direction - 'up' or 'down'
+ */
+function navigateAutocomplete(direction) {
+    const container = document.getElementById('autocomplete-container');
+    if (!container || container.classList.contains('hidden')) return;
+    
+    const items = Array.from(container.querySelectorAll('.autocomplete-item'));
+    if (items.length === 0) return;
+    
+    const currentIndex = items.findIndex(item => item.classList.contains('selected'));
+    let newIndex;
+    
+    if (direction === 'down') {
+        newIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+    } else {
+        newIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+    }
+    
+    // Remove selected class from all items
+    items.forEach(item => item.classList.remove('selected'));
+    
+    // Add selected class to new item
+    items[newIndex].classList.add('selected');
+    
+    // Scroll into view
+    items[newIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+/**
+ * Hide autocomplete dropdown
+ */
+function hideAutocomplete() {
+    const container = document.getElementById('autocomplete-container');
+    if (container) {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+    }
+    window.selectedAutocompleteIndex = -1;
+}
+
+/**
+ * Select an autocomplete item
+ * @param {string} command - Command to insert
+ */
+function selectAutocompleteItem(command) {
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    
+    if (chatInput) {
+        chatInput.value = command + ' ';
+        autoResizeTextarea(chatInput);
+        sendBtn.disabled = false;
+        hideAutocomplete();
+        chatInput.focus();
+    }
+}
+
+/**
+ * Escape HTML to prevent XSS
+ * @param {string} text - Text to escape
+ * @returns {string} Escaped text
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 </script>
 
