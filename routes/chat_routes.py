@@ -642,6 +642,46 @@ def _continue_profile_update(pending_task: dict, message: str, profile: VoicePro
     Returns:
         Response dict with next prompt or confirmation
     """
+    # Handle writing samples collection
+    if pending_task.get('collecting') == 'writing_samples':
+        # Check if user is done
+        if message.lower().strip() in ['done', 'finished', 'complete', 'stop']:
+            current_count = len(profile.get_writing_samples() or [])
+            return _build_response(
+                f"Perfect! You now have {current_count} writing sample(s) saved. "
+                f"I'll use these to match your style when creating content.\n\n"
+                f"Ready to create something?",
+                action='profile_updated',
+                suggestions=['Create content', 'View my profile']
+            )
+        
+        # Add the sample
+        current_samples = profile.get_writing_samples() or []
+        current_samples.append(message)
+        profile.set_writing_samples(current_samples)
+        
+        try:
+            db.session.commit()
+            logger.info(f"Added writing sample for user {current_user.id}")
+            
+            return _build_response(
+                f"Great sample! I've saved it ({len(current_samples)} total).\n\n"
+                f"Want to add another? Just paste it, or say 'done' to finish.",
+                action='continue',
+                pending_task={
+                    'flow': 'profile_update',
+                    'task_type': 'update_samples',
+                    'collecting': 'writing_samples'
+                }
+            )
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error saving writing sample: {e}", exc_info=True)
+            return _build_response(
+                "I had trouble saving that sample. Please try again.",
+                action='error'
+            )
+    
     field_name = pending_task.get('field_name')
     
     if not field_name:
@@ -736,6 +776,71 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
     if intent_result['task_type'] == 'profile':
         # Show profile summary
         return _show_profile_summary(profile)
+    
+    # Handle writing samples collection
+    if intent_result['task_type'] == 'update_samples':
+        extracted = intent_result.get('extracted_params', {})
+        sample_text = extracted.get('sample_text')
+        
+        if sample_text:
+            # Save the sample
+            current_samples = profile.get_writing_samples() or []
+            current_samples.append(sample_text)
+            profile.set_writing_samples(current_samples)
+            
+            try:
+                db.session.commit()
+                logger.info(f"Added writing sample for user {current_user.id}")
+                
+                return _build_response(
+                    f"Great sample! I've saved it ({len(current_samples)} total).\n\n"
+                    f"Want to add another? Just paste it, or say 'done' to finish.",
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': 'update_samples',
+                        'collecting': 'writing_samples'
+                    }
+                )
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error saving writing sample: {e}", exc_info=True)
+                return _build_response(
+                    "I had trouble saving that sample. Please try again.",
+                    action='error'
+                )
+        else:
+            # Start collection flow
+            current_count = len(profile.get_writing_samples() or [])
+            return _build_response(
+                f"I'll help you add writing samples. You currently have {current_count} sample(s).\n\n"
+                f"Paste a writing sample (social post, email, or website copy):",
+                action='continue',
+                pending_task={
+                    'flow': 'profile_update',
+                    'task_type': 'update_samples',
+                    'collecting': 'writing_samples'
+                }
+            )
+    
+    # Handle URL import (note: actual import is handled client-side via /onboarding/social-style)
+    if intent_result['task_type'] == 'import_profile':
+        extracted = intent_result.get('extracted_params', {})
+        url = extracted.get('url')
+        
+        if url:
+            # Return message indicating client should handle this
+            return _build_response(
+                f"Please use the `/import {url}` command in the chat interface to import from that URL.",
+                action='continue',
+                suggestions=['Try the /import command']
+            )
+        else:
+            return _build_response(
+                "Please provide a URL to import from:\n\n"
+                "Example: `/import https://yourwebsite.com`",
+                action='continue'
+            )
     
     if intent_result['task_type'] in ['profile_update', 'update_voice', 'update_audience']:
         extracted = intent_result.get('extracted_params', {})
@@ -1065,8 +1170,8 @@ def chat():
         intent_result = conversation_router.parse_intent(message, profile)
         logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
         
-        # Handle profile-related intents
-        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience']:
+        # Handle profile-related intents (including new commands)
+        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile']:
             logger.info(f"[{request_id}] Handling profile update request")
             result = _handle_profile_update(message, None, profile, db)
             return jsonify(result), 200
