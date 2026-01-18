@@ -756,25 +756,41 @@ class PromptBox {
           return;
         }
         
+        // Use correct textarea and send button IDs based on embedded mode
+        const textareaId = this.embedded ? 'chat-input' : `${this.container.id}-textarea`;
+        const sendBtnId = this.embedded ? 'send-btn' : `${this.container.id}-send`;
+        
+        const textarea = document.getElementById(textareaId);
+        const sendBtn = document.getElementById(sendBtnId);
+        
         if (btn.action === 'prompt') {
           // Pre-fill the input with the value
-          const textarea = document.getElementById(`${this.container.id}-textarea`);
           if (textarea) {
             textarea.value = btn.value;
-            this.autoResizeTextarea(textarea);
-            const sendBtn = document.getElementById(`${this.container.id}-send`);
-            this.updateSendButton(textarea, sendBtn);
+            
+            // Use appropriate resize function based on mode
+            if (this.embedded && typeof autoResizeTextarea === 'function') {
+              autoResizeTextarea(textarea);
+            } else {
+              this.autoResizeTextarea(textarea);
+            }
+            
+            // Enable send button
+            if (sendBtn) {
+              sendBtn.disabled = false;
+            }
+            
             textarea.focus();
           }
         } else if (btn.action === 'focus') {
-          const textarea = document.getElementById(`${this.container.id}-textarea`);
-          if (textarea) textarea.focus();
+          if (textarea) {
+            textarea.focus();
+          }
         } else if (btn.action === 'command') {
-          // Execute command directly
-          const textarea = document.getElementById(`${this.container.id}-textarea`);
+          // Execute command directly using sendMessage
           if (textarea) {
             textarea.value = btn.value;
-            this.handleSend();
+            this.sendMessage(btn.value);
           }
         }
       };
