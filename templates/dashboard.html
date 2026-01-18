@@ -332,9 +332,10 @@ function handleSlashCommandAutocomplete(value) {
         
         const query = value.slice(1).toLowerCase();
         
-        // Use global SLASH_COMMANDS from promptbox.js
+        // Use global SLASH_COMMANDS from promptbox.js (loaded via script tag)
         if (typeof SLASH_COMMANDS === 'undefined') {
-            console.warn('SLASH_COMMANDS not loaded from promptbox.js');
+            console.error('SLASH_COMMANDS not loaded from promptbox.js - autocomplete disabled');
+            hideAutocomplete();
             return;
         }
         

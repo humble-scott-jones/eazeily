@@ -191,7 +191,7 @@ class PromptBox {
   }
 
   renderSuggestions() {
-    // Skip suggestions in embedded mode
+    // Skip suggestions in embedded mode (page handles input)
     if (this.embedded) {
       return;
     }

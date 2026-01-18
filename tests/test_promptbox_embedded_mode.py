@@ -32,9 +32,9 @@ def test_promptbox_js_has_send_message_method():
     promptbox_js = Path("static/js/promptbox.js")
     content = promptbox_js.read_text()
     
-    # Check for sendMessage method
-    assert "async sendMessage(message)" in content or "sendMessage(message)" in content, \
-        "PromptBox should have sendMessage() method for external input"
+    # Check for async sendMessage method (actual implementation)
+    assert "async sendMessage(message)" in content, \
+        "PromptBox should have async sendMessage(message) method for external input"
 
 
 def test_dashboard_html_initializes_embedded_mode():
