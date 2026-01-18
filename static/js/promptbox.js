@@ -44,6 +44,8 @@ const FIELD_LABELS = {
   'key_offer': 'Key Offer',
   'writing_samples': 'Writing Samples',
   'voice_rules': 'Voice Rules',
+  'brand_keywords': 'Brand Keywords',
+  'goals': 'Goals',
 };
 
 class PromptBox {
@@ -921,6 +923,8 @@ class PromptBox {
       { key: 'target_audience', value: profile.target_audience, command: '/audience ' },
       { key: 'key_offer', value: profile.key_offer, command: '/update key_offer ' },
       { key: 'writing_samples', value: profile.writing_samples && profile.writing_samples.length > 0, command: '/profile ' },
+      { key: 'brand_keywords', value: profile.brand_keywords && profile.brand_keywords.length > 0, command: '/profile ' },
+      { key: 'goals', value: profile.goals && profile.goals.length > 0, command: '/profile ' },
     ];
     
     const missing = [];
@@ -973,6 +977,8 @@ class PromptBox {
       'target_audience': 'Target Audience',
       'key_offer': 'Key Offer',
       'writing_samples': 'Writing Samples',
+      'brand_keywords': 'Brand Keywords',
+      'goals': 'Goals',
     };
     return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }
@@ -1172,7 +1178,24 @@ What would you like to create?`;
       foundCount++;
     }
     
-    const total = 6; // Total fields to check
+    // Check brand keywords
+    const keywords = profile.brand_keywords || [];
+    if (!keywords || keywords.length === 0) {
+      missing.push('Brand Keywords');
+    } else {
+      foundCount++;
+    }
+    
+    // Check goals
+    const goals = profile.goals || [];
+    if (!goals || goals.length === 0) {
+      missing.push('Goals');
+    } else {
+      foundCount++;
+    }
+    
+    // Calculate total dynamically based on all checks
+    const total = foundCount + missing.length;
     const percent = Math.round((foundCount / total) * 100);
     
     return { missing, percent };
@@ -1547,18 +1570,42 @@ Tell me about your business, or use \`/import <url>\` to import from your websit
   const p = data.profile;
   const { missing, percent } = promptBox.checkProfileCompleteness(p);
   
-  let summary = `## Your Brand Profile (${percent}% complete)\n\n`;
-  summary += `**Business:** ${p.company || p.business_name || '❌ Not set'}\n`;
+  // Build inline profile card with all 8 fields
+  let summary = `## 👤 Your Brand Profile (${percent}% complete)\n\n`;
+  
+  // Show all 8 fields with status icons
+  summary += `**Business Name:** ${p.company || p.business_name || '❌ Not set'}\n`;
   summary += `**Industry:** ${p.industry || '❌ Not set'}\n`;
   summary += `**Brand Voice:** ${p.tone || p.brand_voice || '❌ Not set'}\n`;
   summary += `**Target Audience:** ${p.target_audience || '➖ Not set'}\n`;
   summary += `**Key Offer:** ${p.key_offer || '➖ Not set'}\n`;
+  
+  // Brand Keywords
+  const keywords = p.brand_keywords || [];
+  if (keywords.length > 0) {
+    summary += `**Brand Keywords:** ${keywords.join(', ')}\n`;
+  } else {
+    summary += `**Brand Keywords:** ➖ Not set\n`;
+  }
+  
+  // Goals
+  const goals = p.goals || [];
+  if (goals.length > 0) {
+    summary += `**Goals:** ${goals.join(', ')}\n`;
+  } else {
+    summary += `**Goals:** ➖ Not set\n`;
+  }
+  
+  // Writing Samples
   summary += `**Writing Samples:** ${p.writing_samples?.length || 0} samples\n`;
   
+  // Action buttons
   const buttons = [];
+  
   if (missing.length > 0) {
     summary += `\n**Missing:** ${missing.join(', ')}\n`;
     summary += `\nUse these commands to complete your profile:\n`;
+    
     if (missing.includes('Brand Voice')) {
       summary += `• \`/voice\` - Set your brand tone\n`;
       buttons.push({ label: '🎤 Update Voice', action: 'prompt', value: '/voice ' });
@@ -1567,10 +1614,23 @@ Tell me about your business, or use \`/import <url>\` to import from your websit
       summary += `• \`/audience\` - Define your customers\n`;
       buttons.push({ label: '🎯 Update Audience', action: 'prompt', value: '/audience ' });
     }
+    if (missing.includes('Brand Keywords')) {
+      summary += `• Update keywords on settings page\n`;
+      buttons.push({ label: '⚙️ Open Settings', action: 'command', value: 'window.location.href="/profile"' });
+    }
+    if (missing.includes('Goals')) {
+      summary += `• Update goals on settings page\n`;
+      if (!buttons.find(b => b.label === '⚙️ Open Settings')) {
+        buttons.push({ label: '⚙️ Open Settings', action: 'command', value: 'window.location.href="/profile"' });
+      }
+    }
     if (missing.includes('Writing Samples')) {
       summary += `• \`/samples\` - Add writing examples\n`;
       buttons.push({ label: '✍️ Add Samples', action: 'prompt', value: '/samples' });
     }
+  } else {
+    summary += `\n✅ **Profile complete!** Your content will be highly personalized.`;
+    buttons.push({ label: '✨ Create content', action: 'focus' });
   }
   
   promptBox.addAssistantMessage(summary, { buttons });

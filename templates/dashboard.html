@@ -226,19 +226,38 @@ async function initPromptBox() {
         // Store globally for page input integration
         window.dashboardPromptBox = promptBox;
         
-        // Check if this is a new user from server-side flag
-        const isNewUser = {{ 'true' if is_new_user else 'false' }};
+        // Check for prefill parameter from URL (e.g., from settings page)
+        const urlParams = new URLSearchParams(window.location.search);
+        const prefillCommand = urlParams.get('prefill');
         
-        if (isNewUser) {
-            // Show onboarding welcome for new users
-            promptBox.showOnboardingWelcome();
-            
-            // Set up onboarding state
-            window.onboardingState = 'awaiting_business_name';
-            window.onboardingData = {};
+        if (prefillCommand) {
+            // Wait for promptbox to be ready, then prefill the command
+            setTimeout(() => {
+                const chatInput = document.getElementById('chat-input');
+                if (chatInput) {
+                    chatInput.value = prefillCommand;
+                    chatInput.focus();
+                    // Enable send button if there's a handler
+                    const sendBtn = document.getElementById('send-btn');
+                    if (sendBtn) sendBtn.disabled = false;
+                }
+            }, 500);
         } else {
-            // Check profile and show contextual welcome for existing users
-            await promptBox.initWithProfileContext();
+            // Normal initialization flow
+            // Check if this is a new user from server-side flag
+            const isNewUser = {{ 'true' if is_new_user else 'false' }};
+            
+            if (isNewUser) {
+                // Show onboarding welcome for new users
+                promptBox.showOnboardingWelcome();
+                
+                // Set up onboarding state
+                window.onboardingState = 'awaiting_business_name';
+                window.onboardingData = {};
+            } else {
+                // Check profile and show contextual welcome for existing users
+                await promptBox.initWithProfileContext();
+            }
         }
         
         // Connect page input to PromptBox
