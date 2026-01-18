@@ -15,12 +15,16 @@ logger = logging.getLogger(__name__)
 @onboarding_bp.route('/onboarding', methods=['GET', 'POST'])
 @login_required
 def onboarding():
-    """Redirect to dashboard - onboarding is now chat-based."""
+    """Redirect to dashboard for chat-based onboarding.
+    
+    GET requests are redirected to dashboard immediately.
+    POST requests are still handled for backward compatibility with any legacy integrations.
+    """
     if request.method == 'GET':
         # Redirect GET requests to dashboard for chat-based onboarding
         return redirect(url_for('generate.dashboard'))
     
-    # For POST requests (legacy form submissions), still handle them
+    # Handle POST requests (legacy form submissions)
     if request.method == 'POST':
         try:
             # Get form data

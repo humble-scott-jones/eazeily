@@ -1420,11 +1420,14 @@ What would you like to create?`;
    * @returns {boolean} - True if handled, false otherwise
    */
   async handleOnboardingInput(userMessage) {
+    // Helper function for escaping HTML in template strings
+    const escapeHtml = (text) => this.escapeHtml(text);
+    
     const ONBOARDING_STATES = {
       'awaiting_business_name': {
         field: 'business_name',
         next: 'awaiting_industry',
-        getPrompt: (data) => "Great! Now, what industry or type of business is **" + data.business_name + "**? (e.g., Restaurant, Software, Fitness, Retail)"
+        getPrompt: (data) => `Great! Now, what industry or type of business is **${escapeHtml(data.business_name)}**? (e.g., Restaurant, Software, Fitness, Retail)`
       },
       'awaiting_industry': {
         field: 'industry',
@@ -1436,7 +1439,7 @@ What would you like to create?`;
         next: 'complete',
         getPrompt: (data) => `Awesome! Your profile is set up. Here's what I know:
 
-**${data.business_name}** | ${data.industry} | ${data.brand_voice}
+**${escapeHtml(data.business_name)}** | ${escapeHtml(data.industry)} | ${escapeHtml(data.brand_voice)}
 
 You're ready to create content! Try:
 - "Write an Instagram post about our latest product"
@@ -1466,7 +1469,9 @@ You're ready to create content! Try:
       });
       
       if (!saveResponse.ok) {
-        this.addMessage('assistant', "Hmm, I couldn't save that. Please try again.");
+        const errorData = await saveResponse.json().catch(() => ({}));
+        const errorMessage = errorData.error?.message || "I couldn't save that. Please try again.";
+        this.addMessage('assistant', `Hmm, ${errorMessage}`);
         return true;
       }
       
