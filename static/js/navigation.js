@@ -78,8 +78,8 @@ function menuAction(action) {
             }
             break;
             
-        case 'saved':
-            showToast('Saved posts coming soon! 📚');
+        case 'calendar':
+            showContentCalendarModal();
             break;
             
         case 'help':
@@ -255,6 +255,90 @@ function autoResizeTextarea(textarea) {
     textarea.style.height = `${newHeight}px`;
 }
 
+/**
+ * Show Content Calendar modal (premium feature placeholder)
+ */
+function showContentCalendarModal() {
+    // Remove existing modal if any
+    const existing = document.getElementById('calendar-modal');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'calendar-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content calendar-modal">
+            <button class="modal-close" onclick="closeCalendarModal()">&times;</button>
+            <div class="calendar-header">
+                <span class="calendar-icon">📅</span>
+                <h2>Content Calendar</h2>
+                <span class="pro-badge">PRO</span>
+            </div>
+            <p class="calendar-description">
+                Plan your content ahead of time! Save generated posts to specific dates 
+                and visualize your content schedule at a glance.
+            </p>
+            <div class="calendar-features">
+                <div class="feature-item">
+                    <span class="feature-icon">⏰</span>
+                    <span>Schedule posts for specific dates & times</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">📊</span>
+                    <span>See gaps in your content schedule</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔄</span>
+                    <span>Drag & drop to reschedule</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔔</span>
+                    <span>Get reminders before scheduled posts</span>
+                </div>
+            </div>
+            <div class="calendar-cta">
+                <p class="coming-soon">Coming Soon!</p>
+                <button class="btn-notify" onclick="notifyCalendarInterest()">
+                    🔔 Notify me when it's ready
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeCalendarModal();
+    });
+    
+    // Close on escape key
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+            closeCalendarModal();
+            document.removeEventListener('keydown', escHandler);
+        }
+    });
+}
+
+/**
+ * Close Content Calendar modal
+ */
+function closeCalendarModal() {
+    const modal = document.getElementById('calendar-modal');
+    if (modal) modal.remove();
+}
+
+/**
+ * Handle user interest in Content Calendar feature
+ * Shows confirmation toast and closes modal
+ */
+function notifyCalendarInterest() {
+    // TODO: Add analytics tracking or save user preference when backend is ready
+    showToast('Thanks! We\'ll notify you when Content Calendar launches. 🎉');
+    closeCalendarModal();
+}
+
 // Export functions to window for inline onclick handlers
 if (typeof window !== 'undefined') {
     window.openMenu = openMenu;
@@ -266,4 +350,7 @@ if (typeof window !== 'undefined') {
     window.copyOption = copyOption;
     window.copySingleContent = copySingleContent;
     window.autoResizeTextarea = autoResizeTextarea;
+    window.showContentCalendarModal = showContentCalendarModal;
+    window.closeCalendarModal = closeCalendarModal;
+    window.notifyCalendarInterest = notifyCalendarInterest;
 }

@@ -24,6 +24,9 @@ const SLASH_COMMANDS = [
   { command: '/samples', description: 'Add writing samples to match your style', icon: '✍️', category: 'profile' },
   { command: '/rules', description: 'Set voice rules and guidelines', icon: '📋', category: 'profile' },
   { command: '/import', description: 'Import profile from your website URL', icon: '🔗', category: 'profile' },
+  
+  // Help command
+  { command: '/help', description: 'Show all available commands', icon: '❓', category: 'help' },
 ];
 
 // Profile field command mapping
@@ -487,7 +490,7 @@ class PromptBox {
 
     try {
       // Check if this is a profile command that should be handled client-side
-      const profileCommands = ['/profile', '/voice', '/audience', '/offer', '/samples', '/rules', '/import'];
+      const profileCommands = ['/profile', '/voice', '/audience', '/offer', '/samples', '/rules', '/import', '/help'];
       const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
       
       if (isProfileCommand) {
@@ -553,7 +556,7 @@ class PromptBox {
       }
       
       // Check if this is a profile command that should be handled client-side
-      const profileCommands = ['/profile', '/voice', '/audience', '/samples', '/import'];
+      const profileCommands = ['/profile', '/voice', '/audience', '/samples', '/import', '/help'];
       const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
       
       if (isProfileCommand) {
@@ -1680,8 +1683,43 @@ async function showImportFlow(promptBox, url) {
   }
 }
 
+async function handleHelpCommand(promptBox) {
+  const helpMessage = `## ❓ Available Commands
+
+### 📝 Content Creation
+| Command | Description |
+|---------|-------------|
+| \`/post\` | Create a social media post |
+| \`/caption\` | Write an image caption |
+| \`/script\` | Write a video script |
+| \`/reel\` | Create a reel/short video script |
+| \`/email\` | Draft an email |
+| \`/review\` | Respond to a review |
+| \`/ad\` | Create ad copy |
+| \`/blog\` | Write a blog post |
+
+### 👤 Profile Management
+| Command | Description |
+|---------|-------------|
+| \`/profile\` | View your brand profile |
+| \`/voice\` | Update your brand voice/tone |
+| \`/audience\` | Define your target audience |
+| \`/offer\` | Set your key offer/value proposition |
+| \`/samples\` | Add writing samples |
+| \`/rules\` | Set voice rules and guidelines |
+| \`/import [url]\` | Import profile from website |
+
+---
+💡 **Tip:** You can also just describe what you want in plain English and I'll figure out the rest!`;
+
+  promptBox.addMessage('assistant', helpMessage);
+}
+
 async function handleProfileCommand(promptBox, command, args) {
   switch (command) {
+    case '/help':
+      await handleHelpCommand(promptBox);
+      break;
     case '/profile':
       await showProfileSummary(promptBox);
       break;
@@ -1703,6 +1741,7 @@ async function handleProfileCommand(promptBox, command, args) {
 // Export profile command handlers
 if (typeof window !== 'undefined') {
   window.handleProfileCommand = handleProfileCommand;
+  window.handleHelpCommand = handleHelpCommand;
   window.showProfileSummary = showProfileSummary;
   window.showVoiceUpdateFlow = showVoiceUpdateFlow;
   window.showAudienceUpdateFlow = showAudienceUpdateFlow;
