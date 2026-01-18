@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}Eazeily{% endblock %}</title>
+    
+    <!-- Prevent iOS zoom on input focus -->
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Theme System (matches OS preference) -->
+    <link rel="stylesheet" href="/static/css/theme.css">
+    
+    <!-- Chat Component Styles -->
+    <link rel="stylesheet" href="/static/css/chat.css">
+    
+    <!-- PromptBox Styles -->
+    <link rel="stylesheet" href="/static/css/promptbox.css">
+    
+    {% block head %}{% endblock %}
+</head>
+<body class="chat-body">
+    {% block body %}
+    <!-- Full-page chat layout - NO sidebar, NO standard nav -->
+    {% endblock %}
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

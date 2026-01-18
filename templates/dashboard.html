@@ -1,6 +1,8 @@
-{% extends "base.html" %}
+{% extends "base_chat.html" %}
 
-{% block content %}
+{% block title %}Dashboard - Eazeily{% endblock %}
+
+{% block body %}
 <div class="chat-page">
     <!-- Minimal Header -->
     <header class="app-header">
@@ -99,6 +101,9 @@
     </footer>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <!-- Navigation & Chat Scripts -->
 <script src="/static/js/navigation.js"></script>
 <script src="/static/js/promptbox.js"></script>
