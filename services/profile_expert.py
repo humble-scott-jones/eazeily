@@ -4,7 +4,18 @@ AI-powered profile field suggestions using full profile context.
 import os
 from openai import OpenAI
 
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# Lazy initialization - only create client when actually needed
+_client = None
+
+def get_client():
+    """Get or create OpenAI client."""
+    global _client
+    if _client is None:
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            api_key = 'dummy-key-for-testing'  # Allow import without key
+        _client = OpenAI(api_key=api_key)
+    return _client
 
 FIELD_EXPERT_PROMPTS = {
     'target_audience': """You are an expert brand strategist helping define a target audience.
@@ -226,6 +237,7 @@ async def generate_profile_suggestions(field: str, profile: dict) -> dict:
     prompt = prompt_template.format(**context)
     
     try:
+        client = get_client()
         response = client.chat.completions.create(
             model="gpt-4o-mini",  # Fast and cost-effective
             messages=[
@@ -288,6 +300,7 @@ def generate_profile_suggestions_sync(field: str, profile: dict) -> dict:
     prompt = prompt_template.format(**context)
     
     try:
+        client = get_client()
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
