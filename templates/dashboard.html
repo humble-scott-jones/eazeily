@@ -116,6 +116,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize PromptBox
     initPromptBox();
+    
+    // Show slash hint for first-time users
+    showInitialSlashHint();
 });
 
 /**
@@ -243,6 +246,30 @@ async function initPromptBox() {
 }
 
 /**
+ * Show slash command hint for first-time users
+ */
+function showInitialSlashHint() {
+    const hasUsedSlash = localStorage.getItem('eazeily_used_slash') === 'true';
+    const slashHint = document.getElementById('slash-hint');
+    
+    if (!hasUsedSlash && slashHint) {
+        // Brief delay so it appears after page settles
+        setTimeout(() => {
+            slashHint.classList.remove('hidden');
+            
+            // Auto-fade after 5 seconds
+            setTimeout(() => {
+                slashHint.classList.add('fade-out');
+                setTimeout(() => {
+                    slashHint.classList.add('hidden');
+                    slashHint.classList.remove('fade-out');
+                }, 300);
+            }, 5000);
+        }, 500);
+    }
+}
+
+/**
  * Connect page-level input to PromptBox in embedded mode
  * @param {PromptBox} promptBox - The PromptBox instance
  */
@@ -334,17 +361,17 @@ function handleSlashCommandAutocomplete(value) {
     
     // Check if value starts with /
     if (value.startsWith('/')) {
-        // Show slash hint on first use
+        // Hide initial hint and mark as used
         const slashHint = document.getElementById('slash-hint');
         const hasUsedSlash = localStorage.getItem('eazeily_used_slash') === 'true';
         if (!hasUsedSlash && slashHint) {
-            slashHint.classList.remove('hidden');
-            localStorage.setItem('eazeily_used_slash', 'true');
-            // Hide after showing briefly
+            // Immediately hide the hint since user is now typing /
+            slashHint.classList.add('fade-out');
             setTimeout(() => {
-                slashHint.classList.add('fade-out');
-                setTimeout(() => slashHint.classList.add('hidden'), 300);
-            }, 2000);
+                slashHint.classList.add('hidden');
+                slashHint.classList.remove('fade-out');
+            }, 300);
+            localStorage.setItem('eazeily_used_slash', 'true');
         }
         
         const query = value.slice(1).toLowerCase();
