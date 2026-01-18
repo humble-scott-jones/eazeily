@@ -4058,7 +4058,7 @@ function analyzeDraftQuality(text = '') {
     crazy: 'unexpected'
   };
   Object.entries(inclusiveMap).forEach(([term, replacement]) => {
-    const regex = new RegExp(`\b${term}\b`, 'i');
+    const regex = new RegExp(`\\b${term}\\b`, 'i');
     if (regex.test(text)) {
       checks.push({
         type: 'inclusive',
