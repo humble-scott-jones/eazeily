@@ -25,3 +25,13 @@ pytest-report.xml
 tmp/screenshots/
 test.db
 server.log
+
+# Debug and temporary files
+*.log
+*.bak
+debug_*.html
+debug_*.png
+smoke_*.html
+smoke_*.png
+pytest-report.xml
+cookies.txt
