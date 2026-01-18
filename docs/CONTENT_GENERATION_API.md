@@ -275,7 +275,7 @@ Update user profile with new data.
 
 ### POST /api/profile/suggest
 
-Get AI-powered suggestions for profile fields (used by `/voice`, `/audience`, `/offer` commands).
+Get AI-powered suggestions for profile fields (used by `/voice` and `/audience` commands).
 
 **Authentication:** Required (session-based)
 
@@ -300,6 +300,11 @@ Get AI-powered suggestions for profile fields (used by `/voice`, `/audience`, `/
 ```
 
 **Implementation:** `services/profile_expert.py` - Uses Gemini to analyze current profile and generate contextual suggestions.
+
+**Supported Fields:**
+- `target_audience` - Demographic-specific audience personas
+- `brand_voice` - Brand tone and style suggestions
+- `key_offer` - Value proposition options
 
 **Features:**
 - Context-aware suggestions based on full profile

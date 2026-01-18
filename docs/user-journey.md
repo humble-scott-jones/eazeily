@@ -65,10 +65,11 @@ Users can refine their profile using slash commands that trigger AI-powered sugg
 | `/profile` | View/edit full profile | Opens profile management interface |
 | `/voice` | AI suggests 3 brand voice options | `services/profile_expert.py` analyzes profile and writing samples |
 | `/audience` | AI suggests 3 target audience descriptions | Generates demographic-specific personas |
-| `/offer` | AI suggests 3 value propositions | Creates compelling key offers based on industry |
 | `/samples` | Add writing samples | Updates profile with example content |
 | `/import [URL]` | Import profile from website | Scrapes URL via `voice_profile.py` scraper |
-| `/update [field]` | Update specific profile field | Quick update for any profile field |
+| `/update [field]` | Update specific profile field | Quick update for any field (key_offer, etc.) |
+
+**Note**: Key offer can be updated via `/update key_offer` command. The profile expert can generate AI suggestions for `target_audience`, `brand_voice`, and `key_offer` fields.
 
 #### AI Suggestion Flow Example: `/voice`
 1. User types `/voice` in chat
@@ -328,12 +329,13 @@ When user types `/`:
 │ 📢 /ad       Create ad copy             │
 │ ⭐ /review   Respond to a review        │
 │ 📝 /blog     Write a blog post          │
+│ 🎨 /custom   Create custom content      │
 │ ─────────────────────────────────────   │
 │ 🎤 /voice    Update brand voice         │
 │ 🎯 /audience Define target audience     │
-│ 💎 /offer    Set key offer              │
 │ 📋 /samples  Add writing samples        │
 │ 🔗 /import   Import from URL            │
+│ ✏️ /update    Update profile field      │
 │ 👤 /profile  View/edit full profile     │
 │ ❓ /help     Show all commands          │
 └─────────────────────────────────────────┘
@@ -366,6 +368,8 @@ When user types `/audience`:
 │ [Use Option 3] [✏️ Write my own]        │
 └─────────────────────────────────────────┘
 ```
+
+Similar UI appears for `/voice` (brand voice suggestions) and when using `/update key_offer` with AI assistance.
 
 ### Multi-Turn Field Collection
 When AI needs more information:
@@ -499,7 +503,9 @@ Generated Content ← Platform Rules ← Gemini API ← Profile + Prompt
     '/ad': 'ad',
     '/blog': 'blog',
     '/reel': 'script',  # alias
+    '/custom': 'custom',  # flexible custom content
     '/profile': 'profile',
+    '/update': 'profile_update',
     '/voice': 'update_voice',
     '/audience': 'update_audience',
     '/samples': 'update_samples',
@@ -1104,10 +1110,11 @@ User copies content
 - [ ] `/email` command triggers email creation flow
 - [ ] `/voice` generates 3 AI-powered brand voice suggestions
 - [ ] `/audience` generates 3 target audience suggestions
-- [ ] `/offer` generates 3 value proposition suggestions
 - [ ] `/samples` allows adding writing samples
 - [ ] `/profile` opens profile view/edit interface
 - [ ] `/import [URL]` imports profile from website
+- [ ] `/update [field]` updates specific profile field
+- [ ] `/custom` creates custom content type
 - [ ] Slash command autocomplete appears when typing `/`
 - [ ] All commands properly routed via `ConversationRouter`
 
@@ -1135,14 +1142,6 @@ User copies content
 - [ ] User can select suggestion or write their own
 - [ ] Profile updates immediately after selection
 - [ ] Profile completeness badge refreshes after update
-
-### Error Handling
-- [ ] Missing API key shows user-friendly error
-- [ ] Gemini API timeout handled gracefully
-- [ ] Rate limit errors surfaced clearly
-- [ ] Incomplete profile prompts field collection
-- [ ] Network errors don't break chat state
-- [ ] Invalid slash commands show helpful message
 
 ### Error Handling
 - [ ] Missing API key shows user-friendly error
