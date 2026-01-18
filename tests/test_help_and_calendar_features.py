@@ -1,5 +1,5 @@
 """
-Test for /help command and Content Calendar features.
+Tests for /help command and Content Calendar features.
 """
 import pytest
 from pathlib import Path
@@ -166,10 +166,8 @@ def test_dashboard_html_syntax_valid():
     html_path = Path(__file__).parent.parent / 'templates' / 'dashboard.html'
     content = html_path.read_text()
     
-    # Basic HTML structure checks
-    assert '<a href="#" onclick="menuAction(\'calendar\')"' in content or \
-           '<a href="#" onclick="menuAction(&#39;calendar&#39;)"' in content or \
-           'onclick="menuAction(\'calendar\')"' in content
+    # Check that calendar menuAction is present
+    assert "menuAction('calendar')" in content or "menuAction(&#39;calendar&#39;)" in content
 
 
 def test_promptbox_js_syntax_valid():

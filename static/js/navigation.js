@@ -330,10 +330,11 @@ function closeCalendarModal() {
 }
 
 /**
- * Track interest in Content Calendar feature
+ * Handle user interest in Content Calendar feature
+ * Shows confirmation toast and closes modal
  */
 function notifyCalendarInterest() {
-    // Could send to analytics or save preference
+    // TODO: Add analytics tracking or save user preference when backend is ready
     showToast('Thanks! We\'ll notify you when Content Calendar launches. 🎉');
     closeCalendarModal();
 }
