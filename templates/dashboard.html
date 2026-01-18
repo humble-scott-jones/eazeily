@@ -250,14 +250,19 @@ function connectPageInputToPromptBox(promptBox) {
         // Check if autocomplete is open
         const autocomplete = document.getElementById('autocomplete-container');
         if (autocomplete && !autocomplete.classList.contains('hidden')) {
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                // Handle autocomplete navigation (to be implemented)
+                navigateAutocomplete('down');
+                return;
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                navigateAutocomplete('up');
                 return;
             } else if (e.key === 'Enter' || e.key === 'Tab') {
-                if (window.selectedAutocompleteIndex >= 0) {
+                const selectedItem = autocomplete.querySelector('.autocomplete-item.selected');
+                if (selectedItem) {
                     e.preventDefault();
-                    // Select autocomplete item (to be implemented)
+                    selectAutocompleteItem(selectedItem.dataset.command);
                     return;
                 }
             } else if (e.key === 'Escape') {
@@ -327,23 +332,11 @@ function handleSlashCommandAutocomplete(value) {
         
         const query = value.slice(1).toLowerCase();
         
-        // Define slash commands (same as in promptbox.js)
-        const SLASH_COMMANDS = [
-            { command: '/post', description: 'Create a social media post', icon: '📝' },
-            { command: '/caption', description: 'Write an image caption', icon: '📸' },
-            { command: '/script', description: 'Write a video script', icon: '🎬' },
-            { command: '/reel', description: 'Create a reel/short video script', icon: '🎥' },
-            { command: '/email', description: 'Draft an email', icon: '✉️' },
-            { command: '/review', description: 'Respond to a review', icon: '⭐' },
-            { command: '/ad', description: 'Create ad copy', icon: '📢' },
-            { command: '/blog', description: 'Write a blog post', icon: '📰' },
-            { command: '/profile', description: 'View and manage your brand profile', icon: '👤' },
-            { command: '/update', description: 'Update a profile field', icon: '✏️' },
-            { command: '/voice', description: 'Update your brand voice/tone', icon: '🎤' },
-            { command: '/audience', description: 'Define your target audience', icon: '🎯' },
-            { command: '/samples', description: 'Add writing samples to match your style', icon: '✍️' },
-            { command: '/import', description: 'Import profile from your website URL', icon: '🔗' },
-        ];
+        // Use global SLASH_COMMANDS from promptbox.js
+        if (typeof SLASH_COMMANDS === 'undefined') {
+            console.warn('SLASH_COMMANDS not loaded from promptbox.js');
+            return;
+        }
         
         const matches = SLASH_COMMANDS.filter(cmd => 
             cmd.command.slice(1).toLowerCase().startsWith(query)
@@ -371,7 +364,7 @@ function showAutocomplete(commands) {
     if (!container) return;
     
     const html = commands.map((cmd, index) => `
-        <div class="autocomplete-item" data-index="${index}" data-command="${escapeHtml(cmd.command)}">
+        <div class="autocomplete-item ${index === 0 ? 'selected' : ''}" data-index="${index}" data-command="${escapeHtml(cmd.command)}">
             <span class="autocomplete-icon">${cmd.icon}</span>
             <div class="autocomplete-text">
                 <span class="autocomplete-command">${escapeHtml(cmd.command)}</span>
@@ -389,6 +382,36 @@ function showAutocomplete(commands) {
             selectAutocompleteItem(item.dataset.command);
         });
     });
+}
+
+/**
+ * Navigate autocomplete with arrow keys
+ * @param {string} direction - 'up' or 'down'
+ */
+function navigateAutocomplete(direction) {
+    const container = document.getElementById('autocomplete-container');
+    if (!container || container.classList.contains('hidden')) return;
+    
+    const items = Array.from(container.querySelectorAll('.autocomplete-item'));
+    if (items.length === 0) return;
+    
+    const currentIndex = items.findIndex(item => item.classList.contains('selected'));
+    let newIndex;
+    
+    if (direction === 'down') {
+        newIndex = currentIndex < items.length - 1 ? currentIndex + 1 : 0;
+    } else {
+        newIndex = currentIndex > 0 ? currentIndex - 1 : items.length - 1;
+    }
+    
+    // Remove selected class from all items
+    items.forEach(item => item.classList.remove('selected'));
+    
+    // Add selected class to new item
+    items[newIndex].classList.add('selected');
+    
+    // Scroll into view
+    items[newIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 /**

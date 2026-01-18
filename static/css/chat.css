@@ -450,6 +450,10 @@
     background: var(--surface-alt);
 }
 
+.autocomplete-item.selected {
+    border-left: 3px solid var(--accent);
+}
+
 .autocomplete-item .autocomplete-icon {
     font-size: 20px;
     flex-shrink: 0;

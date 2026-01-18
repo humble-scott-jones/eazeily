@@ -1244,6 +1244,7 @@ What would you like to create?`;
 // Export for use in other scripts
 if (typeof window !== 'undefined') {
   window.PromptBox = PromptBox;
+  window.SLASH_COMMANDS = SLASH_COMMANDS; // Export slash commands for dashboard
 }
 
 /**
