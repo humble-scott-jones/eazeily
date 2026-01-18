@@ -422,7 +422,7 @@ def suggest_profile_field():
         'target_audience': profile.target_audience,
         'key_offer': profile.key_offer,
         'voice_rules': profile.voice_rules,
-        'writing_samples': profile.get_writing_samples() if hasattr(profile, 'get_writing_samples') else [],
+        'writing_samples': profile.get_writing_samples(),
     }
     
     # Uses Gemini via services/ai_service.py

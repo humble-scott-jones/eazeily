@@ -241,7 +241,7 @@ def generate_profile_suggestions(field: str, profile: dict) -> dict:
             }
         
         response = model.generate_content(prompt)
-        response_text = response.text if hasattr(response, 'text') else str(response)
+        response_text = response.text
         
         suggestions = parse_suggestions(response_text)
         

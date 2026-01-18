@@ -7,6 +7,8 @@ from services.profile_expert import (
     generate_profile_suggestions,
     FIELD_EXPERT_PROMPTS
 )
+from models import User, VoiceProfile, db
+from app import create_app
 
 
 class TestBuildContext:
@@ -367,9 +369,6 @@ class TestProfileSuggestEndpoint:
         """Test that endpoint handles user without complete profile gracefully."""
         # The authenticated_client has a profile by default from conftest
         # For this test, we'll delete the profile to test the error case
-        from app import create_app
-        from models import VoiceProfile, db
-        
         test_app = authenticated_client.application
         with test_app.app_context():
             # Delete the user's profile
