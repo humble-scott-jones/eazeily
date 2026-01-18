@@ -4,7 +4,84 @@
 
 The content generation API has been enhanced to support content-type-specific inputs that enable Gemini to generate highly tailored content. The API now intelligently structures profile data (including scraped metadata, customer segments, and niche keywords) into prompts that produce content matching the brand's voice.
 
-## Key Improvements
+**💬 INTERACTION MODEL**: Eazeily now features a chat-first interface with slash commands. See [user-journey.md](user-journey.md) for the complete conversational user experience. This document focuses on the underlying API architecture.
+
+**🔗 Related Documentation**:
+- [user-journey.md](user-journey.md) - Chat-first user journey with slash commands
+- [PROFILE_TO_GENERATION_FLOW.md](PROFILE_TO_GENERATION_FLOW.md) - Technical data flow
+- [NORTH_STAR_USER_JOURNEY.md](NORTH_STAR_USER_JOURNEY.md) - Product vision
+
+## API Endpoints
+
+### Primary Endpoint: POST /api/chat (Chat-First)
+
+The conversational interface for all content generation tasks.
+
+**Request:**
+```json
+{
+  "message": "Write a LinkedIn post about our new feature",
+  "history": [
+    {"role": "user", "message": "previous message"},
+    {"role": "assistant", "message": "AI response"}
+  ],
+  "pending_task": {
+    "task_type": "post",
+    "collected": {"platform": "instagram", "topic": "..."}
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "response": "Here's your LinkedIn post...",
+  "action": "generated|continue|onboarding|error",
+  "content": "Generated content text",
+  "pending_task": null,
+  "suggestions": ["Make it shorter", "Try Instagram instead"]
+}
+```
+
+**Features:**
+- Natural language parsing via `ConversationRouter`
+- Slash command support (`/post`, `/email`, `/voice`, etc.)
+- Multi-turn conversations with `pending_task` state
+- Profile-driven content generation
+- AI-powered profile suggestions
+
+**Implementation**: `routes/chat_routes.py`
+
+---
+
+### Legacy Endpoint: POST /api/generate (Form-Based)
+
+Direct API endpoint for content generation (used by dashboard forms).
+
+**Request:**
+```json
+{
+  "task_type": "post",
+  "topic": "New product launch",
+  "platform": "linkedin"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "content": "Generated content...",
+  "task_type": "post",
+  "platform": "linkedin"
+}
+```
+
+**Implementation**: `routes/generate_routes.py`
+
+---
+
+## Content Generation Features
 
 ### 1. Enhanced Profile Data Flow
 
@@ -156,66 +233,17 @@ All existing content types continue to work without modification:
 - `script` - Video scripts
 - `caption` - Image captions
 
-## API Endpoints
+---
 
-### POST /api/generate
-
-Generate content with full profile context and optional content-type-specific fields.
-
-**Authentication:** Required (session-based)
-
-**Request body:**
-```json
-{
-  "task_type": "proposal|review_reply|blog_post|post|ad|email|...",
-  "topic": "Content topic or subject",
-  "platform": "instagram|linkedin|twitter|facebook|...",
-  // Content-type-specific fields (see sections above)
-}
-```
-
-**Response (success):**
-```json
-{
-  "status": "success",
-  "content": "Generated content...",
-  "task_type": "proposal",
-  "platform": ""
-}
-```
-
-**Response (error):**
-```json
-{
-  "status": "error",
-  "error": {
-    "code": "generation_failed",
-    "message": "Failed to generate content. Check your API key and try again."
-  }
-}
-```
-
-### POST /api/generate/{task_type}
-
-Alternative endpoint with task type in URL.
-
-**Example:** `POST /api/generate/proposal`
-
-Same request/response structure as above, but `task_type` is taken from the URL.
-
-## Profile Management
+## Profile Management API
 
 ### POST /api/profile
 
-The profile endpoint has been enhanced to accept and store scraped data.
+Update user profile with new data.
 
-**New fields:**
-- `customers` (array): Target customer segments
-- `scraped_url` (string): URL that was scraped
-- `scraped_meta` (object): Metadata from scraping
-- `scrape_status` (string): Status of scraping operation
+**Authentication:** Required (session-based)
 
-**Example:**
+**Request:**
 ```json
 {
   "company": "TechStart Inc",
@@ -228,6 +256,58 @@ The profile endpoint has been enhanced to accept and store scraped data.
   "target_audience": "Software development teams"
 }
 ```
+
+**Enhanced fields:**
+- `customers` (array): Target customer segments
+- `scraped_url` (string): URL that was scraped
+- `scraped_meta` (object): Metadata from scraping
+- `scrape_status` (string): Status of scraping operation
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Profile updated successfully"
+}
+```
+
+---
+
+### POST /api/profile/suggest
+
+Get AI-powered suggestions for profile fields (used by `/voice`, `/audience`, `/offer` commands).
+
+**Authentication:** Required (session-based)
+
+**Request:**
+```json
+{
+  "field": "target_audience|brand_voice|key_offer"
+}
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "suggestions": [
+    "Small business owners aged 30-50 who struggle with...",
+    "Solopreneurs and freelancers who need...",
+    "Marketing managers at agencies seeking..."
+  ],
+  "field": "target_audience"
+}
+```
+
+**Implementation:** `services/profile_expert.py` - Uses Gemini to analyze current profile and generate contextual suggestions.
+
+**Features:**
+- Context-aware suggestions based on full profile
+- Industry-specific recommendations
+- Analyzes writing samples for tone matching
+- Returns 3 specific, actionable options
+
+---
 
 ## Gemini Integration
 
