@@ -35,3 +35,4 @@ smoke_*.html
 smoke_*.png
 pytest-report.xml
 cookies.txt
+static/demo_dashboard.html
