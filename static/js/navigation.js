@@ -168,8 +168,19 @@ function showToast(message, type = 'success') {
  * @param {number} index - Index of the option to copy
  */
 async function copyOption(index) {
+    // Defensive check for state
+    if (!window.lastGeneratedOptions) {
+        console.warn('No generated options available to copy');
+        showToast('No content to copy', 'error');
+        return;
+    }
+    
     const options = window.lastGeneratedOptions;
-    if (!options || !options[index]) return;
+    if (!options[index]) {
+        console.warn(`Option ${index} not found`);
+        showToast('Option not found', 'error');
+        return;
+    }
     
     const text = options[index].text || options[index];
     
@@ -206,8 +217,14 @@ async function copyOption(index) {
  * Copy single content (when there are no options)
  */
 async function copySingleContent() {
+    // Defensive check for state
+    if (!window.lastGeneratedContent) {
+        console.warn('No generated content available to copy');
+        showToast('No content to copy', 'error');
+        return;
+    }
+    
     const content = window.lastGeneratedContent;
-    if (!content) return;
     
     try {
         await navigator.clipboard.writeText(content);
