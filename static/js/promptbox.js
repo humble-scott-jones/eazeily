@@ -802,8 +802,16 @@ class PromptBox {
   }
 
   renderMarkdown(text) {
-    // Simple markdown rendering (bold, italic, code, lists)
+    // Simple markdown rendering (bold, italic, code, lists, headers, hr)
     let html = this.escapeHtml(text);
+
+    // Headers: ## text, ### text, #### text (must be processed before bold/italic)
+    html = html.replace(/^#### (.+)$/gm, '<h4>$1</h4>');
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+
+    // Horizontal rules: ---
+    html = html.replace(/^---$/gm, '<hr>');
 
     // Bold: **text** or __text__
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
