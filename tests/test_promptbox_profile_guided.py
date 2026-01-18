@@ -96,3 +96,33 @@ def test_promptbox_css_has_button_styles():
     # Check for button styles
     assert 'promptbox-button-container' in content
     assert 'promptbox-action-btn' in content
+
+
+def test_promptbox_js_has_slash_hint_logic():
+    """Test that promptbox.js includes slash command hint logic."""
+    from pathlib import Path
+    js_path = Path(__file__).parent.parent / 'static' / 'js' / 'promptbox.js'
+    assert js_path.exists(), f"promptbox.js not found at {js_path}"
+    
+    content = js_path.read_text()
+    
+    # Check for slash hint related code
+    assert 'hasUsedSlashCommand' in content
+    assert 'eazeily_used_slash' in content
+    assert 'promptbox-slash-hint' in content
+    assert 'fade-out' in content
+
+
+def test_promptbox_css_has_slash_hint_styles():
+    """Test that promptbox.css includes slash command hint styles."""
+    from pathlib import Path
+    css_path = Path(__file__).parent.parent / 'static' / 'css' / 'promptbox.css'
+    assert css_path.exists(), f"promptbox.css not found at {css_path}"
+    
+    content = css_path.read_text()
+    
+    # Check for slash hint styles
+    assert 'promptbox-slash-hint' in content
+    assert '.promptbox-slash-hint kbd' in content
+    assert '.promptbox-slash-hint.hidden' in content
+    assert '.promptbox-slash-hint.fade-out' in content
