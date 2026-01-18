@@ -20,6 +20,7 @@ const SLASH_COMMANDS = [
   { command: '/update', description: 'Update a profile field', icon: '✏️', category: 'profile' },
   { command: '/voice', description: 'Update your brand voice/tone', icon: '🎤', category: 'profile' },
   { command: '/audience', description: 'Define your target audience', icon: '🎯', category: 'profile' },
+  { command: '/offer', description: 'Define your key offer/value proposition', icon: '💎', category: 'profile' },
   { command: '/samples', description: 'Add writing samples to match your style', icon: '✍️', category: 'profile' },
   { command: '/import', description: 'Import profile from your website URL', icon: '🔗', category: 'profile' },
 ];
@@ -84,6 +85,7 @@ class PromptBox {
       return [
         '/voice - Update brand voice',
         '/audience - Define target audience',
+        '/offer - Set key offer',
         '/samples - Add writing samples',
         '/import - Import from URL',
       ];
@@ -420,7 +422,7 @@ class PromptBox {
 
     try {
       // Check if this is a profile command that should be handled client-side
-      const profileCommands = ['/profile', '/voice', '/audience', '/samples', '/import'];
+      const profileCommands = ['/profile', '/voice', '/audience', '/offer', '/samples', '/import'];
       const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
       
       if (isProfileCommand) {
@@ -1314,6 +1316,63 @@ async function showAudienceUpdateFlow(promptBox, existingValue) {
   }
 }
 
+async function showOfferUpdateFlow(promptBox, existingValue) {
+  // Show thinking message
+  promptBox.addAssistantMessage(`Let me analyze your profile and create some personalized suggestions for **Key Offer**...`);
+  promptBox.showLoading();
+  
+  try {
+    const response = await fetch('/api/profile/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ field: 'key_offer' })
+    });
+    
+    const data = await response.json();
+    promptBox.hideLoading();
+    
+    if (data.success && data.suggestions && data.suggestions.length > 0) {
+      let message = `## Define Key Offer 💎\n\n`;
+      message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**:\n\n`;
+      
+      data.suggestions.forEach((suggestion, i) => {
+        message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
+      });
+      
+      message += `---\n\nClick an option to use it, or type your own:`;
+      
+      // Create buttons for each suggestion
+      const buttons = data.suggestions.map((suggestion, i) => ({
+        label: `Use Option ${i + 1}`,
+        action: 'select-suggestion',
+        value: suggestion,
+        field: 'key_offer'
+      }));
+      
+      buttons.push({
+        label: '✏️ Write my own',
+        action: 'focus'
+      });
+      
+      promptBox.addAssistantMessage(message, { buttons });
+      
+    } else {
+      // Fallback - ask for manual input
+      promptBox.addAssistantMessage(
+        `I couldn't generate suggestions right now. What would you like your **Key Offer** to be?\n\nJust type it below:`
+      );
+    }
+    
+  } catch (error) {
+    promptBox.hideLoading();
+    console.error('Error getting profile suggestions:', error);
+    promptBox.addAssistantMessage(
+      `Something went wrong. What would you like your **Key Offer** to be?\n\nJust type it below:`
+    );
+  }
+}
+
 async function showSamplesCollectionFlow(promptBox) {
   const response = await fetch('/api/profile', { credentials: 'include' });
   const data = await response.json();
@@ -1454,6 +1513,9 @@ async function handleProfileCommand(promptBox, command, args) {
     case '/audience':
       await showAudienceUpdateFlow(promptBox, args);
       break;
+    case '/offer':
+      await showOfferUpdateFlow(promptBox, args);
+      break;
     case '/samples':
       await showSamplesCollectionFlow(promptBox);
       break;
@@ -1469,6 +1531,7 @@ if (typeof window !== 'undefined') {
   window.showProfileSummary = showProfileSummary;
   window.showVoiceUpdateFlow = showVoiceUpdateFlow;
   window.showAudienceUpdateFlow = showAudienceUpdateFlow;
+  window.showOfferUpdateFlow = showOfferUpdateFlow;
   window.showSamplesCollectionFlow = showSamplesCollectionFlow;
   window.showImportFlow = showImportFlow;
   window.selectProfileSuggestion = selectProfileSuggestion;
