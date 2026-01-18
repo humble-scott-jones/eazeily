@@ -27,6 +27,8 @@ def get_profile_completeness(profile) -> Tuple[bool, List[str], int]:
     
     OPTIONAL_FIELDS = {
         'writing_samples': 'Writing Samples',  # Check via get_writing_samples()
+        'brand_keywords': 'Brand Keywords',    # Check via get_brand_keywords()
+        'goals': 'Goals',                      # Check via get_goals()
     }
     
     if not profile:
@@ -52,6 +54,20 @@ def get_profile_completeness(profile) -> Tuple[bool, List[str], int]:
         filled += 1
     else:
         missing.append('Writing Samples')
+    
+    # Check brand keywords (stored as JSON)
+    keywords = profile.get_brand_keywords() if hasattr(profile, 'get_brand_keywords') else []
+    if keywords and len(keywords) > 0:
+        filled += 1
+    else:
+        missing.append('Brand Keywords')
+    
+    # Check goals (stored as JSON)
+    goals = profile.get_goals() if hasattr(profile, 'get_goals') else []
+    if goals and len(goals) > 0:
+        filled += 1
+    else:
+        missing.append('Goals')
     
     completeness = int((filled / total) * 100)
     is_complete = len([f for f in missing if f in REQUIRED_FIELDS.values()]) == 0
