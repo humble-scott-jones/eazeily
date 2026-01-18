@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from models import db, VoiceProfile
 import logging
 import uuid
-from services.profile_expert import generate_profile_suggestions
+from services.profile_expert import generate_profile_suggestions, process_raw_audience_input
 
 profile_bp = Blueprint('profile', __name__)
 logger = logging.getLogger(__name__)
@@ -165,7 +165,22 @@ def api_profile():
                 profile.timezone = data['timezone']
             
             if 'target_audience' in data:
-                profile.target_audience = data['target_audience']
+                raw_input = data['target_audience']
+                
+                # If input looks like a prompt/request, process through AI
+                if raw_input and (len(raw_input) > 100 or any(word in raw_input.lower() for word in ['website', 'look at', 'look on', 'analyze', 'come up with', 'check my', 'http://', 'https://'])):
+                    logger.info(f"Target audience appears to be a prompt/request, processing through AI")
+                    processed = process_raw_audience_input(raw_input, profile)
+                    if processed['success']:
+                        profile.target_audience = processed['audience']
+                        logger.info(f"Successfully processed target audience: '{raw_input[:50]}...' -> '{processed['audience'][:50]}...'")
+                    else:
+                        # Fallback: store as-is but log warning
+                        logger.warning(f"Failed to process target audience: {processed.get('error')}")
+                        profile.target_audience = raw_input
+                else:
+                    # Short, direct input - store as-is
+                    profile.target_audience = raw_input
             elif 'key_customers' in data:
                 # Map key_customers to target_audience
                 profile.target_audience = data['key_customers']

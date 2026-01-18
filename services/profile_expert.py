@@ -7,6 +7,73 @@ from services.ai_service import get_generative_model
 
 logger = logging.getLogger(__name__)
 
+
+def process_raw_audience_input(user_input: str, profile) -> dict:
+    """
+    Process raw user input about target audience through AI.
+    
+    Handles cases like:
+    - "Look on my website https://example.com and figure it out"
+    - "Check my Instagram @mybrand"
+    - Long descriptions that need summarization
+    
+    Args:
+        user_input: The raw user input about their target audience
+        profile: VoiceProfile instance with current profile data
+    
+    Returns:
+        dict with 'success', 'audience', and optional 'error'
+    """
+    
+    # Get business context from profile
+    business_name = profile.business_name or 'Your business'
+    industry = profile.industry or 'your industry'
+    brand_voice = profile.brand_voice or profile.tone or 'Not set yet'
+    
+    prompt = f"""You are analyzing user input about their target audience.
+
+BUSINESS CONTEXT:
+- Business: {business_name}
+- Industry: {industry}
+- Brand Voice: {brand_voice}
+
+USER INPUT:
+"{user_input}"
+
+Your task:
+1. If they referenced a URL, analyze what you know about their business
+2. If they gave a vague description, make it specific
+3. Return a concise, actionable target audience description (2-3 sentences max)
+
+Format: [Demographics] who [pain point/need]. They're looking for [solution/outcome].
+
+Example: "Small business owners aged 30-50 who struggle with social media consistency. They're looking for an easy way to maintain their brand presence without hiring an agency."
+
+Return ONLY the target audience description, no preamble or explanation."""
+    
+    try:
+        model = get_generative_model(
+            system_instruction="You are an expert brand strategist. Provide specific, actionable target audience descriptions based on the user's actual business context."
+        )
+        if not model:
+            return {'success': False, 'error': 'AI not configured'}
+        
+        response = model.generate_content(prompt)
+        processed_audience = response.text.strip() if hasattr(response, 'text') else str(response).strip()
+        
+        # Remove any quotes or extra formatting
+        processed_audience = processed_audience.strip('"').strip("'")
+        
+        return {
+            'success': True,
+            'audience': processed_audience,
+            'original_input': user_input
+        }
+    except Exception as e:
+        logger.error(f"Error processing target audience: {e}")
+        return {'success': False, 'error': str(e)}
+
+
 FIELD_EXPERT_PROMPTS = {
     'target_audience': """You are an expert brand strategist helping define a target audience.
 
