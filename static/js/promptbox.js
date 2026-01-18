@@ -5,18 +5,23 @@
 
 // Slash command definitions
 const SLASH_COMMANDS = [
-  { command: '/post', description: 'Create a social media post', icon: '📝' },
-  { command: '/caption', description: 'Write an image caption', icon: '📸' },
-  { command: '/script', description: 'Write a video script', icon: '🎬' },
-  { command: '/reel', description: 'Create a reel/short video script', icon: '🎥' },
-  { command: '/email', description: 'Draft an email', icon: '✉️' },
-  { command: '/review', description: 'Respond to a review', icon: '⭐' },
-  { command: '/ad', description: 'Create ad copy', icon: '📢' },
-  { command: '/blog', description: 'Write a blog post', icon: '📰' },
-  { command: '/profile', description: 'View or edit your brand profile', icon: '👤' },
-  { command: '/update', description: 'Update a profile field', icon: '✏️' },
-  { command: '/voice', description: 'Change your brand voice', icon: '🎤' },
-  { command: '/audience', description: 'Update your target audience', icon: '🎯' },
+  // Content commands
+  { command: '/post', description: 'Create a social media post', icon: '📝', category: 'content' },
+  { command: '/caption', description: 'Write an image caption', icon: '📸', category: 'content' },
+  { command: '/script', description: 'Write a video script', icon: '🎬', category: 'content' },
+  { command: '/reel', description: 'Create a reel/short video script', icon: '🎥', category: 'content' },
+  { command: '/email', description: 'Draft an email', icon: '✉️', category: 'content' },
+  { command: '/review', description: 'Respond to a review', icon: '⭐', category: 'content' },
+  { command: '/ad', description: 'Create ad copy', icon: '📢', category: 'content' },
+  { command: '/blog', description: 'Write a blog post', icon: '📰', category: 'content' },
+  
+  // Profile management commands
+  { command: '/profile', description: 'View and manage your brand profile', icon: '👤', category: 'profile' },
+  { command: '/update', description: 'Update a profile field', icon: '✏️', category: 'profile' },
+  { command: '/voice', description: 'Update your brand voice/tone', icon: '🎤', category: 'profile' },
+  { command: '/audience', description: 'Define your target audience', icon: '🎯', category: 'profile' },
+  { command: '/samples', description: 'Add writing samples to match your style', icon: '✍️', category: 'profile' },
+  { command: '/import', description: 'Import profile from your website URL', icon: '🔗', category: 'profile' },
 ];
 
 class PromptBox {
@@ -41,6 +46,8 @@ class PromptBox {
     this.lastAction = null; // Track last action for contextual suggestions
     this.selectedAutocompleteIndex = -1; // Track selected autocomplete item
     this.lastGeneratedContent = null; // Track last generated content for copy
+    this.collectionState = null; // Track multi-step collection flows (e.g., writing samples)
+    this.pendingImport = null; // Track pending import data for confirmation
 
     // Get suggestions based on context
     this.suggestions = this.getSuggestions();
@@ -75,10 +82,10 @@ class PromptBox {
     // Profile view/update context
     if (action === 'profile_view' || action === 'profile_updated') {
       return [
-        'Update brand voice',
-        'Update target audience',
-        'Update key offer',
-        'Create content',
+        '/voice - Update brand voice',
+        '/audience - Define target audience',
+        '/samples - Add writing samples',
+        '/import - Import from URL',
       ];
     }
     
@@ -412,6 +419,28 @@ class PromptBox {
     this.setLoading(true);
 
     try {
+      // Check if this is a profile command that should be handled client-side
+      const profileCommands = ['/profile', '/voice', '/audience', '/samples', '/import'];
+      const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
+      
+      if (isProfileCommand) {
+        // Extract command and args
+        const parts = message.split(/\s+/);
+        const command = parts[0];
+        const args = parts.slice(1).join(' ');
+        
+        // Handle profile command
+        await handleProfileCommand(this, command, args);
+        
+        // Update suggestions to show profile commands after handling profile action
+        this.lastAction = 'profile_view';
+        this.suggestions = this.getSuggestions(null, 'profile_view');
+        this.renderSuggestions();
+        
+        this.setLoading(false);
+        return;
+      }
+      
       // Call custom handler if provided, otherwise use API
       if (this.onSend && typeof this.onSend === 'function') {
         await this.onSend(message, this);
@@ -867,6 +896,170 @@ What would you like to create?`;
     this.addMessage('assistant', content, false, false, null);
   }
 
+  /**
+   * Add a message with optional button actions
+   * @param {string} role - 'user' or 'assistant'
+   * @param {string} content - Message content
+   * @param {object} options - Optional config with buttons, isError, isGenerated
+   */
+  addAssistantMessage(content, options = {}) {
+    const { buttons = [], isError = false, isGenerated = false } = options;
+    
+    const timestamp = Date.now();
+    
+    // Add to history
+    this.conversationHistory.push({
+      role: 'assistant',
+      message: content,
+      timestamp: timestamp
+    });
+
+    // Render message
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'promptbox-message promptbox-message-assistant';
+    if (isError) messageDiv.classList.add('promptbox-message-error');
+
+    const bubbleDiv = document.createElement('div');
+    bubbleDiv.className = 'promptbox-bubble';
+    bubbleDiv.innerHTML = this.renderMarkdown(content);
+    
+    messageDiv.appendChild(bubbleDiv);
+    
+    // Add buttons if provided
+    if (buttons && buttons.length > 0) {
+      const buttonContainer = document.createElement('div');
+      buttonContainer.className = 'promptbox-buttons';
+      buttonContainer.style.cssText = 'display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;';
+      
+      buttons.forEach(btn => {
+        const button = document.createElement('button');
+        button.className = 'promptbox-action-btn';
+        button.textContent = btn.label;
+        button.style.cssText = 'padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-size: 14px;';
+        
+        button.onclick = () => {
+          if (btn.action === 'command') {
+            // Execute command directly
+            const textarea = document.getElementById(`${this.container.id}-textarea`);
+            textarea.value = btn.value;
+            this.handleSend();
+          } else if (btn.action === 'prompt') {
+            // Fill input for user to edit
+            const textarea = document.getElementById(`${this.container.id}-textarea`);
+            textarea.value = btn.value;
+            const sendBtn = document.getElementById(`${this.container.id}-send`);
+            this.updateSendButton(textarea, sendBtn);
+            textarea.focus();
+          }
+        };
+        
+        buttonContainer.appendChild(button);
+      });
+      
+      messageDiv.appendChild(buttonContainer);
+    }
+    
+    // Add copy button for generated content
+    if (isGenerated) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'promptbox-copy-btn';
+      copyBtn.setAttribute('aria-label', 'Copy content');
+      copyBtn.innerHTML = `
+        <span class="copy-icon">📋</span>
+        <span class="copy-text">Copy</span>
+      `;
+      copyBtn.onclick = () => this.copyContent(content, copyBtn);
+      messageDiv.appendChild(copyBtn);
+    }
+    
+    conversation.appendChild(messageDiv);
+
+    // Auto-scroll to latest message
+    this.scrollToBottom();
+  }
+
+  /**
+   * Check profile completeness
+   * @param {object} profile - Profile object
+   * @returns {object} - {missing: [], percent: number}
+   */
+  checkProfileCompleteness(profile) {
+    const missing = [];
+    let foundCount = 0;
+    
+    // Check business name and industry (required)
+    if (!profile.business_name && !profile.company) {
+      missing.push('Business Name');
+    } else {
+      foundCount++;
+    }
+    
+    if (!profile.industry) {
+      missing.push('Industry');
+    } else {
+      foundCount++;
+    }
+    
+    // Check brand voice (can be tone or brand_voice)
+    if (!profile.brand_voice && !profile.tone) {
+      missing.push('Brand Voice');
+    } else {
+      foundCount++;
+    }
+    
+    // Check target audience
+    if (!profile.target_audience) {
+      missing.push('Target Audience');
+    } else {
+      foundCount++;
+    }
+    
+    // Check key offer
+    if (!profile.key_offer) {
+      missing.push('Key Offer');
+    } else {
+      foundCount++;
+    }
+    
+    // Check writing samples
+    const samples = profile.writing_samples || [];
+    if (!samples || samples.length === 0) {
+      missing.push('Writing Samples');
+    } else {
+      foundCount++;
+    }
+    
+    const total = 6; // Total fields to check
+    const percent = Math.round((foundCount / total) * 100);
+    
+    return { missing, percent };
+  }
+
+  /**
+   * Get voice suggestions based on industry
+   * @param {string} industry - Industry name
+   * @returns {array} - Array of voice suggestion strings
+   */
+  getVoiceSuggestionsForIndustry(industry) {
+    const industryVoices = {
+      'Restaurant / Café': ['Warm & welcoming', 'Fun & energetic', 'Sophisticated & refined'],
+      'Fitness / Wellness': ['Motivating & bold', 'Calm & supportive', 'Expert & educational'],
+      'Realtor / Real Estate': ['Professional & trustworthy', 'Friendly & approachable', 'Luxury & exclusive'],
+      'Software / Tech / Startup': ['Innovative & bold', 'Clear & helpful', 'Casual & friendly'],
+      'Retail / Boutique': ['Trendy & fun', 'Elegant & refined', 'Friendly & personal'],
+      'Coach / Consultant': ['Expert & authoritative', 'Warm & encouraging', 'Bold & transformational'],
+    };
+    
+    return industryVoices[industry] || [
+      'Professional & friendly',
+      'Casual & conversational', 
+      'Bold & confident',
+      'Warm & approachable'
+    ];
+  }
+
   destroy() {
     this.stopSuggestionRotation();
     if (this.container) {
@@ -878,4 +1071,189 @@ What would you like to create?`;
 // Export for use in other scripts
 if (typeof window !== 'undefined') {
   window.PromptBox = PromptBox;
+}
+
+/**
+ * Profile command handlers
+ * These functions handle the new profile management slash commands
+ */
+
+async function showProfileSummary(promptBox) {
+  const response = await fetch('/api/profile', { credentials: 'include' });
+  const data = await response.json();
+  
+  if (!data.ok || !data.profile) {
+    promptBox.addAssistantMessage(`You don't have a profile yet! Let's create one.
+
+Tell me about your business, or use \`/import <url>\` to import from your website.`);
+    return;
+  }
+  
+  const p = data.profile;
+  const { missing, percent } = promptBox.checkProfileCompleteness(p);
+  
+  let summary = `## Your Brand Profile (${percent}% complete)\n\n`;
+  summary += `**Business:** ${p.company || p.business_name || '❌ Not set'}\n`;
+  summary += `**Industry:** ${p.industry || '❌ Not set'}\n`;
+  summary += `**Brand Voice:** ${p.tone || p.brand_voice || '❌ Not set'}\n`;
+  summary += `**Target Audience:** ${p.target_audience || '➖ Not set'}\n`;
+  summary += `**Key Offer:** ${p.key_offer || '➖ Not set'}\n`;
+  summary += `**Writing Samples:** ${p.writing_samples?.length || 0} samples\n`;
+  
+  const buttons = [];
+  if (missing.length > 0) {
+    summary += `\n**Missing:** ${missing.join(', ')}\n`;
+    summary += `\nUse these commands to complete your profile:\n`;
+    if (missing.includes('Brand Voice')) {
+      summary += `• \`/voice\` - Set your brand tone\n`;
+      buttons.push({ label: '🎤 Update Voice', action: 'prompt', value: '/voice ' });
+    }
+    if (missing.includes('Target Audience')) {
+      summary += `• \`/audience\` - Define your customers\n`;
+      buttons.push({ label: '🎯 Update Audience', action: 'prompt', value: '/audience ' });
+    }
+    if (missing.includes('Writing Samples')) {
+      summary += `• \`/samples\` - Add writing examples\n`;
+      buttons.push({ label: '✍️ Add Samples', action: 'prompt', value: '/samples' });
+    }
+  }
+  
+  promptBox.addAssistantMessage(summary, { buttons });
+}
+
+async function showVoiceUpdateFlow(promptBox, existingValue) {
+  // Get current profile for industry context
+  const response = await fetch('/api/profile', { credentials: 'include' });
+  const data = await response.json();
+  const industry = data.profile?.industry || '';
+  
+  // Industry-specific suggestions
+  const suggestions = promptBox.getVoiceSuggestionsForIndustry(industry);
+  
+  let message = `## Update Brand Voice 🎤\n\n`;
+  if (data.profile?.tone || data.profile?.brand_voice) {
+    message += `**Current:** ${data.profile.tone || data.profile.brand_voice}\n\n`;
+  }
+  message += `How would you like your brand to sound? Pick one or describe your own:\n`;
+  
+  const buttons = suggestions.map(s => ({
+    label: s,
+    action: 'command',
+    value: `/voice ${s}`
+  }));
+  
+  promptBox.addAssistantMessage(message, { buttons });
+}
+
+async function showAudienceUpdateFlow(promptBox, existingValue) {
+  const response = await fetch('/api/profile', { credentials: 'include' });
+  const data = await response.json();
+  
+  let message = `## Define Target Audience 🎯\n\n`;
+  if (data.profile?.target_audience) {
+    message += `**Current:** ${data.profile.target_audience}\n\n`;
+  }
+  message += `Who is your ideal customer? Be specific! Examples:\n`;
+  message += `• "Busy professionals aged 30-45 looking for quick healthy meals"\n`;
+  message += `• "First-time homebuyers in Austin with $400k budget"\n`;
+  message += `• "Small business owners who struggle with social media"\n\n`;
+  message += `Type your target audience description:`;
+  
+  promptBox.addAssistantMessage(message);
+}
+
+async function showSamplesCollectionFlow(promptBox) {
+  const response = await fetch('/api/profile', { credentials: 'include' });
+  const data = await response.json();
+  const currentCount = data.profile?.writing_samples?.length || 0;
+  
+  let message = `## Add Writing Samples ✍️\n\n`;
+  message += `**Current samples:** ${currentCount}\n\n`;
+  message += `Paste 2-3 examples of your best writing - social posts, emails, or website copy.\n\n`;
+  message += `**Why this matters:** I'll analyze your style and match it when creating content.\n\n`;
+  message += `**Tips for good samples:**\n`;
+  message += `• Choose posts that got good engagement\n`;
+  message += `• Pick ones that "sound like you"\n`;
+  message += `• Include different types (promotional, educational, personal)\n\n`;
+  message += `Paste your first sample:`;
+  
+  promptBox.addAssistantMessage(message);
+  
+  // Set state to collect samples using instance state
+  promptBox.collectionState = { collecting: 'writing_samples', samples: [] };
+}
+
+async function showImportFlow(promptBox, url) {
+  if (url && url.trim()) {
+    // URL provided - start import
+    promptBox.addAssistantMessage(`Analyzing ${url}... 🔍`);
+    
+    try {
+      const response = await fetch('/onboarding/social-style', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ url: url.trim(), consent: true })
+      });
+      
+      const data = await response.json();
+      
+      if (data.suggestions) {
+        let message = `## Found your brand! 🎉\n\n`;
+        if (data.suggestions.business_name) message += `**Business:** ${data.suggestions.business_name}\n`;
+        if (data.suggestions.industry) message += `**Industry:** ${data.suggestions.industry}\n`;
+        if (data.suggestions.brand_voice) message += `**Voice:** ${data.suggestions.brand_voice}\n`;
+        if (data.suggestions.key_customers) message += `**Audience:** ${data.suggestions.key_customers}\n`;
+        
+        message += `\nWant me to save this to your profile?`;
+        
+        const buttons = [
+          { label: '✓ Save to profile', action: 'command', value: '/import-confirm' },
+          { label: '✏️ Edit first', action: 'prompt', value: '/profile' }
+        ];
+        
+        promptBox.addAssistantMessage(message, { buttons });
+        
+        // Store for confirmation using instance state
+        promptBox.pendingImport = data.suggestions;
+      } else {
+        promptBox.addAssistantMessage(`Couldn't extract data from that URL. Try a different page, or just tell me about your business!`);
+      }
+    } catch (error) {
+      promptBox.addAssistantMessage(`Error analyzing URL: ${error.message}. Try again or describe your business instead.`);
+    }
+  } else {
+    // No URL - prompt for one
+    promptBox.addAssistantMessage(`## Import from URL 🔗\n\nPaste your website or social media URL and I'll extract your brand info:\n\n\`/import https://yourwebsite.com\``);
+  }
+}
+
+async function handleProfileCommand(promptBox, command, args) {
+  switch (command) {
+    case '/profile':
+      await showProfileSummary(promptBox);
+      break;
+    case '/voice':
+      await showVoiceUpdateFlow(promptBox, args);
+      break;
+    case '/audience':
+      await showAudienceUpdateFlow(promptBox, args);
+      break;
+    case '/samples':
+      await showSamplesCollectionFlow(promptBox);
+      break;
+    case '/import':
+      await showImportFlow(promptBox, args);
+      break;
+  }
+}
+
+// Export profile command handlers
+if (typeof window !== 'undefined') {
+  window.handleProfileCommand = handleProfileCommand;
+  window.showProfileSummary = showProfileSummary;
+  window.showVoiceUpdateFlow = showVoiceUpdateFlow;
+  window.showAudienceUpdateFlow = showAudienceUpdateFlow;
+  window.showSamplesCollectionFlow = showSamplesCollectionFlow;
+  window.showImportFlow = showImportFlow;
 }
