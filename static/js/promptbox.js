@@ -46,6 +46,8 @@ class PromptBox {
     this.lastAction = null; // Track last action for contextual suggestions
     this.selectedAutocompleteIndex = -1; // Track selected autocomplete item
     this.lastGeneratedContent = null; // Track last generated content for copy
+    this.collectionState = null; // Track multi-step collection flows (e.g., writing samples)
+    this.pendingImport = null; // Track pending import data for confirmation
 
     // Get suggestions based on context
     this.suggestions = this.getSuggestions();
@@ -762,15 +764,6 @@ class PromptBox {
    * @returns {object} - {missing: [], percent: number}
    */
   checkProfileCompleteness(profile) {
-    const requiredFields = [
-      { key: 'business_name', label: 'Business Name' },
-      { key: 'industry', label: 'Industry' },
-      { key: 'brand_voice', label: 'Brand Voice' },
-      { key: 'tone', label: 'Brand Voice' }, // Alternative key
-      { key: 'target_audience', label: 'Target Audience' },
-      { key: 'key_offer', label: 'Key Offer' },
-    ];
-    
     const missing = [];
     let foundCount = 0;
     
@@ -869,7 +862,7 @@ async function showProfileSummary(promptBox) {
   
   if (!data.ok || !data.profile) {
     promptBox.addAssistantMessage(`You don't have a profile yet! Let's create one.
-    
+
 Tell me about your business, or use \`/import <url>\` to import from your website.`);
     return;
   }
@@ -964,8 +957,8 @@ async function showSamplesCollectionFlow(promptBox) {
   
   promptBox.addAssistantMessage(message);
   
-  // Set state to collect samples
-  window.promptBoxState = { collecting: 'writing_samples', samples: [] };
+  // Set state to collect samples using instance state
+  promptBox.collectionState = { collecting: 'writing_samples', samples: [] };
 }
 
 async function showImportFlow(promptBox, url) {
@@ -999,8 +992,8 @@ async function showImportFlow(promptBox, url) {
         
         promptBox.addAssistantMessage(message, { buttons });
         
-        // Store for confirmation
-        window.pendingImport = data.suggestions;
+        // Store for confirmation using instance state
+        promptBox.pendingImport = data.suggestions;
       } else {
         promptBox.addAssistantMessage(`Couldn't extract data from that URL. Try a different page, or just tell me about your business!`);
       }
