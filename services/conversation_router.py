@@ -51,6 +51,8 @@ class ConversationRouter:
         '/update': 'profile_update',     # Update specific field
         '/voice': 'update_voice',        # Quick update brand voice
         '/audience': 'update_audience',  # Quick update target audience
+        '/samples': 'update_samples',    # Add writing samples
+        '/import': 'import_profile',     # Import from URL
     }
     
     # Required fields per task type (from task_registry.py patterns)
@@ -144,6 +146,20 @@ class ConversationRouter:
             'optional': [],
             'prompts': {
                 'new_value': "Who is your new target audience? (e.g., 'young professionals seeking work-life balance')",
+            }
+        },
+        'update_samples': {
+            'required': ['sample_text'],
+            'optional': [],
+            'prompts': {
+                'sample_text': "Paste a writing sample (social post, email, or website copy):",
+            }
+        },
+        'import_profile': {
+            'required': ['url'],
+            'optional': [],
+            'prompts': {
+                'url': "Paste your website or social media URL:",
             }
         },
     }
