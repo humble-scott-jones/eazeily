@@ -218,7 +218,7 @@ def test_profile_expert_endpoint_validates_field(authenticated_client):
 
 
 @patch('services.profile_expert.get_generative_model')
-def test_profile_expert_endpoint_success(authenticated_client, mock_get_model):
+def test_profile_expert_endpoint_success(mock_get_model, authenticated_client):
     """Test successful profile suggestion via API endpoint."""
     # Mock the AI model response
     mock_response = Mock()
