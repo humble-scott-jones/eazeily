@@ -279,13 +279,6 @@ async def generate_profile_suggestions(field: str, profile: dict) -> dict:
 # Synchronous wrapper for non-async contexts
 def generate_profile_suggestions_sync(field: str, profile: dict) -> dict:
     """Synchronous version of generate_profile_suggestions."""
-    import asyncio
-    
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
     
     # For sync context, just call directly without await
     prompt_template = FIELD_EXPERT_PROMPTS.get(field)

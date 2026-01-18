@@ -1439,31 +1439,26 @@ async function showImportFlow(promptBox, url) {
   }
 }
 
+// Constants for suggestion preview
+const SUGGESTION_PREVIEW_MAX_LENGTH = 80;
+const SUGGESTION_PREVIEW_TRUNCATE_AT = 77;
+
 // Helper function to select and save a profile suggestion
 async function selectProfileSuggestion(promptBox, field, suggestion) {
   // Show confirmation
-  const preview = suggestion.length > 80 ? suggestion.substring(0, 77) + '...' : suggestion;
+  const preview = suggestion.length > SUGGESTION_PREVIEW_MAX_LENGTH 
+    ? suggestion.substring(0, SUGGESTION_PREVIEW_TRUNCATE_AT) + '...' 
+    : suggestion;
   promptBox.addMessage('user', `Use: "${preview}"`);
   
   try {
-    // Map field names to API keys
-    const fieldMapping = {
-      'brand_voice': 'brand_voice',
-      'target_audience': 'target_audience',
-      'key_offer': 'key_offer',
-      'writing_samples': 'writing_samples',
-      'voice_rules': 'voice_rules',
-    };
-    
-    const apiField = fieldMapping[field] || field;
-    
-    // Save to profile
+    // Save to profile - field names already match API
     const response = await fetch('/api/profile', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify({
-        [apiField]: suggestion
+        [field]: suggestion
       })
     });
     
