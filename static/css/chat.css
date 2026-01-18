@@ -238,7 +238,7 @@
     max-width: 800px;
     margin: 0 auto;
     padding: 16px;
-    padding-bottom: 100px; /* Space for sticky input */
+    padding-bottom: 140px; /* Space for sticky input + buttons */
 }
 
 /* ===== Message Bubbles ===== */
