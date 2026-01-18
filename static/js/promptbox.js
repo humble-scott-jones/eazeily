@@ -487,7 +487,7 @@ class PromptBox {
     }
   }
 
-  addMessage(role, content, isError = false, isGenerated = false) {
+  addMessage(role, content, isError = false, isGenerated = false, buttons = null) {
     const timestamp = Date.now();
     
     // Add to history
@@ -528,10 +528,57 @@ class PromptBox {
     }
 
     messageDiv.appendChild(bubbleDiv);
+    
+    // Add buttons if provided
+    if (buttons && buttons.length > 0) {
+      this.renderMessageButtons(buttons, messageDiv);
+    }
+    
     conversation.appendChild(messageDiv);
 
     // Auto-scroll to latest message
     this.scrollToBottom();
+  }
+  
+  renderMessageButtons(buttons, messageEl) {
+    if (!buttons || !buttons.length) return;
+    
+    const btnContainer = document.createElement('div');
+    btnContainer.className = 'promptbox-button-container flex flex-wrap gap-2 mt-3';
+    
+    buttons.forEach(btn => {
+      const button = document.createElement('button');
+      button.className = 'promptbox-action-btn px-3 py-1.5 text-sm bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors';
+      button.textContent = btn.label;
+      
+      button.onclick = () => {
+        if (btn.action === 'prompt') {
+          // Pre-fill the input with the value
+          const textarea = document.getElementById(`${this.container.id}-textarea`);
+          if (textarea) {
+            textarea.value = btn.value;
+            this.autoResizeTextarea(textarea);
+            const sendBtn = document.getElementById(`${this.container.id}-send`);
+            this.updateSendButton(textarea, sendBtn);
+            textarea.focus();
+          }
+        } else if (btn.action === 'focus') {
+          const textarea = document.getElementById(`${this.container.id}-textarea`);
+          if (textarea) textarea.focus();
+        } else if (btn.action === 'command') {
+          // Execute command directly
+          const textarea = document.getElementById(`${this.container.id}-textarea`);
+          if (textarea) {
+            textarea.value = btn.value;
+            this.handleSend();
+          }
+        }
+      };
+      
+      btnContainer.appendChild(button);
+    });
+    
+    messageEl.appendChild(btnContainer);
   }
 
   renderMarkdown(text) {
@@ -649,6 +696,175 @@ class PromptBox {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+  
+  /**
+   * Initialize PromptBox with profile context
+   * Checks user's profile completeness and shows appropriate welcome message
+   */
+  async initWithProfileContext() {
+    try {
+      const response = await fetch('/api/profile', { credentials: 'include' });
+      const data = await response.json();
+      
+      if (!data.ok || !data.profile) {
+        // No profile - show onboarding welcome
+        this.showOnboardingWelcome();
+        return;
+      }
+      
+      const { isComplete, missing, percent } = this.checkProfileCompleteness(data.profile);
+      
+      if (percent < 30) {
+        // Very incomplete - guide through setup
+        this.showOnboardingWelcome();
+      } else if (missing.length > 0) {
+        // Partially complete - nudge to finish
+        this.showCompletionNudge(missing, percent);
+      } else {
+        // Complete - ready to create
+        this.showReadyState(data.profile);
+      }
+    } catch (error) {
+      console.error('Failed to check profile:', error);
+      // Fail gracefully - show default state (no message)
+    }
+  }
+  
+  /**
+   * Check profile completeness
+   * Returns completion percentage and list of missing fields
+   */
+  checkProfileCompleteness(profile) {
+    const requiredFields = [
+      { key: 'business_name', value: profile.company || profile.business_name, command: '/update business_name ' },
+      { key: 'industry', value: profile.industry, command: '/update industry ' },
+      { key: 'brand_voice', value: profile.tone || profile.brand_voice, command: '/voice ' },
+    ];
+    
+    const optionalFields = [
+      { key: 'target_audience', value: profile.target_audience, command: '/audience ' },
+      { key: 'key_offer', value: profile.key_offer, command: '/update key_offer ' },
+      { key: 'writing_samples', value: profile.writing_samples && profile.writing_samples.length > 0, command: '/profile ' },
+    ];
+    
+    const missing = [];
+    let filled = 0;
+    const total = requiredFields.length + optionalFields.length;
+    
+    // Check required
+    for (const field of requiredFields) {
+      if (field.value && String(field.value).trim()) {
+        filled++;
+      } else {
+        missing.push({
+          name: this.formatFieldName(field.key),
+          key: field.key,
+          command: field.command,
+          isRequired: true
+        });
+      }
+    }
+    
+    // Check optional
+    for (const field of optionalFields) {
+      if (field.value && (typeof field.value === 'boolean' ? field.value : String(field.value).trim())) {
+        filled++;
+      } else {
+        missing.push({
+          name: this.formatFieldName(field.key),
+          key: field.key,
+          command: field.command,
+          isRequired: false
+        });
+      }
+    }
+    
+    return {
+      isComplete: missing.filter(m => m.isRequired).length === 0,
+      missing,
+      percent: Math.round((filled / total) * 100)
+    };
+  }
+  
+  /**
+   * Format field name for display
+   */
+  formatFieldName(key) {
+    const labels = {
+      'business_name': 'Business Name',
+      'industry': 'Industry',
+      'brand_voice': 'Brand Voice',
+      'target_audience': 'Target Audience',
+      'key_offer': 'Key Offer',
+      'writing_samples': 'Writing Samples',
+    };
+    return labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+  
+  /**
+   * Show onboarding welcome for new/incomplete users
+   */
+  showOnboardingWelcome() {
+    const welcomeMessage = {
+      role: 'assistant',
+      content: `Welcome to Eazeily! 🎉 Let's set up your brand so I can write content that sounds like you.
+
+**Got a website?** Paste the URL and I'll learn your brand automatically.
+
+**Or just tell me about your business!** For example:
+• "I run a coffee shop called Bean There in Austin"
+• "We're a fitness studio for busy professionals"
+
+What would you like to share?`,
+      buttons: [
+        { label: '🔗 Import from URL', action: 'prompt', value: '/import ' },
+        { label: '💬 Describe my business', action: 'focus' }
+      ]
+    };
+    
+    this.addMessage(welcomeMessage.role, welcomeMessage.content, false, false, welcomeMessage.buttons);
+  }
+  
+  /**
+   * Show completion nudge for partially complete profiles
+   */
+  showCompletionNudge(missing, percent) {
+    // missing is now an array of objects with {name, key, command, isRequired}
+    const missingNames = missing.slice(0, 3).map(m => m.name);
+    const content = `Welcome back! 👋 Your profile is **${percent}% complete**.
+
+To help me write content that sounds like you, consider adding:
+${missingNames.map(name => `• ${name}`).join('\n')}
+
+${missing.some(m => m.key === 'writing_samples') ? 
+  "**Tip:** Sharing 2-3 examples of your past posts helps me match your unique style!" : ""}
+
+Want to complete your profile now, or jump straight to creating content?`;
+    
+    const buttons = [
+      { label: `Add ${missing[0].name}`, action: 'prompt', value: missing[0].command },
+      { label: 'Start creating →', action: 'focus' }
+    ];
+    
+    this.addMessage('assistant', content, false, false, buttons);
+  }
+  
+  /**
+   * Show ready state for complete profiles
+   */
+  showReadyState(profile) {
+    const businessName = profile.company || profile.business_name || 'your business';
+    const content = `Ready to create content for **${businessName}**! ✨
+
+Try something like:
+• "Write a post about our weekend sale"
+• "Create an Instagram caption for this photo"
+• "/post about our new product launch"
+
+What would you like to create?`;
+    
+    this.addMessage('assistant', content, false, false, null);
   }
 
   destroy() {

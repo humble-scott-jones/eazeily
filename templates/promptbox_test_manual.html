@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptBox Profile-Guided Onboarding Test</title>
+    <link rel="stylesheet" href="/static/css/promptbox.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .test-button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .test-button:hover {
+            background: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <h1>PromptBox Profile-Guided Onboarding Test</h1>
+    <p>This page tests the new profile-guided onboarding features.</p>
+
+    <div class="test-section">
+        <h2>Test Scenarios</h2>
+        <button class="test-button" onclick="testNewUser()">Test: New User (No Profile)</button>
+        <button class="test-button" onclick="testIncompleteProfile()">Test: Incomplete Profile (30-99%)</button>
+        <button class="test-button" onclick="testCompleteProfile()">Test: Complete Profile</button>
+        <button class="test-button" onclick="testClearChat()">Clear Chat</button>
+    </div>
+
+    <div class="test-section">
+        <h2>PromptBox</h2>
+        <div id="test-promptbox" style="height: 500px; border: 1px solid #e5e7eb; border-radius: 8px;"></div>
+    </div>
+
+    <script src="/static/js/promptbox.js"></script>
+    <script>
+        let testPromptBox = null;
+
+        // Initialize PromptBox on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            testPromptBox = new PromptBox('test-promptbox', {
+                context: 'dashboard',
+                placeholder: 'Test the profile-guided features...'
+            });
+        });
+
+        // Test: New User (No Profile)
+        function testNewUser() {
+            if (!testPromptBox) return;
+            testPromptBox.clearHistory();
+            
+            // Simulate no profile
+            const profile = null;
+            testPromptBox.showOnboardingWelcome();
+        }
+
+        // Test: Incomplete Profile
+        function testIncompleteProfile() {
+            if (!testPromptBox) return;
+            testPromptBox.clearHistory();
+            
+            // Simulate incomplete profile
+            const missing = ['Industry', 'Brand Voice', 'Writing Samples'];
+            const percent = 50;
+            testPromptBox.showCompletionNudge(missing, percent);
+        }
+
+        // Test: Complete Profile
+        function testCompleteProfile() {
+            if (!testPromptBox) return;
+            testPromptBox.clearHistory();
+            
+            // Simulate complete profile
+            const profile = {
+                company: 'Test Business',
+                business_name: 'Test Business',
+                industry: 'Technology',
+                tone: 'Professional',
+                brand_voice: 'Friendly and helpful',
+                target_audience: 'Small businesses',
+                key_offer: 'Great products'
+            };
+            testPromptBox.showReadyState(profile);
+        }
+
+        // Clear chat
+        function testClearChat() {
+            if (!testPromptBox) return;
+            testPromptBox.clearHistory();
+        }
+    </script>
+
+    <div class="test-section">
+        <h2>Expected Behavior</h2>
+        <ul>
+            <li><strong>New User:</strong> Shows welcome message with "Import from URL" and "Describe my business" buttons</li>
+            <li><strong>Incomplete Profile:</strong> Shows completion percentage and suggests missing fields with action buttons</li>
+            <li><strong>Complete Profile:</strong> Shows ready state with example prompts and business name</li>
+        </ul>
+        
+        <h3>Button Interactions</h3>
+        <ul>
+            <li>Clicking "Import from URL" should pre-fill input with "/import "</li>
+            <li>Clicking "Describe my business" should focus the input</li>
+            <li>Clicking "Add [Field]" should pre-fill input with the appropriate command</li>
+            <li>Clicking "Start creating →" should focus the input</li>
+        </ul>
+    </div>
+</body>
+</html>
