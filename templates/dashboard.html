@@ -9,6 +9,28 @@
             <p class="text-gray-500 mt-1">Create and manage your social media content.</p>
         </div>
         <div class="flex items-center gap-4">
+            <!-- Profile Completeness Badge -->
+            <div id="profile-badge" class="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity" 
+                 onclick="handleProfileBadgeClick()" title="Click to view profile">
+                
+                <!-- Circular progress indicator -->
+                <div class="relative w-10 h-10">
+                    <svg class="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e5e7eb" stroke-width="3"/>
+                        <circle id="profile-progress-circle" cx="18" cy="18" r="15.5" fill="none" 
+                                stroke="#6366f1" stroke-width="3"
+                                stroke-dasharray="97.4" stroke-dashoffset="97.4"
+                                stroke-linecap="round"/>
+                    </svg>
+                    <span id="profile-percent-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700">--%</span>
+                </div>
+                
+                <div class="hidden sm:block">
+                    <p class="text-sm font-medium text-gray-700">Profile</p>
+                    <p id="profile-status-text" class="text-xs text-gray-500">Loading...</p>
+                </div>
+            </div>
+            
             <span class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium border border-indigo-100">
                 ✨ Pro Plan
             </span>
@@ -494,6 +516,12 @@
         </div>
     </div>
 </div>
+
+<style>
+    #profile-progress-circle {
+        transition: stroke-dashoffset 0.8s ease-in-out, stroke 0.3s ease;
+    }
+</style>
 
 <script>
     let currentTask = 'post';
@@ -1278,6 +1306,84 @@
         if (previewImg) previewImg.src = '';
     }
 
+    // Profile Badge Functions
+    async function initProfileBadge() {
+        try {
+            const response = await fetch('/api/profile', { credentials: 'include' });
+            const data = await response.json();
+            
+            if (data.ok && data.profile) {
+                updateProfileBadge(data.profile);
+            } else {
+                updateProfileBadge(null);
+            }
+        } catch (error) {
+            console.error('Failed to load profile for badge:', error);
+        }
+    }
+
+    function checkProfileCompleteness(profile) {
+        const fields = {
+            'Business Name': profile.company || profile.business_name,
+            'Industry': profile.industry,
+            'Brand Voice': profile.tone || profile.brand_voice,
+            'Target Audience': profile.target_audience,
+            'Key Offer': profile.key_offer,
+            'Writing Samples': profile.writing_samples?.length > 0,
+        };
+        
+        const missing = [];
+        let filled = 0;
+        
+        for (const [label, value] of Object.entries(fields)) {
+            if (value && (typeof value === 'boolean' ? value : String(value).trim())) {
+                filled++;
+            } else {
+                missing.push(label);
+            }
+        }
+        
+        const percent = Math.round((filled / Object.keys(fields).length) * 100);
+        return { isComplete: missing.length === 0, missing, percent };
+    }
+
+    function updateProfileBadge(profile) {
+        const { missing, percent } = profile 
+            ? checkProfileCompleteness(profile) 
+            : { missing: ['Everything'], percent: 0 };
+        
+        // Update circular progress (97.4 is circumference)
+        const circle = document.getElementById('profile-progress-circle');
+        if (circle) {
+            const offset = 97.4 - (97.4 * percent / 100);
+            circle.style.strokeDashoffset = offset;
+            circle.style.stroke = percent >= 80 ? '#22c55e' : percent >= 50 ? '#f59e0b' : '#6366f1';
+        }
+        
+        const percentText = document.getElementById('profile-percent-text');
+        if (percentText) percentText.textContent = `${percent}%`;
+        
+        const statusText = document.getElementById('profile-status-text');
+        if (statusText) {
+            if (percent >= 100) {
+                statusText.textContent = 'Complete ✓';
+                statusText.className = 'text-xs text-green-600';
+            } else {
+                statusText.textContent = `Missing ${missing.length}`;
+                statusText.className = 'text-xs text-amber-600';
+            }
+        }
+    }
+
+    function handleProfileBadgeClick() {
+        const input = document.getElementById('promptbox-input') || document.getElementById('chat-input');
+        if (input) {
+            input.value = '/profile';
+            input.focus();
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
     // PromptBox Integration
     let dashboardPromptBox = null;
     
@@ -1325,11 +1431,15 @@
         }
     }
     
-    // Initialize PromptBox when DOM is ready
+    // Initialize PromptBox and Profile Badge when DOM is ready
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initPromptBox);
+        document.addEventListener('DOMContentLoaded', function() {
+            initPromptBox();
+            initProfileBadge();
+        });
     } else {
         initPromptBox();
+        initProfileBadge();
     }
 </script>
 
