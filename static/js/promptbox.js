@@ -1413,27 +1413,6 @@ What would you like to create?`;
     
     return true;
   }
-          suggestions: data.suggestions
-        };
-        
-      } else {
-        // Fallback - ask for manual input
-        const errorMsg = data.error || "I couldn't generate suggestions right now.";
-        this.addMessage('assistant', 
-          `${errorMsg}\n\nWhat would you like your **${label}** to be?\n\nJust type it below:`
-        );
-      }
-      
-    } catch (error) {
-      this.hideLoading();
-      console.error('Error getting profile suggestions:', error);
-      this.addMessage('assistant', 
-        `Something went wrong. What would you like your **${label}** to be?\n\nJust type it below:`
-      );
-    }
-    
-    return true;
-  }
 
   /**
    * Handle when user clicks a suggestion button
