@@ -15,15 +15,12 @@ logger = logging.getLogger(__name__)
 @onboarding_bp.route('/onboarding', methods=['GET', 'POST'])
 @login_required
 def onboarding():
-    """Handle the Brand Brain onboarding process.
-    
-    Serves the mobile-optimized wizard by default. 
-    For the advanced full-feature view, see /onboarding/advanced.
-    """
+    """Redirect to dashboard - onboarding is now chat-based."""
     if request.method == 'GET':
-        # Use mobile-optimized wizard by default
-        return render_template('onboarding_wizard.html')
+        # Redirect GET requests to dashboard for chat-based onboarding
+        return redirect(url_for('generate.dashboard'))
     
+    # For POST requests (legacy form submissions), still handle them
     if request.method == 'POST':
         try:
             # Get form data
@@ -143,6 +140,13 @@ def onboarding():
 def onboarding_advanced():
     """Advanced onboarding with all features visible (for power users)."""
     return render_template('onboarding.html')
+
+
+@onboarding_bp.route('/wizard', methods=['GET'])
+@login_required
+def wizard():
+    """Redirect to dashboard - wizard is deprecated."""
+    return redirect(url_for('generate.dashboard'))
 
 
 @onboarding_bp.route('/onboarding/assist-voice', methods=['POST'])

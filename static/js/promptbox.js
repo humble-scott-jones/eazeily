@@ -543,6 +543,15 @@ class PromptBox {
     this.setLoading(true);
 
     try {
+      // Check if we're in onboarding mode
+      if (window.onboardingState && window.onboardingState !== 'complete') {
+        const handled = await this.handleOnboardingInput(message);
+        if (handled) {
+          this.setLoading(false);
+          return;
+        }
+      }
+      
       // Check if this is a profile command that should be handled client-side
       const profileCommands = ['/profile', '/voice', '/audience', '/samples', '/import'];
       const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
@@ -969,24 +978,19 @@ class PromptBox {
    * Show onboarding welcome for new/incomplete users
    */
   showOnboardingWelcome() {
-    const welcomeMessage = {
-      role: 'assistant',
-      content: `Welcome to Eazeily! 🎉 Let's set up your brand so I can write content that sounds like you.
+    const welcomeMessage = `# Welcome to Eazeily! 👋
 
-**Got a website?** Paste the URL and I'll learn your brand automatically.
+I'm your AI content assistant. I can help you create:
+- 📝 Social media posts
+- ✉️ Emails and newsletters
+- 📷 Image captions
+- 📄 Proposals and more
 
-**Or just tell me about your business!** For example:
-• "I run a coffee shop called Bean There in Austin"
-• "We're a fitness studio for busy professionals"
+**Let's get started!** First, tell me a bit about your business:
 
-What would you like to share?`,
-      buttons: [
-        { label: '🔗 Import from URL', action: 'prompt', value: '/import ' },
-        { label: '💬 Describe my business', action: 'focus' }
-      ]
-    };
+**What's your business name?**`;
     
-    this.addMessage(welcomeMessage.role, welcomeMessage.content, false, false, welcomeMessage.buttons);
+    this.addMessage('assistant', welcomeMessage, false, false, null);
   }
   
   /**
@@ -1408,6 +1412,98 @@ What would you like to create?`;
 
   hideLoading() {
     this.setLoading(false);
+  }
+
+  /**
+   * Handle onboarding input during chat-based profile setup
+   * @param {string} userMessage - User's message
+   * @returns {boolean} - True if handled, false otherwise
+   */
+  async handleOnboardingInput(userMessage) {
+    const ONBOARDING_STATES = {
+      'awaiting_business_name': {
+        field: 'business_name',
+        next: 'awaiting_industry',
+        getPrompt: (data) => "Great! Now, what industry or type of business is **" + data.business_name + "**? (e.g., Restaurant, Software, Fitness, Retail)"
+      },
+      'awaiting_industry': {
+        field: 'industry',
+        next: 'awaiting_voice',
+        getPrompt: (data) => "Perfect! How would you describe your brand's personality? Choose one or describe your own:\n\n• **Friendly** - Warm, approachable, conversational\n• **Professional** - Clear, confident, authoritative\n• **Playful** - Fun, witty, energetic\n• **Inspirational** - Uplifting, motivational, mission-driven"
+      },
+      'awaiting_voice': {
+        field: 'brand_voice',
+        next: 'complete',
+        getPrompt: (data) => `Awesome! Your profile is set up. Here's what I know:
+
+**${data.business_name}** | ${data.industry} | ${data.brand_voice}
+
+You're ready to create content! Try:
+- "Write an Instagram post about our latest product"
+- Type \`/post\` for a quick social post
+- Type \`/audience\` to refine who you're targeting
+
+**What would you like to create first?**`
+      }
+    };
+    
+    const state = window.onboardingState;
+    if (!state || !ONBOARDING_STATES[state]) {
+      return false;
+    }
+    
+    const stateConfig = ONBOARDING_STATES[state];
+    
+    try {
+      // Save the field
+      const saveResponse = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          [stateConfig.field]: userMessage.trim()
+        })
+      });
+      
+      if (!saveResponse.ok) {
+        this.addMessage('assistant', "Hmm, I couldn't save that. Please try again.");
+        return true;
+      }
+      
+      // Store for template substitution
+      if (!window.onboardingData) window.onboardingData = {};
+      window.onboardingData[stateConfig.field] = userMessage.trim();
+      
+      // Move to next state
+      if (stateConfig.next === 'complete') {
+        window.onboardingState = null;
+        
+        // Refresh profile badge if function exists
+        if (typeof updateProfileBadge === 'function') {
+          try {
+            const profileResponse = await fetch('/api/profile', { credentials: 'include' });
+            const profileData = await profileResponse.json();
+            if (profileData.ok && profileData.profile) {
+              updateProfileBadge(profileData.profile);
+            }
+          } catch (err) {
+            console.error('Failed to refresh profile badge:', err);
+          }
+        }
+      } else {
+        window.onboardingState = stateConfig.next;
+      }
+      
+      // Show next prompt
+      const nextPrompt = stateConfig.getPrompt(window.onboardingData);
+      this.addMessage('assistant', nextPrompt);
+      
+      return true;
+    } catch (error) {
+      console.error('Error in onboarding:', error);
+      this.addMessage('assistant', "Sorry, something went wrong. Please try again.");
+      return true;
+    }
   }
 
   destroy() {
