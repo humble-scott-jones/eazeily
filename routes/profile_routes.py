@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
 from models import db, VoiceProfile
+from services.profile_expert import generate_profile_suggestions
 import logging
 import uuid
 
@@ -379,3 +380,52 @@ def api_current_user():
                 'message': 'Failed to get current user'
             }
         }), 500
+
+
+@profile_bp.route('/api/profile/suggest', methods=['POST'])
+@login_required
+def suggest_profile_field():
+    """Generate AI-powered suggestions for a profile field using Gemini."""
+    
+    data = request.get_json()
+    field = data.get('field')
+    
+    if not field:
+        return jsonify({
+            'success': False,
+            'error': 'Field is required'
+        }), 400
+    
+    valid_fields = ['target_audience', 'brand_voice', 'key_offer', 'writing_samples', 'voice_rules']
+    if field not in valid_fields:
+        return jsonify({
+            'success': False,
+            'error': f'Invalid field. Must be one of: {", ".join(valid_fields)}'
+        }), 400
+    
+    # Get user's current profile
+    profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+    
+    if not profile:
+        return jsonify({
+            'success': False,
+            'error': 'No profile found. Please create a profile first.'
+        }), 404
+    
+    # Convert profile to dict for the service
+    profile_dict = {
+        'company': profile.business_name,
+        'business_name': profile.business_name,
+        'industry': profile.industry,
+        'tone': profile.brand_voice,
+        'brand_voice': profile.brand_voice,
+        'target_audience': profile.target_audience,
+        'key_offer': profile.key_offer,
+        'voice_rules': profile.voice_rules,
+        'writing_samples': profile.get_writing_samples() if hasattr(profile, 'get_writing_samples') else [],
+    }
+    
+    # Uses Gemini via services/ai_service.py
+    result = generate_profile_suggestions(field, profile_dict)
+    
+    return jsonify(result)
