@@ -14,7 +14,12 @@ voice_engine = VoiceEngine()
 @generate_bp.route('/dashboard', methods=['GET'])
 @login_required
 def dashboard():
-    return render_template('dashboard.html')
+    """Dashboard route with new user detection for chat-based onboarding."""
+    # Check if user is new (no profile or incomplete basic info)
+    profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+    is_new_user = profile is None or not profile.business_name
+    
+    return render_template('dashboard.html', is_new_user=is_new_user, profile=profile)
 
 @generate_bp.route('/settings', methods=['GET'])
 @login_required

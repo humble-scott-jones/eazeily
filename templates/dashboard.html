@@ -217,8 +217,20 @@ async function initPromptBox() {
         // Store globally for page input integration
         window.dashboardPromptBox = promptBox;
         
-        // Check profile and show contextual welcome
-        await promptBox.initWithProfileContext();
+        // Check if this is a new user from server-side flag
+        const isNewUser = {{ 'true' if is_new_user else 'false' }};
+        
+        if (isNewUser) {
+            // Show onboarding welcome for new users
+            promptBox.showOnboardingWelcome();
+            
+            // Set up onboarding state
+            window.onboardingState = 'awaiting_business_name';
+            window.onboardingData = {};
+        } else {
+            // Check profile and show contextual welcome for existing users
+            await promptBox.initWithProfileContext();
+        }
         
         // Connect page input to PromptBox
         connectPageInputToPromptBox(promptBox);
