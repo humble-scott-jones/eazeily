@@ -48,6 +48,7 @@ class PromptBox {
     this.lastGeneratedContent = null; // Track last generated content for copy
     this.collectionState = null; // Track multi-step collection flows (e.g., writing samples)
     this.pendingImport = null; // Track pending import data for confirmation
+    this.hasUsedSlashCommand = localStorage.getItem('eazeily_used_slash') === 'true'; // Track if user has used slash commands
 
     // Get suggestions based on context
     this.suggestions = this.getSuggestions();
@@ -109,6 +110,8 @@ class PromptBox {
   }
 
   render() {
+    const showHint = !this.hasUsedSlashCommand;
+    
     const html = `
       <div class="promptbox-container">
         <!-- Conversation History -->
@@ -125,6 +128,13 @@ class PromptBox {
           <div class="promptbox-suggestions" id="${this.container.id}-suggestions" role="region" aria-label="Suggestions">
             <!-- Suggestions will be rendered here -->
           </div>
+
+          ${showHint ? `
+          <!-- Slash Command Hint -->
+          <div id="${this.container.id}-slash-hint" class="promptbox-slash-hint">
+            💡 Type <kbd>/</kbd> to see commands
+          </div>
+          ` : ''}
 
           <!-- Input Field -->
           <div class="promptbox-input-wrapper">
@@ -264,6 +274,18 @@ class PromptBox {
     
     // Check if value starts with /
     if (value.startsWith('/')) {
+      // Hide slash hint on first use
+      if (!this.hasUsedSlashCommand) {
+        this.hasUsedSlashCommand = true;
+        localStorage.setItem('eazeily_used_slash', 'true');
+        
+        const hint = document.getElementById(`${this.container.id}-slash-hint`);
+        if (hint) {
+          hint.classList.add('fade-out');
+          setTimeout(() => hint.classList.add('hidden'), 300);
+        }
+      }
+      
       const query = value.slice(1).toLowerCase();
       const matches = SLASH_COMMANDS.filter(cmd => 
         cmd.command.slice(1).toLowerCase().startsWith(query)

@@ -680,3 +680,57 @@
     border-color: #6366F1; /* indigo-500 */
   }
 }
+
+/* ===== Slash Command Hint ===== */
+.promptbox-slash-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--eazeily-text-secondary);
+  background: var(--eazeily-surface-alt);
+  border-radius: 8px;
+  opacity: 0.8;
+  transition: opacity 0.3s ease;
+}
+
+.promptbox-slash-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--eazeily-primary);
+  background: var(--eazeily-surface);
+  border: 1px solid var(--eazeily-border);
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.promptbox-slash-hint.hidden {
+  display: none;
+}
+
+.promptbox-slash-hint.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .promptbox-slash-hint {
+    background: rgba(99, 102, 241, 0.1);
+  }
+  
+  .promptbox-slash-hint kbd {
+    background: var(--eazeily-surface);
+    border-color: var(--eazeily-border);
+  }
+}
