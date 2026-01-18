@@ -20,9 +20,28 @@ const SLASH_COMMANDS = [
   { command: '/update', description: 'Update a profile field', icon: '✏️', category: 'profile' },
   { command: '/voice', description: 'Update your brand voice/tone', icon: '🎤', category: 'profile' },
   { command: '/audience', description: 'Define your target audience', icon: '🎯', category: 'profile' },
+  { command: '/offer', description: 'Set your key offer/value proposition', icon: '💎', category: 'profile' },
   { command: '/samples', description: 'Add writing samples to match your style', icon: '✍️', category: 'profile' },
+  { command: '/rules', description: 'Set voice rules and guidelines', icon: '📋', category: 'profile' },
   { command: '/import', description: 'Import profile from your website URL', icon: '🔗', category: 'profile' },
 ];
+
+// Profile field command mapping
+const PROFILE_FIELD_MAP = {
+  '/voice': 'brand_voice',
+  '/audience': 'target_audience',
+  '/offer': 'key_offer',
+  '/samples': 'writing_samples',
+  '/rules': 'voice_rules',
+};
+
+const FIELD_LABELS = {
+  'brand_voice': 'Brand Voice',
+  'target_audience': 'Target Audience',
+  'key_offer': 'Key Offer',
+  'writing_samples': 'Writing Samples',
+  'voice_rules': 'Voice Rules',
+};
 
 class PromptBox {
   constructor(containerId, options = {}) {
@@ -442,7 +461,7 @@ class PromptBox {
 
     try {
       // Check if this is a profile command that should be handled client-side
-      const profileCommands = ['/profile', '/voice', '/audience', '/samples', '/import'];
+      const profileCommands = ['/profile', '/voice', '/audience', '/offer', '/samples', '/rules', '/import'];
       const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
       
       if (isProfileCommand) {
@@ -450,6 +469,13 @@ class PromptBox {
         const parts = message.split(/\s+/);
         const command = parts[0];
         const args = parts.slice(1).join(' ');
+        
+        // Check if this is a profile field AI command
+        if (PROFILE_FIELD_MAP[command]) {
+          await this.handleProfileFieldCommand(command);
+          this.setLoading(false);
+          return;
+        }
         
         // Handle profile command
         await handleProfileCommand(this, command, args);
@@ -602,7 +628,17 @@ class PromptBox {
       button.className = 'promptbox-action-btn px-3 py-1.5 text-sm bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors';
       button.textContent = btn.label;
       
+      // Store button data for click handler
+      button.dataset.action = btn.action;
+      if (btn.field) button.dataset.field = btn.field;
+      if (btn.value) button.dataset.value = btn.value;
+      
       button.onclick = () => {
+        if (btn.action === 'select-profile-suggestion' && btn.field && btn.value) {
+          this.selectProfileSuggestion(btn.field, btn.value);
+          return;
+        }
+        
         if (btn.action === 'prompt') {
           // Pre-fill the input with the value
           const textarea = document.getElementById(`${this.container.id}-textarea`);
@@ -1156,6 +1192,157 @@ What would you like to create?`;
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Handle profile field commands like /voice, /audience, /offer
+   */
+  async handleProfileFieldCommand(command) {
+    const field = PROFILE_FIELD_MAP[command];
+    if (!field) return false;
+    
+    const label = FIELD_LABELS[field] || field;
+    
+    // Show thinking message
+    this.addMessage('assistant', `Let me analyze your profile and create personalized suggestions for **${label}**...`);
+    this.showLoading();
+    
+    try {
+      const response = await fetch('/api/profile/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ field })
+      });
+      
+      const data = await response.json();
+      this.hideLoading();
+      
+      if (data.success && data.suggestions && data.suggestions.length > 0) {
+        // Build formatted message with options
+        let message = `## Update ${label} 🎯\n\n`;
+        message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**:\n\n`;
+        
+        data.suggestions.forEach((suggestion, i) => {
+          message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
+        });
+        
+        message += `---\n\nClick an option to use it, or type your own:`;
+        
+        // Create buttons for each suggestion
+        const buttons = data.suggestions.map((suggestion, i) => ({
+          label: `Use Option ${i + 1}`,
+          action: 'select-profile-suggestion',
+          field: field,
+          value: suggestion
+        }));
+        
+        buttons.push({
+          label: '✏️ Write my own',
+          action: 'focus'
+        });
+        
+        this.addMessage('assistant', message, false, false, buttons);
+        
+        // Store suggestions for selection
+        window.pendingProfileSuggestions = {
+          field: field,
+          suggestions: data.suggestions
+        };
+        
+      } else {
+        // Fallback - ask for manual input
+        const errorMsg = data.error || "I couldn't generate suggestions right now.";
+        this.addMessage('assistant', 
+          `${errorMsg}\n\nWhat would you like your **${label}** to be?\n\nJust type it below:`
+        );
+      }
+      
+    } catch (error) {
+      this.hideLoading();
+      console.error('Error getting profile suggestions:', error);
+      this.addMessage('assistant', 
+        `Something went wrong. What would you like your **${label}** to be?\n\nJust type it below:`
+      );
+    }
+    
+    return true;
+  }
+
+  /**
+   * Handle when user clicks a suggestion button
+   */
+  async selectProfileSuggestion(field, suggestion) {
+    // Show what they selected (truncated)
+    const truncated = suggestion.length > 60 ? suggestion.substring(0, 60) + '...' : suggestion;
+    this.addMessage('user', `Use: "${truncated}"`);
+    
+    this.showLoading();
+    
+    try {
+      // Map field names to API field names
+      const fieldMap = {
+        'brand_voice': 'brand_voice',
+        'target_audience': 'target_audience',
+        'key_offer': 'key_offer',
+        'writing_samples': 'writing_samples',
+        'voice_rules': 'voice_rules',
+      };
+      
+      const apiField = fieldMap[field] || field;
+      
+      // Save to profile
+      const response = await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          [apiField]: suggestion
+        })
+      });
+      
+      const data = await response.json();
+      this.hideLoading();
+      
+      if (data.ok) {
+        const label = FIELD_LABELS[field] || field;
+        
+        this.addMessage('assistant', 
+          `✅ **${label}** updated!\n\nThis will now be used when generating content. Want to update anything else?`,
+          false,
+          false,
+          [
+            { label: '👤 View profile', action: 'prompt', value: '/profile' },
+            { label: '✨ Create content', action: 'focus' }
+          ]
+        );
+        
+        // Refresh profile badge if exists
+        if (typeof refreshProfileBadge === 'function') {
+          refreshProfileBadge();
+        }
+        if (typeof initProfileBadge === 'function') {
+          initProfileBadge();
+        }
+      } else {
+        throw new Error(data.error?.message || 'Failed to update profile');
+      }
+      
+    } catch (error) {
+      this.hideLoading();
+      console.error('Error saving profile field:', error);
+      this.addMessage('assistant', 
+        `❌ Couldn't save that. Please try again or type \`/profile\` to edit manually.`
+      );
+    }
+  }
+
+  showLoading() {
+    this.setLoading(true);
+  }
+
+  hideLoading() {
+    this.setLoading(false);
   }
 
   destroy() {
