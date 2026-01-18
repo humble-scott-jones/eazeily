@@ -150,10 +150,10 @@ def build_context(profile: dict, field: str) -> dict:
     else:
         samples_text = str(samples) if samples else 'None provided yet'
     
-    # Map field to current value key
+    # Map field to current value key - handles both 'tone' and 'brand_voice' for compatibility
     field_to_key = {
         'target_audience': 'target_audience',
-        'brand_voice': 'tone',
+        'brand_voice': 'brand_voice',
         'key_offer': 'key_offer',
         'writing_samples': 'writing_samples',
         'voice_rules': 'voice_rules',
@@ -165,10 +165,13 @@ def build_context(profile: dict, field: str) -> dict:
         current_value = ', '.join(current_value) if current_value else 'Not set'
     current_value = current_value or 'Not set'
     
+    # Use brand_voice field consistently (profile dict should have this normalized)
+    brand_voice = profile.get('brand_voice') or profile.get('tone') or 'Not set yet'
+    
     return {
         'business_name': profile.get('company') or profile.get('business_name') or 'Your business',
         'industry': profile.get('industry') or 'your industry',
-        'brand_voice': profile.get('tone') or profile.get('brand_voice') or 'Not set yet',
+        'brand_voice': brand_voice,
         'target_audience': profile.get('target_audience') or 'Not set yet',
         'key_offer': profile.get('key_offer') or 'Not set yet',
         'current_value': current_value,

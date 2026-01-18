@@ -67,6 +67,7 @@ class PromptBox {
     this.lastGeneratedContent = null; // Track last generated content for copy
     this.collectionState = null; // Track multi-step collection flows (e.g., writing samples)
     this.pendingImport = null; // Track pending import data for confirmation
+    this.pendingProfileSuggestions = null; // Track pending profile suggestions for selection
     this.hasUsedSlashCommand = localStorage.getItem('eazeily_used_slash') === 'true'; // Track if user has used slash commands
 
     // Get suggestions based on context
@@ -1244,8 +1245,8 @@ What would you like to create?`;
         
         this.addMessage('assistant', message, false, false, buttons);
         
-        // Store suggestions for selection
-        window.pendingProfileSuggestions = {
+        // Store suggestions for selection as instance property
+        this.pendingProfileSuggestions = {
           field: field,
           suggestions: data.suggestions
         };
@@ -1280,24 +1281,13 @@ What would you like to create?`;
     this.showLoading();
     
     try {
-      // Map field names to API field names
-      const fieldMap = {
-        'brand_voice': 'brand_voice',
-        'target_audience': 'target_audience',
-        'key_offer': 'key_offer',
-        'writing_samples': 'writing_samples',
-        'voice_rules': 'voice_rules',
-      };
-      
-      const apiField = fieldMap[field] || field;
-      
-      // Save to profile
+      // Save to profile using the field name directly
       const response = await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          [apiField]: suggestion
+          [field]: suggestion
         })
       });
       
