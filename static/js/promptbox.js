@@ -736,42 +736,52 @@ class PromptBox {
    * Returns completion percentage and list of missing fields
    */
   checkProfileCompleteness(profile) {
-    const requiredFields = {
-      'business_name': profile.company || profile.business_name,
-      'industry': profile.industry,
-      'brand_voice': profile.tone || profile.brand_voice,
-    };
+    const requiredFields = [
+      { key: 'business_name', value: profile.company || profile.business_name, command: '/update business_name ' },
+      { key: 'industry', value: profile.industry, command: '/update industry ' },
+      { key: 'brand_voice', value: profile.tone || profile.brand_voice, command: '/voice ' },
+    ];
     
-    const optionalFields = {
-      'target_audience': profile.target_audience,
-      'key_offer': profile.key_offer,
-      'writing_samples': profile.writing_samples?.length > 0,
-    };
+    const optionalFields = [
+      { key: 'target_audience', value: profile.target_audience, command: '/audience ' },
+      { key: 'key_offer', value: profile.key_offer, command: '/update key_offer ' },
+      { key: 'writing_samples', value: profile.writing_samples && profile.writing_samples.length > 0, command: '/profile ' },
+    ];
     
     const missing = [];
     let filled = 0;
-    const total = Object.keys(requiredFields).length + Object.keys(optionalFields).length;
+    const total = requiredFields.length + optionalFields.length;
     
     // Check required
-    for (const [key, value] of Object.entries(requiredFields)) {
-      if (value && String(value).trim()) {
+    for (const field of requiredFields) {
+      if (field.value && String(field.value).trim()) {
         filled++;
       } else {
-        missing.push(this.formatFieldName(key));
+        missing.push({
+          name: this.formatFieldName(field.key),
+          key: field.key,
+          command: field.command,
+          isRequired: true
+        });
       }
     }
     
     // Check optional
-    for (const [key, value] of Object.entries(optionalFields)) {
-      if (value && (typeof value === 'boolean' ? value : String(value).trim())) {
+    for (const field of optionalFields) {
+      if (field.value && (typeof field.value === 'boolean' ? field.value : String(field.value).trim())) {
         filled++;
       } else {
-        missing.push(this.formatFieldName(key));
+        missing.push({
+          name: this.formatFieldName(field.key),
+          key: field.key,
+          command: field.command,
+          isRequired: false
+        });
       }
     }
     
     return {
-      isComplete: missing.filter(m => ['Business Name', 'Industry', 'Brand Voice'].includes(m)).length === 0,
+      isComplete: missing.filter(m => m.isRequired).length === 0,
       missing,
       percent: Math.round((filled / total) * 100)
     };
@@ -820,19 +830,20 @@ What would you like to share?`,
    * Show completion nudge for partially complete profiles
    */
   showCompletionNudge(missing, percent) {
-    const missingList = missing.slice(0, 3).join(', ');
+    // missing is now an array of objects with {name, key, command, isRequired}
+    const missingNames = missing.slice(0, 3).map(m => m.name);
     const content = `Welcome back! 👋 Your profile is **${percent}% complete**.
 
 To help me write content that sounds like you, consider adding:
-${missing.slice(0, 3).map(m => `• ${m}`).join('\n')}
+${missingNames.map(name => `• ${name}`).join('\n')}
 
-${missing.includes('Writing Samples') ? 
+${missing.some(m => m.key === 'writing_samples') ? 
   "**Tip:** Sharing 2-3 examples of your past posts helps me match your unique style!" : ""}
 
 Want to complete your profile now, or jump straight to creating content?`;
     
     const buttons = [
-      { label: `Add ${missing[0]}`, action: 'prompt', value: `/${missing[0].toLowerCase().replace(/ /g, '')} ` },
+      { label: `Add ${missing[0].name}`, action: 'prompt', value: missing[0].command },
       { label: 'Start creating →', action: 'focus' }
     ];
     

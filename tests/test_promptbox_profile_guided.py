@@ -70,12 +70,11 @@ def test_dashboard_loads_with_promptbox(authenticated_client):
 
 def test_promptbox_js_syntax_valid():
     """Test that promptbox.js file exists and has valid syntax."""
-    import os
-    js_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'js', 'promptbox.js')
-    assert os.path.exists(js_path), f"promptbox.js not found at {js_path}"
+    from pathlib import Path
+    js_path = Path(__file__).parent.parent / 'static' / 'js' / 'promptbox.js'
+    assert js_path.exists(), f"promptbox.js not found at {js_path}"
     
-    with open(js_path, 'r') as f:
-        content = f.read()
+    content = js_path.read_text()
         
     # Check for key functions
     assert 'initWithProfileContext' in content
@@ -88,12 +87,11 @@ def test_promptbox_js_syntax_valid():
 
 def test_promptbox_css_has_button_styles():
     """Test that promptbox.css includes button styles."""
-    import os
-    css_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'css', 'promptbox.css')
-    assert os.path.exists(css_path), f"promptbox.css not found at {css_path}"
+    from pathlib import Path
+    css_path = Path(__file__).parent.parent / 'static' / 'css' / 'promptbox.css'
+    assert css_path.exists(), f"promptbox.css not found at {css_path}"
     
-    with open(css_path, 'r') as f:
-        content = f.read()
+    content = css_path.read_text()
     
     # Check for button styles
     assert 'promptbox-button-container' in content
