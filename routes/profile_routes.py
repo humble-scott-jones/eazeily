@@ -8,6 +8,10 @@ from services.profile_expert import generate_profile_suggestions, process_raw_au
 profile_bp = Blueprint('profile', __name__)
 logger = logging.getLogger(__name__)
 
+# Constants for target audience AI processing
+AUDIENCE_AI_LENGTH_THRESHOLD = 100
+AUDIENCE_AI_KEYWORDS = ['website', 'look at', 'look on', 'analyze', 'come up with', 'check my', 'http://', 'https://']
+
 
 @profile_bp.route('/profile')
 @login_required
@@ -168,7 +172,7 @@ def api_profile():
                 raw_input = data['target_audience']
                 
                 # If input looks like a prompt/request, process through AI
-                if raw_input and (len(raw_input) > 100 or any(word in raw_input.lower() for word in ['website', 'look at', 'look on', 'analyze', 'come up with', 'check my', 'http://', 'https://'])):
+                if raw_input and (len(raw_input) > AUDIENCE_AI_LENGTH_THRESHOLD or any(word in raw_input.lower() for word in AUDIENCE_AI_KEYWORDS)):
                     logger.info(f"Target audience appears to be a prompt/request, processing through AI")
                     processed = process_raw_audience_input(raw_input, profile)
                     if processed['success']:

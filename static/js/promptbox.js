@@ -1194,7 +1194,8 @@ What would you like to create?`;
       foundCount++;
     }
     
-    const total = 8; // Total fields to check (was 6, now 8)
+    // Calculate total dynamically based on all checks
+    const total = foundCount + missing.length;
     const percent = Math.round((foundCount / total) * 100);
     
     return { missing, percent };
