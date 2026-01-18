@@ -4,7 +4,7 @@ This module provides utilities for validating user profile completeness
 before content generation.
 """
 
-from typing import Tuple, List, Dict
+from typing import Tuple, List
 
 
 def get_profile_completeness(profile) -> Tuple[bool, List[str], int]:

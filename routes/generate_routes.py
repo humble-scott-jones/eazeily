@@ -129,7 +129,7 @@ def _handle_multi_day_generation(data):
         )
     
     # Build complete payload with defaults
-    from datetime import date, timedelta
+    from datetime import date
     from generator import generate_posts
     
     # Get user profile for defaults
@@ -456,7 +456,6 @@ def chat():
     try:
         data = request.get_json(silent=True) or {}
         message = data.get('message', '').strip()
-        history = data.get('history', [])
         pending_task = data.get('pending_task')
         context = data.get('context', 'dashboard')
         

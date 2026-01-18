@@ -46,7 +46,7 @@ from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
 from services.onboarding_service import OnboardingService
 from services.conversation_router import ConversationRouter
-from services.profile_validator import get_profile_completeness, format_missing_fields_message
+from services.profile_validator import get_profile_completeness
 from models import VoiceProfile, db
 import os
 import logging
@@ -152,8 +152,6 @@ def _handle_onboarding_chat(message: str, history: list, profile: VoiceProfile, 
                 )
         
         # Try to extract fields from description
-        missing_fields = onboarding_service.get_missing_fields(profile)
-        
         # If we know what field we're collecting, use that context
         collecting_field = None
         if pending_task and pending_task.get('task_type') == 'onboarding':
