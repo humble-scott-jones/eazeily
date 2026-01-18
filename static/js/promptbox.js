@@ -48,6 +48,31 @@ const FIELD_LABELS = {
   'goals': 'Goals',
 };
 
+const FIELD_EMOJI = {
+  'brand_voice': '🎤',
+  'target_audience': '🎯',
+  'key_offer': '💎',
+  'writing_samples': '✍️',
+  'voice_rules': '📋',
+};
+
+const WHY_IT_MATTERS = {
+  'brand_voice': 'Your brand voice sets the tone for all content, ensuring consistency across posts, emails, and campaigns.',
+  'target_audience': 'Knowing your audience helps me create content that speaks directly to their needs and pain points.',
+  'key_offer': 'Your key offer gives me a clear hook - what makes you unique and worth choosing.',
+  'writing_samples': 'Writing samples help me match your unique style so content sounds authentically like YOU.',
+  'voice_rules': 'Voice rules give me specific do\'s and don\'ts to ensure content always stays on-brand.',
+};
+
+const CONTENT_IMPACT = {
+  'brand_voice': 'All your content will now match this tone consistently.',
+  'target_audience': 'Content will now speak directly to your ideal customers.',
+  'key_offer': 'Posts will highlight what makes you unique and compelling.',
+  'writing_samples': 'Generated content will sound more authentically like you.',
+  'voice_rules': 'Content will follow your specific guidelines and constraints.',
+};
+
+
 class PromptBox {
   constructor(containerId, options = {}) {
     this.container = document.getElementById(containerId);
@@ -558,7 +583,7 @@ class PromptBox {
       }
       
       // Check if this is a profile command that should be handled client-side
-      const profileCommands = ['/profile', '/voice', '/audience', '/samples', '/import', '/help'];
+      const profileCommands = ['/profile', '/voice', '/audience', '/offer', '/samples', '/rules', '/import', '/help'];
       const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
       
       if (isProfileCommand) {
@@ -1308,12 +1333,18 @@ What would you like to create?`;
     if (!field) return false;
     
     const label = FIELD_LABELS[field] || field;
+    const emoji = FIELD_EMOJI[field] || '✨';
     
-    // Show thinking message
-    this.addMessage('assistant', `Let me analyze your profile and create personalized suggestions for **${label}**...`);
+    // Show thinking message with personality
+    this.addMessage('assistant', `Let me analyze your profile and create personalized suggestions for **${emoji} ${label}**...`);
     this.showLoading();
     
     try {
+      // Fetch current profile for before/after comparison
+      const profileResponse = await fetch('/api/profile', { credentials: 'include' });
+      const profileData = await profileResponse.json();
+      const currentValue = profileData.profile?.[field];
+      
       const response = await fetch('/api/profile/suggest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1325,15 +1356,22 @@ What would you like to create?`;
       this.hideLoading();
       
       if (data.success && data.suggestions && data.suggestions.length > 0) {
-        // Build formatted message with options
-        let message = `## Update ${label} 🎯\n\n`;
-        message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**:\n\n`;
+        // Enhanced message with context
+        let message = `## Update ${emoji} ${label}\n\n`;
+        
+        // Show current value if exists
+        if (currentValue) {
+          message += `**Current:** ${currentValue}\n\n---\n\n`;
+        }
+        
+        message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**, here are 3 tailored suggestions:\n\n`;
         
         data.suggestions.forEach((suggestion, i) => {
           message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
         });
         
-        message += `---\n\nClick an option to use it, or type your own:`;
+        message += `---\n\n💡 **Why this matters:** ${WHY_IT_MATTERS[field]}\n\n`;
+        message += `Which option resonates with your brand?\n`;
         
         // Create buttons for each suggestion
         const buttons = data.suggestions.map((suggestion, i) => ({
@@ -1353,6 +1391,28 @@ What would you like to create?`;
         // Store suggestions for selection as instance property
         this.pendingProfileSuggestions = {
           field: field,
+          suggestions: data.suggestions,
+          currentValue: currentValue
+        };
+        
+      } else {
+        // Fallback with helpful context
+        const errorMsg = data.error || "I couldn't generate suggestions right now.";
+        this.addMessage('assistant', 
+          `${errorMsg}\n\n💡 **${WHY_IT_MATTERS[field]}**\n\nWhat would you like your **${label}** to be?\n\nJust type it below:`
+        );
+      }
+      
+    } catch (error) {
+      this.hideLoading();
+      console.error('Error getting profile suggestions:', error);
+      this.addMessage('assistant', 
+        `Something went wrong. 😕\n\nBut you can still update your **${label}** manually!\n\n💡 ${WHY_IT_MATTERS[field]}\n\nWhat would you like to set it to?`
+      );
+    }
+    
+    return true;
+  }
           suggestions: data.suggestions
         };
         
@@ -1386,6 +1446,12 @@ What would you like to create?`;
     this.showLoading();
     
     try {
+      // Get current profile state for before/after
+      const beforeResponse = await fetch('/api/profile', { credentials: 'include' });
+      const beforeData = await beforeResponse.json();
+      const beforeCompleteness = beforeData.profile ? 
+        this.checkProfileCompleteness(beforeData.profile).percent : 0;
+      
       // Save to profile using the field name directly
       const response = await fetch('/api/profile', {
         method: 'POST',
@@ -1401,14 +1467,49 @@ What would you like to create?`;
       
       if (data.ok) {
         const label = FIELD_LABELS[field] || field;
+        const emoji = FIELD_EMOJI[field] || '✨';
+        
+        // Get updated profile state
+        const afterResponse = await fetch('/api/profile', { credentials: 'include' });
+        const afterData = await afterResponse.json();
+        const afterCompleteness = afterData.profile ? 
+          this.checkProfileCompleteness(afterData.profile).percent : 0;
+        
+        // Build rich confirmation
+        let message = `✅ **${emoji} ${label}** updated!\n\n`;
+        
+        // Show before/after if there was a change
+        if (this.pendingProfileSuggestions?.currentValue) {
+          message += `~~${this.pendingProfileSuggestions.currentValue}~~ → **${suggestion}**\n\n`;
+        } else {
+          message += `**${suggestion}**\n\n`;
+        }
+        
+        // Show impact on content
+        message += `💡 **Impact:** ${CONTENT_IMPACT[field]}\n\n`;
+        
+        // Show completeness change
+        if (afterCompleteness > beforeCompleteness) {
+          message += `📊 Profile Completeness: ${beforeCompleteness}% → ${afterCompleteness}% ⬆️\n\n`;
+          
+          // Celebrate milestones
+          if (afterCompleteness >= 100) {
+            message += `🎉 **Your profile is now complete!** Ready to create amazing content!\n\n`;
+          } else if (afterCompleteness >= 66 && beforeCompleteness < 66) {
+            message += `🎯 **Great progress!** Your profile is now sufficient for quality content generation.\n\n`;
+          }
+        }
+        
+        message += `What would you like to do next?`;
         
         this.addMessage('assistant', 
-          `✅ **${label}** updated!\n\nThis will now be used when generating content. Want to update anything else?`,
+          message,
           false,
           false,
           [
+            { label: '✨ Create content', action: 'focus' },
             { label: '👤 View profile', action: 'prompt', value: '/profile' },
-            { label: '✨ Create content', action: 'focus' }
+            { label: '🔄 Update another field', action: 'prompt', value: '/update' }
           ]
         );
         
@@ -1419,6 +1520,10 @@ What would you like to create?`;
         if (typeof initProfileBadge === 'function') {
           initProfileBadge();
         }
+        
+        // Clear pending state
+        this.pendingProfileSuggestions = null;
+        
       } else {
         throw new Error(data.error?.message || 'Failed to update profile');
       }
@@ -1427,7 +1532,7 @@ What would you like to create?`;
       this.hideLoading();
       console.error('Error saving profile field:', error);
       this.addMessage('assistant', 
-        `❌ Couldn't save that. Please try again or type \`/profile\` to edit manually.`
+        `❌ I couldn't save that update.\n\n**Error:** ${error.message}\n\nPlease try again, or type \`/profile\` to edit manually.`
       );
     }
   }
@@ -1561,79 +1666,105 @@ async function showProfileSummary(promptBox) {
   const data = await response.json();
   
   if (!data.ok || !data.profile) {
-    promptBox.addAssistantMessage(`You don't have a profile yet! Let's create one.
-
-Tell me about your business, or use \`/import <url>\` to import from your website.`);
+    promptBox.addMessage('assistant', `You don't have a profile yet! Let's create one.\n\nTell me about your business, or use \`/import <url>\` to import from your website.`);
     return;
   }
   
   const p = data.profile;
   const { missing, percent } = promptBox.checkProfileCompleteness(p);
   
-  // Build inline profile card with all 8 fields
-  let summary = `## 👤 Your Brand Profile (${percent}% complete)\n\n`;
+  // Build rich profile summary
+  let summary = `## 👤 Your Brand Profile\n\n`;
   
-  // Show all 8 fields with status icons
+  // Completeness header with visual indicator
+  const completenessBar = '█'.repeat(Math.floor(percent / 10)) + '░'.repeat(10 - Math.floor(percent / 10));
+  summary += `**Completeness:** ${percent}% ${completenessBar}\n\n`;
+  
+  if (percent === 100) {
+    summary += `🎉 **Your profile is complete!** You're ready to create amazing content.\n\n`;
+  } else if (percent >= 66) {
+    summary += `🎯 **Looking good!** Your profile is sufficient for quality content.\n\n`;
+  } else if (percent >= 33) {
+    summary += `⚡ **Good start!** Adding more details will improve content quality.\n\n`;
+  } else {
+    summary += `🚀 **Let's build your profile!** Add a few more details to unlock better content.\n\n`;
+  }
+  
+  summary += `---\n\n`;
+  
+  // Required fields section
+  summary += `### Required Fields\n\n`;
   summary += `**Business Name:** ${p.company || p.business_name || '❌ Not set'}\n`;
   summary += `**Industry:** ${p.industry || '❌ Not set'}\n`;
-  summary += `**Brand Voice:** ${p.tone || p.brand_voice || '❌ Not set'}\n`;
-  summary += `**Target Audience:** ${p.target_audience || '➖ Not set'}\n`;
-  summary += `**Key Offer:** ${p.key_offer || '➖ Not set'}\n`;
+  summary += `**Brand Voice:** ${p.tone || p.brand_voice || '❌ Not set'}\n\n`;
   
-  // Brand Keywords
-  const keywords = p.brand_keywords || [];
-  if (keywords.length > 0) {
-    summary += `**Brand Keywords:** ${keywords.join(', ')}\n`;
-  } else {
-    summary += `**Brand Keywords:** ➖ Not set\n`;
+  // Recommended fields section
+  summary += `### Recommended Fields\n\n`;
+  summary += `**Target Audience:** ${p.target_audience || '➖ Not set (helps target content to your customers)'}\n`;
+  summary += `**Key Offer:** ${p.key_offer || '➖ Not set (highlights what makes you unique)'}\n\n`;
+  
+  // Advanced fields section
+  summary += `### Advanced Fields\n\n`;
+  const sampleCount = p.writing_samples?.length || 0;
+  summary += `**Writing Samples:** ${sampleCount} sample${sampleCount !== 1 ? 's' : ''}`;
+  if (sampleCount === 0) {
+    summary += ` (adding samples helps match your unique style)`;
   }
+  summary += `\n`;
+  summary += `**Voice Rules:** ${p.voice_rules || '➖ Not set (optional guidelines)'}\n\n`;
   
-  // Goals
-  const goals = p.goals || [];
-  if (goals.length > 0) {
-    summary += `**Goals:** ${goals.join(', ')}\n`;
-  } else {
-    summary += `**Goals:** ➖ Not set\n`;
-  }
-  
-  // Writing Samples
-  summary += `**Writing Samples:** ${p.writing_samples?.length || 0} samples\n`;
-  
-  // Action buttons
+  // Quick actions
   const buttons = [];
   
   if (missing.length > 0) {
-    summary += `\n**Missing:** ${missing.join(', ')}\n`;
-    summary += `\nUse these commands to complete your profile:\n`;
+    summary += `---\n\n### 🎯 Quick Actions to Improve Your Profile\n\n`;
     
-    if (missing.includes('Brand Voice')) {
-      summary += `• \`/voice\` - Set your brand tone\n`;
-      buttons.push({ label: '🎤 Update Voice', action: 'prompt', value: '/voice ' });
+    // Add button for first missing field
+    const firstMissing = missing[0];
+    const commandMap = {
+      'Brand Voice': '/voice',
+      'Target Audience': '/audience',
+      'Key Offer': '/offer',
+      'Writing Samples': '/samples',
+      'Voice Rules': '/rules'
+    };
+    
+    if (commandMap[firstMissing]) {
+      summary += `• \`${commandMap[firstMissing]}\` - Add ${firstMissing}\n`;
+      buttons.push({ 
+        label: `Add ${firstMissing}`, 
+        action: 'prompt', 
+        value: commandMap[firstMissing] 
+      });
     }
-    if (missing.includes('Target Audience')) {
-      summary += `• \`/audience\` - Define your customers\n`;
-      buttons.push({ label: '🎯 Update Audience', action: 'prompt', value: '/audience ' });
-    }
-    if (missing.includes('Brand Keywords')) {
-      summary += `• Update keywords on settings page\n`;
-      buttons.push({ label: '⚙️ Open Settings', action: 'command', value: 'window.location.href="/profile"' });
-    }
-    if (missing.includes('Goals')) {
-      summary += `• Update goals on settings page\n`;
-      if (!buttons.find(b => b.label === '⚙️ Open Settings')) {
-        buttons.push({ label: '⚙️ Open Settings', action: 'command', value: 'window.location.href="/profile"' });
-      }
-    }
-    if (missing.includes('Writing Samples')) {
+    
+    // Add button for writing samples if missing
+    if (sampleCount === 0 && firstMissing !== 'Writing Samples') {
       summary += `• \`/samples\` - Add writing examples\n`;
-      buttons.push({ label: '✍️ Add Samples', action: 'prompt', value: '/samples' });
+      buttons.push({ 
+        label: '✍️ Add Writing Samples', 
+        action: 'prompt', 
+        value: '/samples' 
+      });
     }
+    
+    buttons.push({ 
+      label: '✨ Create Content', 
+      action: 'focus' 
+    });
   } else {
-    summary += `\n✅ **Profile complete!** Your content will be highly personalized.`;
-    buttons.push({ label: '✨ Create content', action: 'focus' });
+    buttons.push({ 
+      label: '✨ Create Content', 
+      action: 'focus' 
+    });
+    buttons.push({ 
+      label: '🔄 Update a field', 
+      action: 'prompt', 
+      value: '/update' 
+    });
   }
   
-  promptBox.addAssistantMessage(summary, { buttons });
+  promptBox.addMessage('assistant', summary, false, false, buttons);
 }
 
 async function showVoiceUpdateFlow(promptBox, existingValue) {
@@ -1657,7 +1788,7 @@ async function showVoiceUpdateFlow(promptBox, existingValue) {
     value: `/voice ${s}`
   }));
   
-  promptBox.addAssistantMessage(message, { buttons });
+  promptBox.addMessage('assistant', message, false, false, buttons);
 }
 
 async function showAudienceUpdateFlow(promptBox, existingValue) {
@@ -1674,7 +1805,7 @@ async function showAudienceUpdateFlow(promptBox, existingValue) {
   message += `• "Small business owners who struggle with social media"\n\n`;
   message += `Type your target audience description:`;
   
-  promptBox.addAssistantMessage(message);
+  promptBox.addMessage('assistant', message);
 }
 
 async function showSamplesCollectionFlow(promptBox) {
@@ -1692,7 +1823,7 @@ async function showSamplesCollectionFlow(promptBox) {
   message += `• Include different types (promotional, educational, personal)\n\n`;
   message += `Paste your first sample:`;
   
-  promptBox.addAssistantMessage(message);
+  promptBox.addMessage('assistant', message);
   
   // Set state to collect samples using instance state
   promptBox.collectionState = { collecting: 'writing_samples', samples: [] };
@@ -1701,7 +1832,7 @@ async function showSamplesCollectionFlow(promptBox) {
 async function showImportFlow(promptBox, url) {
   if (url && url.trim()) {
     // URL provided - start import
-    promptBox.addAssistantMessage(`Analyzing ${url}... 🔍`);
+    promptBox.addMessage('assistant', `Analyzing ${url}... 🔍`);
     
     try {
       const response = await fetch('/onboarding/social-style', {
@@ -1727,19 +1858,19 @@ async function showImportFlow(promptBox, url) {
           { label: '✏️ Edit first', action: 'prompt', value: '/profile' }
         ];
         
-        promptBox.addAssistantMessage(message, { buttons });
+        promptBox.addMessage('assistant', message, false, false, buttons);
         
         // Store for confirmation using instance state
         promptBox.pendingImport = data.suggestions;
       } else {
-        promptBox.addAssistantMessage(`Couldn't extract data from that URL. Try a different page, or just tell me about your business!`);
+        promptBox.addMessage('assistant', `Couldn't extract data from that URL. Try a different page, or just tell me about your business!`);
       }
     } catch (error) {
-      promptBox.addAssistantMessage(`Error analyzing URL: ${error.message}. Try again or describe your business instead.`);
+      promptBox.addMessage('assistant', `Error analyzing URL: ${error.message}. Try again or describe your business instead.`);
     }
   } else {
     // No URL - prompt for one
-    promptBox.addAssistantMessage(`## Import from URL 🔗\n\nPaste your website or social media URL and I'll extract your brand info:\n\n\`/import https://yourwebsite.com\``);
+    promptBox.addMessage('assistant', `## Import from URL 🔗\n\nPaste your website or social media URL and I'll extract your brand info:\n\n\`/import https://yourwebsite.com\``);
   }
 }
 
@@ -1789,6 +1920,14 @@ async function handleProfileCommand(promptBox, command, args) {
     case '/audience':
       await showAudienceUpdateFlow(promptBox, args);
       break;
+    case '/offer':
+      // Delegate to handleProfileFieldCommand which has AI suggestions
+      await promptBox.handleProfileFieldCommand('/offer');
+      break;
+    case '/rules':
+      // Delegate to handleProfileFieldCommand which has AI suggestions
+      await promptBox.handleProfileFieldCommand('/rules');
+      break;
     case '/samples':
       await showSamplesCollectionFlow(promptBox);
       break;
@@ -1807,4 +1946,49 @@ if (typeof window !== 'undefined') {
   window.showAudienceUpdateFlow = showAudienceUpdateFlow;
   window.showSamplesCollectionFlow = showSamplesCollectionFlow;
   window.showImportFlow = showImportFlow;
+}
+
+/**
+ * Refresh the profile completeness badge with current data
+ */
+async function refreshProfileBadge() {
+  try {
+    const response = await fetch('/api/profile', { credentials: 'include' });
+    const data = await response.json();
+    
+    if (data.ok && data.profile) {
+      const badgeEl = document.querySelector('.profile-completeness-badge');
+      if (badgeEl) {
+        // Assuming PromptBox instance is accessible
+        const promptBox = window.dashboardPromptBox || new PromptBox('promptbox-container');
+        const { percent } = promptBox.checkProfileCompleteness(data.profile);
+        
+        // Update badge
+        badgeEl.textContent = `${percent}%`;
+        badgeEl.className = 'profile-completeness-badge';
+        
+        // Add color coding
+        if (percent >= 100) {
+          badgeEl.classList.add('complete');
+        } else if (percent >= 66) {
+          badgeEl.classList.add('sufficient');
+        } else if (percent >= 33) {
+          badgeEl.classList.add('started');
+        } else {
+          badgeEl.classList.add('minimal');
+        }
+        
+        // Animate change
+        badgeEl.classList.add('updated');
+        setTimeout(() => badgeEl.classList.remove('updated'), 1000);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to refresh profile badge:', error);
+  }
+}
+
+// Export for global access
+if (typeof window !== 'undefined') {
+  window.refreshProfileBadge = refreshProfileBadge;
 }
