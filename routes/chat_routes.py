@@ -46,6 +46,7 @@ from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
 from services.onboarding_service import OnboardingService
 from services.conversation_router import ConversationRouter
+from services.profile_validator import get_profile_completeness
 from models import VoiceProfile, db
 import os
 import logging
@@ -59,38 +60,17 @@ onboarding_service = OnboardingService()
 conversation_router = ConversationRouter()
 
 
-def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str]]:
+def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str], int]:
     """Check if profile has minimum required fields for content generation.
     
     Args:
         profile: VoiceProfile instance to check
         
     Returns:
-        Tuple of (ready: bool, missing_fields: list[str])
+        Tuple of (ready: bool, missing_fields: list[str], completeness: int)
     """
-    if not profile:
-        return False, ['profile']
-    
-    missing_fields = []
-    
-    # Check critical fields for content generation
-    if not profile.business_name:
-        missing_fields.append('business_name')
-    if not profile.industry:
-        missing_fields.append('industry')
-    if not profile.brand_voice:
-        missing_fields.append('brand_voice')
-    if not profile.target_audience:
-        missing_fields.append('target_audience')
-    if not profile.key_offer:
-        missing_fields.append('key_offer')
-    
-    # Check for at least one writing sample
-    writing_samples = profile.get_writing_samples()
-    if not writing_samples or len(writing_samples) == 0:
-        missing_fields.append('writing_samples')
-    
-    return len(missing_fields) == 0, missing_fields
+    is_complete, missing_fields, completeness = get_profile_completeness(profile)
+    return is_complete, missing_fields, completeness
 
 
 def _handle_onboarding_chat(message: str, history: list, profile: VoiceProfile, pending_task: dict = None) -> dict:
@@ -172,8 +152,6 @@ def _handle_onboarding_chat(message: str, history: list, profile: VoiceProfile, 
                 )
         
         # Try to extract fields from description
-        missing_fields = onboarding_service.get_missing_fields(profile)
-        
         # If we know what field we're collecting, use that context
         collecting_field = None
         if pending_task and pending_task.get('task_type') == 'onboarding':
@@ -994,7 +972,7 @@ def chat():
         profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
         
         # Check if profile is ready for content generation
-        profile_ready, missing_fields = _check_profile_ready(profile)
+        profile_ready, missing_fields, completeness = _check_profile_ready(profile)
         
         # Handle pending task based on flow type
         if pending_task:

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
 from services.task_registry import get_task_config, list_task_types
+from services.profile_validator import get_profile_completeness, format_missing_fields_message
 from models import VoiceProfile
 import os
 import logging
@@ -128,11 +129,47 @@ def _handle_multi_day_generation(data):
         )
     
     # Build complete payload with defaults
-    from datetime import date, timedelta
+    from datetime import date
     from generator import generate_posts
     
     # Get user profile for defaults
     profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+    
+    # Check if profile exists
+    if not profile:
+        logger.warning(
+            "multi_day_generation.missing_profile",
+            extra={"request_id": request_id, "user_id": current_user.id}
+        )
+        return _error_response(
+            "profile_missing",
+            "Please complete your brand profile before generating content.",
+            400,
+            redirect="/profile"
+        )
+    
+    # Check profile completeness
+    is_complete, missing_fields, completeness = get_profile_completeness(profile)
+    
+    # If profile is incomplete (missing required fields), block generation
+    if not is_complete:
+        logger.warning(
+            "multi_day_generation.incomplete_profile",
+            extra={
+                "request_id": request_id,
+                "user_id": current_user.id,
+                "missing_fields": missing_fields,
+                "completeness": completeness
+            }
+        )
+        return _error_response(
+            "profile_incomplete",
+            f"Your profile is missing: {format_missing_fields_message(missing_fields)}. Please complete your profile for better content.",
+            400,
+            missing_fields=missing_fields,
+            completeness=completeness,
+            redirect="/profile"
+        )
     
     try:
         # Call generator with complete payload
@@ -171,6 +208,14 @@ def _handle_multi_day_generation(data):
             "platforms": platforms,
             "request_id": request_id,
         }
+        
+        # Add warning for low profile completeness
+        if completeness < 80:
+            response['warnings'] = [{
+                'code': 'low_profile_completeness',
+                'message': f'Your profile is {completeness}% complete. Add {format_missing_fields_message(missing_fields)} for better results.',
+                'missing_fields': missing_fields
+            }]
         
         return jsonify(response), 200
         
@@ -231,58 +276,32 @@ def _handle_generate(task_type, data):
     # Using select load to ensure all profile fields are loaded efficiently
     profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
     
-    # Helper to check if a field is empty
-    def is_field_empty(field):
-        return not field or not field.strip()
-    
-    # Check if profile exists and identify what's missing for better error messages
+    # Check if profile exists
     if not profile:
         logger.warning(f"User {current_user.id} attempted generation without a brand profile")
         return _error_response(
-            "profile_required",
-            "Please create your brand profile to start generating content. Click 'Settings' or visit /onboarding to set up your business name, industry, and brand voice.",
+            "profile_missing",
+            "Please complete your brand profile before generating content.",
             400,
-            redirect="/onboarding"
+            redirect="/profile"
         )
     
-    # Profile exists - check for key required fields and provide specific guidance
-    missing_fields = []
-    required_fields = [
-        ('business_name', 'business name'),
-        ('industry', 'industry')
-    ]
+    # Check profile completeness
+    is_complete, missing_fields, completeness = get_profile_completeness(profile)
     
-    for field_attr, field_label in required_fields:
-        if is_field_empty(getattr(profile, field_attr)):
-            missing_fields.append(field_label)
-    
-    # If critical fields are missing, provide specific error
-    if missing_fields:
-        logger.warning(f"User {current_user.id} has incomplete profile: missing {missing_fields}")
+    # If profile is incomplete (missing required fields), block generation
+    if not is_complete:
+        logger.warning(f"User {current_user.id} has incomplete profile: missing {missing_fields}, completeness: {completeness}%")
         return _error_response(
-            "incomplete_profile",
-            f"Your profile is missing: {', '.join(missing_fields)}. Please complete these required fields in Settings or /onboarding for better content generation.",
+            "profile_incomplete",
+            f"Your profile is missing: {format_missing_fields_message(missing_fields)}. Please complete your profile for better content.",
             400,
-            redirect="/onboarding",
-            missing_fields=missing_fields
+            missing_fields=missing_fields,
+            completeness=completeness,
+            redirect="/profile"
         )
     
-    # Profile has minimum required data - log optional missing fields as warnings
-    optional_missing = []
-    if is_field_empty(profile.brand_voice):
-        optional_missing.append("brand voice")
-    if is_field_empty(profile.target_audience):
-        optional_missing.append("target audience")
-    
-    # Check brand keywords (avoid redundant method call)
-    brand_keywords = profile.get_brand_keywords()
-    if not brand_keywords:
-        optional_missing.append("brand keywords")
-    
-    if optional_missing:
-        logger.info(f"User {current_user.id} profile could be enhanced with: {optional_missing}")
-    
-    logger.debug(f"Loaded profile for user {current_user.id} with brand: {profile.business_name}")
+    logger.debug(f"Loaded profile for user {current_user.id} with brand: {profile.business_name}, completeness: {completeness}%")
 
     # STRUCTURED CONTEXT: Extract and validate dynamic input context
     context = {}
@@ -376,6 +395,14 @@ def _handle_generate(task_type, data):
             "platform": platform,
         }
         
+        # Add warning for low profile completeness
+        if completeness < 80:
+            response_payload['warnings'] = [{
+                'code': 'low_profile_completeness',
+                'message': f'Your profile is {completeness}% complete. Add {format_missing_fields_message(missing_fields)} for better results.',
+                'missing_fields': missing_fields
+            }]
+        
         return jsonify(response_payload)
     except Exception as e:
         logger.error(f"Exception during content generation: {str(e)}", exc_info=True)
@@ -429,7 +456,6 @@ def chat():
     try:
         data = request.get_json(silent=True) or {}
         message = data.get('message', '').strip()
-        history = data.get('history', [])
         pending_task = data.get('pending_task')
         context = data.get('context', 'dashboard')
         
