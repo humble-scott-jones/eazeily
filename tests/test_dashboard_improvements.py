@@ -107,11 +107,11 @@ def test_navigation_menu_has_clear_profile_labels(authenticated_client):
     assert 'Edit your profile information' in html
 
 
-def test_settings_route_redirects_to_onboarding(authenticated_client):
-    """Test that settings route redirects to onboarding."""
+def test_settings_route_redirects_to_profile(authenticated_client):
+    """Test that settings route redirects to profile."""
     response = authenticated_client.get('/settings', follow_redirects=False)
     assert response.status_code == 302
-    assert '/onboarding' in response.location
+    assert '/profile' in response.location
 
 
 def test_generate_api_without_api_key_returns_503(authenticated_client, monkeypatch):
