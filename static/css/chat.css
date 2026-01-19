@@ -238,7 +238,7 @@
     max-width: 800px;
     margin: 0 auto;
     padding: 16px;
-    padding-bottom: 140px; /* Space for sticky input + buttons */
+    padding-bottom: 160px; /* Space for sticky input + buttons + extra breathing room */
 }
 
 /* ===== Message Bubbles ===== */
@@ -663,7 +663,7 @@
     
     .chat-messages {
         padding: 12px;
-        padding-bottom: 90px;
+        padding-bottom: 110px; /* Increased for mobile to prevent cut-off */
     }
     
     .message-assistant {
