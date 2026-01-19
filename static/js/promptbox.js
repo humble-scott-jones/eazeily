@@ -58,14 +58,14 @@ const FIELD_EMOJI = {
 
 // Mapping from profile field names (used by server) to slash commands
 const FIELD_TO_COMMAND = {
-  'Business Name': '/profile',
-  'Industry': '/profile',
+  'Business Name': '/name',
+  'Industry': '/industry',
   'Brand Voice': '/voice',
   'Target Audience': '/audience',
   'Key Offer': '/offer',
   'Writing Samples': '/samples',
-  'Brand Keywords': '/profile',
-  'Goals': '/profile'
+  'Brand Keywords': '/keywords',
+  'Goals': '/goals'
 };
 
 const WHY_IT_MATTERS = {
@@ -1127,7 +1127,7 @@ ${normalizedMissing.some(m => m.key === 'writing_samples') ?
 Want to complete your profile now, or jump straight to creating content?`;
     
     const buttons = firstMissing ? [
-      { label: `Add ${firstMissing.name}`, action: 'prompt', value: firstMissing.command },
+      { label: `Add ${firstMissing.name}`, action: 'command', value: firstMissing.command },
       { label: 'Start creating →', action: 'focus' }
     ] : [
       { label: 'Start creating →', action: 'focus' }

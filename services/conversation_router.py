@@ -48,6 +48,20 @@ COMMAND_GUIDANCE = {
     '/rules': "📋 **What voice rules should I follow?**\n\nExample: `/rules always use emojis and keep it casual`",
 }
 
+# Profile field commands - map commands to profile field names
+# When a bare field command is sent (e.g., '/keywords'), trigger AI assistance flow
+# When sent with a value (e.g., '/keywords Fresh, Local, Handmade'), update the field directly
+FIELD_COMMANDS = {
+    '/name': 'business_name',
+    '/industry': 'industry',
+    '/voice': 'brand_voice',
+    '/audience': 'target_audience',
+    '/offer': 'key_offer',
+    '/samples': 'writing_samples',
+    '/keywords': 'brand_keywords',
+    '/goals': 'goals',
+}
+
 
 def get_command_guidance(command: str) -> Optional[str]:
     """Return guidance message for commands sent without input.
@@ -86,6 +100,12 @@ class ConversationRouter:
         '/audience': 'update_audience',  # Quick update target audience
         '/samples': 'update_samples',    # Add writing samples
         '/import': 'import_profile',     # Import from URL
+        # New field-specific commands
+        '/name': 'field_command',
+        '/industry': 'field_command',
+        '/keywords': 'field_command',
+        '/goals': 'field_command',
+        '/offer': 'field_command',
     }
     
     # Required fields per task type (from task_registry.py patterns)
@@ -337,6 +357,8 @@ class ConversationRouter:
             /caption beach sunset
             /script for new tutorial video
             /update https://example.com
+            /keywords Fresh, Local, Handmade
+            /voice warm and friendly
         """
         if not user_input.startswith('/'):
             return None
@@ -349,6 +371,25 @@ class ConversationRouter:
         # Check if command is valid
         if command not in self.COMMAND_MAP:
             return None
+        
+        # Check if this is a field command (from FIELD_COMMANDS)
+        if command in FIELD_COMMANDS:
+            field = FIELD_COMMANDS[command]
+            args = remainder.strip() if remainder else None
+            
+            if args:
+                # User provided value directly: /voice warm and friendly
+                return {
+                    'task_type': 'update_field',
+                    'field': field,
+                    'value': args
+                }
+            else:
+                # Bare command: /voice - trigger AI assistance flow
+                return {
+                    'task_type': 'field_assistance',
+                    'field': field
+                }
         
         # Special handling for /update with URL
         if command == '/update' and remainder.strip():
