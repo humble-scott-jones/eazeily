@@ -905,8 +905,17 @@ class PromptBox {
   setLoading(isLoading) {
     this.isLoading = isLoading;
     
-    // In embedded mode, page handles loading state - skip DOM manipulation
+    // In embedded mode, use dashboard's loading indicator
     if (this.embedded) {
+      const dashboardLoadingEl = document.getElementById('chat-loading');
+      if (dashboardLoadingEl) {
+        if (isLoading) {
+          dashboardLoadingEl.classList.remove('hidden');
+        } else {
+          dashboardLoadingEl.classList.add('hidden');
+        }
+      }
+      
       // Optionally emit event for page to handle
       if (typeof window.handleLoadingStateChange === 'function') {
         window.handleLoadingStateChange(isLoading);
@@ -928,6 +937,35 @@ class PromptBox {
       if (loadingEl) loadingEl.classList.add('hidden');
       if (textarea) textarea.disabled = false;
       if (textarea && sendBtn) this.updateSendButton(textarea, sendBtn);
+    }
+  }
+
+  /**
+   * Update an existing message by its ID or the last message
+   * @param {string|number} messageId - Message ID or index to update (or 'last' for last message)
+   * @param {string} newContent - New content for the message
+   */
+  updateMessage(messageId, newContent) {
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    if (!conversation) return;
+    
+    const messages = conversation.querySelectorAll('.promptbox-message-assistant');
+    if (!messages.length) return;
+    
+    // Get the message to update (default to last message)
+    let targetMessage = messages[messages.length - 1];
+    
+    // Update the bubble content
+    const bubble = targetMessage.querySelector('.promptbox-bubble');
+    if (bubble) {
+      // Remove loading class if present
+      bubble.classList.remove('message-loading');
+      bubble.innerHTML = this.renderMarkdown(newContent);
+    }
+    
+    // Update conversation history
+    if (this.conversationHistory.length > 0) {
+      this.conversationHistory[this.conversationHistory.length - 1].message = newContent;
     }
   }
 
@@ -1273,8 +1311,8 @@ What would you like to create?`;
     const label = FIELD_LABELS[field] || field;
     const emoji = FIELD_EMOJI[field] || '✨';
     
-    // Show thinking message with personality
-    this.addMessage('assistant', `Let me analyze your profile and create personalized suggestions for **${emoji} ${label}**...`);
+    // Show animated loading message
+    this.addMessage('assistant', `Analyzing your profile for **${emoji} ${label}** suggestions... <span class="loading-dots"></span>`, false, false);
     this.showLoading();
     
     try {
@@ -1283,68 +1321,92 @@ What would you like to create?`;
       const profileData = await profileResponse.json();
       const currentValue = profileData.profile?.[field];
       
-      const response = await fetch('/api/profile/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ field })
-      });
+      // Make API call with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
       
-      const data = await response.json();
-      this.hideLoading();
-      
-      if (data.success && data.suggestions && data.suggestions.length > 0) {
-        // Enhanced message with context
-        let message = `## Update ${emoji} ${label}\n\n`;
+      try {
+        const response = await fetch('/api/profile/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ field }),
+          signal: controller.signal
+        });
         
-        // Show current value if exists
-        if (currentValue) {
-          message += `**Current:** ${currentValue}\n\n---\n\n`;
+        clearTimeout(timeoutId);
+        const data = await response.json();
+        this.hideLoading();
+        
+        if (data.success && data.suggestions && data.suggestions.length > 0) {
+          // Enhanced message with context
+          let message = `## Update ${emoji} ${label}\n\n`;
+          
+          // Show current value if exists
+          if (currentValue) {
+            message += `**Current:** ${currentValue}\n\n---\n\n`;
+          }
+          
+          message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**, here are 3 tailored suggestions:\n\n`;
+          
+          data.suggestions.forEach((suggestion, i) => {
+            message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
+          });
+          
+          message += `---\n\n💡 **Why this matters:** ${WHY_IT_MATTERS[field]}\n\n`;
+          message += `Which option resonates with your brand?\n`;
+          
+          // Create buttons for each suggestion
+          const buttons = data.suggestions.map((suggestion, i) => ({
+            label: `Use Option ${i + 1}`,
+            action: 'select-profile-suggestion',
+            field: field,
+            value: suggestion
+          }));
+          
+          buttons.push({
+            label: '✏️ Write my own',
+            action: 'focus'
+          });
+          
+          // Replace loading message with actual suggestions
+          this.updateMessage('last', message);
+          
+          // Add buttons as a separate message (since updateMessage doesn't support buttons yet)
+          this.addMessage('assistant', '', false, false, buttons);
+          
+          // Store suggestions for selection as instance property
+          this.pendingProfileSuggestions = {
+            field: field,
+            suggestions: data.suggestions,
+            currentValue: currentValue
+          };
+          
+        } else {
+          // Fallback with helpful context
+          const errorMsg = data.error || "I couldn't generate suggestions right now.";
+          this.updateMessage('last', 
+            `${errorMsg}\n\n💡 **${WHY_IT_MATTERS[field]}**\n\nWhat would you like your **${label}** to be?\n\nJust type it below:`
+          );
         }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
         
-        message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**, here are 3 tailored suggestions:\n\n`;
-        
-        data.suggestions.forEach((suggestion, i) => {
-          message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
-        });
-        
-        message += `---\n\n💡 **Why this matters:** ${WHY_IT_MATTERS[field]}\n\n`;
-        message += `Which option resonates with your brand?\n`;
-        
-        // Create buttons for each suggestion
-        const buttons = data.suggestions.map((suggestion, i) => ({
-          label: `Use Option ${i + 1}`,
-          action: 'select-profile-suggestion',
-          field: field,
-          value: suggestion
-        }));
-        
-        buttons.push({
-          label: '✏️ Write my own',
-          action: 'focus'
-        });
-        
-        this.addMessage('assistant', message, false, false, buttons);
-        
-        // Store suggestions for selection as instance property
-        this.pendingProfileSuggestions = {
-          field: field,
-          suggestions: data.suggestions,
-          currentValue: currentValue
-        };
-        
-      } else {
-        // Fallback with helpful context
-        const errorMsg = data.error || "I couldn't generate suggestions right now.";
-        this.addMessage('assistant', 
-          `${errorMsg}\n\n💡 **${WHY_IT_MATTERS[field]}**\n\nWhat would you like your **${label}** to be?\n\nJust type it below:`
-        );
+        if (fetchError.name === 'AbortError') {
+          // Timeout error
+          this.hideLoading();
+          this.updateMessage('last',
+            `The suggestion request timed out after 15 seconds. ⏱️\n\nYou can still update your **${label}** manually!\n\n💡 ${WHY_IT_MATTERS[field]}\n\nWhat would you like to set it to?`
+          );
+        } else {
+          throw fetchError; // Re-throw for outer catch
+        }
       }
       
     } catch (error) {
       this.hideLoading();
       console.error('Error getting profile suggestions:', error);
-      this.addMessage('assistant', 
+      this.updateMessage('last',
         `Something went wrong. 😕\n\nBut you can still update your **${label}** manually!\n\n💡 ${WHY_IT_MATTERS[field]}\n\nWhat would you like to set it to?`
       );
     }

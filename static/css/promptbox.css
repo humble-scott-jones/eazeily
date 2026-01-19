@@ -784,3 +784,60 @@
     border-color: var(--eazeily-border);
   }
 }
+
+/* ===== Loading Animations ===== */
+.loading-dots {
+  display: inline-block;
+  margin-left: 4px;
+}
+
+.loading-dots::after {
+  content: '';
+  animation: loading-dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes loading-dots {
+  0%, 20% { content: ''; }
+  40% { content: '.'; }
+  60% { content: '..'; }
+  80%, 100% { content: '...'; }
+}
+
+/* Loading state for messages */
+.message-loading {
+  opacity: 0.7;
+}
+
+.message-loading .loading-dots::after {
+  animation: loading-dots 1.5s steps(4, end) infinite;
+}
+
+/* Embedded mode loading indicator */
+#chat-loading {
+  padding: 8px 16px;
+  background: var(--eazeily-surface-alt);
+  border-radius: var(--promptbox-radius);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--eazeily-text-secondary);
+}
+
+#chat-loading.hidden {
+  display: none;
+}
+
+#chat-loading::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--eazeily-primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}

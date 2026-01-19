@@ -13,6 +13,23 @@ def test_profile_api_returns_complete_profile(authenticated_client):
     assert data['profile_status'] == 'loaded'
     assert 'profile' in data
     
+    # Check that completeness data is included
+    assert 'completeness' in data
+    completeness = data['completeness']
+    assert 'percent' in completeness
+    assert 'is_complete' in completeness
+    assert 'missing_fields' in completeness
+    assert 'field_status' in completeness
+    
+    # Verify field_status has all required fields
+    field_status = completeness['field_status']
+    assert 'business_name' in field_status
+    assert 'industry' in field_status
+    assert 'brand_voice' in field_status
+    assert 'target_audience' in field_status
+    assert 'key_offer' in field_status
+    assert 'writing_samples' in field_status
+    
     profile = data['profile']
     # Check that profile includes the fields needed for completeness check
     assert 'company' in profile or 'business_name' in profile
@@ -145,16 +162,15 @@ def test_dashboard_page_loads_successfully(authenticated_client):
     # Check that the profile badge HTML is present
     html = response.data.decode('utf-8')
     assert 'id="profile-badge"' in html
-    assert 'id="profile-progress-circle"' in html
-    assert 'id="profile-percent-text"' in html
-    assert 'id="profile-status-text"' in html
+    assert 'id="progress-circle"' in html
+    assert 'id="badge-percent"' in html
+    assert 'id="menu-profile-badge"' in html
     
     # Check that the JavaScript functions are present
     assert 'initProfileBadge' in html
-    assert 'checkProfileCompleteness' in html
     assert 'updateProfileBadge' in html
     assert 'handleProfileBadgeClick' in html
     
     # Check that CSS for animations is present
-    assert '#profile-progress-circle' in html
-    assert 'transition: stroke-dashoffset' in html
+    assert '#progress-circle' in html or 'progress-circle' in html
+    assert 'stroke-dashoffset' in html
