@@ -803,6 +803,15 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
     # Parse the intent for profile updates
     intent_result = conversation_router.parse_intent(message, profile)
     
+    # Check if this is a bare command that needs guidance
+    if intent_result['task_type'] == 'guidance_needed':
+        from services.conversation_router import get_command_guidance
+        command = intent_result.get('command')
+        guidance = get_command_guidance(command)
+        if guidance:
+            return _build_response(guidance, action='continue')
+        # If no guidance found, fall through to normal handling
+    
     if intent_result['task_type'] == 'profile':
         # Show profile summary
         return _show_profile_summary(profile)
@@ -1199,6 +1208,14 @@ def chat():
         # Parse new intent using ConversationRouter
         intent_result = conversation_router.parse_intent(message, profile)
         logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
+        
+        # Check if this is a bare command that needs guidance
+        if intent_result['task_type'] == 'guidance_needed':
+            from services.conversation_router import get_command_guidance
+            command = intent_result.get('command')
+            guidance = get_command_guidance(command)
+            if guidance:
+                return jsonify(_build_response(guidance, action='continue')), 200
         
         # Handle profile-related intents (including new commands)
         if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile']:

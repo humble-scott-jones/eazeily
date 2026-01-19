@@ -6,27 +6,27 @@
 // Slash command definitions
 const SLASH_COMMANDS = [
   // Content commands
-  { command: '/post', description: 'Create a social media post', icon: '📝', category: 'content' },
-  { command: '/caption', description: 'Write an image caption', icon: '📸', category: 'content' },
-  { command: '/script', description: 'Write a video script', icon: '🎬', category: 'content' },
-  { command: '/reel', description: 'Create a reel/short video script', icon: '🎥', category: 'content' },
-  { command: '/email', description: 'Draft an email', icon: '✉️', category: 'content' },
-  { command: '/review', description: 'Respond to a review', icon: '⭐', category: 'content' },
-  { command: '/ad', description: 'Create ad copy', icon: '📢', category: 'content' },
-  { command: '/blog', description: 'Write a blog post', icon: '📰', category: 'content' },
+  { command: '/post', description: 'Create a social media post', icon: '📝', category: 'content', placeholder: 'topic', example: '/post our weekend sale', requiresInput: true },
+  { command: '/caption', description: 'Write an image caption', icon: '📸', category: 'content', placeholder: 'describe the image', example: '/caption sunset beach photo', requiresInput: true },
+  { command: '/script', description: 'Write a video script', icon: '🎬', category: 'content', placeholder: 'topic', example: '/script product demo video', requiresInput: true },
+  { command: '/reel', description: 'Create a reel/short video script', icon: '🎥', category: 'content', placeholder: 'topic', example: '/reel behind the scenes tour', requiresInput: true },
+  { command: '/email', description: 'Draft an email', icon: '✉️', category: 'content', placeholder: 'topic or recipient', example: '/email follow-up with client', requiresInput: true },
+  { command: '/review', description: 'Respond to a review', icon: '⭐', category: 'content', placeholder: 'paste the review text', example: '/review "Great product but slow shipping"', requiresInput: true },
+  { command: '/ad', description: 'Create ad copy', icon: '📢', category: 'content', placeholder: 'product or service', example: '/ad our new fitness app', requiresInput: true },
+  { command: '/blog', description: 'Write a blog post', icon: '📰', category: 'content', placeholder: 'topic', example: '/blog 5 tips for productivity', requiresInput: true },
   
   // Profile management commands
-  { command: '/profile', description: 'View and manage your brand profile', icon: '👤', category: 'profile' },
-  { command: '/update', description: 'Update a profile field', icon: '✏️', category: 'profile' },
-  { command: '/voice', description: 'Update your brand voice/tone', icon: '🎤', category: 'profile' },
-  { command: '/audience', description: 'Define your target audience', icon: '🎯', category: 'profile' },
-  { command: '/offer', description: 'Set your key offer/value proposition', icon: '💎', category: 'profile' },
-  { command: '/samples', description: 'Add writing samples to match your style', icon: '✍️', category: 'profile' },
-  { command: '/rules', description: 'Set voice rules and guidelines', icon: '📋', category: 'profile' },
-  { command: '/import', description: 'Import profile from your website URL', icon: '🔗', category: 'profile' },
+  { command: '/profile', description: 'View and manage your brand profile', icon: '👤', category: 'profile', placeholder: null, example: '/profile', requiresInput: false },
+  { command: '/update', description: 'Update a profile field', icon: '✏️', category: 'profile', placeholder: 'field and value', example: '/update voice warm and friendly', requiresInput: true },
+  { command: '/voice', description: 'Update your brand voice/tone', icon: '🎤', category: 'profile', placeholder: 'how you want to sound', example: '/voice warm and professional', requiresInput: true },
+  { command: '/audience', description: 'Define your target audience', icon: '🎯', category: 'profile', placeholder: 'who you serve', example: '/audience busy working parents', requiresInput: true },
+  { command: '/offer', description: 'Set your key offer/value proposition', icon: '💎', category: 'profile', placeholder: 'your value proposition', example: '/offer free 30-day trial', requiresInput: true },
+  { command: '/samples', description: 'Add writing samples to match your style', icon: '✍️', category: 'profile', placeholder: 'paste your writing', example: '/samples Check out our new collection!', requiresInput: true },
+  { command: '/rules', description: 'Set voice rules and guidelines', icon: '📋', category: 'profile', placeholder: 'your guidelines', example: '/rules always use emojis', requiresInput: true },
+  { command: '/import', description: 'Import profile from your website URL', icon: '🔗', category: 'profile', placeholder: 'url', example: '/import https://mybusiness.com', requiresInput: true },
   
   // Help command
-  { command: '/help', description: 'Show all available commands', icon: '❓', category: 'help' },
+  { command: '/help', description: 'Show all available commands', icon: '❓', category: 'help', placeholder: null, example: '/help', requiresInput: false },
 ];
 
 // Profile field command mapping
@@ -54,6 +54,18 @@ const FIELD_EMOJI = {
   'key_offer': '💎',
   'writing_samples': '✍️',
   'voice_rules': '📋',
+};
+
+// Mapping from profile field names (used by server) to slash commands
+const FIELD_TO_COMMAND = {
+  'Business Name': '/profile',
+  'Industry': '/profile',
+  'Brand Voice': '/voice',
+  'Target Audience': '/audience',
+  'Key Offer': '/offer',
+  'Writing Samples': '/samples',
+  'Brand Keywords': '/profile',
+  'Goals': '/profile'
 };
 
 const WHY_IT_MATTERS = {
@@ -1067,20 +1079,24 @@ I'm your AI content assistant. I can help you create:
    * Show completion nudge for partially complete profiles
    */
   showCompletionNudge(missing, percent) {
-    // missing is now an array of objects with {name, key, command, isRequired}
-    const missingNames = missing.slice(0, 3).map(m => m.name);
+    // missing is an array of strings from the server (e.g., ['Brand Voice', 'Goals'])
+    // Use module-level constant for field-to-command mapping
+    const missingNames = missing.slice(0, 3);
     const content = `Welcome back! 👋 Your profile is **${percent}% complete**.
 
 To help me write content that sounds like you, consider adding:
 ${missingNames.map(name => `• ${name}`).join('\n')}
 
-${missing.some(m => m.key === 'writing_samples') ? 
+${missing.includes('Writing Samples') ? 
   "**Tip:** Sharing 2-3 examples of your past posts helps me match your unique style!" : ""}
 
 Want to complete your profile now, or jump straight to creating content?`;
     
+    // Get the command for the first missing field, with safe fallback
+    const firstMissingField = missing[0] || 'Business Name';
+    const firstMissingCommand = FIELD_TO_COMMAND[firstMissingField] || '/profile';
     const buttons = [
-      { label: `Add ${missing[0].name}`, action: 'prompt', value: missing[0].command },
+      { label: `Add ${firstMissingField}`, action: 'prompt', value: `${firstMissingCommand} ` },
       { label: 'Start creating →', action: 'focus' }
     ];
     
