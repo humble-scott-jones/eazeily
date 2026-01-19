@@ -1079,24 +1079,37 @@ I'm your AI content assistant. I can help you create:
    * Show completion nudge for partially complete profiles
    */
   showCompletionNudge(missing, percent) {
-    // missing is an array of strings from the server (e.g., ['Brand Voice', 'Goals'])
-    // Use module-level constant for field-to-command mapping
-    const missingNames = missing.slice(0, 3);
+    // Handle both formats: array of strings (from server) or array of objects
+    const normalizedMissing = missing.map(item => {
+        if (typeof item === 'string') {
+            // Server format: array of strings like ["Brand Keywords", "Goals"]
+            return {
+                name: item,
+                key: item.toLowerCase().replace(/ /g, '_'),
+                command: FIELD_TO_COMMAND[item] || '/profile'
+            };
+        }
+        // Already an object format
+        return item;
+    });
+    
+    const missingNames = normalizedMissing.slice(0, 3).map(m => m.name);
+    const firstMissing = normalizedMissing[0];
+    
     const content = `Welcome back! 👋 Your profile is **${percent}% complete**.
 
 To help me write content that sounds like you, consider adding:
 ${missingNames.map(name => `• ${name}`).join('\n')}
 
-${missing.includes('Writing Samples') ? 
+${normalizedMissing.some(m => m.key === 'writing_samples') ? 
   "**Tip:** Sharing 2-3 examples of your past posts helps me match your unique style!" : ""}
 
 Want to complete your profile now, or jump straight to creating content?`;
     
-    // Get the command for the first missing field, with safe fallback
-    const firstMissingField = missing[0] || 'Business Name';
-    const firstMissingCommand = FIELD_TO_COMMAND[firstMissingField] || '/profile';
-    const buttons = [
-      { label: `Add ${firstMissingField}`, action: 'prompt', value: `${firstMissingCommand} ` },
+    const buttons = firstMissing ? [
+      { label: `Add ${firstMissing.name}`, action: 'prompt', value: firstMissing.command },
+      { label: 'Start creating →', action: 'focus' }
+    ] : [
       { label: 'Start creating →', action: 'focus' }
     ];
     
