@@ -218,12 +218,17 @@ class ConversationRouter:
         'field_assistance': {
             'required': ['field'],
             'optional': [],
-            'prompts': {}
+            'prompts': {
+                'field': "Which field would you like assistance with?"
+            }
         },
         'update_field': {
             'required': ['field', 'value'],
             'optional': [],
-            'prompts': {}
+            'prompts': {
+                'field': "Which field would you like to update?",
+                'value': "What value would you like to set?"
+            }
         },
     }
     
