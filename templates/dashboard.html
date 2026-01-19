@@ -504,7 +504,7 @@ function hideAutocomplete() {
  * @param {string} command - Command to insert
  * @param {boolean} requiresInput - Whether the command requires additional input
  */
-function selectAutocompleteItem(command, requiresInput = true) {
+function selectAutocompleteItem(command, requiresInput = false) {
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     
