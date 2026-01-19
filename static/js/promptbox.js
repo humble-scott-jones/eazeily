@@ -1092,9 +1092,11 @@ ${missing.includes('Writing Samples') ?
 
 Want to complete your profile now, or jump straight to creating content?`;
     
-    const firstMissingCommand = FIELD_TO_COMMAND[missing[0]] || '/profile';
+    // Get the command for the first missing field, with safe fallback
+    const firstMissingField = missing[0] || 'Business Name';
+    const firstMissingCommand = FIELD_TO_COMMAND[firstMissingField] || '/profile';
     const buttons = [
-      { label: `Add ${missing[0]}`, action: 'prompt', value: firstMissingCommand + ' ' },
+      { label: `Add ${firstMissingField}`, action: 'prompt', value: `${firstMissingCommand} ` },
       { label: 'Start creating →', action: 'focus' }
     ];
     
