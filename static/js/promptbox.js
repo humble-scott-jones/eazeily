@@ -867,9 +867,11 @@ class PromptBox {
     
     if (this.embedded) {
       // Find the actual scrollable parent container
+      // Try ID first (faster, more specific)
       scrollContainer = document.getElementById('chat-container');
       if (!scrollContainer) {
-        // Fallback to finding any parent with overflow
+        // Fallback: use class selector to find parent with same class name
+        // This handles edge cases where ID might not be set
         const conversation = document.getElementById(`${this.container.id}-conversation`);
         if (conversation) {
           scrollContainer = conversation.closest('.chat-container');
