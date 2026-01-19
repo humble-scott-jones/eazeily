@@ -45,7 +45,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
 from services.onboarding_service import OnboardingService
-from services.conversation_router import ConversationRouter
+from services.conversation_router import ConversationRouter, get_command_guidance, FIELD_COMMANDS
 from services.profile_validator import get_profile_completeness
 from services.task_registry import get_task_config
 from models import VoiceProfile, db
@@ -1328,10 +1328,13 @@ Return exactly 3 suggestions, one per line. Make them specific to this business.
 Each suggestion should be concise (under 100 characters).
 """
             response = model.generate_content(prompt)
-            suggestions = [line.strip() for line in response.text.strip().split('\n') if line.strip()][:3]
             
-            if len(suggestions) == 3:
-                return suggestions
+            # Add null check before accessing response.text
+            if response and hasattr(response, 'text') and response.text:
+                suggestions = [line.strip() for line in response.text.strip().split('\n') if line.strip()][:3]
+                
+                if len(suggestions) == 3:
+                    return suggestions
     except Exception as e:
         logger.warning(f"AI suggestions failed, using defaults: {e}")
     
@@ -1405,7 +1408,7 @@ Just paste them below and I'll analyze your style!"""
 
 Choose the industry that best describes your business:
 
-{chr(10).join([f'{i+1}. {ind}' for i, ind in enumerate(industries)])}
+{"\n".join([f'{i+1}. {ind}' for i, ind in enumerate(industries)])}
 
 **Type a number or the industry name!**"""
         
@@ -1531,7 +1534,6 @@ def _handle_direct_field_update(field: str, value: str, profile: VoiceProfile, d
     if missing:
         next_field = missing[0]
         # Map field to command
-        from services.conversation_router import FIELD_COMMANDS
         # Reverse lookup
         next_command = None
         for cmd, fld in FIELD_COMMANDS.items():
@@ -1725,7 +1727,6 @@ def chat():
         # Check if this command needs guidance (bare command without arguments)
         # Show guidance but don't stop processing - continue to the actual handler
         if intent_result.get('needs_guidance'):
-            from services.conversation_router import get_command_guidance
             command = intent_result.get('command')
             if command:
                 guidance = get_command_guidance(command)
