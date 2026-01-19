@@ -362,23 +362,24 @@ class ConversationRouter:
         
         # Check if this is a bare command that needs guidance
         # Derive list from COMMAND_GUIDANCE keys to maintain consistency
-        if command in COMMAND_GUIDANCE and not remainder.strip():
-            # Return a special marker to indicate guidance is needed
-            return {
-                'task_type': 'guidance_needed',
-                'command': command,
-                'extracted_params': {}
-            }
+        needs_guidance = command in COMMAND_GUIDANCE and not remainder.strip()
         
         task_type = self.COMMAND_MAP[command]
         
         # Extract parameters from remainder
         extracted = self._extract_params_from_text(remainder, task_type) if remainder else {}
         
-        return {
+        result = {
             'task_type': task_type,
             'extracted_params': extracted
         }
+        
+        # Add guidance flag if needed
+        if needs_guidance:
+            result['needs_guidance'] = True
+            result['command'] = command
+        
+        return result
     
     def _classify_with_gemini(self, user_input: str, profile: Any) -> Optional[Dict[str, Any]]:
         """
@@ -581,7 +582,9 @@ Rules:
             'missing_fields': missing_fields
         }
         
-        # Preserve command if it was in classification (for guidance_needed handling)
+        # Preserve guidance flags if present
+        if classification.get('needs_guidance'):
+            result['needs_guidance'] = True
         if 'command' in classification:
             result['command'] = classification['command']
         

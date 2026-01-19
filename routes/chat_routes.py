@@ -995,28 +995,7 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
     # Parse the intent for profile updates
     intent_result = conversation_router.parse_intent(message, profile)
     
-    # Check if this is a bare command that needs guidance
-    # But skip showing guidance if we're already in a profile update flow (coming from main handler)
-    if intent_result['task_type'] == 'guidance_needed':
-        from services.conversation_router import get_command_guidance
-        command = intent_result.get('command')
-        
-        # If this is a profile/update command, convert to actual task_type instead of showing guidance
-        if command in ['/update', '/profile', '/voice', '/audience', '/samples']:
-            task_type_map = {
-                '/update': 'profile_update',
-                '/profile': 'profile',
-                '/voice': 'update_voice',
-                '/audience': 'update_audience',
-                '/samples': 'update_samples'
-            }
-            intent_result['task_type'] = task_type_map.get(command, 'profile_update')
-        else:
-            # For other commands, show guidance
-            guidance = get_command_guidance(command)
-            if guidance:
-                return _build_response(guidance, action='continue')
-            # If no guidance found, fall through to normal handling
+    # Note: guidance_needed is handled at a higher level now, so we don't need to check here
     
     if intent_result['task_type'] == 'profile':
         # Show profile summary
@@ -1429,31 +1408,17 @@ def chat():
         intent_result = conversation_router.parse_intent(message, profile)
         logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
         
-        # Check if this is a bare command that needs guidance
-        if intent_result['task_type'] == 'guidance_needed':
+        # Check if this command needs guidance (bare command without arguments)
+        # Show guidance but don't stop processing - continue to the actual handler
+        if intent_result.get('needs_guidance'):
             from services.conversation_router import get_command_guidance
             command = intent_result.get('command')
-            logger.info(f"[{request_id}] Guidance needed for command: {command}")
-            guidance = get_command_guidance(command)
-            if guidance:
-                # For profile/update commands, show guidance but continue to profile update handler
-                if command in ['/update', '/profile', '/voice', '/audience', '/samples']:
-                    # Map command to actual task type
-                    task_type_map = {
-                        '/update': 'profile_update',
-                        '/profile': 'profile',
-                        '/voice': 'update_voice',
-                        '/audience': 'update_audience',
-                        '/samples': 'update_samples'
-                    }
-                    # Override the task_type so it gets handled by profile update
-                    intent_result['task_type'] = task_type_map.get(command, 'profile_update')
-                    logger.info(f"[{request_id}] Overrode task_type to: {intent_result['task_type']}")
-                else:
-                    # For other commands, just show guidance and return
+            if command:
+                guidance = get_command_guidance(command)
+                # For non-profile commands, show guidance and return
+                # For profile commands, guidance will be shown by the profile handler
+                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
                     return jsonify(_build_response(guidance, action='continue')), 200
-        
-        logger.info(f"[{request_id}] After guidance check, task_type={intent_result.get('task_type')}")
         
         # Handle profile-related intents (including new commands)
         if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:
