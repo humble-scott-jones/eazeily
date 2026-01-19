@@ -29,6 +29,25 @@ FIELD_ALIASES = {
     'writing_samples': ['samples', 'examples', 'writing samples', 'copy examples'],
 }
 
+# Command guidance messages for bare commands
+COMMAND_GUIDANCE = {
+    '/post': "📝 **What would you like to post about?**\n\nExample: `/post our weekend sale on handmade candles`",
+    '/voice': "🎤 **How would you like your brand to sound?**\n\nExample: `/voice warm and professional, like a trusted friend`",
+    '/audience': "🎯 **Who is your target audience?**\n\nExample: `/audience busy working parents who value convenience`",
+    '/offer': "💎 **What's your main value proposition?**\n\nExample: `/offer free 30-day trial with no credit card`",
+    '/email': "✉️ **What's this email about?**\n\nExample: `/email follow-up after our meeting yesterday`",
+    '/review': "⭐ **Paste the review you want to respond to:**\n\nExample: `/review \"Great product but shipping was slow\"`",
+    '/import': "🔗 **What URL would you like to import?**\n\nExample: `/import https://yourbusiness.com`",
+    '/ad': "📢 **What product or service is this ad for?**\n\nExample: `/ad our new mobile app launch`",
+    '/blog': "📰 **What topic should this blog post cover?**\n\nExample: `/blog 5 tips for better productivity`",
+    '/reel': "🎬 **What's this video about?**\n\nExample: `/reel behind the scenes at our bakery`",
+    '/caption': "📸 **Describe the image you're captioning:**\n\nExample: `/caption team photo at our annual retreat`",
+    '/script': "🎥 **What's this video script about?**\n\nExample: `/script product demo for new features`",
+    '/samples': "✍️ **Paste a writing sample from your brand:**\n\nExample: `/samples Check out our new summer collection! 🌞`",
+    '/update': "✏️ **What field do you want to update?**\n\nExample: `/update voice warm and friendly`",
+    '/rules': "📋 **What voice rules should I follow?**\n\nExample: `/rules always use emojis and keep it casual`",
+}
+
 
 def get_command_guidance(command: str) -> Optional[str]:
     """Return guidance message for commands sent without input.
@@ -39,24 +58,7 @@ def get_command_guidance(command: str) -> Optional[str]:
     Returns:
         Helpful guidance message or None if no guidance needed
     """
-    guidance = {
-        '/post': "📝 **What would you like to post about?**\n\nExample: `/post our weekend sale on handmade candles`",
-        '/voice': "🎤 **How would you like your brand to sound?**\n\nExample: `/voice warm and professional, like a trusted friend`",
-        '/audience': "🎯 **Who is your target audience?**\n\nExample: `/audience busy working parents who value convenience`",
-        '/offer': "💎 **What's your main value proposition?**\n\nExample: `/offer free 30-day trial with no credit card`",
-        '/email': "✉️ **What's this email about?**\n\nExample: `/email follow-up after our meeting yesterday`",
-        '/review': "⭐ **Paste the review you want to respond to:**\n\nExample: `/review \"Great product but shipping was slow\"`",
-        '/import': "🔗 **What URL would you like to import?**\n\nExample: `/import https://yourbusiness.com`",
-        '/ad': "📢 **What product or service is this ad for?**\n\nExample: `/ad our new mobile app launch`",
-        '/blog': "📰 **What topic should this blog post cover?**\n\nExample: `/blog 5 tips for better productivity`",
-        '/reel': "🎬 **What's this video about?**\n\nExample: `/reel behind the scenes at our bakery`",
-        '/caption': "📸 **Describe the image you're captioning:**\n\nExample: `/caption team photo at our annual retreat`",
-        '/script': "🎥 **What's this video script about?**\n\nExample: `/script product demo for new features`",
-        '/samples': "✍️ **Paste a writing sample from your brand:**\n\nExample: `/samples Check out our new summer collection! 🌞`",
-        '/update': "✏️ **What field do you want to update?**\n\nExample: `/update voice warm and friendly`",
-        '/rules': "📋 **What voice rules should I follow?**\n\nExample: `/rules always use emojis and keep it casual`",
-    }
-    return guidance.get(command.lower(), None)
+    return COMMAND_GUIDANCE.get(command.lower(), None)
 
 
 class ConversationRouter:
@@ -339,13 +341,8 @@ class ConversationRouter:
             return None
         
         # Check if this is a bare command that needs guidance
-        commands_requiring_input = [
-            '/post', '/caption', '/script', '/reel', '/email', '/review', 
-            '/ad', '/blog', '/voice', '/audience', '/offer', '/samples', 
-            '/import', '/update', '/rules'
-        ]
-        
-        if command in commands_requiring_input and not remainder.strip():
+        # Derive list from COMMAND_GUIDANCE keys to maintain consistency
+        if command in COMMAND_GUIDANCE and not remainder.strip():
             # Return a special marker to indicate guidance is needed
             return {
                 'task_type': 'guidance_needed',

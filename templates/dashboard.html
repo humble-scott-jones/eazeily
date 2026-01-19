@@ -416,9 +416,6 @@ function handleSlashCommandAutocomplete(value) {
 }
 
 /**
- * Show autocomplete dropdown
- * @param {Array} commands - Array of command objects
-/**
  * Show autocomplete dropdown for slash commands
  * @param {Array} commands - Array of command objects with metadata
  */
@@ -434,7 +431,7 @@ function showAutocomplete(commands) {
             <div class="autocomplete-item ${index === 0 ? 'selected' : ''}" 
                  data-index="${index}" 
                  data-command="${escapeHtml(cmd.command)}"
-                 data-requires-input="${cmd.requiresInput || false}"
+                 data-requires-input="${!!cmd.requiresInput}"
                  data-placeholder="${escapeHtml(cmd.placeholder || '')}">
                 <span class="autocomplete-icon">${cmd.icon}</span>
                 <div class="autocomplete-text">

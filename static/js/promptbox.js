@@ -56,6 +56,18 @@ const FIELD_EMOJI = {
   'voice_rules': '📋',
 };
 
+// Mapping from profile field names (used by server) to slash commands
+const FIELD_TO_COMMAND = {
+  'Business Name': '/profile',
+  'Industry': '/profile',
+  'Brand Voice': '/voice',
+  'Target Audience': '/audience',
+  'Key Offer': '/offer',
+  'Writing Samples': '/samples',
+  'Brand Keywords': '/profile',
+  'Goals': '/profile'
+};
+
 const WHY_IT_MATTERS = {
   'brand_voice': 'Your brand voice sets the tone for all content, ensuring consistency across posts, emails, and campaigns.',
   'target_audience': 'Knowing your audience helps me create content that speaks directly to their needs and pain points.',
@@ -1068,18 +1080,7 @@ I'm your AI content assistant. I can help you create:
    */
   showCompletionNudge(missing, percent) {
     // missing is an array of strings from the server (e.g., ['Brand Voice', 'Goals'])
-    // Convert to structured format for display
-    const fieldCommands = {
-      'Business Name': '/profile',
-      'Industry': '/profile',
-      'Brand Voice': '/voice',
-      'Target Audience': '/audience',
-      'Key Offer': '/offer',
-      'Writing Samples': '/samples',
-      'Brand Keywords': '/profile',
-      'Goals': '/profile'
-    };
-    
+    // Use module-level constant for field-to-command mapping
     const missingNames = missing.slice(0, 3);
     const content = `Welcome back! 👋 Your profile is **${percent}% complete**.
 
@@ -1091,7 +1092,7 @@ ${missing.includes('Writing Samples') ?
 
 Want to complete your profile now, or jump straight to creating content?`;
     
-    const firstMissingCommand = fieldCommands[missing[0]] || '/profile';
+    const firstMissingCommand = FIELD_TO_COMMAND[missing[0]] || '/profile';
     const buttons = [
       { label: `Add ${missing[0]}`, action: 'prompt', value: firstMissingCommand + ' ' },
       { label: 'Start creating →', action: 'focus' }
