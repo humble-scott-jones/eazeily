@@ -34,6 +34,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "ad": TaskConfig(
         key="ad",
         role="Advertising Copywriter",
+        require_platform=True,
         prompt_template=(
             "Write a high-converting Facebook/Instagram ad for {topic}. "
             "Focus on the hook, value proposition, and clear CTA with the offer: {key_offer}. "
@@ -100,6 +101,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "script": TaskConfig(
         key="script",
         role="Video Content Creator",
+        require_platform=True,
         prompt_template=(
             "Write a video script for {topic}. "
             "Include: hook (first 3 seconds), main content with visual cues, and strong CTA. "
@@ -109,6 +111,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "caption": TaskConfig(
         key="caption",
         role="Social Media Content Specialist",
+        require_platform=True,
         prompt_template=(
             "Write a compelling social media caption for this image: {topic}. "
             "Capture attention, add context, and include relevant hashtags."

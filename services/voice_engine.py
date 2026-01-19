@@ -111,7 +111,7 @@ class VoiceEngine:
         user_profile: UserProfile | Any,
         topic: str,
         task_type: str = "post",
-        platform: str = "LinkedIn",
+        platform: str | None = None,
         **context
     ) -> str:
         """Generate content based on task type with comprehensive brand profile context.
@@ -124,7 +124,7 @@ class VoiceEngine:
             user_profile: User profile with comprehensive brand data
             topic: Content topic
             task_type: Type of content to generate (post, email, ad, etc.)
-            platform: Target platform for the content
+            platform: Target platform for the content (None for non-platform content like email, review, blog)
             **context: Additional context from dynamic inputs (ad_objective, target_audience, etc.)
             
         Returns:
@@ -226,9 +226,13 @@ class VoiceEngine:
             "",
             "## Task Requirements",
             f"Content Type: {task_type}",
-            f"Platform: {platform}",
-            f"Topic: {topic}",
         ])
+        
+        # Only add platform context if provided and relevant
+        if platform:
+            prompt_parts.append(f"Platform: {platform}")
+        
+        prompt_parts.append(f"Topic: {topic}")
         
         # Add context from dynamic inputs
         if context.get('ad_objective'):
@@ -324,17 +328,23 @@ class VoiceEngine:
             "",
             "Generate content that:",
             "1. Perfectly matches the brand voice and examples provided",
-            "2. Is immediately copy-paste ready for the target platform",
+            "2. Is immediately copy-paste ready" + (" for the target platform" if platform else ""),
             "3. Incorporates all constraints and requirements",
             "4. Sounds authentically like the brand",
-            "5. Is optimized for engagement on the specified platform"
         ])
+        
+        # Add platform-specific optimization note only if platform is provided
+        if platform:
+            prompt_parts.append("5. Is optimized for engagement on the specified platform")
         
         prompt = "\n".join(prompt_parts)
         
         # Return fallback if no model available
         if not self.model:
-            return f"Generated {task_type} content for {platform}"
+            if platform:
+                return f"Generated {task_type} content for {platform}"
+            else:
+                return f"Generated {task_type} content"
         
         try:
             # Check if image data is present for multimodal generation
@@ -385,7 +395,7 @@ class VoiceEngine:
             else:
                 return f"Error: Failed to generate content. Please try again."
     
-    def _get_output_format_instructions(self, task_type: str, platform: str) -> str:
+    def _get_output_format_instructions(self, task_type: str, platform: str | None) -> str:
         """Get platform and task-specific formatting instructions."""
         format_map = {
             'post': {
@@ -428,7 +438,12 @@ class VoiceEngine:
         
         if task_type in format_map:
             if isinstance(format_map[task_type], dict):
-                return format_map[task_type].get(platform, format_map[task_type].get('default', ''))
+                # For post/ad types with platform-specific formats, use platform if provided
+                if platform:
+                    return format_map[task_type].get(platform, format_map[task_type].get('default', ''))
+                else:
+                    # No platform provided, use default if available
+                    return format_map[task_type].get('default', '')
             return format_map[task_type]
         
         return "Provide well-formatted, engaging content ready to use immediately."

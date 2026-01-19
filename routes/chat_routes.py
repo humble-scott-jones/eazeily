@@ -47,6 +47,7 @@ from services.voice_engine import VoiceEngine
 from services.onboarding_service import OnboardingService
 from services.conversation_router import ConversationRouter
 from services.profile_validator import get_profile_completeness
+from services.task_registry import get_task_config
 from models import VoiceProfile, db
 import os
 import logging
@@ -265,13 +266,33 @@ def _format_generated_content(task_type: str, content: str) -> str:
         'script': '🎬',
         'email': '✉️',
         'review': '⭐',
+        'review_reply': '⭐',
         'ad': '📢',
         'blog': '📰',
+        'blog_post': '📰',
+        'proposal': '📋',
+        'newsletter': '📧',
         'custom': '✨',
     }
     emoji = emoji_map.get(task_type, '✨')
     
-    return f"{emoji} **Your {task_type} is ready!**\n\n{content}\n\n---\n_Copy this content or say 'regenerate' for a new version._"
+    # Use appropriate label based on task type
+    task_labels = {
+        'post': 'post',
+        'caption': 'caption',
+        'script': 'script',
+        'email': 'email',
+        'review': 'review response',
+        'review_reply': 'review response',
+        'ad': 'ad',
+        'blog': 'blog post',
+        'blog_post': 'blog post',
+        'proposal': 'proposal',
+        'newsletter': 'newsletter',
+    }
+    label = task_labels.get(task_type, task_type)
+    
+    return f"{emoji} **Your {label} is ready!**\n\n{content}\n\n---\n_Copy this content or say 'regenerate' for a new version._"
 
 
 def _get_content_suggestions() -> list:
@@ -339,7 +360,16 @@ def _generate_content_response(task_type: str, params: dict, profile: VoiceProfi
     """
     try:
         topic = params.get('topic', '')
-        platform = params.get('platform', 'instagram')
+        
+        # Check if this task type requires a platform using task registry
+        task_config = get_task_config(task_type)
+        
+        # For tasks that require platform (post, caption, ad, script), default to instagram
+        # For non-social content (review, email, blog, etc.), use None
+        if task_config and task_config.require_platform:
+            platform = params.get('platform', 'instagram')  # Default for social content
+        else:
+            platform = params.get('platform')  # None for non-social content
         
         # Remove fields that are explicit parameters from params dict to avoid duplicates
         extra_context = {k: v for k, v in params.items() if k not in ['topic', 'platform']}
