@@ -42,16 +42,16 @@ INDUSTRY_CATEGORIES = [
     "Other / Custom"
 ]
 
-def scrape_url(url: str, max_length: int = 5000) -> str:
+def scrape_url(url: str, max_length: int = 6000) -> str:
     """
-    Fetches the content of a URL and returns the visible text.
+    Fetches the content of a URL and returns the visible text with enhanced extraction.
     
     Args:
         url (str): The URL to scrape.
         max_length (int): Maximum number of characters to return.
         
     Returns:
-        str: Cleaned text content from the webpage, or None if failed.
+        str: Cleaned text content from the webpage with metadata, or None if failed.
     """
     try:
         # User agent to avoid some basic bot blocks
@@ -64,8 +64,53 @@ def scrape_url(url: str, max_length: int = 5000) -> str:
         
         soup = BeautifulSoup(response.content, 'html.parser')
         
-        # Remove script, style, and navigation elements that corrupt text context
-        for element in soup(["script", "style", "nav", "footer", "header", "noscript", "iframe"]):
+        # Extract key metadata BEFORE removing elements
+        meta_info = []
+        
+        # Get title
+        title_tag = soup.find('title')
+        if title_tag and title_tag.string:
+            meta_info.append(f"Page Title: {title_tag.string.strip()}")
+        
+        # Get meta description
+        meta_desc = soup.find('meta', attrs={'name': 'description'})
+        if meta_desc and meta_desc.get('content'):
+            meta_info.append(f"Description: {meta_desc['content']}")
+        
+        # Get OG tags (often have business info)
+        og_title = soup.find('meta', property='og:title')
+        if og_title and og_title.get('content'):
+            meta_info.append(f"OG Title: {og_title['content']}")
+        
+        og_desc = soup.find('meta', property='og:description')
+        if og_desc and og_desc.get('content'):
+            meta_info.append(f"OG Description: {og_desc['content']}")
+        
+        # Get logo alt text (often has business name)
+        logo = soup.find('img', class_=lambda x: x and 'logo' in x.lower() if x else False)
+        if logo and logo.get('alt'):
+            meta_info.append(f"Logo: {logo['alt']}")
+        
+        # Get hero/headline content before removing header
+        hero_selectors = ['h1', '.hero', '.headline', '.tagline', '[class*="hero"]']
+        for selector in hero_selectors:
+            elements = soup.select(selector)
+            for el in elements[:2]:  # First 2 matches
+                text = el.get_text(strip=True)
+                if text and len(text) < 200:
+                    meta_info.append(f"Headline: {text}")
+        
+        # Get CTA buttons (for key offer)
+        cta_selectors = ['a.btn', 'button', '.cta', '[class*="button"]', 'a[href*="start"]', 'a[href*="signup"]']
+        for selector in cta_selectors:
+            elements = soup.select(selector)
+            for el in elements[:3]:
+                text = el.get_text(strip=True)
+                if text and 3 < len(text) < 50:
+                    meta_info.append(f"CTA: {text}")
+        
+        # NOW remove noise
+        for element in soup(["script", "style", "noscript", "iframe"]):
             element.extract()
             
         # Get text
@@ -76,6 +121,11 @@ def scrape_url(url: str, max_length: int = 5000) -> str:
         text = re.sub(r'\s+', ' ', text)
         # 2. Trim
         text = text.strip()
+        
+        # Prepend meta info for AI context
+        meta_section = "\n".join(meta_info)
+        if meta_section:
+            text = f"=== KEY PAGE INFO ===\n{meta_section}\n\n=== PAGE CONTENT ===\n{text}"
         
         if not text:
             return None
@@ -330,8 +380,11 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
             base["target_audience"] = base["required_sections"]["target_audience"]["values"]
             return base
         
-        # Limit text length for AI processing
-        text_sample = scraped_text[:3000] if len(scraped_text) > 3000 else scraped_text
+        # Extract domain name as fallback business name
+        domain_name = _extract_domain_name(url)
+        
+        # Limit text length for AI processing (increased from 3000 to 6000)
+        text_sample = scraped_text[:6000] if len(scraped_text) > 6000 else scraped_text
         
         # Log what we're sending to Gemini
         logger.info(f"Extracting business info from {len(text_sample)} chars of scraped text")
@@ -340,12 +393,24 @@ def extract_business_info(scraped_text: str, url: str = "") -> dict:
         # Format industry categories as properly quoted strings
         industries_list = ', '.join(json.dumps(cat) for cat in INDUSTRY_CATEGORIES)
         
-        prompt = f"""Analyze the following website content and extract business information. Return ONLY a JSON object with these exact keys:
+        prompt = f"""Analyze the following website content and extract business information. 
 
-- business_name: The company/business name (string, or null if not found)
-- industry: The business industry category - pick ONE that best matches from this list: {industries_list} (string, or null if not clear)
-- key_customers: A brief description of the target audience/customers in 1-2 sentences (string, or null if not found)
-- key_offer: The main value proposition, hook, or unique offer that this business promotes (e.g., "Free consultation", "30-day money-back guarantee", "Same-day delivery"). This should be their primary call-to-action or compelling offer, NOT truncated. Extract the complete offer text. (string, or null if not found)
+IMPORTANT CONTEXT:
+- URL: {url}
+- Domain suggests business name might be: {domain_name}
+
+Look for business information in:
+1. Page title and meta tags (marked as "Page Title:", "OG Title:", etc.)
+2. Headlines and hero sections (marked as "Headline:")
+3. About page content
+4. CTA buttons (marked as "CTA:" - for key offer/value proposition)
+
+Return ONLY a JSON object with these exact keys:
+
+- business_name: The company/business name. Look in title, logo, or meta tags FIRST. If not found, use domain name: "{domain_name}". (string, NEVER null - always provide best guess)
+- industry: The business industry category - pick ONE that best matches from this list: {industries_list} (string, or "Other / Custom" if unclear)
+- key_customers: A brief description of the target audience/customers in 1-2 sentences. If not explicit, infer from content. (string, or null)
+- key_offer: The main value proposition, hook, or unique offer. Look for CTAs marked as "CTA:" like "Get Started", "Free Trial", etc. Extract the complete offer text, NOT truncated. (string, or null)
 - brand_keywords: A list of 3-5 key brand descriptors or values that represent this business (e.g., ["sustainable", "premium", "innovative"]) (array of strings)
 - niche_keywords: A list of 3-5 niche-specific terms or specializations for this business (e.g., ["organic coffee", "artisan roasted", "fair trade"]) (array of strings)
 - voice_tone_and_style: Analyze the writing style (formal, playful, authoritative, etc.) and provide 2-3 sentences describing the brand voice guidelines (string).
