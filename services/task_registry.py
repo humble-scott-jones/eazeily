@@ -34,6 +34,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "ad": TaskConfig(
         key="ad",
         role="Advertising Copywriter",
+        require_platform=True,
         prompt_template=(
             "Write a high-converting Facebook/Instagram ad for {topic}. "
             "Focus on the hook, value proposition, and clear CTA with the offer: {key_offer}. "
@@ -43,6 +44,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "email": TaskConfig(
         key="email",
         role="Email Marketing Specialist",
+        require_platform=False,
         prompt_template=(
             "Write a warm, personalized outreach email about {topic}. "
             "Include an attention-grabbing subject line. Make it conversational and relationship-first."
@@ -51,6 +53,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "review": TaskConfig(
         key="review",
         role="Customer Service Manager",
+        require_platform=False,
         prompt_template=(
             "Draft a professional, empathetic response to this customer review: {topic}. "
             "Show appreciation, address concerns, and reinforce brand values."
@@ -59,6 +62,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "review_reply": TaskConfig(
         key="review_reply",
         role="Customer Service Manager",
+        require_platform=False,
         prompt_template=(
             "Draft a professional, empathetic response to this customer review: {topic}. "
             "Show appreciation, address specific concerns, and offer resolution where appropriate. "
@@ -68,6 +72,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "proposal": TaskConfig(
         key="proposal",
         role="Business Development Manager",
+        require_platform=False,
         prompt_template=(
             "Write a professional business proposal for {topic}. "
             "Include: project overview, deliverables, timeline, pricing structure, and value proposition."
@@ -76,6 +81,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "blog_post": TaskConfig(
         key="blog_post",
         role="Content Writer and SEO Specialist",
+        require_platform=False,
         prompt_template=(
             "Write a comprehensive, SEO-optimized blog post about {topic}. "
             "Include: three title options, meta description, outline with headings, full article content, and CTA."
@@ -84,6 +90,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "newsletter": TaskConfig(
         key="newsletter",
         role="Content Marketing Lead",
+        require_platform=False,
         prompt_template=(
             "Write an engaging newsletter section about {topic}. "
             "Include a catchy headline, valuable content, and a clear next step for readers."
@@ -92,6 +99,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "blog": TaskConfig(
         key="blog",
         role="Content Writer and SEO Specialist",
+        require_platform=False,
         prompt_template=(
             "Write an informative, SEO-friendly blog post about {topic}. "
             "Include: engaging introduction, key points with subheadings, actionable takeaways, and a conclusion with CTA."
@@ -100,6 +108,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "script": TaskConfig(
         key="script",
         role="Video Content Creator",
+        require_platform=True,
         prompt_template=(
             "Write a video script for {topic}. "
             "Include: hook (first 3 seconds), main content with visual cues, and strong CTA. "
@@ -109,6 +118,7 @@ _TASK_REGISTRY: Dict[str, TaskConfig] = {
     "caption": TaskConfig(
         key="caption",
         role="Social Media Content Specialist",
+        require_platform=True,
         prompt_template=(
             "Write a compelling social media caption for this image: {topic}. "
             "Capture attention, add context, and include relevant hashtags."

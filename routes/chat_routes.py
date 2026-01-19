@@ -265,13 +265,33 @@ def _format_generated_content(task_type: str, content: str) -> str:
         'script': '🎬',
         'email': '✉️',
         'review': '⭐',
+        'review_reply': '⭐',
         'ad': '📢',
         'blog': '📰',
+        'blog_post': '📰',
+        'proposal': '📋',
+        'newsletter': '📧',
         'custom': '✨',
     }
     emoji = emoji_map.get(task_type, '✨')
     
-    return f"{emoji} **Your {task_type} is ready!**\n\n{content}\n\n---\n_Copy this content or say 'regenerate' for a new version._"
+    # Use appropriate label based on task type
+    task_labels = {
+        'post': 'post',
+        'caption': 'caption',
+        'script': 'script',
+        'email': 'email',
+        'review': 'review response',
+        'review_reply': 'review response',
+        'ad': 'ad',
+        'blog': 'blog post',
+        'blog_post': 'blog post',
+        'proposal': 'proposal',
+        'newsletter': 'newsletter',
+    }
+    label = task_labels.get(task_type, task_type)
+    
+    return f"{emoji} **Your {label} is ready!**\n\n{content}\n\n---\n_Copy this content or say 'regenerate' for a new version._"
 
 
 def _get_content_suggestions() -> list:
@@ -339,7 +359,14 @@ def _generate_content_response(task_type: str, params: dict, profile: VoiceProfi
     """
     try:
         topic = params.get('topic', '')
-        platform = params.get('platform', 'instagram')
+        
+        # Only use platform default for content types that need it
+        PLATFORM_REQUIRED_TASKS = {'post', 'caption', 'ad', 'script', 'reel'}
+        
+        if task_type in PLATFORM_REQUIRED_TASKS:
+            platform = params.get('platform', 'instagram')  # Default for social content
+        else:
+            platform = params.get('platform')  # None for non-social content (review, email, blog, etc.)
         
         # Remove fields that are explicit parameters from params dict to avoid duplicates
         extra_context = {k: v for k, v in params.items() if k not in ['topic', 'platform']}
