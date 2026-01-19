@@ -98,6 +98,10 @@ class PromptBox {
     this.lastGeneratedContent = null; // Track last generated content for copy
     this.collectionState = null; // Track multi-step collection flows (e.g., writing samples)
     this.pendingImport = null; // Track pending import data for confirmation
+    this.pendingImportUrl = null; // Track URL of pending import
+    this.editMode = null; // Track edit mode ('import', etc.)
+    this.editFields = null; // Track fields being edited
+    this.editingField = null; // Track currently editing field
     this.pendingProfileSuggestions = null; // Track pending profile suggestions for selection
     this.hasUsedSlashCommand = localStorage.getItem('eazeily_used_slash') === 'true'; // Track if user has used slash commands
 
