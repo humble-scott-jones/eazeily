@@ -1191,7 +1191,7 @@ def _build_response(message: str, action: str, **kwargs) -> dict:
     Args:
         message: Main response text to display to user
         action: Action type (continue|generated|onboarding|onboarding_complete|error)
-        **kwargs: Additional response fields (pending_task, content, suggestions, redirect)
+        **kwargs: Additional response fields (pending_task, content, suggestions, redirect, buttons)
         
     Returns:
         Response dictionary
@@ -1207,6 +1207,10 @@ def _build_response(message: str, action: str, **kwargs) -> dict:
     # Add redirect if provided
     if 'redirect' in kwargs:
         response['redirect'] = kwargs['redirect']
+    
+    # Add buttons if provided
+    if 'buttons' in kwargs:
+        response['buttons'] = kwargs['buttons']
     
     return response
 
@@ -1256,6 +1260,316 @@ def _parse_intent(message: str, history: list) -> tuple[str, dict]:
     
     # Default to post
     return 'post', initial_collected
+
+
+def _generate_field_suggestions(field: str, profile: VoiceProfile) -> list:
+    """Generate 3 AI suggestions for a profile field.
+    
+    Args:
+        field: The field name (e.g., 'brand_voice', 'target_audience')
+        profile: User's VoiceProfile with context data
+        
+    Returns:
+        List of 3 suggestion strings
+    """
+    # Build context from existing profile
+    business = profile.business_name or 'your business'
+    industry = profile.industry or ''
+    audience = profile.target_audience or ''
+    
+    # Smart defaults based on field
+    defaults = {
+        'brand_voice': [
+            'Professional and approachable, like a trusted advisor',
+            'Warm and friendly, like chatting with a neighbor',
+            'Bold and confident, making a strong impression'
+        ],
+        'target_audience': [
+            'Busy professionals looking for convenient solutions',
+            'Small business owners who value quality and reliability',
+            'Local community members who appreciate personalized service'
+        ],
+        'key_offer': [
+            'Free consultation to understand your needs',
+            'Personalized service with guaranteed satisfaction',
+            'Expert solutions backed by years of experience'
+        ],
+        'brand_keywords': [
+            'Professional, Reliable, Expert, Trusted, Quality',
+            'Friendly, Approachable, Helpful, Caring, Personal',
+            'Innovative, Modern, Efficient, Dynamic, Forward-thinking'
+        ],
+        'goals': [
+            'Brand awareness, Customer engagement, Lead generation',
+            'Community building, Customer education, Trust building',
+            'Sales growth, Market expansion, Customer retention'
+        ],
+        'business_name': [
+            'Keep your current name',
+            'Consider a name that reflects your values',
+            'Think about what makes you memorable'
+        ]
+    }
+    
+    # Try to use AI for better suggestions if available
+    try:
+        from services.ai_service import get_generative_model
+        model = get_generative_model()
+        
+        if model and industry:
+            prompt = f"""Generate 3 different {field.replace('_', ' ')} suggestions for a business.
+
+Business context:
+- Name: {business}
+- Industry: {industry}
+- Target audience: {audience}
+
+Return exactly 3 suggestions, one per line. Make them specific to this business.
+Each suggestion should be concise (under 100 characters).
+"""
+            response = model.generate_content(prompt)
+            suggestions = [line.strip() for line in response.text.strip().split('\n') if line.strip()][:3]
+            
+            if len(suggestions) == 3:
+                return suggestions
+    except Exception as e:
+        logger.warning(f"AI suggestions failed, using defaults: {e}")
+    
+    return defaults.get(field, ['Option 1', 'Option 2', 'Option 3'])
+
+
+def _handle_field_assistance(field: str, profile: VoiceProfile) -> dict:
+    """Generate AI suggestions for a profile field based on existing profile data.
+    
+    Args:
+        field: The field name (e.g., 'brand_voice', 'target_audience')
+        profile: User's VoiceProfile with context data
+        
+    Returns:
+        Response dict with message and buttons
+    """
+    # Field metadata
+    field_labels = {
+        'business_name': 'Business Name',
+        'industry': 'Industry',
+        'brand_voice': 'Brand Voice',
+        'target_audience': 'Target Audience',
+        'key_offer': 'Key Offer',
+        'writing_samples': 'Writing Samples',
+        'brand_keywords': 'Brand Keywords',
+        'goals': 'Content Goals',
+    }
+    
+    field_icons = {
+        'business_name': '📋',
+        'industry': '🏢',
+        'brand_voice': '🎤',
+        'target_audience': '🎯',
+        'key_offer': '💎',
+        'writing_samples': '✍️',
+        'brand_keywords': '🏷️',
+        'goals': '🎯',
+    }
+    
+    label = field_labels.get(field, field.replace('_', ' ').title())
+    icon = field_icons.get(field, '📝')
+    
+    # Special case: writing samples - ask for paste input, no AI suggestions
+    if field == 'writing_samples':
+        message = f"""{icon} **Add {label}**
+
+Writing samples help me match your unique voice and style!
+
+Please paste 2-3 examples of your past content:
+• A recent social media post
+• An email you've sent to customers  
+• Website copy or marketing text
+
+Just paste them below and I'll analyze your style!"""
+        
+        return _build_response(
+            message,
+            action='continue',
+            pending_task={'flow': 'profile_update', 'task_type': 'update_samples', 'collecting': 'writing_samples'}
+        )
+    
+    # Special case: industry - show industry picker
+    if field == 'industry':
+        industries = [
+            'Restaurant / Café', 'Retail / Boutique', 'Fitness / Wellness',
+            'Coach / Consultant', 'Software / Tech / Startup', 'Realtor / Real Estate',
+            'Salon / Beauty', 'Church', 'Non-Profit', 'Freelance / Creative',
+            'Healthcare', 'Legal / Financial', 'Home Services', 'Other'
+        ]
+        message = f"""{icon} **Select Your Industry**
+
+Choose the industry that best describes your business:
+
+{chr(10).join([f'{i+1}. {ind}' for i, ind in enumerate(industries)])}
+
+**Type a number or the industry name!**"""
+        
+        buttons = [{'label': ind, 'action': 'command', 'value': f'/industry {ind}'} for ind in industries[:6]]
+        
+        return _build_response(
+            message,
+            action='continue',
+            pending_task={'type': 'select_industry', 'field': field, 'options': industries},
+            buttons=buttons
+        )
+    
+    # Generate AI suggestions
+    suggestions = _generate_field_suggestions(field, profile)
+    
+    business_context = f"for **{profile.business_name}**" if profile.business_name else ""
+    industry_context = f" ({profile.industry})" if profile.industry else ""
+    
+    message = f"""{icon} **Add {label}**
+
+Based on your profile {business_context}{industry_context}:
+
+1️⃣ {suggestions[0]}
+2️⃣ {suggestions[1]}
+3️⃣ {suggestions[2]}
+
+**Pick a number, or type your own!**"""
+    
+    # Map field back to command
+    field_to_command = {
+        'brand_voice': '/voice',
+        'target_audience': '/audience',
+        'key_offer': '/offer',
+        'brand_keywords': '/keywords',
+        'goals': '/goals',
+        'business_name': '/name',
+    }
+    cmd = field_to_command.get(field, f'/{field}')
+    
+    buttons = [
+        {'label': '1', 'action': 'command', 'value': f'{cmd} {suggestions[0]}'},
+        {'label': '2', 'action': 'command', 'value': f'{cmd} {suggestions[1]}'},
+        {'label': '3', 'action': 'command', 'value': f'{cmd} {suggestions[2]}'},
+        {'label': '✏️ Write my own', 'action': 'prompt', 'value': f'{cmd} '},
+    ]
+    
+    return _build_response(
+        message,
+        action='continue',
+        pending_task={'type': 'field_input', 'field': field, 'suggestions': suggestions},
+        buttons=buttons
+    )
+
+
+def _handle_direct_field_update(field: str, value: str, profile: VoiceProfile, db) -> dict:
+    """Update a profile field with a direct value and confirm to user.
+    
+    Args:
+        field: The field name (e.g., 'brand_voice', 'target_audience')
+        value: The value to set
+        profile: User's VoiceProfile
+        db: Database session
+        
+    Returns:
+        Response dict with confirmation message
+    """
+    field_labels = {
+        'business_name': 'Business Name',
+        'industry': 'Industry',
+        'brand_voice': 'Brand Voice',
+        'target_audience': 'Target Audience',
+        'key_offer': 'Key Offer',
+        'writing_samples': 'Writing Samples',
+        'brand_keywords': 'Brand Keywords',
+        'goals': 'Goals',
+    }
+    label = field_labels.get(field, field)
+    
+    # Get old value for comparison
+    old_value = getattr(profile, field, None)
+    
+    # Update the field
+    if field == 'brand_keywords':
+        # Parse as list if comma-separated
+        keywords = [k.strip() for k in value.split(',')]
+        profile.set_brand_keywords(keywords)
+        display_value = ', '.join(keywords)
+    elif field == 'goals':
+        goals = [g.strip() for g in value.split(',')]
+        profile.set_goals(goals)
+        display_value = ', '.join(goals)
+    elif field == 'writing_samples':
+        samples = profile.get_writing_samples() or []
+        samples.append(value)
+        profile.set_writing_samples(samples)
+        display_value = f"Added sample ({len(samples)} total)"
+    else:
+        setattr(profile, field, value)
+        display_value = value
+    
+    try:
+        db.session.commit()
+        logger.info(f"Updated profile field '{field}' for user {current_user.id}")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Database error updating profile: {e}", exc_info=True)
+        return _build_response(
+            "I had trouble saving that update. Please try again.",
+            action='error'
+        )
+    
+    # Calculate new completeness
+    is_complete, missing, new_percent = get_profile_completeness(profile)
+    
+    # Build confirmation message
+    message = f"""✅ **{label} updated!**
+
+**{label}:** {display_value[:100]}{'...' if len(display_value) > 100 else ''}
+
+📊 Profile: **{new_percent}% complete**"""
+    
+    buttons = []
+    if missing:
+        next_field = missing[0]
+        # Map field to command
+        from services.conversation_router import FIELD_COMMANDS
+        # Reverse lookup
+        next_command = None
+        for cmd, fld in FIELD_COMMANDS.items():
+            if fld == next_field.lower().replace(' ', '_'):
+                next_command = cmd
+                break
+        
+        if not next_command:
+            # Use mapping from frontend
+            field_to_cmd = {
+                'Business Name': '/name',
+                'Industry': '/industry',
+                'Brand Voice': '/voice',
+                'Target Audience': '/audience',
+                'Key Offer': '/offer',
+                'Writing Samples': '/samples',
+                'Brand Keywords': '/keywords',
+                'Goals': '/goals',
+            }
+            next_command = field_to_cmd.get(next_field, '/profile')
+        
+        message += f"\n\nNext up: **{next_field}** - type `{next_command}` or click below!"
+        
+        buttons = [
+            {'label': f'Add {next_field}', 'action': 'command', 'value': next_command},
+            {'label': 'Start creating →', 'action': 'focus'}
+        ]
+    else:
+        message += "\n\n🎉 Your profile is complete! Ready to create amazing content."
+        buttons = [
+            {'label': '✨ Create something!', 'action': 'focus'}
+        ]
+    
+    return _build_response(
+        message,
+        action='profile_updated',
+        buttons=buttons
+    )
 
 
 @chat_bp.route('/api/chat', methods=['POST'])
@@ -1419,6 +1733,21 @@ def chat():
                 # For profile commands, guidance will be shown by the profile handler
                 if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
                     return jsonify(_build_response(guidance, action='continue')), 200
+        
+        # Handle new field assistance flow (bare field commands like /keywords, /goals)
+        if intent_result['task_type'] == 'field_assistance':
+            field = intent_result.get('field')
+            logger.info(f"[{request_id}] Handling field assistance for: {field}")
+            result = _handle_field_assistance(field, profile)
+            return jsonify(result), 200
+        
+        # Handle direct field updates (field commands with values like /keywords Fresh, Local)
+        if intent_result['task_type'] == 'update_field':
+            field = intent_result.get('field')
+            value = intent_result.get('value')
+            logger.info(f"[{request_id}] Handling direct field update: {field} = {value[:50]}...")
+            result = _handle_direct_field_update(field, value, profile, db)
+            return jsonify(result), 200
         
         # Handle profile-related intents (including new commands)
         if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:

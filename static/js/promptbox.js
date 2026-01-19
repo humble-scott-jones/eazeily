@@ -668,9 +668,9 @@ class PromptBox {
 
     const data = await response.json();
     
-    // Add assistant message
+    // Add assistant message with buttons if provided
     const isGenerated = data.action === 'generated' || (data.content && data.content.length > 100);
-    this.addMessage('assistant', data.response, false, isGenerated);
+    this.addMessage('assistant', data.response, false, isGenerated, data.buttons || null);
     
     // Store generated content for copy
     if (isGenerated && data.content) {
