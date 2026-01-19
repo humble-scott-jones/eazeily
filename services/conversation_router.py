@@ -222,6 +222,11 @@ class ConversationRouter:
                 'url': "Paste your website URL to update from:",
             }
         },
+        'field_command': {
+            'required': [],
+            'optional': [],
+            'prompts': {}
+        },
     }
     
     # Task type keywords for fallback classification (ordered by specificity)
