@@ -72,6 +72,9 @@ const CONTENT_IMPACT = {
   'voice_rules': 'Content will follow your specific guidelines and constraints.',
 };
 
+// Configuration constants
+const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
+
 
 class PromptBox {
   constructor(containerId, options = {}) {
@@ -905,8 +908,17 @@ class PromptBox {
   setLoading(isLoading) {
     this.isLoading = isLoading;
     
-    // In embedded mode, page handles loading state - skip DOM manipulation
+    // In embedded mode, use dashboard's loading indicator
     if (this.embedded) {
+      const dashboardLoadingEl = document.getElementById('chat-loading');
+      if (dashboardLoadingEl) {
+        if (isLoading) {
+          dashboardLoadingEl.classList.remove('hidden');
+        } else {
+          dashboardLoadingEl.classList.add('hidden');
+        }
+      }
+      
       // Optionally emit event for page to handle
       if (typeof window.handleLoadingStateChange === 'function') {
         window.handleLoadingStateChange(isLoading);
@@ -928,6 +940,35 @@ class PromptBox {
       if (loadingEl) loadingEl.classList.add('hidden');
       if (textarea) textarea.disabled = false;
       if (textarea && sendBtn) this.updateSendButton(textarea, sendBtn);
+    }
+  }
+
+  /**
+   * Update an existing message by its ID or the last message
+   * @param {string|number} messageId - Message ID or index to update (or 'last' for last message)
+   * @param {string} newContent - New content for the message
+   */
+  updateMessage(messageId, newContent) {
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    if (!conversation) return;
+    
+    const messages = conversation.querySelectorAll('.promptbox-message-assistant');
+    if (!messages.length) return;
+    
+    // Get the message to update (default to last message)
+    let targetMessage = messages[messages.length - 1];
+    
+    // Update the bubble content
+    const bubble = targetMessage.querySelector('.promptbox-bubble');
+    if (bubble) {
+      // Remove loading class if present
+      bubble.classList.remove('message-loading');
+      bubble.innerHTML = this.renderMarkdown(newContent);
+    }
+    
+    // Update conversation history
+    if (this.conversationHistory.length > 0) {
+      this.conversationHistory[this.conversationHistory.length - 1].message = newContent;
     }
   }
 
@@ -964,7 +1005,11 @@ class PromptBox {
         return;
       }
       
-      const { isComplete, missing, percent } = this.checkProfileCompleteness(data.profile);
+      // Use server-provided completeness data
+      const completeness = data.completeness || { percent: 0, missing_fields: [], is_complete: false };
+      const percent = completeness.percent;
+      const isComplete = completeness.is_complete;
+      const missing = completeness.missing_fields;
       
       if (percent < 30) {
         // Very incomplete - guide through setup
@@ -980,64 +1025,6 @@ class PromptBox {
       console.error('Failed to check profile:', error);
       // Fail gracefully - show default state (no message)
     }
-  }
-  
-  /**
-   * Check profile completeness
-   * Returns completion percentage and list of missing fields
-   */
-  checkProfileCompleteness(profile) {
-    const requiredFields = [
-      { key: 'business_name', value: profile.company || profile.business_name, command: '/update business_name ' },
-      { key: 'industry', value: profile.industry, command: '/update industry ' },
-      { key: 'brand_voice', value: profile.tone || profile.brand_voice, command: '/voice ' },
-    ];
-    
-    const optionalFields = [
-      { key: 'target_audience', value: profile.target_audience, command: '/audience ' },
-      { key: 'key_offer', value: profile.key_offer, command: '/update key_offer ' },
-      { key: 'writing_samples', value: profile.writing_samples && profile.writing_samples.length > 0, command: '/profile ' },
-      { key: 'brand_keywords', value: profile.brand_keywords && profile.brand_keywords.length > 0, command: '/profile ' },
-      { key: 'goals', value: profile.goals && profile.goals.length > 0, command: '/profile ' },
-    ];
-    
-    const missing = [];
-    let filled = 0;
-    const total = requiredFields.length + optionalFields.length;
-    
-    // Check required
-    for (const field of requiredFields) {
-      if (field.value && String(field.value).trim()) {
-        filled++;
-      } else {
-        missing.push({
-          name: this.formatFieldName(field.key),
-          key: field.key,
-          command: field.command,
-          isRequired: true
-        });
-      }
-    }
-    
-    // Check optional
-    for (const field of optionalFields) {
-      if (field.value && (typeof field.value === 'boolean' ? field.value : String(field.value).trim())) {
-        filled++;
-      } else {
-        missing.push({
-          name: this.formatFieldName(field.key),
-          key: field.key,
-          command: field.command,
-          isRequired: false
-        });
-      }
-    }
-    
-    return {
-      isComplete: missing.filter(m => m.isRequired).length === 0,
-      missing,
-      percent: Math.round((filled / total) * 100)
-    };
   }
   
   /**
@@ -1202,77 +1189,20 @@ What would you like to create?`;
   }
 
   /**
-   * Check profile completeness
-   * @param {object} profile - Profile object
+   * Get completeness data from API response
+   * @param {object} apiData - Full API response with completeness
    * @returns {object} - {missing: [], percent: number}
    */
-  checkProfileCompleteness(profile) {
-    const missing = [];
-    let foundCount = 0;
-    
-    // Check business name and industry (required)
-    if (!profile.business_name && !profile.company) {
-      missing.push('Business Name');
-    } else {
-      foundCount++;
+  getCompletenessFromAPI(apiData) {
+    if (apiData && apiData.completeness) {
+      return {
+        missing: apiData.completeness.missing_fields || [],
+        percent: apiData.completeness.percent || 0,
+        isComplete: apiData.completeness.is_complete || false
+      };
     }
-    
-    if (!profile.industry) {
-      missing.push('Industry');
-    } else {
-      foundCount++;
-    }
-    
-    // Check brand voice (can be tone or brand_voice)
-    if (!profile.brand_voice && !profile.tone) {
-      missing.push('Brand Voice');
-    } else {
-      foundCount++;
-    }
-    
-    // Check target audience
-    if (!profile.target_audience) {
-      missing.push('Target Audience');
-    } else {
-      foundCount++;
-    }
-    
-    // Check key offer
-    if (!profile.key_offer) {
-      missing.push('Key Offer');
-    } else {
-      foundCount++;
-    }
-    
-    // Check writing samples
-    const samples = profile.writing_samples || [];
-    if (!samples || samples.length === 0) {
-      missing.push('Writing Samples');
-    } else {
-      foundCount++;
-    }
-    
-    // Check brand keywords
-    const keywords = profile.brand_keywords || [];
-    if (!keywords || keywords.length === 0) {
-      missing.push('Brand Keywords');
-    } else {
-      foundCount++;
-    }
-    
-    // Check goals
-    const goals = profile.goals || [];
-    if (!goals || goals.length === 0) {
-      missing.push('Goals');
-    } else {
-      foundCount++;
-    }
-    
-    // Calculate total dynamically based on all checks
-    const total = foundCount + missing.length;
-    const percent = Math.round((foundCount / total) * 100);
-    
-    return { missing, percent };
+    // Fallback for empty/missing data
+    return { missing: [], percent: 0, isComplete: false };
   }
 
   /**
@@ -1384,8 +1314,24 @@ What would you like to create?`;
     const label = FIELD_LABELS[field] || field;
     const emoji = FIELD_EMOJI[field] || '✨';
     
-    // Show thinking message with personality
-    this.addMessage('assistant', `Let me analyze your profile and create personalized suggestions for **${emoji} ${label}**...`);
+    // Show loading message (will be replaced with actual content)
+    const loadingMsgId = this.addMessage('assistant', `Analyzing your profile for **${emoji} ${label}** suggestions...`);
+    
+    // Add loading animation to the message
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    const messages = conversation?.querySelectorAll('.promptbox-message-assistant');
+    if (messages && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      const bubble = lastMessage.querySelector('.promptbox-bubble');
+      if (bubble) {
+        bubble.classList.add('message-loading');
+        const loadingSpan = document.createElement('span');
+        loadingSpan.className = 'loading-dots';
+        bubble.appendChild(document.createTextNode(' '));
+        bubble.appendChild(loadingSpan);
+      }
+    }
+    
     this.showLoading();
     
     try {
@@ -1394,68 +1340,95 @@ What would you like to create?`;
       const profileData = await profileResponse.json();
       const currentValue = profileData.profile?.[field];
       
-      const response = await fetch('/api/profile/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ field })
-      });
+      // Make API call with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), AI_SUGGESTION_TIMEOUT_MS);
       
-      const data = await response.json();
-      this.hideLoading();
-      
-      if (data.success && data.suggestions && data.suggestions.length > 0) {
-        // Enhanced message with context
-        let message = `## Update ${emoji} ${label}\n\n`;
+      try {
+        const response = await fetch('/api/profile/suggest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ field }),
+          signal: controller.signal
+        });
         
-        // Show current value if exists
-        if (currentValue) {
-          message += `**Current:** ${currentValue}\n\n---\n\n`;
+        clearTimeout(timeoutId);
+        const data = await response.json();
+        this.hideLoading();
+        
+        if (data.success && data.suggestions && data.suggestions.length > 0) {
+          // Enhanced message with context
+          let message = `## Update ${emoji} ${label}\n\n`;
+          
+          // Show current value if exists
+          if (currentValue) {
+            message += `**Current:** ${currentValue}\n\n---\n\n`;
+          }
+          
+          message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**, here are 3 tailored suggestions:\n\n`;
+          
+          data.suggestions.forEach((suggestion, i) => {
+            message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
+          });
+          
+          message += `---\n\n💡 **Why this matters:** ${WHY_IT_MATTERS[field]}\n\n`;
+          message += `Which option resonates with your brand?\n`;
+          
+          // Create buttons for each suggestion
+          const buttons = data.suggestions.map((suggestion, i) => ({
+            label: `Use Option ${i + 1}`,
+            action: 'select-profile-suggestion',
+            field: field,
+            value: suggestion
+          }));
+          
+          buttons.push({
+            label: '✏️ Write my own',
+            action: 'focus'
+          });
+          
+          // Replace loading message with actual suggestions including buttons
+          this.updateMessage('last', message);
+          
+          // Render buttons into the same message
+          if (messages && messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
+            this.renderMessageButtons(buttons, lastMessage);
+          }
+          
+          // Store suggestions for selection as instance property
+          this.pendingProfileSuggestions = {
+            field: field,
+            suggestions: data.suggestions,
+            currentValue: currentValue
+          };
+          
+        } else {
+          // Fallback with helpful context
+          const errorMsg = data.error || "I couldn't generate suggestions right now.";
+          this.updateMessage('last', 
+            `${errorMsg}\n\n💡 **${WHY_IT_MATTERS[field]}**\n\nWhat would you like your **${label}** to be?\n\nJust type it below:`
+          );
         }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
         
-        message += `Based on your profile for **${data.context.business_name}** in **${data.context.industry}**, here are 3 tailored suggestions:\n\n`;
-        
-        data.suggestions.forEach((suggestion, i) => {
-          message += `**Option ${i + 1}:**\n${suggestion}\n\n`;
-        });
-        
-        message += `---\n\n💡 **Why this matters:** ${WHY_IT_MATTERS[field]}\n\n`;
-        message += `Which option resonates with your brand?\n`;
-        
-        // Create buttons for each suggestion
-        const buttons = data.suggestions.map((suggestion, i) => ({
-          label: `Use Option ${i + 1}`,
-          action: 'select-profile-suggestion',
-          field: field,
-          value: suggestion
-        }));
-        
-        buttons.push({
-          label: '✏️ Write my own',
-          action: 'focus'
-        });
-        
-        this.addMessage('assistant', message, false, false, buttons);
-        
-        // Store suggestions for selection as instance property
-        this.pendingProfileSuggestions = {
-          field: field,
-          suggestions: data.suggestions,
-          currentValue: currentValue
-        };
-        
-      } else {
-        // Fallback with helpful context
-        const errorMsg = data.error || "I couldn't generate suggestions right now.";
-        this.addMessage('assistant', 
-          `${errorMsg}\n\n💡 **${WHY_IT_MATTERS[field]}**\n\nWhat would you like your **${label}** to be?\n\nJust type it below:`
-        );
+        if (fetchError.name === 'AbortError') {
+          // Timeout error
+          this.hideLoading();
+          this.updateMessage('last',
+            `The suggestion request timed out after ${AI_SUGGESTION_TIMEOUT_MS / 1000} seconds. ⏱️\n\nYou can still update your **${label}** manually!\n\n💡 ${WHY_IT_MATTERS[field]}\n\nWhat would you like to set it to?`
+          );
+        } else {
+          throw fetchError; // Re-throw for outer catch
+        }
       }
       
     } catch (error) {
       this.hideLoading();
       console.error('Error getting profile suggestions:', error);
-      this.addMessage('assistant', 
+      this.updateMessage('last',
         `Something went wrong. 😕\n\nBut you can still update your **${label}** manually!\n\n💡 ${WHY_IT_MATTERS[field]}\n\nWhat would you like to set it to?`
       );
     }
@@ -1477,8 +1450,7 @@ What would you like to create?`;
       // Get current profile state for before/after
       const beforeResponse = await fetch('/api/profile', { credentials: 'include' });
       const beforeData = await beforeResponse.json();
-      const beforeCompleteness = beforeData.profile ? 
-        this.checkProfileCompleteness(beforeData.profile).percent : 0;
+      const beforeCompleteness = this.getCompletenessFromAPI(beforeData).percent;
       
       // Save to profile using the field name directly
       const response = await fetch('/api/profile', {
@@ -1500,8 +1472,7 @@ What would you like to create?`;
         // Get updated profile state
         const afterResponse = await fetch('/api/profile', { credentials: 'include' });
         const afterData = await afterResponse.json();
-        const afterCompleteness = afterData.profile ? 
-          this.checkProfileCompleteness(afterData.profile).percent : 0;
+        const afterCompleteness = this.getCompletenessFromAPI(afterData).percent;
         
         // Build rich confirmation
         let message = `✅ **${emoji} ${label}** updated!\n\n`;
@@ -1699,7 +1670,8 @@ async function showProfileSummary(promptBox) {
   }
   
   const p = data.profile;
-  const { missing, percent } = promptBox.checkProfileCompleteness(p);
+  const completenessData = data.completeness || { percent: 0, missing_fields: [] };
+  const { missing, percent } = { missing: completenessData.missing_fields, percent: completenessData.percent };
   
   // Build rich profile summary
   let summary = `## 👤 Your Brand Profile\n\n`;
@@ -1991,8 +1963,8 @@ async function handleImportConfirm(promptBox) {
     // Get current profile for before completeness
     const beforeResponse = await fetch('/api/profile', { credentials: 'include' });
     const beforeData = await beforeResponse.json();
-    const beforePercent = beforeData.ok && beforeData.profile 
-      ? promptBox.checkProfileCompleteness(beforeData.profile).percent 
+    const beforePercent = beforeData.ok && beforeData.completeness 
+      ? beforeData.completeness.percent 
       : 0;
     
     // Map imported data to profile format
@@ -2033,8 +2005,8 @@ async function handleImportConfirm(promptBox) {
     // Get updated profile for after completeness
     const afterResponse = await fetch('/api/profile', { credentials: 'include' });
     const afterData = await afterResponse.json();
-    const afterPercent = afterData.ok && afterData.profile 
-      ? promptBox.checkProfileCompleteness(afterData.profile).percent 
+    const afterPercent = afterData.ok && afterData.completeness 
+      ? afterData.completeness.percent 
       : 0;
     
     // Build success message
@@ -2303,12 +2275,10 @@ async function refreshProfileBadge() {
     const response = await fetch('/api/profile', { credentials: 'include' });
     const data = await response.json();
     
-    if (data.ok && data.profile) {
+    if (data.ok && data.completeness) {
       const badgeEl = document.querySelector('.profile-completeness-badge');
       if (badgeEl) {
-        // Assuming PromptBox instance is accessible
-        const promptBox = window.dashboardPromptBox || new PromptBox('promptbox-container');
-        const { percent } = promptBox.checkProfileCompleteness(data.profile);
+        const percent = data.completeness.percent || 0;
         
         // Update badge
         badgeEl.textContent = `${percent}%`;
