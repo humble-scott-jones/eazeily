@@ -518,8 +518,15 @@ class PromptBox {
     this.setLoading(true);
 
     try {
+      // Handle edit mode for import flow
+      if (this.editMode === 'import' && this.editFields && this.pendingImport) {
+        await handleImportEditInput(this, message);
+        this.setLoading(false);
+        return;
+      }
+      
       // Check if this is a profile command that should be handled client-side
-      const profileCommands = ['/profile', '/voice', '/audience', '/offer', '/samples', '/rules', '/import', '/help'];
+      const profileCommands = ['/profile', '/voice', '/audience', '/offer', '/samples', '/rules', '/import', '/import-confirm', '/import-edit', '/import-cancel', '/help'];
       const isProfileCommand = profileCommands.some(cmd => message.startsWith(cmd));
       
       if (isProfileCommand) {
@@ -1849,7 +1856,7 @@ async function showSamplesCollectionFlow(promptBox) {
 async function showImportFlow(promptBox, url) {
   if (url && url.trim()) {
     // URL provided - start import
-    promptBox.addMessage('assistant', `Analyzing ${url}... 🔍`);
+    promptBox.addMessage('assistant', `Great! Let me analyze your website... 🔍\n\nScraping ${url}...`);
     
     try {
       const response = await fetch('/onboarding/social-style', {
@@ -1862,23 +1869,99 @@ async function showImportFlow(promptBox, url) {
       const data = await response.json();
       
       if (data.suggestions) {
-        let message = `## Found your brand! 🎉\n\n`;
-        if (data.suggestions.business_name) message += `**Business:** ${data.suggestions.business_name}\n`;
-        if (data.suggestions.industry) message += `**Industry:** ${data.suggestions.industry}\n`;
-        if (data.suggestions.brand_voice) message += `**Voice:** ${data.suggestions.brand_voice}\n`;
-        if (data.suggestions.key_customers) message += `**Audience:** ${data.suggestions.key_customers}\n`;
+        // Build complete preview with ALL extracted fields
+        let message = `Found some great information! Here's what I extracted from your website:\n\n📋 **Extracted Profile Data:**\n\n`;
         
-        message += `\nWant me to save this to your profile?`;
+        const foundFields = [];
+        const missingFields = [];
         
-        const buttons = [
-          { label: '✓ Save to profile', action: 'command', value: '/import-confirm' },
-          { label: '✏️ Edit first', action: 'prompt', value: '/profile' }
-        ];
+        // Check and display each field
+        if (data.suggestions.business_name) {
+          message += `**Business Name:** ${data.suggestions.business_name}\n`;
+          foundFields.push('Business Name');
+        } else {
+          missingFields.push('Business Name');
+        }
         
-        promptBox.addMessage('assistant', message, false, false, buttons);
+        if (data.suggestions.industry) {
+          message += `**Industry:** ${data.suggestions.industry}\n`;
+          foundFields.push('Industry');
+        } else {
+          missingFields.push('Industry');
+        }
+        
+        // Handle brand_voice from either brand_voice or voice_tone_and_style
+        const brandVoice = data.suggestions.brand_voice || data.suggestions.voice_tone_and_style;
+        if (brandVoice) {
+          message += `**Brand Voice:** ${brandVoice}\n`;
+          foundFields.push('Brand Voice');
+        } else {
+          missingFields.push('Brand Voice');
+        }
+        
+        if (data.suggestions.key_customers) {
+          message += `**Target Audience:** ${data.suggestions.key_customers}\n`;
+          foundFields.push('Target Audience');
+        } else {
+          missingFields.push('Target Audience');
+        }
+        
+        if (data.suggestions.key_offer) {
+          message += `**Key Offer:** ${data.suggestions.key_offer}\n`;
+          foundFields.push('Key Offer');
+        } else {
+          missingFields.push('Key Offer');
+        }
+        
+        // Keywords
+        if (data.suggestions.brand_keywords && data.suggestions.brand_keywords.length > 0) {
+          message += `**Brand Keywords:** ${data.suggestions.brand_keywords.join(', ')}\n`;
+          foundFields.push('Brand Keywords');
+        }
+        
+        if (data.suggestions.niche_keywords && data.suggestions.niche_keywords.length > 0) {
+          message += `**Niche Keywords:** ${data.suggestions.niche_keywords.join(', ')}\n`;
+          foundFields.push('Niche Keywords');
+        }
+        
+        // Writing samples (from sample_posts or sample_copy)
+        const samples = data.suggestions.sample_posts || data.suggestions.sample_copy || [];
+        if (samples.length > 0) {
+          message += `\n**Writing Sample Found:**\n"${samples[0].substring(0, 150)}${samples[0].length > 150 ? '...' : ''}"`;
+          if (samples.length > 1) {
+            message += `\n\n_Plus ${samples.length - 1} more sample${samples.length > 1 ? 's' : ''}_`;
+          }
+          foundFields.push('Writing Samples');
+        }
+        
+        // Show partial scrape warning if missing required fields
+        if (missingFields.length > 0) {
+          message += `\n\n⚠️ **Couldn't extract:** ${missingFields.join(', ')}\n`;
+          message += `\nWant to save what I found and fill in the rest? Or try another URL?`;
+          
+          const buttons = [
+            { label: '✅ Save what I found', action: 'command', value: '/import-confirm' },
+            { label: '✏️ Edit before saving', action: 'command', value: '/import-edit' },
+            { label: '❌ Cancel', action: 'command', value: '/import-cancel' }
+          ];
+          
+          promptBox.addMessage('assistant', message, false, false, buttons);
+        } else {
+          // Complete scrape
+          message += `\n\nDoes this look accurate?`;
+          
+          const buttons = [
+            { label: '✅ Save all', action: 'command', value: '/import-confirm' },
+            { label: '✏️ Edit before saving', action: 'command', value: '/import-edit' },
+            { label: '❌ Cancel', action: 'command', value: '/import-cancel' }
+          ];
+          
+          promptBox.addMessage('assistant', message, false, false, buttons);
+        }
         
         // Store for confirmation using instance state
         promptBox.pendingImport = data.suggestions;
+        promptBox.pendingImportUrl = url.trim();
       } else {
         promptBox.addMessage('assistant', `Couldn't extract data from that URL. Try a different page, or just tell me about your business!`);
       }
@@ -1889,6 +1972,239 @@ async function showImportFlow(promptBox, url) {
     // No URL - prompt for one
     promptBox.addMessage('assistant', `## Import from URL 🔗\n\nPaste your website or social media URL and I'll extract your brand info:\n\n\`/import https://yourwebsite.com\``);
   }
+}
+
+/**
+ * Handle /import-confirm - Save imported data to profile
+ */
+async function handleImportConfirm(promptBox) {
+  if (!promptBox.pendingImport) {
+    promptBox.addMessage('assistant', `No pending import data. Use \`/import [url]\` to start.`);
+    return;
+  }
+  
+  try {
+    // Get current profile for before completeness
+    const beforeResponse = await fetch('/api/profile', { credentials: 'include' });
+    const beforeData = await beforeResponse.json();
+    const beforePercent = beforeData.ok && beforeData.profile 
+      ? promptBox.checkProfileCompleteness(beforeData.profile).percent 
+      : 0;
+    
+    // Map imported data to profile format
+    const importData = promptBox.pendingImport;
+    const profileData = {
+      company: importData.business_name || '',
+      business_name: importData.business_name || '',
+      industry: importData.industry || '',
+      brand_voice: importData.brand_voice || importData.voice_tone_and_style || '',
+      target_audience: importData.key_customers || '',
+      key_offer: importData.key_offer || '',
+      brand_keywords: importData.brand_keywords || [],
+      niche_keywords: importData.niche_keywords || [],
+      voice_rules: importData.voice_rules || '',
+      goals: importData.goals || [],
+      scraped_url: promptBox.pendingImportUrl || ''
+    };
+    
+    // Map sample_posts to writing_samples
+    const samples = importData.sample_posts || importData.sample_copy || [];
+    if (samples.length > 0) {
+      profileData.writing_samples = samples;
+    }
+    
+    // Save to profile
+    const saveResponse = await fetch('/api/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(profileData)
+    });
+    
+    if (!saveResponse.ok) {
+      throw new Error('Failed to save profile');
+    }
+    
+    const saveData = await saveResponse.json();
+    
+    // Get updated profile for after completeness
+    const afterResponse = await fetch('/api/profile', { credentials: 'include' });
+    const afterData = await afterResponse.json();
+    const afterPercent = afterData.ok && afterData.profile 
+      ? promptBox.checkProfileCompleteness(afterData.profile).percent 
+      : 0;
+    
+    // Build success message
+    let message = `Excellent! I've imported all that data into your profile. ✨\n\n`;
+    
+    // Show completeness change
+    if (afterPercent > beforePercent) {
+      message += `**Profile Completeness:** ${beforePercent}% → ${afterPercent}% ⬆️\n\n`;
+    }
+    
+    message += `Here's your updated profile:\n`;
+    if (profileData.company) message += `✅ **Business Name:** ${profileData.company}\n`;
+    if (profileData.industry) message += `✅ **Industry:** ${profileData.industry}\n`;
+    if (profileData.brand_voice) message += `✅ **Brand Voice:** ${profileData.brand_voice}\n`;
+    if (profileData.target_audience) message += `✅ **Target Audience:** ${profileData.target_audience.substring(0, 80)}${profileData.target_audience.length > 80 ? '...' : ''}\n`;
+    if (profileData.key_offer) message += `✅ **Key Offer:** ${profileData.key_offer.substring(0, 80)}${profileData.key_offer.length > 80 ? '...' : ''}\n`;
+    if (samples.length > 0) message += `✅ **Writing Samples:** ${samples.length} sample${samples.length > 1 ? 's' : ''}\n`;
+    
+    // Check for missing required fields and offer to auto-trigger suggestions
+    const missingFields = [];
+    if (!profileData.brand_voice) missingFields.push('brand_voice');
+    if (!profileData.target_audience) missingFields.push('target_audience');
+    if (!profileData.key_offer) missingFields.push('key_offer');
+    
+    if (missingFields.length === 0) {
+      message += `\nYou're all set to create content! Want to:`;
+      
+      const buttons = [
+        { label: '📝 Create a post', action: 'command', value: '/post' },
+        { label: '✍️ Add more writing samples', action: 'command', value: '/samples' },
+        { label: '👤 View full profile', action: 'command', value: '/profile' }
+      ];
+      
+      promptBox.addMessage('assistant', message, false, false, buttons);
+    } else {
+      message += `\nLet me help you fill in the missing fields!`;
+      promptBox.addMessage('assistant', message);
+      
+      // Auto-trigger suggestions for first missing field
+      if (missingFields.includes('brand_voice')) {
+        await promptBox.handleProfileFieldCommand('/voice');
+      } else if (missingFields.includes('target_audience')) {
+        await promptBox.handleProfileFieldCommand('/audience');
+      } else if (missingFields.includes('key_offer')) {
+        await promptBox.handleProfileFieldCommand('/offer');
+      }
+    }
+    
+    // Clear pending import
+    promptBox.pendingImport = null;
+    promptBox.pendingImportUrl = null;
+    
+    // Refresh profile badge
+    if (typeof refreshProfileBadge === 'function') {
+      refreshProfileBadge();
+    }
+    
+  } catch (error) {
+    console.error('Error saving import:', error);
+    promptBox.addMessage('assistant', `Sorry, there was an error saving your profile: ${error.message}. Please try again.`);
+  }
+}
+
+/**
+ * Handle /import-edit - Start in-chat edit flow
+ */
+async function handleImportEdit(promptBox) {
+  if (!promptBox.pendingImport) {
+    promptBox.addMessage('assistant', `No pending import data. Use \`/import [url]\` to start.`);
+    return;
+  }
+  
+  const importData = promptBox.pendingImport;
+  
+  // Build field list
+  const fields = [];
+  if (importData.business_name) {
+    fields.push({ num: fields.length + 1, key: 'business_name', label: 'Business Name', value: importData.business_name });
+  }
+  if (importData.industry) {
+    fields.push({ num: fields.length + 1, key: 'industry', label: 'Industry', value: importData.industry });
+  }
+  const brandVoice = importData.brand_voice || importData.voice_tone_and_style;
+  if (brandVoice) {
+    fields.push({ num: fields.length + 1, key: 'brand_voice', label: 'Brand Voice', value: brandVoice });
+  }
+  if (importData.key_customers) {
+    fields.push({ num: fields.length + 1, key: 'key_customers', label: 'Target Audience', value: importData.key_customers });
+  }
+  if (importData.key_offer) {
+    fields.push({ num: fields.length + 1, key: 'key_offer', label: 'Key Offer', value: importData.key_offer });
+  }
+  
+  let message = `No problem! Let's refine the extracted data. What would you like to change?\n\n**Current fields:**\n`;
+  fields.forEach(f => {
+    const displayValue = f.value.length > 60 ? f.value.substring(0, 60) + '...' : f.value;
+    message += `${f.num}. **${f.label}:** ${displayValue}\n`;
+  });
+  
+  message += `\nTell me which number to edit, or type 'save' when you're happy with it.`;
+  
+  // Store edit state
+  promptBox.editMode = 'import';
+  promptBox.editFields = fields;
+  
+  promptBox.addMessage('assistant', message);
+}
+
+/**
+ * Handle /import-cancel - Cancel import flow
+ */
+async function handleImportCancel(promptBox) {
+  promptBox.pendingImport = null;
+  promptBox.pendingImportUrl = null;
+  promptBox.editMode = null;
+  promptBox.editFields = null;
+  
+  promptBox.addMessage('assistant', `Import cancelled. You can try again with \`/import [url]\` or tell me about your business manually.`);
+}
+
+/**
+ * Handle user input during import edit mode
+ */
+async function handleImportEditInput(promptBox, message) {
+  const input = message.trim().toLowerCase();
+  
+  // Check if user wants to save
+  if (input === 'save') {
+    // Exit edit mode and save
+    promptBox.editMode = null;
+    promptBox.editFields = null;
+    await handleImportConfirm(promptBox);
+    return;
+  }
+  
+  // Check if it's a field number
+  const fieldNum = parseInt(input);
+  if (!isNaN(fieldNum) && fieldNum > 0 && fieldNum <= promptBox.editFields.length) {
+    const field = promptBox.editFields[fieldNum - 1];
+    
+    // Store which field we're editing
+    promptBox.editingField = field;
+    
+    promptBox.addMessage('assistant', `**Current ${field.label}:** "${field.value}"\n\nHow would you like to update it?`);
+    return;
+  }
+  
+  // Check if we're in the middle of editing a specific field
+  if (promptBox.editingField) {
+    const field = promptBox.editingField;
+    
+    // Update the field value in pendingImport
+    if (field.key === 'brand_voice') {
+      promptBox.pendingImport.brand_voice = message;
+      if (promptBox.pendingImport.voice_tone_and_style) {
+        promptBox.pendingImport.voice_tone_and_style = message;
+      }
+    } else {
+      promptBox.pendingImport[field.key] = message;
+    }
+    
+    // Update the field in editFields too
+    field.value = message;
+    
+    promptBox.addMessage('assistant', `Updated! ✅\n\n**${field.label}** is now: "${message}"\n\nWant to edit anything else? (Choose a number, or type 'save')`);
+    
+    // Clear editing field
+    promptBox.editingField = null;
+    return;
+  }
+  
+  // Invalid input
+  promptBox.addMessage('assistant', `Please enter a field number (1-${promptBox.editFields.length}) to edit, or type 'save' to save your changes.`);
 }
 
 async function handleHelpCommand(promptBox) {
@@ -1950,6 +2266,15 @@ async function handleProfileCommand(promptBox, command, args) {
       break;
     case '/import':
       await showImportFlow(promptBox, args);
+      break;
+    case '/import-confirm':
+      await handleImportConfirm(promptBox);
+      break;
+    case '/import-edit':
+      await handleImportEdit(promptBox);
+      break;
+    case '/import-cancel':
+      await handleImportCancel(promptBox);
       break;
   }
 }
