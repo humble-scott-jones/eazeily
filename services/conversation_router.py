@@ -29,6 +29,19 @@ FIELD_ALIASES = {
     'writing_samples': ['samples', 'examples', 'writing samples', 'copy examples'],
 }
 
+# NEW field commands that use AI-assisted completion flow
+# NOTE: /voice, /audience, /samples are handled by existing update_voice, etc. handlers
+# These NEW commands support two modes:
+# 1. Bare command (e.g., "/keywords") triggers field_assistance with AI suggestions
+# 2. Command with value (e.g., "/keywords Fresh, Local") triggers update_field for direct update
+FIELD_COMMANDS = {
+    '/name': 'business_name',
+    '/industry': 'industry',
+    '/keywords': 'brand_keywords',
+    '/goals': 'goals',
+    '/offer': 'key_offer',
+}
+
 # Command guidance messages for bare commands
 COMMAND_GUIDANCE = {
     '/post': "📝 **What would you like to post about?**\n\nExample: `/post our weekend sale on handmade candles`",
@@ -202,6 +215,21 @@ class ConversationRouter:
                 'url': "Paste your website URL to update from:",
             }
         },
+        'field_assistance': {
+            'required': ['field'],
+            'optional': [],
+            'prompts': {
+                'field': "Which field would you like assistance with?"
+            }
+        },
+        'update_field': {
+            'required': ['field', 'value'],
+            'optional': [],
+            'prompts': {
+                'field': "Which field would you like to update?",
+                'value': "What value would you like to set?"
+            }
+        },
     }
     
     # Task type keywords for fallback classification (ordered by specificity)
@@ -337,6 +365,8 @@ class ConversationRouter:
             /caption beach sunset
             /script for new tutorial video
             /update https://example.com
+            /keywords Fresh, Local (new field command with value)
+            /name (new field command without value - triggers AI assistance)
         """
         if not user_input.startswith('/'):
             return None
@@ -346,7 +376,27 @@ class ConversationRouter:
         command = parts[0].lower()
         remainder = parts[1] if len(parts) > 1 else ''
         
-        # Check if command is valid
+        # Check if this is a NEW field command (from FIELD_COMMANDS)
+        # These take priority and use field_assistance flow
+        if command in FIELD_COMMANDS:
+            field = FIELD_COMMANDS[command]
+            args = remainder.strip() if remainder else None
+            
+            if args:
+                # Command with value: direct field update
+                return {
+                    'task_type': 'update_field',
+                    'field': field,
+                    'value': args
+                }
+            else:
+                # Bare command: AI-assisted field completion
+                return {
+                    'task_type': 'field_assistance',
+                    'field': field
+                }
+        
+        # Check if command is valid in COMMAND_MAP (existing commands)
         if command not in self.COMMAND_MAP:
             return None
         
@@ -587,6 +637,12 @@ Rules:
             result['needs_guidance'] = True
         if 'command' in classification:
             result['command'] = classification['command']
+        
+        # Preserve field and value for new field commands
+        if 'field' in classification:
+            result['field'] = classification['field']
+        if 'value' in classification:
+            result['value'] = classification['value']
         
         return result
     

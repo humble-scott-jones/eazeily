@@ -37,3 +37,6 @@ pytest-report.xml
 cookies.txt
 static/demo_dashboard.html
 IMPORT_FLOW_IMPLEMENTATION.md
+
+# Manual verification scripts
+manual_verification_*.py
