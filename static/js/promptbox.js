@@ -2152,6 +2152,7 @@ async function handleImportCancel(promptBox) {
   promptBox.pendingImportUrl = null;
   promptBox.editMode = null;
   promptBox.editFields = null;
+  promptBox.editingField = null;
   
   promptBox.addMessage('assistant', `Import cancelled. You can try again with \`/import [url]\` or tell me about your business manually.`);
 }
@@ -2167,6 +2168,7 @@ async function handleImportEditInput(promptBox, message) {
     // Exit edit mode and save
     promptBox.editMode = null;
     promptBox.editFields = null;
+    promptBox.editingField = null;
     await handleImportConfirm(promptBox);
     return;
   }
