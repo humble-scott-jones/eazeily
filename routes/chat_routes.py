@@ -787,6 +787,227 @@ def _continue_profile_update(pending_task: dict, message: str, profile: VoicePro
 
 
 
+def _format_field_value(value) -> str:
+    """Format a field value for display in merge comparison.
+    
+    Args:
+        value: The value to format (string, list, or None)
+        
+    Returns:
+        Formatted string for display
+    """
+    if value is None:
+        return "(empty)"
+    
+    if isinstance(value, list):
+        if not value:
+            return "(empty)"
+        # Format list items
+        if len(value) <= 3:
+            return ", ".join(str(v) for v in value)
+        else:
+            return ", ".join(str(v) for v in value[:3]) + f" (+{len(value)-3} more)"
+    
+    if isinstance(value, str):
+        if not value.strip():
+            return "(empty)"
+        # Truncate long strings
+        if len(value) > 150:
+            return value[:150] + "..."
+        return value
+    
+    return str(value)
+
+
+def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
+    """Use AI or heuristics to suggest best merge of current and new values.
+    
+    Args:
+        field: Field name being merged
+        current: Current value in profile
+        new: New value from scraper
+        profile: VoiceProfile instance for context
+        
+    Returns:
+        Suggested merged value
+    """
+    # For list fields, merge and dedupe
+    if field in ['brand_keywords', 'goals']:
+        current_list = current if isinstance(current, list) else ([current] if current else [])
+        new_list = new if isinstance(new, list) else ([new] if new else [])
+        # Dedupe while preserving order
+        combined = []
+        seen = set()
+        for item in current_list + new_list:
+            item_lower = str(item).lower()
+            if item_lower not in seen:
+                combined.append(item)
+                seen.add(item_lower)
+        return combined[:10] if field == 'brand_keywords' else combined[:5]
+    
+    # For text fields, prefer the longer/more detailed version
+    # Or try AI merge if available
+    try:
+        from services.ai_service import get_generative_model
+        model = get_generative_model()
+        
+        if model and isinstance(current, str) and isinstance(new, str):
+            prompt = f"""Combine these two descriptions into one that captures the best of both.
+
+Current: {current}
+New from website: {new}
+
+Return ONLY the combined description (under 200 characters), no explanation."""
+            
+            response = model.generate_content(prompt)
+            if response and response.text:
+                merged = response.text.strip()
+                # Clean any markdown formatting
+                if merged.startswith('```'):
+                    merged = merged.split('\n', 1)[1] if '\n' in merged else merged
+                if merged.endswith('```'):
+                    merged = merged.rsplit('\n', 1)[0] if '\n' in merged else merged
+                return merged.strip()
+    except Exception as e:
+        logger.warning(f"AI merge failed for {field}: {e}")
+    
+    # Fallback: prefer new if longer/more detailed, otherwise current
+    if isinstance(new, str) and isinstance(current, str):
+        return new if len(new) > len(current) else current
+    
+    return new if new else current
+
+
+def _handle_url_import_with_merge(url: str, profile: VoiceProfile) -> dict:
+    """Import from URL with smart merge to existing profile.
+    
+    Shows a comparison between current profile data and scraped data,
+    with AI-powered suggestions for merging both.
+    
+    Args:
+        url: The URL to scrape
+        profile: VoiceProfile instance with existing data
+        
+    Returns:
+        Response dict with comparison and action buttons
+    """
+    try:
+        from services.scraper_service import scrape_url, extract_business_info
+        
+        # Scrape and extract
+        scraped_text = scrape_url(url, max_length=6000)
+        if not scraped_text:
+            return _build_response(
+                '❌ Could not access that URL. Please check the URL and try again.',
+                action='error'
+            )
+        
+        extracted = extract_business_info(scraped_text, url)
+        
+        # Build comparison for each field
+        comparisons = []
+        fields_to_compare = [
+            ('business_name', 'Business Name', profile.business_name),
+            ('industry', 'Industry', profile.industry),
+            ('target_audience', 'Target Audience', profile.target_audience),
+            ('brand_voice', 'Brand Voice', profile.brand_voice),
+            ('key_offer', 'Key Offer', profile.key_offer),
+            ('brand_keywords', 'Brand Keywords', profile.get_brand_keywords()),
+            ('goals', 'Goals', profile.get_goals()),
+        ]
+        
+        for field_key, field_label, current_value in fields_to_compare:
+            # Map extracted field names to profile field names
+            if field_key == 'target_audience':
+                new_value = extracted.get('key_customers')
+            elif field_key == 'brand_voice':
+                new_value = extracted.get('voice_tone_and_style')
+            elif field_key == 'brand_keywords':
+                new_value = extracted.get('brand_keywords', [])
+            elif field_key == 'goals':
+                new_value = extracted.get('content_goals_ai', [])
+            else:
+                new_value = extracted.get(field_key)
+            
+            # Format for display
+            current_display = _format_field_value(current_value)
+            new_display = _format_field_value(new_value)
+            
+            # Determine suggestion and status
+            if current_value and new_value:
+                # Both have values - generate merge suggestion
+                suggestion = _generate_merge_suggestion(field_key, current_value, new_value, profile)
+                status = 'both'
+            elif current_value:
+                suggestion = current_value  # Keep current
+                status = 'keep_current'
+            elif new_value:
+                suggestion = new_value  # Use new
+                status = 'use_new'
+            else:
+                suggestion = None
+                status = 'empty'
+            
+            comparisons.append({
+                'field': field_key,
+                'label': field_label,
+                'current': current_display,
+                'new': new_display,
+                'suggestion': _format_field_value(suggestion) if suggestion else "(needs input)",
+                'suggestion_value': suggestion,  # Store actual value for later
+                'status': status,
+            })
+        
+        # Build message
+        message = f"🔍 **Comparing your profile with {url}**\n\n"
+        
+        has_changes = False
+        for comp in comparisons:
+            # Only show fields that have changes or new data
+            if comp['status'] in ['both', 'use_new']:
+                has_changes = True
+                icon = {
+                    'both': '🔀',
+                    'use_new': '🆕',
+                }.get(comp['status'], '📋')
+                
+                message += f"{icon} **{comp['label']}**\n"
+                message += f"   • Current: {comp['current']}\n"
+                message += f"   • Website: {comp['new']}\n"
+                if comp['status'] == 'both':
+                    message += f"   • 💡 Suggested: {comp['suggestion']}\n"
+                message += "\n"
+        
+        if not has_changes:
+            return _build_response(
+                f"✅ I checked {url} and your profile is already up to date!\n\n"
+                f"No new information found. Your existing profile data looks good.",
+                action='continue',
+                suggestions=['Create content', 'View my profile']
+            )
+        
+        message += "---\n**What would you like to do?**"
+        
+        return _build_response(
+            message,
+            action='continue',
+            pending_task={
+                'flow': 'import_merge',
+                'task_type': 'import_merge',
+                'comparisons': comparisons,
+                'url': url,
+            },
+            suggestions=['Accept all suggestions', 'Review each field', 'Cancel']
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in URL import with merge: {e}", exc_info=True)
+        return _build_response(
+            f"I had trouble processing that URL. Error: {str(e)}",
+            action='error'
+        )
+
+
 def _handle_url_update(url: str, profile: VoiceProfile, db) -> dict:
     """Handle updating profile from a URL by scraping and showing changes.
     
@@ -945,6 +1166,61 @@ def _apply_url_update_changes(changes: list, profile: VoiceProfile, db) -> dict:
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error applying URL updates: {e}", exc_info=True)
+        return _build_response(
+            "I had trouble saving those updates. Please try again.",
+            action='error'
+        )
+
+
+def _apply_import_merge_suggestions(comparisons: list, profile: VoiceProfile, db) -> dict:
+    """Apply the merge suggestions to the profile.
+    
+    Args:
+        comparisons: List of comparison dicts with field, suggestion_value
+        profile: VoiceProfile instance to update
+        db: Database session
+        
+    Returns:
+        Response dict with confirmation message
+    """
+    try:
+        applied_count = 0
+        
+        for comp in comparisons:
+            field = comp['field']
+            suggestion = comp.get('suggestion_value')
+            
+            # Skip if no suggestion or if keeping current (status: keep_current)
+            if not suggestion or comp['status'] == 'keep_current':
+                continue
+            
+            # Apply the suggestion based on field type
+            if field == 'brand_keywords':
+                if isinstance(suggestion, list):
+                    profile.set_brand_keywords(suggestion)
+                    applied_count += 1
+            elif field == 'goals':
+                if isinstance(suggestion, list):
+                    profile.set_goals(suggestion)
+                    applied_count += 1
+            elif hasattr(profile, field):
+                setattr(profile, field, suggestion)
+                applied_count += 1
+        
+        db.session.commit()
+        logger.info(f"Applied {applied_count} merge suggestions for user {current_user.id}")
+        
+        return _build_response(
+            f"✅ **Profile updated with smart merge!**\n\n"
+            f"I've updated {applied_count} field(s) by combining your existing data with what I found on the website.\n\n"
+            f"Your profile now has the best of both worlds. Ready to create something?",
+            action='profile_updated',
+            suggestions=['Create content', 'View my profile']
+        )
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error applying merge suggestions: {e}", exc_info=True)
         return _build_response(
             "I had trouble saving those updates. Please try again.",
             action='error'
@@ -1134,6 +1410,45 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
     Returns:
         Response dict with next step or confirmation
     """
+    # Handle import merge confirmation
+    if pending_task and pending_task.get('flow') == 'import_merge':
+        message_lower = message.lower().strip()
+        
+        # Check for affirmative responses (accept suggestions)
+        if any(word in message_lower for word in ['yes', 'accept', 'apply', 'confirm', 'ok', 'sure', 'do it', 'all']):
+            comparisons = pending_task.get('comparisons', [])
+            return _apply_import_merge_suggestions(comparisons, profile, db)
+        
+        # Check for negative responses
+        if any(word in message_lower for word in ['no', 'cancel', 'skip', 'nevermind']):
+            return _build_response(
+                "No problem! Your profile hasn't been changed.\n\n"
+                "Want to try importing from a different URL?",
+                action='continue',
+                suggestions=['Try another URL', 'View my profile', 'Create content']
+            )
+        
+        # Check for review request
+        if any(word in message_lower for word in ['review', 'check', 'each', 'field', 'one']):
+            return _build_response(
+                "Field-by-field review isn't implemented yet. For now, you can:\n\n"
+                "• **Accept all** suggestions to merge your profile\n"
+                "• **Cancel** and keep your current profile\n"
+                "• Update specific fields manually using `/update`\n\n"
+                "What would you like to do?",
+                action='continue',
+                pending_task=pending_task,
+                suggestions=['Accept all suggestions', 'Cancel']
+            )
+        
+        # Ambiguous response - ask again
+        return _build_response(
+            "Would you like me to apply these merge suggestions?\n\n"
+            "Reply 'accept all' to apply the suggested changes, or 'cancel' to keep your current profile.",
+            action='continue',
+            pending_task=pending_task
+        )
+    
     # Handle URL update confirmation
     if pending_task and pending_task.get('flow') == 'url_update_confirmation':
         message_lower = message.lower().strip()
@@ -1203,13 +1518,14 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
                 action='continue'
             )
     
-    # Handle URL update - scrape URL and show all changes for confirmation
+    # Handle URL update - use smart merge flow
     if intent_result['task_type'] == 'update_from_url':
         extracted = intent_result.get('extracted_params', {})
         url = extracted.get('url')
         
         if url:
-            return _handle_url_update(url, profile, db)
+            # Use the new smart merge flow instead of simple overwrite
+            return _handle_url_import_with_merge(url, profile)
         else:
             return _build_response(
                 "Please provide a URL to update from:\n\n"
@@ -1437,8 +1753,8 @@ def chat():
             
             logger.info(f"[{request_id}] Continuing {flow} flow for task: {task_type}")
             
-            if flow in ['profile_update', 'url_update_confirmation']:
-                # Continue profile update flow
+            if flow in ['profile_update', 'url_update_confirmation', 'import_merge']:
+                # Continue profile update flow (includes import merge)
                 result = _handle_profile_update(message, pending_task, profile, db)
                 return jsonify(result), 200
             elif flow == 'field_update':
