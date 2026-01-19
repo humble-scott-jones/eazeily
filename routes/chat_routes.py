@@ -47,6 +47,7 @@ from services.voice_engine import VoiceEngine
 from services.onboarding_service import OnboardingService
 from services.conversation_router import ConversationRouter
 from services.profile_validator import get_profile_completeness
+from services.task_registry import get_task_config
 from models import VoiceProfile, db
 import os
 import logging
@@ -360,13 +361,15 @@ def _generate_content_response(task_type: str, params: dict, profile: VoiceProfi
     try:
         topic = params.get('topic', '')
         
-        # Only use platform default for content types that need it
-        PLATFORM_REQUIRED_TASKS = {'post', 'caption', 'ad', 'script', 'reel'}
+        # Check if this task type requires a platform using task registry
+        task_config = get_task_config(task_type)
         
-        if task_type in PLATFORM_REQUIRED_TASKS:
+        # For tasks that require platform (post, caption, ad, script), default to instagram
+        # For non-social content (review, email, blog, etc.), use None
+        if task_config and task_config.require_platform:
             platform = params.get('platform', 'instagram')  # Default for social content
         else:
-            platform = params.get('platform')  # None for non-social content (review, email, blog, etc.)
+            platform = params.get('platform')  # None for non-social content
         
         # Remove fields that are explicit parameters from params dict to avoid duplicates
         extra_context = {k: v for k, v in params.items() if k not in ['topic', 'platform']}
