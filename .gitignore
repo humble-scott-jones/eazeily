@@ -36,3 +36,4 @@ smoke_*.png
 pytest-report.xml
 cookies.txt
 static/demo_dashboard.html
+IMPORT_FLOW_IMPLEMENTATION.md
