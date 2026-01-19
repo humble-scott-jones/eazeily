@@ -951,6 +951,145 @@ def _apply_url_update_changes(changes: list, profile: VoiceProfile, db) -> dict:
         )
 
 
+def _handle_field_assistance(field: str, profile: VoiceProfile) -> dict:
+    """Handle AI-assisted field completion with suggestions.
+    
+    This is called when user sends a bare field command like `/keywords`
+    without providing a value. The system should provide AI-generated 
+    suggestions based on their profile data.
+    
+    Args:
+        field: The field name (e.g., 'brand_keywords', 'goals')
+        profile: VoiceProfile instance with business context
+        
+    Returns:
+        Response dict with AI suggestions
+    """
+    try:
+        # Map internal field names to user-friendly names
+        field_display_names = {
+            'business_name': 'Business Name',
+            'industry': 'Industry',
+            'brand_keywords': 'Brand Keywords',
+            'goals': 'Goals',
+            'key_offer': 'Key Offer',
+        }
+        
+        field_display = field_display_names.get(field, field.replace('_', ' ').title())
+        
+        # For now, provide guidance to enter the value directly
+        # In the future, this could use AI to generate suggestions
+        prompts_by_field = {
+            'business_name': "What's the name of your business?",
+            'industry': "What industry are you in? (e.g., Restaurant, Fitness, Software, Healthcare)",
+            'brand_keywords': "What keywords describe your brand? (e.g., Fresh, Local, Organic)",
+            'goals': "What are your main business goals? (e.g., Increase awareness, Drive sales, Build community)",
+            'key_offer': "What's your main value proposition? What makes you unique?",
+        }
+        
+        prompt = prompts_by_field.get(field, f"What would you like for your {field_display}?")
+        
+        return _build_response(
+            f"Let's set up your **{field_display}**.\n\n{prompt}",
+            action='continue',
+            pending_task={
+                'flow': 'field_update',
+                'task_type': 'field_assistance',
+                'field': field
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in field assistance: {e}", exc_info=True)
+        return _build_response(
+            "I had trouble with that. Please try again.",
+            action='error'
+        )
+
+
+def _handle_update_field(field: str, value: str, profile: VoiceProfile, db) -> dict:
+    """Handle direct field update with provided value.
+    
+    This is called when user sends a field command with a value,
+    like `/keywords Fresh, Local, Organic`.
+    
+    Args:
+        field: The field name (e.g., 'brand_keywords', 'goals')
+        value: The value to set
+        profile: VoiceProfile instance
+        db: Database session
+        
+    Returns:
+        Response dict with confirmation
+    """
+    try:
+        # Map new field names to profile attributes
+        # Note: Some fields like 'brand_keywords' and 'goals' may not exist yet
+        # in the profile model and would need to be added
+        field_mapping = {
+            'business_name': 'business_name',
+            'industry': 'industry',
+            'key_offer': 'key_offer',
+            'brand_keywords': 'brand_keywords',  # May need to add this field
+            'goals': 'goals',  # May need to add this field
+        }
+        
+        profile_field = field_mapping.get(field)
+        
+        if not profile_field:
+            return _build_response(
+                f"I don't know how to update the field '{field}' yet. Please use the existing profile update commands.",
+                action='error'
+            )
+        
+        # Check if profile has this attribute
+        if not hasattr(profile, profile_field):
+            logger.warning(f"Profile does not have field '{profile_field}' - would need schema update")
+            return _build_response(
+                f"The '{field}' field isn't available yet. Please use existing profile fields like business name, industry, or key offer.",
+                action='continue',
+                suggestions=['Update brand voice', 'Update target audience', 'View my profile']
+            )
+        
+        # Validate the value
+        if not value or len(value.strip()) < 2:
+            return _build_response(
+                "Please provide a more detailed value.",
+                action='error'
+            )
+        
+        # Set the field value
+        setattr(profile, profile_field, value.strip())
+        
+        try:
+            db.session.commit()
+            logger.info(f"Updated field '{profile_field}' via field command")
+            
+            field_display = field.replace('_', ' ').title()
+            
+            return _build_response(
+                f"✅ **{field_display} updated!**\n\n"
+                f"I've saved: {value[:100]}{'...' if len(value) > 100 else ''}\n\n"
+                f"This will help me create better content for you. Ready to create something?",
+                action='profile_updated',
+                suggestions=['Create content', 'Update another field', 'View my profile']
+            )
+        except Exception as db_error:
+            db.session.rollback()
+            logger.error(f"Database error updating field: {db_error}", exc_info=True)
+            return _build_response(
+                "I had trouble saving that update. Please try again.",
+                action='error'
+            )
+        
+    except Exception as e:
+        logger.error(f"Error updating field: {e}", exc_info=True)
+        return _build_response(
+            "I had trouble updating that field. Please try again.",
+            action='error'
+        )
+
+
 def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfile, db) -> dict:
     """Handle profile field updates.
     
@@ -1342,6 +1481,17 @@ def chat():
                 # Continue profile update flow
                 result = _handle_profile_update(message, pending_task, profile, db)
                 return jsonify(result), 200
+            elif flow == 'field_update':
+                # Continue field update flow (for new FIELD_COMMANDS)
+                field = pending_task.get('field')
+                if field:
+                    result = _handle_update_field(field, message, profile, db)
+                    return jsonify(result), 200
+                else:
+                    return jsonify(_build_response(
+                        "I lost track of which field we were updating. Please try again.",
+                        action='error'
+                    )), 500
             elif flow == 'content':
                 # Continue content generation flow
                 result = _continue_content_task(pending_task, message, profile)
@@ -1425,6 +1575,33 @@ def chat():
             logger.info(f"[{request_id}] Handling profile update request")
             result = _handle_profile_update(message, None, profile, db)
             return jsonify(result), 200
+        
+        # Handle NEW field assistance flow (from FIELD_COMMANDS)
+        if intent_result['task_type'] == 'field_assistance':
+            logger.info(f"[{request_id}] Handling field assistance request")
+            field = intent_result.get('field')
+            if field:
+                result = _handle_field_assistance(field, profile)
+                return jsonify(result), 200
+            else:
+                return jsonify(_build_response(
+                    "I'm not sure which field you want to update. Try using a command like /keywords or /goals.",
+                    action='error'
+                )), 400
+        
+        # Handle NEW direct field update (from FIELD_COMMANDS with value)
+        if intent_result['task_type'] == 'update_field':
+            logger.info(f"[{request_id}] Handling direct field update")
+            field = intent_result.get('field')
+            value = intent_result.get('value')
+            if field and value:
+                result = _handle_update_field(field, value, profile, db)
+                return jsonify(result), 200
+            else:
+                return jsonify(_build_response(
+                    "I need both a field name and a value to update. Try using /keywords Fresh, Local.",
+                    action='error'
+                )), 400
         
         if intent_result['intent'] == 'unknown':
             return jsonify(_build_response(
