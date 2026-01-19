@@ -320,7 +320,8 @@ function connectPageInputToPromptBox(promptBox) {
                 const selectedItem = autocomplete.querySelector('.autocomplete-item.selected');
                 if (selectedItem) {
                     e.preventDefault();
-                    selectAutocompleteItem(selectedItem.dataset.command);
+                    const requiresInput = selectedItem.dataset.requiresInput === 'true';
+                    selectAutocompleteItem(selectedItem.dataset.command, requiresInput);
                     return;
                 }
             } else if (e.key === 'Escape') {
@@ -417,28 +418,41 @@ function handleSlashCommandAutocomplete(value) {
 /**
  * Show autocomplete dropdown
  * @param {Array} commands - Array of command objects
+/**
+ * Show autocomplete dropdown for slash commands
+ * @param {Array} commands - Array of command objects with metadata
  */
 function showAutocomplete(commands) {
     const container = document.getElementById('autocomplete-container');
     if (!container) return;
     
-    const html = commands.map((cmd, index) => `
-        <div class="autocomplete-item ${index === 0 ? 'selected' : ''}" data-index="${index}" data-command="${escapeHtml(cmd.command)}">
-            <span class="autocomplete-icon">${cmd.icon}</span>
-            <div class="autocomplete-text">
-                <span class="autocomplete-command">${escapeHtml(cmd.command)}</span>
-                <span class="autocomplete-desc">${escapeHtml(cmd.description)}</span>
+    const html = commands.map((cmd, index) => {
+        // Show placeholder hint if command requires input
+        const placeholderHint = cmd.placeholder ? ` <span class="text-gray-400">[${escapeHtml(cmd.placeholder)}]</span>` : '';
+        
+        return `
+            <div class="autocomplete-item ${index === 0 ? 'selected' : ''}" 
+                 data-index="${index}" 
+                 data-command="${escapeHtml(cmd.command)}"
+                 data-requires-input="${cmd.requiresInput || false}"
+                 data-placeholder="${escapeHtml(cmd.placeholder || '')}">
+                <span class="autocomplete-icon">${cmd.icon}</span>
+                <div class="autocomplete-text">
+                    <span class="autocomplete-command">${escapeHtml(cmd.command)}${placeholderHint}</span>
+                    <span class="autocomplete-desc">${escapeHtml(cmd.description)}</span>
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     container.innerHTML = html;
     container.classList.remove('hidden');
     
     // Add click handlers
-    container.querySelectorAll('.autocomplete-item').forEach((item, index) => {
+    container.querySelectorAll('.autocomplete-item').forEach((item) => {
         item.addEventListener('click', () => {
-            selectAutocompleteItem(item.dataset.command);
+            const requiresInput = item.dataset.requiresInput === 'true';
+            selectAutocompleteItem(item.dataset.command, requiresInput);
         });
     });
 }
@@ -488,15 +502,24 @@ function hideAutocomplete() {
 /**
  * Select an autocomplete item
  * @param {string} command - Command to insert
+ * @param {boolean} requiresInput - Whether the command requires additional input
  */
-function selectAutocompleteItem(command) {
+function selectAutocompleteItem(command, requiresInput = true) {
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     
     if (chatInput) {
-        chatInput.value = command + ' ';
+        if (requiresInput) {
+            // Add space after command, user needs to add input
+            chatInput.value = command + ' ';
+            sendBtn.disabled = true; // Don't enable until they add text
+        } else {
+            // Command doesn't need input, ready to send
+            chatInput.value = command;
+            sendBtn.disabled = false;
+        }
+        
         autoResizeTextarea(chatInput);
-        sendBtn.disabled = false;
         hideAutocomplete();
         chatInput.focus();
     }
