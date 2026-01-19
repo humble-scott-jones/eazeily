@@ -1329,9 +1329,10 @@ Each suggestion should be concise (under 100 characters).
 """
             response = model.generate_content(prompt)
             
-            # Add null check before accessing response.text
+            # Validate AI response before processing
             if response and hasattr(response, 'text') and response.text:
-                suggestions = [line.strip() for line in response.text.strip().split('\n') if line.strip()][:3]
+                lines = response.text.strip().split('\n')
+                suggestions = [line.strip() for line in lines if line.strip()][:3]
                 
                 if len(suggestions) == 3:
                     return suggestions
