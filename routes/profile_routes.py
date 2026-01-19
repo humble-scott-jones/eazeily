@@ -4,6 +4,7 @@ from models import db, VoiceProfile
 import logging
 import uuid
 from services.profile_expert import generate_profile_suggestions, process_raw_audience_input
+from services.profile_validator import get_profile_completeness
 
 profile_bp = Blueprint('profile', __name__)
 logger = logging.getLogger(__name__)
@@ -83,6 +84,21 @@ def api_profile():
                         'scraped_meta': {},
                         'scraped_at': None,
                         'scrape_status': 'none'
+                    },
+                    'completeness': {
+                        'percent': 0,
+                        'is_complete': False,
+                        'missing_fields': ['Business Name', 'Industry', 'Brand Voice', 'Target Audience', 'Key Offer', 'Writing Samples', 'Brand Keywords', 'Goals'],
+                        'field_status': {
+                            'business_name': False,
+                            'industry': False,
+                            'brand_voice': False,
+                            'target_audience': False,
+                            'key_offer': False,
+                            'writing_samples': False,
+                            'brand_keywords': False,
+                            'goals': False
+                        }
                     }
                 }), 200
             
@@ -114,11 +130,32 @@ def api_profile():
                 'scrape_status': profile.scrape_status or 'none'
             }
             
+            # Calculate profile completeness using the validator service
+            is_complete, missing_fields, completeness_percent = get_profile_completeness(profile)
+            
+            # Build field status for client-side UI
+            field_status = {
+                'business_name': bool(profile.business_name and profile.business_name.strip()),
+                'industry': bool(profile.industry and profile.industry.strip()),
+                'brand_voice': bool(profile.brand_voice and profile.brand_voice.strip()),
+                'target_audience': bool(profile.target_audience and profile.target_audience.strip()),
+                'key_offer': bool(profile.key_offer and profile.key_offer.strip()),
+                'writing_samples': bool(profile.get_writing_samples()),
+                'brand_keywords': bool(profile.get_brand_keywords()),
+                'goals': bool(profile.get_goals())
+            }
+            
             return jsonify({
                 'ok': True,
                 'request_id': request_id,
                 'profile_status': 'loaded',
-                'profile': profile_data
+                'profile': profile_data,
+                'completeness': {
+                    'percent': completeness_percent,
+                    'is_complete': is_complete,
+                    'missing_fields': missing_fields,
+                    'field_status': field_status
+                }
             }), 200
             
         except Exception as e:

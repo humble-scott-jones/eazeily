@@ -166,24 +166,24 @@ async function initProfileBadge() {
         const response = await fetch('/api/profile', { credentials: 'include' });
         const data = await response.json();
         
-        if (data.ok && data.profile) {
-            updateProfileBadge(data.profile);
+        if (data.ok && data.completeness) {
+            updateProfileBadge(data.completeness);
         } else {
-            updateProfileBadge(null);
+            updateProfileBadge({ percent: 0, missing_fields: [], is_complete: false });
         }
     } catch (error) {
         console.error('Failed to load profile for badge:', error);
+        updateProfileBadge({ percent: 0, missing_fields: [], is_complete: false });
     }
 }
 
 /**
- * Update profile badge with completion percentage
- * @param {object} profile - Profile object
+ * Update profile badge with completion percentage from server
+ * @param {object} completeness - Completeness data from server
  */
-function updateProfileBadge(profile) {
-    const { missing, percent } = profile 
-        ? checkProfileCompleteness(profile) 
-        : { missing: ['Everything'], percent: 0 };
+function updateProfileBadge(completeness) {
+    const percent = completeness?.percent || 0;
+    const missing = completeness?.missing_fields || [];
     
     // Update circular progress (97.4 is circumference)
     const circle = document.getElementById('progress-circle');
@@ -199,36 +199,6 @@ function updateProfileBadge(profile) {
     // Update menu badge
     const menuBadge = document.getElementById('menu-profile-badge');
     if (menuBadge) menuBadge.textContent = `${percent}%`;
-}
-
-/**
- * Check profile completeness
- * @param {object} profile - Profile object
- * @returns {object} {missing: [], percent: number}
- */
-function checkProfileCompleteness(profile) {
-    const fields = {
-        'Business Name': profile.company || profile.business_name,
-        'Industry': profile.industry,
-        'Brand Voice': profile.tone || profile.brand_voice,
-        'Target Audience': profile.target_audience,
-        'Key Offer': profile.key_offer,
-        'Writing Samples': profile.writing_samples?.length > 0,
-    };
-    
-    const missing = [];
-    let filled = 0;
-    
-    for (const [label, value] of Object.entries(fields)) {
-        if (value && (typeof value === 'boolean' ? value : String(value).trim())) {
-            filled++;
-        } else {
-            missing.push(label);
-        }
-    }
-    
-    const percent = Math.round((filled / Object.keys(fields).length) * 100);
-    return { isComplete: missing.length === 0, missing, percent };
 }
 
 /**
