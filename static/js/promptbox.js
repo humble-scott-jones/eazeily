@@ -72,6 +72,9 @@ const CONTENT_IMPACT = {
   'voice_rules': 'Content will follow your specific guidelines and constraints.',
 };
 
+// Configuration constants
+const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
+
 
 class PromptBox {
   constructor(containerId, options = {}) {
@@ -1311,8 +1314,24 @@ What would you like to create?`;
     const label = FIELD_LABELS[field] || field;
     const emoji = FIELD_EMOJI[field] || '✨';
     
-    // Show animated loading message
-    this.addMessage('assistant', `Analyzing your profile for **${emoji} ${label}** suggestions... <span class="loading-dots"></span>`, false, false);
+    // Show loading message (will be replaced with actual content)
+    const loadingMsgId = this.addMessage('assistant', `Analyzing your profile for **${emoji} ${label}** suggestions...`);
+    
+    // Add loading animation to the message
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    const messages = conversation?.querySelectorAll('.promptbox-message-assistant');
+    if (messages && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      const bubble = lastMessage.querySelector('.promptbox-bubble');
+      if (bubble) {
+        bubble.classList.add('message-loading');
+        const loadingSpan = document.createElement('span');
+        loadingSpan.className = 'loading-dots';
+        bubble.appendChild(document.createTextNode(' '));
+        bubble.appendChild(loadingSpan);
+      }
+    }
+    
     this.showLoading();
     
     try {
@@ -1323,7 +1342,7 @@ What would you like to create?`;
       
       // Make API call with timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), AI_SUGGESTION_TIMEOUT_MS);
       
       try {
         const response = await fetch('/api/profile/suggest', {
@@ -1369,11 +1388,14 @@ What would you like to create?`;
             action: 'focus'
           });
           
-          // Replace loading message with actual suggestions
+          // Replace loading message with actual suggestions including buttons
           this.updateMessage('last', message);
           
-          // Add buttons as a separate message (since updateMessage doesn't support buttons yet)
-          this.addMessage('assistant', '', false, false, buttons);
+          // Render buttons into the same message
+          if (messages && messages.length > 0) {
+            const lastMessage = messages[messages.length - 1];
+            this.renderMessageButtons(buttons, lastMessage);
+          }
           
           // Store suggestions for selection as instance property
           this.pendingProfileSuggestions = {
@@ -1396,7 +1418,7 @@ What would you like to create?`;
           // Timeout error
           this.hideLoading();
           this.updateMessage('last',
-            `The suggestion request timed out after 15 seconds. ⏱️\n\nYou can still update your **${label}** manually!\n\n💡 ${WHY_IT_MATTERS[field]}\n\nWhat would you like to set it to?`
+            `The suggestion request timed out after ${AI_SUGGESTION_TIMEOUT_MS / 1000} seconds. ⏱️\n\nYou can still update your **${label}** manually!\n\n💡 ${WHY_IT_MATTERS[field]}\n\nWhat would you like to set it to?`
           );
         } else {
           throw fetchError; // Re-throw for outer catch
