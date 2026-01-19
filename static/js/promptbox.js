@@ -861,11 +861,29 @@ class PromptBox {
   }
 
   scrollToBottom() {
-    const conversation = document.getElementById(`${this.container.id}-conversation`);
-    if (conversation) {
+    // In embedded mode, scroll the parent container (chat-container)
+    // In standalone mode, scroll the conversation div itself
+    let scrollContainer;
+    
+    if (this.embedded) {
+      // Find the actual scrollable parent container
+      scrollContainer = document.getElementById('chat-container');
+      if (!scrollContainer) {
+        // Fallback to finding any parent with overflow
+        const conversation = document.getElementById(`${this.container.id}-conversation`);
+        if (conversation) {
+          scrollContainer = conversation.closest('.chat-container');
+        }
+      }
+    } else {
+      // Standalone mode: scroll the conversation div
+      scrollContainer = document.getElementById(`${this.container.id}-conversation`);
+    }
+    
+    if (scrollContainer) {
       // Smooth scroll to bottom
-      conversation.scrollTo({
-        top: conversation.scrollHeight,
+      scrollContainer.scrollTo({
+        top: scrollContainer.scrollHeight,
         behavior: 'smooth'
       });
     }

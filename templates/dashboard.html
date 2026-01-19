@@ -365,6 +365,17 @@ async function handlePageChatSend(promptBox) {
     
     // Send message to PromptBox
     await promptBox.sendMessage(message);
+    
+    // Ensure scroll to bottom after message is added
+    setTimeout(() => {
+        const chatContainer = document.getElementById('chat-container');
+        if (chatContainer) {
+            chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }, 100);
 }
 
 /**
