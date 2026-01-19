@@ -85,6 +85,28 @@ def test_navigation_menu_has_mobile_menu_button(authenticated_client):
     assert 'mobile-menu-button' in html
 
 
+def test_navigation_menu_has_clear_profile_labels(authenticated_client):
+    """Test that navigation menu has clear labels for View Profile and Edit Profile."""
+    response = authenticated_client.get('/dashboard')
+    assert response.status_code == 200
+    html = response.data.decode('utf-8')
+    
+    # Check for "View Profile" with chat action
+    assert 'View Profile' in html
+    assert 'menuAction(\'profile\')' in html
+    
+    # Check for "Edit Profile" with link to /profile
+    assert 'Edit Profile' in html
+    assert 'href="/profile"' in html
+    
+    # Check for the edit icon (pencil emoji)
+    assert '✏️' in html
+    
+    # Check for tooltips/accessibility
+    assert 'View your profile summary in chat' in html
+    assert 'Edit your profile information' in html
+
+
 def test_settings_route_redirects_to_onboarding(authenticated_client):
     """Test that settings route redirects to onboarding."""
     response = authenticated_client.get('/settings', follow_redirects=False)
