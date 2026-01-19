@@ -287,7 +287,7 @@ def _build_required_sections(scraped_text: str, url: str, ai_data: dict) -> dict
                 current_goals.add(goal.lower())
 
     basic_information = {
-        "name": ai_data.get("business_name") or domain_name,
+        "name": ai_data.get("business_name") or None,  # Don't fallback to domain - ask user if missing
         "description": ai_data.get("key_customers") or _first_sentence(text),
         "website": url or None,
         "industry": inferred_industry,
@@ -407,7 +407,7 @@ Look for business information in:
 
 Return ONLY a JSON object with these exact keys:
 
-- business_name: The company/business name. Look in title, logo, or meta tags FIRST. If not found, use domain name: "{domain_name}". (string, NEVER null - always provide best guess)
+- business_name: The company/business name. Look in title, logo, or meta tags FIRST. If you cannot confidently identify the business name, return null. (string, or null if not found)
 - industry: The business industry category - pick ONE that best matches from this list: {industries_list} (string, or "Other / Custom" if unclear)
 - key_customers: A brief description of the target audience/customers in 1-2 sentences. If not explicit, infer from content. (string, or null)
 - key_offer: The main value proposition, hook, or unique offer. Look for CTAs marked as "CTA:" like "Get Started", "Free Trial", etc. Extract the complete offer text, NOT truncated. (string, or null)

@@ -777,12 +777,126 @@ def _continue_profile_update(pending_task: dict, message: str, profile: VoicePro
     else:
         # User provided new value (or accepted prefilled by hitting enter)
         prefilled = pending_task.get('prefilled_value')
+        allow_skip = pending_task.get('allow_skip', False)
         
-        # If message is empty and we have a prefilled value, use it
-        if not message.strip() and prefilled:
-            return _apply_profile_update(profile, field_name, prefilled, db)
+        # Check if user wants to skip (for business name confirmation)
+        if allow_skip and message.lower().strip() in ['keep it', 'keep', 'no', 'skip', 'continue']:
+            value_to_save = profile.business_name  # Keep existing
+        elif not message.strip() and prefilled:
+            value_to_save = prefilled
         else:
-            return _apply_profile_update(profile, field_name, message, db)
+            value_to_save = message
+        
+        # Apply the profile update
+        result = _apply_profile_update(profile, field_name, value_to_save, db)
+        
+        # Check if this was part of an import flow
+        imported_url = pending_task.get('imported_url')
+        extracted_data = pending_task.get('extracted_data')
+        
+        if imported_url and extracted_data and field_name == 'business_name':
+            # We were in an import flow and just got/confirmed the business name
+            # Now continue with the smart merge using the extracted data
+            extracted_data['business_name'] = value_to_save  # Add the user-provided/confirmed name
+            
+            # Build comparisons with the complete data
+            comparisons = []
+            fields_to_compare = [
+                ('business_name', 'Business Name', profile.business_name),
+                ('industry', 'Industry', profile.industry),
+                ('target_audience', 'Target Audience', profile.target_audience),
+                ('brand_voice', 'Brand Voice', profile.brand_voice),
+                ('key_offer', 'Key Offer', profile.key_offer),
+                ('brand_keywords', 'Brand Keywords', profile.get_brand_keywords()),
+                ('goals', 'Goals', profile.get_goals()),
+            ]
+            
+            for field_key, field_label, current_value in fields_to_compare:
+                # Map extracted field names to profile field names
+                if field_key == 'target_audience':
+                    new_value = extracted_data.get('key_customers')
+                elif field_key == 'brand_voice':
+                    new_value = extracted_data.get('voice_tone_and_style')
+                elif field_key == 'brand_keywords':
+                    new_value = extracted_data.get('brand_keywords', [])
+                elif field_key == 'goals':
+                    new_value = extracted_data.get('content_goals_ai', [])
+                else:
+                    new_value = extracted_data.get(field_key)
+                
+                # Format for display
+                current_display = _format_field_value(current_value)
+                new_display = _format_field_value(new_value)
+                
+                # Determine suggestion and status
+                if current_value and new_value:
+                    # Both have values - generate merge suggestion
+                    suggestion = _generate_merge_suggestion(field_key, current_value, new_value, profile)
+                    status = 'both'
+                elif current_value:
+                    suggestion = current_value  # Keep current
+                    status = 'keep_current'
+                elif new_value:
+                    suggestion = new_value  # Use new
+                    status = 'use_new'
+                else:
+                    suggestion = None
+                    status = 'empty'
+                
+                comparisons.append({
+                    'field': field_key,
+                    'label': field_label,
+                    'current': current_display,
+                    'new': new_display,
+                    'suggestion': _format_field_value(suggestion) if suggestion else "(needs input)",
+                    'suggestion_value': suggestion,
+                    'status': status,
+                })
+            
+            # Build message
+            message_text = f"✅ Got it! Business name saved as **{value_to_save}**.\n\n"
+            message_text += f"🔍 **Here's what else I found on {imported_url}:**\n\n"
+            
+            has_changes = False
+            for comp in comparisons:
+                # Only show fields that have changes or new data (excluding business_name we just set)
+                if comp['status'] in ['both', 'use_new'] and comp['field'] != 'business_name':
+                    has_changes = True
+                    icon = {
+                        'both': '🔀',
+                        'use_new': '🆕',
+                    }.get(comp['status'], '📋')
+                    
+                    message_text += f"{icon} **{comp['label']}**\n"
+                    message_text += f"   • Current: {comp['current']}\n"
+                    message_text += f"   • Website: {comp['new']}\n"
+                    if comp['status'] == 'both':
+                        message_text += f"   • 💡 Suggested: {comp['suggestion']}\n"
+                    message_text += "\n"
+            
+            if not has_changes:
+                return _build_response(
+                    f"✅ Got it! Business name saved as **{value_to_save}**.\n\n"
+                    f"I checked {imported_url} and didn't find any other new information. Your profile is up to date!",
+                    action='continue',
+                    suggestions=['Create content', 'View my profile']
+                )
+            
+            message_text += "---\n**What would you like to do?**"
+            
+            return _build_response(
+                message_text,
+                action='continue',
+                pending_task={
+                    'flow': 'import_merge',
+                    'task_type': 'import_merge',
+                    'comparisons': comparisons,
+                    'url': imported_url,
+                },
+                suggestions=['Accept all suggestions', 'Review each field', 'Cancel']
+            )
+        
+        return result
 
 
 
@@ -903,6 +1017,41 @@ def _handle_url_import_with_merge(url: str, profile: VoiceProfile) -> dict:
             )
         
         extracted = extract_business_info(scraped_text, url)
+        
+        # Check if business_name was not found by the scraper
+        scraped_business_name = extracted.get('business_name')
+        if not scraped_business_name:
+            # Scraper couldn't find business name - ask user to provide it
+            if profile.business_name:
+                # Profile has one, but let's confirm/update it
+                return _build_response(
+                    f"🔍 I scanned {url} but couldn't find the business name.\n\n"
+                    f"I have **{profile.business_name}** in your profile. Is that correct, or would you like to update it?\n\n"
+                    f"Reply with the correct business name, or say 'keep it' to proceed with what you have.",
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': 'profile_update',
+                        'field_name': 'business_name',
+                        'imported_url': url,
+                        'extracted_data': extracted,
+                        'allow_skip': True  # User can say 'keep it' to skip
+                    }
+                )
+            else:
+                # No business name in profile either - must provide
+                return _build_response(
+                    f"🔍 I scanned {url} but couldn't find the business name.\n\n"
+                    f"What's the name of your business?",
+                    action='continue',
+                    pending_task={
+                        'flow': 'profile_update',
+                        'task_type': 'profile_update',
+                        'field_name': 'business_name',
+                        'imported_url': url,
+                        'extracted_data': extracted
+                    }
+                )
         
         # Build comparison for each field
         comparisons = []
