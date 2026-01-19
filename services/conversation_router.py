@@ -58,6 +58,8 @@ def get_command_guidance(command: str) -> Optional[str]:
     Returns:
         Helpful guidance message or None if no guidance needed
     """
+    if not command:
+        return None
     return COMMAND_GUIDANCE.get(command.lower(), None)
 
 
@@ -191,6 +193,13 @@ class ConversationRouter:
             'optional': [],
             'prompts': {
                 'url': "Paste your website or social media URL:",
+            }
+        },
+        'update_from_url': {
+            'required': ['url'],
+            'optional': [],
+            'prompts': {
+                'url': "Paste your website URL to update from:",
             }
         },
     }
@@ -327,6 +336,7 @@ class ConversationRouter:
             /post about our new product
             /caption beach sunset
             /script for new tutorial video
+            /update https://example.com
         """
         if not user_input.startswith('/'):
             return None
@@ -339,6 +349,16 @@ class ConversationRouter:
         # Check if command is valid
         if command not in self.COMMAND_MAP:
             return None
+        
+        # Special handling for /update with URL
+        if command == '/update' and remainder.strip():
+            # Check if remainder is a URL
+            remainder_stripped = remainder.strip()
+            if remainder_stripped.startswith('http://') or remainder_stripped.startswith('https://'):
+                return {
+                    'task_type': 'update_from_url',
+                    'extracted_params': {'url': remainder_stripped}
+                }
         
         # Check if this is a bare command that needs guidance
         # Derive list from COMMAND_GUIDANCE keys to maintain consistency
@@ -552,7 +572,7 @@ Rules:
         if follow_up_needed:
             follow_up_question = self.get_next_prompt(task_type, missing_fields)
         
-        return {
+        result = {
             'intent': intent,
             'task_type': task_type,
             'extracted_params': extracted_params,
@@ -560,6 +580,12 @@ Rules:
             'follow_up_question': follow_up_question,
             'missing_fields': missing_fields
         }
+        
+        # Preserve command if it was in classification (for guidance_needed handling)
+        if 'command' in classification:
+            result['command'] = classification['command']
+        
+        return result
     
     def get_missing_fields(self, task_type: str, collected: Dict[str, Any]) -> List[str]:
         """

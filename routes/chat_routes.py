@@ -785,6 +785,172 @@ def _continue_profile_update(pending_task: dict, message: str, profile: VoicePro
             return _apply_profile_update(profile, field_name, message, db)
 
 
+
+
+def _handle_url_update(url: str, profile: VoiceProfile, db) -> dict:
+    """Handle updating profile from a URL by scraping and showing changes.
+    
+    Args:
+        url: The URL to scrape
+        profile: VoiceProfile instance to update
+        db: Database session
+        
+    Returns:
+        Response dict with changes preview or error
+    """
+    try:
+        # Use the onboarding service to scrape the URL
+        from services.onboarding_service import OnboardingService
+        onboarding_service = OnboardingService()
+        
+        # Show scanning message
+        logger.info(f"Scanning URL for profile update: {url}")
+        
+        # Scrape the URL (don't update profile yet)
+        result = onboarding_service.process_url(url, profile)
+        
+        if not result['success']:
+            return _build_response(
+                result['message'],
+                action='error'
+            )
+        
+        extracted_fields = result.get('extracted_fields', {})
+        
+        if not extracted_fields:
+            return _build_response(
+                f"🔍 I scanned {url} but couldn't find any new information to update.\n\n"
+                f"Your profile is already up to date! ✨",
+                action='continue',
+                suggestions=['Update a field manually', 'Create content', 'View my profile']
+            )
+        
+        # Build a list of changes (old value -> new value)
+        changes = []
+        field_labels = {
+            'business_name': 'Business Name',
+            'industry': 'Industry',
+            'target_audience': 'Target Audience',
+            'brand_voice': 'Brand Voice',
+            'key_offer': 'Key Offer',
+            'writing_samples': 'Writing Samples'
+        }
+        
+        for field_name, new_value in extracted_fields.items():
+            if field_name not in field_labels:
+                continue
+                
+            # Get old value
+            if field_name == 'writing_samples':
+                old_samples = profile.get_writing_samples()
+                old_value = f"{len(old_samples)} samples" if old_samples else None
+                new_display = f"{len(new_value)} samples" if isinstance(new_value, list) else "1 sample"
+            else:
+                old_value = getattr(profile, field_name, None)
+                # Truncate for display
+                new_display = new_value[:80] + "..." if len(str(new_value)) > 80 else new_value
+            
+            # Only include if different from current value
+            if old_value != new_value:
+                changes.append({
+                    'field_name': field_name,
+                    'field_label': field_labels[field_name],
+                    'old_value': old_value,
+                    'new_value': new_value,
+                    'new_display': new_display
+                })
+        
+        if not changes:
+            return _build_response(
+                f"🔍 I scanned {url} and found the same information that's already in your profile.\n\n"
+                f"Your profile is up to date! ✨",
+                action='continue',
+                suggestions=['Update a field manually', 'Create content', 'View my profile']
+            )
+        
+        # Build confirmation message
+        message_parts = [f"✨ **Found updates from {url}!**\n"]
+        
+        for change in changes:
+            field_label = change['field_label']
+            old_value = change['old_value']
+            new_display = change['new_display']
+            
+            if old_value:
+                old_display = old_value[:50] + "..." if len(str(old_value)) > 50 else old_value
+                message_parts.append(f"📋 **{field_label}:** ~~{old_display}~~ → {new_display}")
+            else:
+                message_parts.append(f"📋 **{field_label}:** Added \"{new_display}\"")
+        
+        message_parts.append("\n---\n✅ Apply these changes?")
+        
+        # Store changes in pending task for confirmation
+        return _build_response(
+            '\n'.join(message_parts),
+            action='continue',
+            pending_task={
+                'flow': 'url_update_confirmation',
+                'task_type': 'update_from_url',
+                'changes': changes,
+                'url': url
+            },
+            suggestions=['Yes, apply all', 'No, cancel']
+        )
+        
+    except Exception as e:
+        logger.error(f"Error handling URL update: {e}", exc_info=True)
+        return _build_response(
+            f"I had trouble accessing that website. Please try again or update fields manually.",
+            action='error'
+        )
+
+
+def _apply_url_update_changes(changes: list, profile: VoiceProfile, db) -> dict:
+    """Apply the changes from URL update to the profile.
+    
+    Args:
+        changes: List of change dicts with field_name, new_value
+        profile: VoiceProfile instance to update
+        db: Database session
+        
+    Returns:
+        Response dict with confirmation message
+    """
+    try:
+        applied_count = 0
+        
+        for change in changes:
+            field_name = change['field_name']
+            new_value = change['new_value']
+            
+            if field_name == 'writing_samples':
+                if isinstance(new_value, list):
+                    profile.set_writing_samples(new_value)
+                    applied_count += 1
+            elif hasattr(profile, field_name):
+                setattr(profile, field_name, new_value)
+                applied_count += 1
+        
+        db.session.commit()
+        logger.info(f"Applied {applied_count} field updates from URL for user {current_user.id}")
+        
+        return _build_response(
+            f"✅ **Profile updated!**\n\n"
+            f"I've updated {applied_count} field(s) from your website.\n\n"
+            f"Your profile now reflects your latest brand information. Ready to create something?",
+            action='profile_updated',
+            suggestions=['Create content', 'View my profile', 'Update another field']
+        )
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error applying URL updates: {e}", exc_info=True)
+        return _build_response(
+            "I had trouble saving those updates. Please try again.",
+            action='error'
+        )
+
+
 def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfile, db) -> dict:
     """Handle profile field updates.
     
@@ -797,6 +963,32 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
     Returns:
         Response dict with next step or confirmation
     """
+    # Handle URL update confirmation
+    if pending_task and pending_task.get('flow') == 'url_update_confirmation':
+        message_lower = message.lower().strip()
+        
+        # Check for affirmative responses
+        if any(word in message_lower for word in ['yes', 'apply', 'confirm', 'ok', 'sure', 'do it']):
+            changes = pending_task.get('changes', [])
+            return _apply_url_update_changes(changes, profile, db)
+        
+        # Check for negative responses
+        if any(word in message_lower for word in ['no', 'cancel', 'skip', 'nevermind']):
+            return _build_response(
+                "No problem! Your profile hasn't been changed.\n\n"
+                "Want to update a specific field instead?",
+                action='continue',
+                suggestions=['Update brand voice', 'Update target audience', 'View my profile']
+            )
+        
+        # Ambiguous response - ask again
+        return _build_response(
+            "Would you like me to apply these updates?\n\n"
+            "Reply 'yes' to apply all changes, or 'no' to cancel.",
+            action='continue',
+            pending_task=pending_task
+        )
+    
     if pending_task and pending_task.get('flow') == 'profile_update':
         return _continue_profile_update(pending_task, message, profile, db)
     
@@ -804,13 +996,27 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
     intent_result = conversation_router.parse_intent(message, profile)
     
     # Check if this is a bare command that needs guidance
+    # But skip showing guidance if we're already in a profile update flow (coming from main handler)
     if intent_result['task_type'] == 'guidance_needed':
         from services.conversation_router import get_command_guidance
         command = intent_result.get('command')
-        guidance = get_command_guidance(command)
-        if guidance:
-            return _build_response(guidance, action='continue')
-        # If no guidance found, fall through to normal handling
+        
+        # If this is a profile/update command, convert to actual task_type instead of showing guidance
+        if command in ['/update', '/profile', '/voice', '/audience', '/samples']:
+            task_type_map = {
+                '/update': 'profile_update',
+                '/profile': 'profile',
+                '/voice': 'update_voice',
+                '/audience': 'update_audience',
+                '/samples': 'update_samples'
+            }
+            intent_result['task_type'] = task_type_map.get(command, 'profile_update')
+        else:
+            # For other commands, show guidance
+            guidance = get_command_guidance(command)
+            if guidance:
+                return _build_response(guidance, action='continue')
+            # If no guidance found, fall through to normal handling
     
     if intent_result['task_type'] == 'profile':
         # Show profile summary
@@ -878,6 +1084,20 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
             return _build_response(
                 "Please provide a URL to import from:\n\n"
                 "Example: `/import https://yourwebsite.com`",
+                action='continue'
+            )
+    
+    # Handle URL update - scrape URL and show all changes for confirmation
+    if intent_result['task_type'] == 'update_from_url':
+        extracted = intent_result.get('extracted_params', {})
+        url = extracted.get('url')
+        
+        if url:
+            return _handle_url_update(url, profile, db)
+        else:
+            return _build_response(
+                "Please provide a URL to update from:\n\n"
+                "Example: `/update https://yourwebsite.com`",
                 action='continue'
             )
     
@@ -1127,7 +1347,7 @@ def chat():
             if not flow:
                 if task_type == 'onboarding':
                     flow = 'onboarding'
-                elif task_type in ['profile', 'profile_update', 'update_voice', 'update_audience']:
+                elif task_type in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_from_url']:
                     flow = 'profile_update'
                 else:
                     # If profile is complete and task_type is a content type, assume content flow
@@ -1139,7 +1359,7 @@ def chat():
             
             logger.info(f"[{request_id}] Continuing {flow} flow for task: {task_type}")
             
-            if flow == 'profile_update':
+            if flow in ['profile_update', 'url_update_confirmation']:
                 # Continue profile update flow
                 result = _handle_profile_update(message, pending_task, profile, db)
                 return jsonify(result), 200
@@ -1213,12 +1433,30 @@ def chat():
         if intent_result['task_type'] == 'guidance_needed':
             from services.conversation_router import get_command_guidance
             command = intent_result.get('command')
+            logger.info(f"[{request_id}] Guidance needed for command: {command}")
             guidance = get_command_guidance(command)
             if guidance:
-                return jsonify(_build_response(guidance, action='continue')), 200
+                # For profile/update commands, show guidance but continue to profile update handler
+                if command in ['/update', '/profile', '/voice', '/audience', '/samples']:
+                    # Map command to actual task type
+                    task_type_map = {
+                        '/update': 'profile_update',
+                        '/profile': 'profile',
+                        '/voice': 'update_voice',
+                        '/audience': 'update_audience',
+                        '/samples': 'update_samples'
+                    }
+                    # Override the task_type so it gets handled by profile update
+                    intent_result['task_type'] = task_type_map.get(command, 'profile_update')
+                    logger.info(f"[{request_id}] Overrode task_type to: {intent_result['task_type']}")
+                else:
+                    # For other commands, just show guidance and return
+                    return jsonify(_build_response(guidance, action='continue')), 200
+        
+        logger.info(f"[{request_id}] After guidance check, task_type={intent_result.get('task_type')}")
         
         # Handle profile-related intents (including new commands)
-        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile']:
+        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:
             logger.info(f"[{request_id}] Handling profile update request")
             result = _handle_profile_update(message, None, profile, db)
             return jsonify(result), 200
