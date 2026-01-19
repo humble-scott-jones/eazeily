@@ -24,9 +24,9 @@ def dashboard():
 @generate_bp.route('/settings', methods=['GET'])
 @login_required
 def settings():
-    """Settings page - redirects to brand setup for now."""
+    """Settings page - redirects to profile editing form."""
     from flask import redirect, url_for
-    return redirect(url_for('onboarding.onboarding'))
+    return redirect(url_for('profile.profile_page'))
 
 
 @generate_bp.route('/api/model-ready', methods=['GET'])
