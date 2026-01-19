@@ -1933,7 +1933,7 @@ async function showImportFlow(promptBox, url) {
         if (samples.length > 0) {
           message += `\n**Writing Sample Found:**\n"${samples[0].substring(0, 150)}${samples[0].length > 150 ? '...' : ''}"`;
           if (samples.length > 1) {
-            message += `\n\n_Plus ${samples.length - 1} more sample${samples.length > 1 ? 's' : ''}_`;
+            message += `\n\n_Plus ${samples.length - 1} more sample${samples.length - 1 > 1 ? 's' : ''}_`;
           }
           foundFields.push('Writing Samples');
         }
@@ -1999,7 +1999,6 @@ async function handleImportConfirm(promptBox) {
     const importData = promptBox.pendingImport;
     const profileData = {
       company: importData.business_name || '',
-      business_name: importData.business_name || '',
       industry: importData.industry || '',
       brand_voice: importData.brand_voice || importData.voice_tone_and_style || '',
       target_audience: importData.key_customers || '',
