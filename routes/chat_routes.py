@@ -955,11 +955,11 @@ def _handle_field_assistance(field: str, profile: VoiceProfile) -> dict:
     """Handle AI-assisted field completion with suggestions.
     
     This is called when user sends a bare field command like `/keywords`
-    without providing a value. The system should provide AI-generated 
-    suggestions based on their profile data.
+    or existing commands like `/voice` without providing a value. 
+    The system should provide AI-generated suggestions based on their profile data.
     
     Args:
-        field: The field name (e.g., 'brand_keywords', 'goals')
+        field: The field name (e.g., 'brand_keywords', 'goals', 'brand_voice', 'target_audience')
         profile: VoiceProfile instance with business context
         
     Returns:
@@ -973,6 +973,9 @@ def _handle_field_assistance(field: str, profile: VoiceProfile) -> dict:
             'brand_keywords': 'Brand Keywords',
             'goals': 'Goals',
             'key_offer': 'Key Offer',
+            'brand_voice': 'Brand Voice',
+            'target_audience': 'Target Audience',
+            'writing_samples': 'Writing Samples',
         }
         
         field_display = field_display_names.get(field, field.replace('_', ' ').title())
@@ -985,6 +988,9 @@ def _handle_field_assistance(field: str, profile: VoiceProfile) -> dict:
             'brand_keywords': "What keywords describe your brand? (e.g., Fresh, Local, Organic)",
             'goals': "What are your main business goals? (e.g., Increase awareness, Drive sales, Build community)",
             'key_offer': "What's your main value proposition? What makes you unique?",
+            'brand_voice': "How would you describe your brand's personality? Think about how you want to sound when talking to your customers.",
+            'target_audience': "Who are you trying to reach? Tell me about your ideal customers - who they are, what they need, and what matters to them.",
+            'writing_samples': "Share a few examples of your writing - social posts, emails, or website copy. This helps me match your style.",
         }
         
         prompt = prompts_by_field.get(field, f"What would you like for your {field_display}?")
@@ -1011,10 +1017,10 @@ def _handle_update_field(field: str, value: str, profile: VoiceProfile, db) -> d
     """Handle direct field update with provided value.
     
     This is called when user sends a field command with a value,
-    like `/keywords Fresh, Local, Organic`.
+    like `/keywords Fresh, Local, Organic` or `/voice warm and friendly`.
     
     Args:
-        field: The field name (e.g., 'brand_keywords', 'goals')
+        field: The field name (e.g., 'brand_keywords', 'goals', 'brand_voice', 'target_audience')
         value: The value to set
         profile: VoiceProfile instance
         db: Database session
@@ -1023,16 +1029,42 @@ def _handle_update_field(field: str, value: str, profile: VoiceProfile, db) -> d
         Response dict with confirmation
     """
     try:
-        # Map new field names to profile attributes
-        # Note: Some fields like 'brand_keywords' and 'goals' may not exist yet
-        # in the profile model and would need to be added
+        # Map field names to profile attributes
+        # Include both NEW fields and EXISTING fields
         field_mapping = {
             'business_name': 'business_name',
             'industry': 'industry',
             'key_offer': 'key_offer',
             'brand_keywords': 'brand_keywords',  # May need to add this field
             'goals': 'goals',  # May need to add this field
+            'brand_voice': 'brand_voice',  # EXISTING field
+            'target_audience': 'target_audience',  # EXISTING field
         }
+        
+        # Special handling for writing_samples
+        if field == 'writing_samples':
+            current_samples = profile.get_writing_samples() or []
+            current_samples.append(value.strip())
+            profile.set_writing_samples(current_samples)
+            
+            try:
+                db.session.commit()
+                logger.info(f"Added writing sample via field command")
+                
+                return _build_response(
+                    f"✅ **Writing Sample added!**\n\n"
+                    f"I've saved your sample ({len(current_samples)} total).\n\n"
+                    f"This will help me match your style when creating content. Ready to create something?",
+                    action='profile_updated',
+                    suggestions=['Create content', 'Add another sample', 'View my profile']
+                )
+            except Exception as db_error:
+                db.session.rollback()
+                logger.error(f"Database error saving writing sample: {db_error}", exc_info=True)
+                return _build_response(
+                    "I had trouble saving that sample. Please try again.",
+                    action='error'
+                )
         
         profile_field = field_mapping.get(field)
         
@@ -1146,45 +1178,11 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
         sample_text = extracted.get('sample_text')
         
         if sample_text:
-            # Save the sample
-            current_samples = profile.get_writing_samples() or []
-            current_samples.append(sample_text)
-            profile.set_writing_samples(current_samples)
-            
-            try:
-                db.session.commit()
-                logger.info(f"Added writing sample for user {current_user.id}")
-                
-                return _build_response(
-                    f"Great sample! I've saved it ({len(current_samples)} total).\n\n"
-                    f"Want to add another? Just paste it, or say 'done' to finish.",
-                    action='continue',
-                    pending_task={
-                        'flow': 'profile_update',
-                        'task_type': 'update_samples',
-                        'collecting': 'writing_samples'
-                    }
-                )
-            except Exception as e:
-                db.session.rollback()
-                logger.error(f"Error saving writing sample: {e}", exc_info=True)
-                return _build_response(
-                    "I had trouble saving that sample. Please try again.",
-                    action='error'
-                )
+            # Direct update - use field update handler for consistency
+            return _handle_update_field('writing_samples', sample_text, profile, db)
         else:
-            # Start collection flow
-            current_count = len(profile.get_writing_samples() or [])
-            return _build_response(
-                f"I'll help you add writing samples. You currently have {current_count} sample(s).\n\n"
-                f"Paste a writing sample (social post, email, or website copy):",
-                action='continue',
-                pending_task={
-                    'flow': 'profile_update',
-                    'task_type': 'update_samples',
-                    'collecting': 'writing_samples'
-                }
-            )
+            # No value provided - use NEW field assistance flow
+            return _handle_field_assistance('writing_samples', profile)
     
     # Handle URL import (note: actual import is handled client-side via /onboarding/social-style)
     if intent_result['task_type'] == 'import_profile':
@@ -1235,47 +1233,9 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
             return _apply_profile_update(profile, field_name, new_value, db)
         
         if field_name:
-            # Get prefilled value for this field
-            prefilled_value, source = _get_prefilled_value_for_field(field_name, profile)
-            
-            # Build prompt showing what we found
-            field_display = _format_field_name(field_name)
-            
-            if prefilled_value:
-                # We have data - show it and let them edit or accept
-                prompt = f"Great! Here's what I found for your **{field_display}** {source}:\n\n"
-                prompt += f"**{prefilled_value}**\n\n"
-                prompt += "Does this work for you? You can edit it or just hit enter to keep it."
-                
-                return _build_response(
-                    prompt,
-                    action='continue',
-                    pending_task={
-                        'flow': 'profile_update',
-                        'task_type': intent_result['task_type'],
-                        'field_name': field_name,
-                        'prefilled_value': prefilled_value
-                    }
-                )
-            else:
-                # No data found - guide them to define it
-                prompts_by_field = {
-                    'brand_voice': "How would you describe your brand's personality? Think about how you want to sound when talking to your customers.",
-                    'target_audience': "Who are you trying to reach? Tell me about your ideal customers - who they are, what they need, and what matters to them.",
-                    'key_offer': "What makes your business special? What's the main value you provide that sets you apart?",
-                }
-                
-                prompt = prompts_by_field.get(field_name, f"What would you like for your {field_display}?")
-                
-                return _build_response(
-                    prompt,
-                    action='continue',
-                    pending_task={
-                        'flow': 'profile_update',
-                        'task_type': intent_result['task_type'],
-                        'field_name': field_name
-                    }
-                )
+            # Use the NEW field assistance flow for existing commands when no value provided
+            # This integrates AI-powered suggestions into existing /voice and /audience commands
+            return _handle_field_assistance(field_name, profile)
         
         # No field specified - ask which field
         return _build_response(

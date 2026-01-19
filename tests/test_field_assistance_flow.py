@@ -3,7 +3,8 @@
 Tests the AI-assisted field completion flow introduced in PR #275.
 These tests verify that:
 1. NEW field commands (/name, /industry, /keywords, /goals, /offer) use field_assistance
-2. EXISTING commands (/voice, /audience, /samples) maintain their original behavior
+2. EXISTING commands (/voice, /audience, /samples) maintain their original task types
+   BUT now also use the field_assistance flow in the chat handler when no value is provided
 3. Field commands with values trigger direct updates
 4. Field commands without values trigger AI assistance flow
 """
