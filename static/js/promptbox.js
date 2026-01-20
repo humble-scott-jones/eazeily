@@ -86,6 +86,8 @@ const CONTENT_IMPACT = {
 
 // Configuration constants
 const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
+const TYPEWRITER_SPEED_MS = 25; // Milliseconds per character for typewriter effect
+const TYPEWRITER_SHORT_MESSAGE_THRESHOLD = 50; // Messages shorter than this skip typewriter effect
 
 
 class PromptBox {
@@ -101,6 +103,8 @@ class PromptBox {
     this.placeholder = options.placeholder || this.getDefaultPlaceholder();
     this.onSend = options.onSend || null;
     this.embedded = options.embedded || false; // NEW: When true, only render messages area
+    this.typewriterSpeed = options.typewriterSpeed || TYPEWRITER_SPEED_MS; // Allow override
+    this.typewriterThreshold = options.typewriterThreshold || TYPEWRITER_SHORT_MESSAGE_THRESHOLD; // Allow override
     
     // State
     this.conversationHistory = [];
@@ -581,7 +585,7 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+      await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
     } finally {
       this.setLoading(false);
     }
@@ -640,7 +644,7 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+      await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
     } finally {
       this.setLoading(false);
     }
@@ -670,7 +674,7 @@ class PromptBox {
     
     // Add assistant message
     const isGenerated = data.action === 'generated' || (data.content && data.content.length > 100);
-    this.addMessage('assistant', data.response, false, isGenerated);
+    await this.addMessage('assistant', data.response, false, isGenerated);
     
     // Store generated content for copy
     if (isGenerated && data.content) {
@@ -910,12 +914,15 @@ class PromptBox {
    * Typewriter effect for AI responses
    * @param {HTMLElement} element - The element to type into
    * @param {string} text - The text to type
-   * @param {number} speed - Speed in milliseconds per character (default: 25)
+   * @param {number} speed - Speed in milliseconds per character (default: from config)
    * @returns {Promise} - Resolves when typing is complete
    */
-  async typewriterEffect(element, text, speed = 25) {
+  async typewriterEffect(element, text, speed = null) {
+    // Use instance speed if not provided
+    speed = speed || this.typewriterSpeed;
+    
     // Skip typewriter for short messages
-    if (text.length < 50) {
+    if (text.length < this.typewriterThreshold) {
       element.innerHTML = this.renderMarkdown(text);
       return Promise.resolve();
     }
@@ -953,10 +960,23 @@ class PromptBox {
    */
   _fixPartialMarkdown(text) {
     let fixed = text;
+    
+    // Handle bold (**text**)
     const boldCount = (text.match(/\*\*/g) || []).length;
-    const codeCount = (text.match(/`/g) || []).length;
     if (boldCount % 2 !== 0) fixed += '**';
+    
+    // Handle code (`code`)
+    const codeCount = (text.match(/`/g) || []).length;
     if (codeCount % 2 !== 0) fixed += '`';
+    
+    // Handle italic (*text* or _text_) - but only if not part of bold
+    // Count single asterisks that aren't part of **
+    const singleAsterisks = (text.match(/(?<!\*)\*(?!\*)/g) || []).length;
+    if (singleAsterisks % 2 !== 0) fixed += '*';
+    
+    const underscoreCount = (text.match(/_/g) || []).length;
+    if (underscoreCount % 2 !== 0) fixed += '_';
+    
     return fixed;
   }
 
