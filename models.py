@@ -15,8 +15,20 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Subscription & Usage Tracking
+    subscription_tier = db.Column(db.String(20), default='free')
+    generation_count_month = db.Column(db.Integer, default=0)
+    generation_reset_date = db.Column(db.DateTime)
+    
     # Relationship
     voice_profile = db.relationship('VoiceProfile', backref='user', uselist=False)
+    
+    # Tier configuration (can be moved to config later)
+    TIER_LIMITS = {
+        'free': {'generations': 10, 'profiles': 1, 'history_days': 0},
+        'pro': {'generations': -1, 'profiles': 3, 'history_days': 30},  # -1 = unlimited
+        'team': {'generations': -1, 'profiles': -1, 'history_days': 90},
+    }
 
     def set_password(self, password):
         """Hash and set the user's password."""
@@ -38,6 +50,43 @@ class User(UserMixin, db.Model):
         import os
         admin_emails = [e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()]
         return self.email.lower() in admin_emails
+    
+    def can_generate(self) -> bool:
+        """Check if user can generate content based on tier limits."""
+        limits = self.TIER_LIMITS.get(self.subscription_tier, self.TIER_LIMITS['free'])
+        if limits['generations'] == -1:
+            return True
+        
+        # Reset counter if new month
+        self._reset_generation_counter_if_needed()
+        
+        return self.generation_count_month < limits['generations']
+    
+    def _reset_generation_counter_if_needed(self):
+        """Reset generation counter if we're in a new month."""
+        now = datetime.utcnow()
+        if self.generation_reset_date is None or \
+           self.generation_reset_date.month != now.month or \
+           self.generation_reset_date.year != now.year:
+            self.generation_count_month = 0
+            self.generation_reset_date = now
+            db.session.commit()
+    
+    def increment_generation(self):
+        """Increment the monthly generation counter."""
+        self.generation_count_month = (self.generation_count_month or 0) + 1
+        db.session.commit()
+    
+    def generations_remaining(self) -> int:
+        """Return remaining generations this month, or -1 for unlimited."""
+        limits = self.TIER_LIMITS.get(self.subscription_tier, self.TIER_LIMITS['free'])
+        if limits['generations'] == -1:
+            return -1
+        return max(0, limits['generations'] - (self.generation_count_month or 0))
+    
+    def get_tier_limits(self) -> dict:
+        """Return the limits for the user's current tier."""
+        return self.TIER_LIMITS.get(self.subscription_tier, self.TIER_LIMITS['free'])
 
 
 class VoiceProfile(db.Model):
@@ -173,3 +222,55 @@ class VoiceProfile(db.Model):
         """
         defaults = self.get_defaults()
         return defaults.get('style_guide') if defaults else None
+
+
+class ContentHistory(db.Model):
+    """Stores generated content for user history and reuse."""
+    __tablename__ = 'content_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    profile_id = db.Column(db.Integer, db.ForeignKey('voice_profile.id', ondelete='SET NULL'), nullable=True)
+    task_type = db.Column(db.String(50), nullable=False)
+    platform = db.Column(db.String(50))
+    topic = db.Column(db.Text)
+    generated_content = db.Column(db.Text, nullable=False)
+    parameters = db.Column(db.JSON)  # Additional params like mood, cta, etc.
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    starred = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime)  # Soft delete
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('content_history', lazy='dynamic'))
+    profile = db.relationship('VoiceProfile', backref=db.backref('content_history', lazy='dynamic'))
+    
+    def to_dict(self):
+        """Convert to dictionary for API responses."""
+        return {
+            'id': self.id,
+            'task_type': self.task_type,
+            'platform': self.platform,
+            'topic': self.topic,
+            'generated_content': self.generated_content,
+            'parameters': self.parameters,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'starred': self.starred,
+            'profile_id': self.profile_id,
+        }
+    
+    @classmethod
+    def create_from_generation(cls, user_id, profile_id, task_type, content, 
+                                platform=None, topic=None, parameters=None):
+        """Create a history entry from a generation."""
+        entry = cls(
+            user_id=user_id,
+            profile_id=profile_id,
+            task_type=task_type,
+            platform=platform,
+            topic=topic,
+            generated_content=content,
+            parameters=parameters
+        )
+        db.session.add(entry)
+        db.session.commit()
+        return entry
