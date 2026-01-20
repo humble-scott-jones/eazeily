@@ -406,8 +406,10 @@ def _generate_content_response(task_type: str, params: dict, profile: VoiceProfi
                     topic=topic,
                     parameters={k: v for k, v in params.items() if k not in ['topic', 'platform']}
                 )
+            except (db.exc.IntegrityError, db.exc.OperationalError) as e:
+                logger.warning(f"Database error saving content to history for user {current_user.id}, task_type={task_type}: {e}")
             except Exception as e:
-                logger.warning(f"Failed to save content to history for user {current_user.id}, task_type={task_type}: {e}")
+                logger.error(f"Unexpected error saving content to history for user {current_user.id}, task_type={task_type}: {e}", exc_info=True)
         
         # Increment generation counter
         current_user.increment_generation()

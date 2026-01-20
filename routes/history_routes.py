@@ -60,7 +60,7 @@ def get_history():
         query = query.filter(ContentHistory.created_at >= cutoff)
     
     if starred_only:
-        query = query.filter(ContentHistory.starred == True)
+        query = query.filter(ContentHistory.starred.is_(True))
     
     if task_type:
         query = query.filter(ContentHistory.task_type == task_type)
@@ -184,8 +184,5 @@ def get_usage():
         'generations_remaining': current_user.generations_remaining(),
         'profiles_limit': tier_limits['profiles'],
         'history_days': tier_limits['history_days'],
-        'reset_date': current_user.generation_reset_date.isoformat() if (
-            current_user.generation_reset_date and 
-            hasattr(current_user.generation_reset_date, 'isoformat')
-        ) else None
+        'reset_date': current_user.generation_reset_date.isoformat() if current_user.generation_reset_date else None
     })
