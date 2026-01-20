@@ -197,6 +197,32 @@
   opacity: 0.6;
 }
 
+/* ===== Typewriter Effect Animations ===== */
+/* Thinking indicator with pulse animation */
+.promptbox-bubble em.thinking {
+  color: #888;
+  font-style: italic;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* Typing cursor - blinking effect */
+.promptbox-bubble.typing::after {
+  content: '▋';
+  color: #6366f1;
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
 /* ===== Copy Button ===== */
 .promptbox-copy-btn {
   display: inline-flex;

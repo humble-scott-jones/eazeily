@@ -707,7 +707,7 @@ class PromptBox {
     }
   }
 
-  addMessage(role, content, isError = false, isGenerated = false, buttons = null) {
+  async addMessage(role, content, isError = false, isGenerated = false, buttons = null) {
     const timestamp = Date.now();
     
     // Add to history
@@ -727,9 +727,19 @@ class PromptBox {
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'promptbox-bubble';
 
-    // For assistant messages, render markdown
+    // For assistant messages, apply typewriter effect
     if (role === 'assistant') {
-      bubbleDiv.innerHTML = this.renderMarkdown(content);
+      // Show thinking indicator
+      bubbleDiv.innerHTML = '<em class="thinking">Thinking... 🤔</em>';
+      messageDiv.appendChild(bubbleDiv);
+      conversation.appendChild(messageDiv);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Clear and apply typewriter effect
+      bubbleDiv.innerHTML = '';
+      bubbleDiv.classList.add('typing');
+      await this.typewriterEffect(bubbleDiv, content, 25);
+      bubbleDiv.classList.remove('typing');
       
       // Add copy button for generated content
       if (isGenerated) {
@@ -743,18 +753,23 @@ class PromptBox {
         copyBtn.onclick = () => this.copyContent(content, copyBtn);
         messageDiv.appendChild(copyBtn);
       }
+      
+      // Add buttons if provided
+      if (buttons && buttons.length > 0) {
+        this.renderMessageButtons(buttons, messageDiv);
+      }
     } else {
+      // User messages - no typewriter effect
       bubbleDiv.textContent = content;
+      messageDiv.appendChild(bubbleDiv);
+      
+      // Add buttons if provided
+      if (buttons && buttons.length > 0) {
+        this.renderMessageButtons(buttons, messageDiv);
+      }
+      
+      conversation.appendChild(messageDiv);
     }
-
-    messageDiv.appendChild(bubbleDiv);
-    
-    // Add buttons if provided
-    if (buttons && buttons.length > 0) {
-      this.renderMessageButtons(buttons, messageDiv);
-    }
-    
-    conversation.appendChild(messageDiv);
 
     // Auto-scroll to latest message
     this.scrollToBottom();
@@ -888,6 +903,73 @@ class PromptBox {
         top: scrollContainer.scrollHeight,
         behavior: 'smooth'
       });
+    }
+  }
+
+  /**
+   * Typewriter effect for AI responses
+   * @param {HTMLElement} element - The element to type into
+   * @param {string} text - The text to type
+   * @param {number} speed - Speed in milliseconds per character (default: 25)
+   * @returns {Promise} - Resolves when typing is complete
+   */
+  async typewriterEffect(element, text, speed = 25) {
+    // Skip typewriter for short messages
+    if (text.length < 50) {
+      element.innerHTML = this.renderMarkdown(text);
+      return Promise.resolve();
+    }
+    
+    element.innerHTML = '';
+    let currentIndex = 0;
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    
+    return new Promise((resolve) => {
+      const typeInterval = setInterval(() => {
+        if (currentIndex < text.length) {
+          const partialText = text.substring(0, currentIndex + 1);
+          const fixedPartial = this._fixPartialMarkdown(partialText);
+          element.innerHTML = this.renderMarkdown(fixedPartial);
+          
+          // Auto-scroll every 5 characters
+          if (currentIndex % 5 === 0) {
+            this._autoScrollToBottom(conversation, element);
+          }
+          currentIndex++;
+        } else {
+          clearInterval(typeInterval);
+          element.innerHTML = this.renderMarkdown(text);
+          conversation.scrollTop = conversation.scrollHeight;
+          resolve();
+        }
+      }, speed);
+    });
+  }
+
+  /**
+   * Fix partial markdown to avoid broken syntax during typing
+   * @param {string} text - Partial text that may have incomplete markdown
+   * @returns {string} - Fixed text with closed markdown tags
+   */
+  _fixPartialMarkdown(text) {
+    let fixed = text;
+    const boldCount = (text.match(/\*\*/g) || []).length;
+    const codeCount = (text.match(/`/g) || []).length;
+    if (boldCount % 2 !== 0) fixed += '**';
+    if (codeCount % 2 !== 0) fixed += '`';
+    return fixed;
+  }
+
+  /**
+   * Auto-scroll to keep typing visible
+   * @param {HTMLElement} container - The scrollable container
+   * @param {HTMLElement} element - The element being typed into
+   */
+  _autoScrollToBottom(container, element) {
+    const messageBottom = element.getBoundingClientRect().bottom;
+    const containerBottom = container.getBoundingClientRect().bottom;
+    if (messageBottom > containerBottom - 50) {
+      container.scrollTop = container.scrollHeight;
     }
   }
 
