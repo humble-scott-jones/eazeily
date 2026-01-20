@@ -933,63 +933,141 @@ def _format_field_value(value) -> str:
     return str(value)
 
 
-def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
-    """Use AI or heuristics to suggest best merge of current and new values.
+def _text_similarity(text1: str, text2: str) -> float:
+    """Calculate simple text similarity ratio using word overlap."""
+    if not text1 or not text2:
+        return 0.0
     
-    Args:
-        field: Field name being merged
-        current: Current value in profile
-        new: New value from scraper
-        profile: VoiceProfile instance for context
-        
-    Returns:
-        Suggested merged value
+    words1 = set(text1.lower().split())
+    words2 = set(text2.lower().split())
+    
+    if not words1 or not words2:
+        return 0.0
+    
+    intersection = words1 & words2
+    union = words1 | words2
+    
+    return len(intersection) / len(union)
+
+
+def _fallback_text_merge(field: str, current: str, new: str) -> str:
+    """Fallback merge when AI is unavailable.
+    
+    Creates an intelligent combination of both values based on field type.
     """
-    # For list fields, merge and dedupe
-    if field in ['brand_keywords', 'goals']:
-        current_list = current if isinstance(current, list) else ([current] if current else [])
-        new_list = new if isinstance(new, list) else ([new] if new else [])
-        # Dedupe while preserving order
+    # For voice/tone fields, combine descriptors with "and"
+    if field in ['brand_voice', 'tone']:
+        current_words = [w.strip().lower() for w in current.replace(',', ' and ').split(' and ')]
+        new_words = [w.strip().lower() for w in new.replace(',', ' and ').split(' and ')]
+        
         combined = []
         seen = set()
-        for item in current_list + new_list:
-            item_lower = str(item).lower()
-            if item_lower not in seen:
-                combined.append(item)
-                seen.add(item_lower)
-        return combined[:10] if field == 'brand_keywords' else combined[:5]
+        for word in current_words + new_words:
+            if word and word not in seen and len(word) > 2:
+                combined.append(word)
+                seen.add(word)
+        
+        if combined:
+            return ', '.join(combined[:4])
     
-    # For text fields, prefer the longer/more detailed version
-    # Or try AI merge if available
+    # For audience/offer fields, prefer more detailed but preserve both if similar length
+    if field in ['target_audience', 'key_offer']:
+        if len(new) > len(current) * 1.5:
+            return new
+        elif len(current) > len(new) * 1.5:
+            return current
+        else:
+            current_first = current.split('.')[0].strip()
+            new_first = new.split('.')[0].strip()
+            
+            if current_first.lower() != new_first.lower():
+                combined = f"{current_first}. {new_first}."
+                if len(combined) <= 300:
+                    return combined
+    
+    # Default: prefer whichever is longer
+    return current if len(current) >= len(new) else new
+
+
+def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
+    """Generate smart merge suggestion combining current and new values.
+    
+    For list fields: Merge with deduplication
+    For text fields: AI-assisted merge with intelligent fallback
+    """
+    # Handle None values
+    if not current:
+        return new
+    if not new:
+        return current
+    
+    # === LIST FIELD HANDLING ===
+    if field in ['brand_keywords', 'goals']:
+        current_list = current if isinstance(current, list) else [current] if current else []
+        new_list = new if isinstance(new, list) else [new] if new else []
+        
+        # Merge with case-insensitive deduplication, preserving order
+        seen = set()
+        merged = []
+        for item in current_list + new_list:
+            item_str = str(item).strip()
+            if item_str.lower() not in seen:
+                merged.append(item_str)
+                seen.add(item_str.lower())
+        
+        max_items = 10 if field == 'brand_keywords' else 5
+        return merged[:max_items]
+    
+    # === TEXT FIELD HANDLING ===
+    if not isinstance(current, str) or not isinstance(new, str):
+        return new if new else current
+    
+    current = current.strip()
+    new = new.strip()
+    
+    # If values are very similar (>80% overlap), just keep the longer one
+    if _text_similarity(current, new) > 0.8:
+        return current if len(current) >= len(new) else new
+    
+    # Try AI-assisted merge
     try:
         from services.ai_service import get_generative_model
         model = get_generative_model()
         
-        if model and isinstance(current, str) and isinstance(new, str):
-            prompt = f"""Combine these two descriptions into one that captures the best of both.
+        if model:
+            field_display = field.replace('_', ' ')
+            prompt = f"""Merge these two {field_display} descriptions into one cohesive statement.
 
-Current: {current}
-New from website: {new}
+CURRENT (from user's existing profile):
+"{current}"
 
-Return ONLY the combined description (under 200 characters), no explanation."""
-            
+NEW (from their website):
+"{new}"
+
+Create a merged description that:
+1. Preserves unique elements from BOTH descriptions
+2. Eliminates redundancy
+3. Maintains a natural, flowing style
+4. Stays under 200 characters if possible
+
+Return ONLY the merged text, no quotes, no explanation."""
+
             response = model.generate_content(prompt)
             if response and response.text:
-                merged = response.text.strip()
-                # Clean any markdown formatting
+                merged = response.text.strip().strip('"\'`')
                 if merged.startswith('```'):
                     merged = merged.split('\n', 1)[1] if '\n' in merged else merged
                 if merged.endswith('```'):
-                    merged = merged.rsplit('\n', 1)[0] if '\n' in merged else merged
-                return merged.strip()
+                    merged = merged.rsplit('\n', 1)[0]
+                
+                if len(merged) >= min(len(current), len(new)) * 0.5:
+                    logger.info(f"AI merge successful for {field}")
+                    return merged.strip()
     except Exception as e:
         logger.warning(f"AI merge failed for {field}: {e}")
     
-    # Fallback: prefer new if longer/more detailed, otherwise current
-    if isinstance(new, str) and isinstance(current, str):
-        return new if len(new) > len(current) else current
-    
-    return new if new else current
+    # === INTELLIGENT FALLBACK ===
+    return _fallback_text_merge(field, current, new)
 
 
 def _handle_url_import_with_merge(url: str, profile: VoiceProfile) -> dict:

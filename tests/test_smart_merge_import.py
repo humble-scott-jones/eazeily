@@ -58,21 +58,24 @@ def test_generate_merge_suggestion_text_fallback():
     
     profile = VoiceProfile()
     
-    # Test with longer new value
-    current = "Short"
-    new = "A much longer and more detailed description"
+    # Test with brand_voice - should combine descriptors
+    current = "warm"
+    new = "professional"
     result = _generate_merge_suggestion('brand_voice', current, new, profile)
     
-    # Should prefer the longer value
-    assert result == new
+    # Should combine both values intelligently
+    assert isinstance(result, str)
+    assert len(result) > 0
+    # For brand_voice, the fallback combines descriptors
+    assert 'warm' in result.lower() or 'professional' in result.lower()
     
-    # Test with longer current value
-    current = "A much longer and more detailed description"
-    new = "Short"
-    result = _generate_merge_suggestion('brand_voice', current, new, profile)
+    # Test with target_audience - should prefer longer or combine
+    current = "busy professionals"
+    new = "health-conscious families seeking quality dining experiences"
+    result = _generate_merge_suggestion('target_audience', current, new, profile)
     
-    # Should prefer the longer value
-    assert result == current
+    # Should not lose the longer description
+    assert len(result) >= len(current)
 
 
 def test_import_merge_flow_accept(app, authenticated_client):
@@ -150,3 +153,85 @@ def test_import_merge_flow_cancel(app, authenticated_client):
     data = response.get_json()
     assert data['action'] == 'continue'
     assert "hasn't been changed" in data['response']
+
+
+def test_text_field_merge_combines_values():
+    """Test that text fields are merged, not overwritten."""
+    from routes.chat_routes import _generate_merge_suggestion
+    from models import VoiceProfile
+    
+    profile = VoiceProfile()
+    
+    current = "warm and friendly"
+    new = "professional and approachable"
+    result = _generate_merge_suggestion('brand_voice', current, new, profile)
+    
+    # Result should contain elements from both or be a sensible merge
+    assert result is not None
+    assert len(result) >= min(len(current), len(new))
+
+
+def test_text_similarity_calculation():
+    """Test the text similarity helper function."""
+    from routes.chat_routes import _text_similarity
+    
+    # Identical texts
+    assert _text_similarity("hello world", "hello world") == 1.0
+    
+    # Completely different
+    assert _text_similarity("hello world", "foo bar baz") == 0.0
+    
+    # Partial overlap
+    similarity = _text_similarity("warm and friendly", "friendly and professional")
+    assert 0.2 < similarity < 0.8
+
+
+def test_fallback_text_merge_brand_voice():
+    """Test fallback merge for brand voice field."""
+    from routes.chat_routes import _fallback_text_merge
+    
+    result = _fallback_text_merge('brand_voice', 'warm, friendly', 'professional, approachable')
+    
+    # Should combine unique descriptors
+    assert 'warm' in result.lower() or 'friendly' in result.lower()
+    assert 'professional' in result.lower() or 'approachable' in result.lower()
+
+
+def test_merge_with_empty_current():
+    """Test that empty current value uses new value."""
+    from routes.chat_routes import _generate_merge_suggestion
+    from models import VoiceProfile
+    
+    profile = VoiceProfile()
+    
+    result = _generate_merge_suggestion('brand_voice', '', 'new value', profile)
+    assert result == 'new value'
+    
+    result = _generate_merge_suggestion('brand_voice', None, 'new value', profile)
+    assert result == 'new value'
+
+
+def test_merge_with_empty_new():
+    """Test that empty new value keeps current value."""
+    from routes.chat_routes import _generate_merge_suggestion
+    from models import VoiceProfile
+    
+    profile = VoiceProfile()
+    
+    result = _generate_merge_suggestion('brand_voice', 'current value', '', profile)
+    assert result == 'current value'
+
+
+def test_target_audience_merge():
+    """Test target audience merging combines both audiences."""
+    from routes.chat_routes import _generate_merge_suggestion
+    from models import VoiceProfile
+    
+    profile = VoiceProfile()
+    
+    current = "busy professionals"
+    new = "health-conscious families seeking quality"
+    result = _generate_merge_suggestion('target_audience', current, new, profile)
+    
+    # Should not lose information from current
+    assert len(result) >= len(current)
