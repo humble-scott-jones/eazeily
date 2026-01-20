@@ -4,10 +4,14 @@ import time
 import requests
 import json
 import pathlib
+import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 PORT = int(os.getenv('PORT', '5001'))
 BASE = f'http://127.0.0.1:{PORT}'
+
+# Mark as slow - requires starting server and PostgreSQL
+pytestmark = pytest.mark.slow
 
 
 def start_server():

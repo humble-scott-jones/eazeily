@@ -17,6 +17,14 @@ os.environ.setdefault('FAST_PASSWORD_HASH', '12000')
 os.environ.setdefault('FLASK_ENV', 'test')
 os.environ.setdefault('DISABLE_RATE_LIMITS', '1')
 
+# Skip e2e tests and scripts requiring playwright unless explicitly enabled
+collect_ignore_glob = []
+if os.getenv('RUN_UI_SMOKE') != '1':
+    collect_ignore_glob.extend([
+        'e2e/*.py',
+        '../scripts/test_*.py',
+    ])
+
 import app as togetherly_app
 from tests.e2e.conftest import app
 
