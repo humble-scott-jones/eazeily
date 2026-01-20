@@ -1586,10 +1586,11 @@ def _handle_update_field(field: str, value: str, profile: VoiceProfile, db) -> d
                 suggestions=['Update brand voice', 'Update target audience', 'View my profile']
             )
         
-        # Validate the value
-        if not value or len(value.strip()) < 2:
+        # Validate the value using the proper validation function
+        is_valid, error_msg = _validate_profile_field(profile_field, value.strip())
+        if not is_valid:
             return _build_response(
-                "Please provide a more detailed value.",
+                f"❌ {error_msg}",
                 action='error'
             )
         

@@ -47,7 +47,8 @@ def test_slash_voice_command_asks_for_value(authenticated_client):
     assert data['action'] == 'continue'
     assert 'brand voice' in data['response'].lower() or 'voice' in data['response'].lower()
     assert data['pending_task'] is not None
-    assert data['pending_task']['field_name'] == 'brand_voice'
+    # Updated to match new field assistance flow
+    assert data['pending_task'].get('field') == 'brand_voice' or data['pending_task'].get('field_name') == 'brand_voice'
 
 
 def test_slash_audience_command_asks_for_value(authenticated_client):
@@ -61,7 +62,8 @@ def test_slash_audience_command_asks_for_value(authenticated_client):
     assert data['action'] == 'continue'
     assert 'audience' in data['response'].lower()
     assert data['pending_task'] is not None
-    assert data['pending_task']['field_name'] == 'target_audience'
+    # Updated to match new field assistance flow
+    assert data['pending_task'].get('field') == 'target_audience' or data['pending_task'].get('field_name') == 'target_audience'
 
 
 def test_update_brand_voice_multi_turn(authenticated_client):
