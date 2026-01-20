@@ -86,6 +86,8 @@ const CONTENT_IMPACT = {
 
 // Configuration constants
 const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
+const TYPEWRITER_SPEED_MS = 25; // Milliseconds per character for typewriter effect
+const TYPEWRITER_SHORT_MESSAGE_THRESHOLD = 50; // Messages shorter than this skip typewriter effect
 
 
 class PromptBox {
@@ -101,6 +103,8 @@ class PromptBox {
     this.placeholder = options.placeholder || this.getDefaultPlaceholder();
     this.onSend = options.onSend || null;
     this.embedded = options.embedded || false; // NEW: When true, only render messages area
+    this.typewriterSpeed = options.typewriterSpeed || TYPEWRITER_SPEED_MS; // Allow override
+    this.typewriterThreshold = options.typewriterThreshold || TYPEWRITER_SHORT_MESSAGE_THRESHOLD; // Allow override
     
     // State
     this.conversationHistory = [];
@@ -581,7 +585,7 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+      await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
     } finally {
       this.setLoading(false);
     }
@@ -640,7 +644,7 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+      await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
     } finally {
       this.setLoading(false);
     }
@@ -670,7 +674,7 @@ class PromptBox {
     
     // Add assistant message
     const isGenerated = data.action === 'generated' || (data.content && data.content.length > 100);
-    this.addMessage('assistant', data.response, false, isGenerated);
+    await this.addMessage('assistant', data.response, false, isGenerated);
     
     // Store generated content for copy
     if (isGenerated && data.content) {
@@ -707,7 +711,7 @@ class PromptBox {
     }
   }
 
-  addMessage(role, content, isError = false, isGenerated = false, buttons = null) {
+  async addMessage(role, content, isError = false, isGenerated = false, buttons = null) {
     const timestamp = Date.now();
     
     // Add to history
@@ -727,9 +731,19 @@ class PromptBox {
     const bubbleDiv = document.createElement('div');
     bubbleDiv.className = 'promptbox-bubble';
 
-    // For assistant messages, render markdown
+    // For assistant messages, apply typewriter effect
     if (role === 'assistant') {
-      bubbleDiv.innerHTML = this.renderMarkdown(content);
+      // Show thinking indicator
+      bubbleDiv.innerHTML = '<em class="thinking">Thinking... 🤔</em>';
+      messageDiv.appendChild(bubbleDiv);
+      conversation.appendChild(messageDiv);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Clear and apply typewriter effect
+      bubbleDiv.innerHTML = '';
+      bubbleDiv.classList.add('typing');
+      await this.typewriterEffect(bubbleDiv, content, 25);
+      bubbleDiv.classList.remove('typing');
       
       // Add copy button for generated content
       if (isGenerated) {
@@ -743,18 +757,23 @@ class PromptBox {
         copyBtn.onclick = () => this.copyContent(content, copyBtn);
         messageDiv.appendChild(copyBtn);
       }
+      
+      // Add buttons if provided
+      if (buttons && buttons.length > 0) {
+        this.renderMessageButtons(buttons, messageDiv);
+      }
     } else {
+      // User messages - no typewriter effect
       bubbleDiv.textContent = content;
+      messageDiv.appendChild(bubbleDiv);
+      
+      // Add buttons if provided
+      if (buttons && buttons.length > 0) {
+        this.renderMessageButtons(buttons, messageDiv);
+      }
+      
+      conversation.appendChild(messageDiv);
     }
-
-    messageDiv.appendChild(bubbleDiv);
-    
-    // Add buttons if provided
-    if (buttons && buttons.length > 0) {
-      this.renderMessageButtons(buttons, messageDiv);
-    }
-    
-    conversation.appendChild(messageDiv);
 
     // Auto-scroll to latest message
     this.scrollToBottom();
@@ -888,6 +907,89 @@ class PromptBox {
         top: scrollContainer.scrollHeight,
         behavior: 'smooth'
       });
+    }
+  }
+
+  /**
+   * Typewriter effect for AI responses
+   * @param {HTMLElement} element - The element to type into
+   * @param {string} text - The text to type
+   * @param {number} speed - Speed in milliseconds per character (default: from config)
+   * @returns {Promise} - Resolves when typing is complete
+   */
+  async typewriterEffect(element, text, speed = null) {
+    // Use instance speed if not provided
+    speed = speed || this.typewriterSpeed;
+    
+    // Skip typewriter for short messages
+    if (text.length < this.typewriterThreshold) {
+      element.innerHTML = this.renderMarkdown(text);
+      return Promise.resolve();
+    }
+    
+    element.innerHTML = '';
+    let currentIndex = 0;
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    
+    return new Promise((resolve) => {
+      const typeInterval = setInterval(() => {
+        if (currentIndex < text.length) {
+          const partialText = text.substring(0, currentIndex + 1);
+          const fixedPartial = this._fixPartialMarkdown(partialText);
+          element.innerHTML = this.renderMarkdown(fixedPartial);
+          
+          // Auto-scroll every 5 characters
+          if (currentIndex % 5 === 0) {
+            this._autoScrollToBottom(conversation, element);
+          }
+          currentIndex++;
+        } else {
+          clearInterval(typeInterval);
+          element.innerHTML = this.renderMarkdown(text);
+          conversation.scrollTop = conversation.scrollHeight;
+          resolve();
+        }
+      }, speed);
+    });
+  }
+
+  /**
+   * Fix partial markdown to avoid broken syntax during typing
+   * @param {string} text - Partial text that may have incomplete markdown
+   * @returns {string} - Fixed text with closed markdown tags
+   */
+  _fixPartialMarkdown(text) {
+    let fixed = text;
+    
+    // Handle bold (**text**)
+    const boldCount = (text.match(/\*\*/g) || []).length;
+    if (boldCount % 2 !== 0) fixed += '**';
+    
+    // Handle code (`code`)
+    const codeCount = (text.match(/`/g) || []).length;
+    if (codeCount % 2 !== 0) fixed += '`';
+    
+    // Handle italic (*text* or _text_) - but only if not part of bold
+    // Count single asterisks that aren't part of **
+    const singleAsterisks = (text.match(/(?<!\*)\*(?!\*)/g) || []).length;
+    if (singleAsterisks % 2 !== 0) fixed += '*';
+    
+    const underscoreCount = (text.match(/_/g) || []).length;
+    if (underscoreCount % 2 !== 0) fixed += '_';
+    
+    return fixed;
+  }
+
+  /**
+   * Auto-scroll to keep typing visible
+   * @param {HTMLElement} container - The scrollable container
+   * @param {HTMLElement} element - The element being typed into
+   */
+  _autoScrollToBottom(container, element) {
+    const messageBottom = element.getBoundingClientRect().bottom;
+    const containerBottom = container.getBoundingClientRect().bottom;
+    if (messageBottom > containerBottom - 50) {
+      container.scrollTop = container.scrollHeight;
     }
   }
 

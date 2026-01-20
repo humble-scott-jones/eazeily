@@ -312,6 +312,12 @@ def create_admin(email, password):
     db.session.commit()
     print(f"Successfully created admin: {email}")
 
+# Demo route for typewriter effect (development only)
+@app.route('/demo/typewriter')
+def typewriter_demo():
+    """Demo page for typewriter effect"""
+    return render_template('typewriter_demo.html')
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
