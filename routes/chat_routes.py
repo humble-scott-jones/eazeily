@@ -60,6 +60,9 @@ voice_engine = VoiceEngine()
 onboarding_service = OnboardingService()
 conversation_router = ConversationRouter()
 
+# Regex pattern for splitting text on sentence boundaries
+SENTENCE_SEPARATORS = r'[.;!\n]'
+
 
 def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str], int]:
     """Check if profile has minimum required fields for content generation.
@@ -978,10 +981,8 @@ def _fallback_text_merge(field: str, current: str, new: str) -> str:
             return current
         else:
             # Try to extract first sentence/clause from each for combining
-            # Split on common sentence separators (period, semicolon, or newline)
-            import re
-            current_first = re.split(r'[.;!\n]', current)[0].strip()
-            new_first = re.split(r'[.;!\n]', new)[0].strip()
+            current_first = re.split(SENTENCE_SEPARATORS, current)[0].strip()
+            new_first = re.split(SENTENCE_SEPARATORS, new)[0].strip()
             
             if current_first.lower() != new_first.lower():
                 # Combine with appropriate separator
@@ -1056,7 +1057,7 @@ Create a merged description that:
 3. Maintains a natural, flowing style
 4. Stays under 200 characters if possible
 
-Return ONLY the merged text, no quotes, no explanation."""
+Return the merged text without surrounding quotes or explanation. Just the merged text itself."""
 
             response = model.generate_content(prompt)
             if response and response.text:
