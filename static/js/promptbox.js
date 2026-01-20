@@ -90,6 +90,211 @@ const TYPEWRITER_SPEED_MS = 25; // Milliseconds per character for typewriter eff
 const TYPEWRITER_SHORT_MESSAGE_THRESHOLD = 50; // Messages shorter than this skip typewriter effect
 
 
+/**
+ * ScrollManager - Handles smart scrolling for chat messages
+ */
+class ScrollManager {
+    constructor(messagesContainer) {
+        this.container = messagesContainer;
+        this.isUserScrolledUp = false;
+        this.scrollButton = null;
+        
+        this.init();
+    }
+    
+    init() {
+        // Create scroll button
+        this.scrollButton = document.createElement('button');
+        this.scrollButton.className = 'scroll-to-bottom';
+        this.scrollButton.innerHTML = '↓ New messages';
+        this.scrollButton.onclick = () => this.scrollToBottom(true);
+        
+        // Insert after messages container
+        this.container.parentElement.appendChild(this.scrollButton);
+        
+        // Listen for scroll events
+        this.container.addEventListener('scroll', () => this.handleScroll(), { passive: true });
+    }
+    
+    handleScroll() {
+        const { scrollTop, scrollHeight, clientHeight } = this.container;
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+        
+        // User is "scrolled up" if more than 100px from bottom
+        this.isUserScrolledUp = distanceFromBottom > 100;
+        
+        // Show/hide scroll button
+        this.scrollButton.classList.toggle('visible', this.isUserScrolledUp);
+    }
+    
+    scrollToBottom(force = false) {
+        if (force || !this.isUserScrolledUp) {
+            this.container.scrollTo({
+                top: this.container.scrollHeight,
+                behavior: 'smooth'
+            });
+            this.scrollButton.classList.remove('visible', 'has-new');
+        }
+    }
+    
+    onNewMessage() {
+        if (this.isUserScrolledUp) {
+            // Show notification instead of auto-scrolling
+            this.scrollButton.classList.add('visible', 'has-new');
+        } else {
+            // Auto-scroll to new message
+            requestAnimationFrame(() => this.scrollToBottom());
+        }
+    }
+}
+
+
+/**
+ * TypewriterEffect - Animated text display with accessibility support
+ */
+class TypewriterEffect {
+    constructor(element, text, options = {}) {
+        this.element = element;
+        this.fullText = text;
+        this.speed = options.speed || 15; // ms per chunk
+        this.chunkSize = options.chunkSize || 3; // characters per tick
+        this.onComplete = options.onComplete || (() => {});
+        this.index = 0;
+        this.cancelled = false;
+        this.skipButton = null;
+        
+        // Check for reduced motion preference
+        this.prefersReducedMotion = window.matchMedia(
+            '(prefers-reduced-motion: reduce)'
+        ).matches;
+    }
+    
+    start() {
+        // Instant display for accessibility
+        if (this.prefersReducedMotion) {
+            this.element.innerHTML = this.formatMarkdown(this.fullText);
+            this.complete();
+            return;
+        }
+        
+        // Add skip button
+        this.skipButton = document.createElement('button');
+        this.skipButton.className = 'typewriter-skip';
+        this.skipButton.innerHTML = 'Skip ⏭️';
+        this.skipButton.onclick = (e) => {
+            e.preventDefault();
+            this.skip();
+        };
+        this.element.parentElement.appendChild(this.skipButton);
+        
+        // Start typing
+        this.type();
+    }
+    
+    type() {
+        if (this.cancelled || this.index >= this.fullText.length) {
+            this.complete();
+            return;
+        }
+        
+        // Type in chunks for better performance
+        const end = Math.min(this.index + this.chunkSize, this.fullText.length);
+        const currentText = this.fullText.slice(0, end);
+        
+        this.element.innerHTML = this.formatMarkdown(currentText);
+        this.index = end;
+        
+        // Continue typing
+        this.timeoutId = setTimeout(() => this.type(), this.speed);
+    }
+    
+    skip() {
+        this.cancelled = true;
+        if (this.timeoutId) {
+            clearTimeout(this.timeoutId);
+        }
+        this.element.innerHTML = this.formatMarkdown(this.fullText);
+        this.complete();
+    }
+    
+    complete() {
+        if (this.skipButton) {
+            this.skipButton.remove();
+            this.skipButton = null;
+        }
+        this.onComplete();
+    }
+    
+    formatMarkdown(text) {
+        // Basic markdown formatting
+        return text
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/_(.+?)_/g, '<em>$1</em>')
+            .replace(/`(.+?)`/g, '<code>$1</code>')
+            .replace(/\n/g, '<br>');
+    }
+}
+
+
+/**
+ * Trigger haptic feedback on supported devices
+ */
+function hapticFeedback(type = 'light') {
+    if (!navigator.vibrate) return;
+    
+    const patterns = {
+        light: [10],
+        medium: [20],
+        success: [10, 50, 10],
+        error: [50, 30, 50],
+        warning: [30, 20, 30],
+    };
+    
+    navigator.vibrate(patterns[type] || patterns.light);
+}
+
+
+/**
+ * Show toast notification
+ */
+function showToast(message, type = 'info') {
+    // Remove existing toast
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <span class="toast-icon">${getToastIcon(type)}</span>
+        <span class="toast-message">${message}</span>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Animate in
+    requestAnimationFrame(() => {
+        toast.classList.add('show');
+    });
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+function getToastIcon(type) {
+    const icons = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'ℹ',
+    };
+    return icons[type] || icons.info;
+}
+
+
 class PromptBox {
   constructor(containerId, options = {}) {
     this.container = document.getElementById(containerId);
@@ -123,6 +328,7 @@ class PromptBox {
     this.editingField = null; // Track currently editing field
     this.pendingProfileSuggestions = null; // Track pending profile suggestions for selection
     this.hasUsedSlashCommand = localStorage.getItem('eazeily_used_slash') === 'true'; // Track if user has used slash commands
+    this.scrollManager = null; // ScrollManager instance
 
     // Get suggestions based on context
     this.suggestions = this.getSuggestions();
@@ -131,12 +337,76 @@ class PromptBox {
     this.render();
     this.attachEventListeners();
     this.startSuggestionRotation();
+    
+    // Initialize ScrollManager after render (needs DOM elements)
+    this.initScrollManager();
   }
 
   getDefaultPlaceholder() {
     return this.context === 'onboarding'
       ? "Drop your website URL and I'll help build your brand profile"
       : "What do you want to create today?";
+  }
+  
+  /**
+   * Initialize ScrollManager for smart scrolling
+   */
+  initScrollManager() {
+    // Find the scrollable container
+    let scrollContainer;
+    
+    if (this.embedded) {
+      // In embedded mode, find the parent chat-container
+      scrollContainer = document.getElementById('chat-container');
+      if (!scrollContainer) {
+        const conversation = document.getElementById(`${this.container.id}-conversation`);
+        if (conversation) {
+          scrollContainer = conversation.closest('.chat-container');
+        }
+      }
+    } else {
+      // In standalone mode, use the conversation div
+      scrollContainer = document.getElementById(`${this.container.id}-conversation`);
+    }
+    
+    if (scrollContainer) {
+      this.scrollManager = new ScrollManager(scrollContainer);
+    }
+  }
+  
+  /**
+   * Show thinking indicator with skeleton loader
+   */
+  showThinkingIndicator() {
+    const skeleton = document.createElement('div');
+    skeleton.className = 'promptbox-message promptbox-message-assistant thinking';
+    skeleton.id = 'thinking-indicator';
+    
+    const bubbleDiv = document.createElement('div');
+    bubbleDiv.className = 'promptbox-bubble';
+    bubbleDiv.innerHTML = `
+        <div class="skeleton-loader">
+            <div class="skeleton-line" style="width: 85%"></div>
+            <div class="skeleton-line" style="width: 65%"></div>
+            <div class="skeleton-line" style="width: 75%"></div>
+        </div>
+        <span class="thinking-text">Thinking...</span>
+    `;
+    
+    skeleton.appendChild(bubbleDiv);
+    
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    if (conversation) {
+      conversation.appendChild(skeleton);
+      this.scrollManager?.onNewMessage();
+    }
+  }
+
+  hideThinkingIndicator() {
+    const indicator = document.getElementById('thinking-indicator');
+    if (indicator) {
+      indicator.remove();
+    }
   }
 
   getSuggestions(contextOverride, lastAction) {
@@ -537,13 +807,15 @@ class PromptBox {
     const sendBtn = document.getElementById(`${this.container.id}-send`);
     this.updateSendButton(textarea, sendBtn);
 
-    // Show loading
+    // Show thinking indicator
+    this.showThinkingIndicator();
     this.setLoading(true);
 
     try {
       // Handle edit mode for import flow
       if (this.editMode === 'import' && this.editFields && this.pendingImport) {
         await handleImportEditInput(this, message);
+        this.hideThinkingIndicator();
         this.setLoading(false);
         return;
       }
@@ -561,6 +833,7 @@ class PromptBox {
         // Check if this is a profile field AI command
         if (PROFILE_FIELD_MAP[command]) {
           await this.handleProfileFieldCommand(command);
+          this.hideThinkingIndicator();
           this.setLoading(false);
           return;
         }
@@ -573,6 +846,7 @@ class PromptBox {
         this.suggestions = this.getSuggestions(null, 'profile_view');
         this.renderSuggestions();
         
+        this.hideThinkingIndicator();
         this.setLoading(false);
         return;
       }
@@ -585,8 +859,10 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
+      this.hideThinkingIndicator();
       await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
     } finally {
+      this.hideThinkingIndicator();
       this.setLoading(false);
     }
   }
@@ -601,7 +877,8 @@ class PromptBox {
     // Add user message to conversation
     this.addMessage('user', message);
 
-    // Show loading
+    // Show thinking indicator
+    this.showThinkingIndicator();
     this.setLoading(true);
 
     try {
@@ -609,6 +886,7 @@ class PromptBox {
       if (window.onboardingState && window.onboardingState !== 'complete') {
         const handled = await this.handleOnboardingInput(message);
         if (handled) {
+          this.hideThinkingIndicator();
           this.setLoading(false);
           return;
         }
@@ -632,6 +910,7 @@ class PromptBox {
         this.suggestions = this.getSuggestions(null, 'profile_view');
         this.renderSuggestions();
         
+        this.hideThinkingIndicator();
         this.setLoading(false);
         return;
       }
@@ -644,8 +923,10 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
+      this.hideThinkingIndicator();
       await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
     } finally {
+      this.hideThinkingIndicator();
       this.setLoading(false);
     }
   }
@@ -733,17 +1014,22 @@ class PromptBox {
 
     // For assistant messages, apply typewriter effect
     if (role === 'assistant') {
-      // Show thinking indicator
-      bubbleDiv.innerHTML = '<em class="thinking">Thinking... 🤔</em>';
       messageDiv.appendChild(bubbleDiv);
       conversation.appendChild(messageDiv);
-      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Clear and apply typewriter effect
-      bubbleDiv.innerHTML = '';
-      bubbleDiv.classList.add('typing');
-      await this.typewriterEffect(bubbleDiv, content, 25);
-      bubbleDiv.classList.remove('typing');
+      // Use new TypewriterEffect for long messages
+      if (content.length > this.typewriterThreshold) {
+        const typewriter = new TypewriterEffect(bubbleDiv, content, {
+          speed: this.typewriterSpeed,
+          onComplete: () => {
+            this.scrollManager?.scrollToBottom();
+          }
+        });
+        typewriter.start();
+      } else {
+        // Short messages: instant display
+        bubbleDiv.innerHTML = this.renderMarkdown(content);
+      }
       
       // Add copy button for generated content
       if (isGenerated) {
@@ -775,8 +1061,8 @@ class PromptBox {
       conversation.appendChild(messageDiv);
     }
 
-    // Auto-scroll to latest message
-    this.scrollToBottom();
+    // Notify scroll manager of new message
+    this.scrollManager?.onNewMessage();
   }
   
   renderMessageButtons(buttons, messageEl) {
@@ -998,8 +1284,11 @@ class PromptBox {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(content).then(() => {
         this.showCopyFeedback(button);
+        hapticFeedback('success');
+        showToast('Copied!', 'success');
       }).catch(err => {
         console.error('Failed to copy:', err);
+        hapticFeedback('error');
         // Fallback for older browsers
         this.fallbackCopy(content, button);
       });
@@ -1019,8 +1308,12 @@ class PromptBox {
     try {
       document.execCommand('copy');
       this.showCopyFeedback(button);
+      hapticFeedback('success');
+      showToast('Copied!', 'success');
     } catch (err) {
       console.error('Fallback copy failed:', err);
+      hapticFeedback('error');
+      showToast('Failed to copy', 'error');
     }
     document.body.removeChild(textarea);
   }
@@ -1804,6 +2097,11 @@ You're ready to create content! Try:
 if (typeof window !== 'undefined') {
   window.PromptBox = PromptBox;
   window.SLASH_COMMANDS = SLASH_COMMANDS; // Export slash commands for dashboard
+  window.ScrollManager = ScrollManager;
+  window.TypewriterEffect = TypewriterEffect;
+  window.hapticFeedback = hapticFeedback;
+  window.showToast = showToast;
+  window.getToastIcon = getToastIcon;
 }
 
 /**

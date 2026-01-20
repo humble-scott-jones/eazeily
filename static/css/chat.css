@@ -232,6 +232,11 @@
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+    overflow: hidden;
 }
 
 .chat-messages {
@@ -239,6 +244,10 @@
     margin: 0 auto;
     padding: 16px;
     padding-bottom: 160px; /* Space for sticky input + buttons + extra breathing room */
+    flex: 1;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* ===== Message Bubbles ===== */
@@ -408,6 +417,37 @@
     .action-label {
         display: inline;
     }
+}
+
+/* ===== Scroll to Bottom Button ===== */
+.scroll-to-bottom {
+    position: fixed;
+    bottom: 100px; /* Above input area */
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent, #6366f1);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    z-index: 50;
+    cursor: pointer;
+    border: none;
+    font-size: 14px;
+}
+
+.scroll-to-bottom.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.scroll-to-bottom.has-new::before {
+    content: '●';
+    color: #ef4444;
+    margin-right: 6px;
 }
 
 /* ===== Input Container ===== */
@@ -638,16 +678,112 @@
     z-index: 1000;
     animation: toastIn 0.3s ease;
     box-shadow: var(--shadow-lg);
+    background: #1f2937;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
 }
 
 .toast-success {
-    background: var(--success);
-    color: white;
+    background: #059669;
 }
 
 .toast-error {
-    background: var(--error);
-    color: white;
+    background: #dc2626;
+}
+
+.toast-warning {
+    background: #d97706;
+}
+
+.toast-info {
+    background: #1f2937;
+}
+
+.toast-icon {
+    font-size: 16px;
+}
+
+.toast-message {
+    font-size: 14px;
+}
+
+/* ===== Skeleton Loader ===== */
+.skeleton-loader {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.skeleton-line {
+    height: 14px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.thinking-text {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-top: 8px;
+    font-style: italic;
+}
+
+.message.thinking {
+    opacity: 0.9;
+}
+
+/* ===== Typewriter Skip Button ===== */
+.typewriter-skip {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.1);
+    border: none;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    z-index: 10;
+}
+
+.typewriter-skip:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* Message content needs relative positioning for skip button */
+.message-content {
+    position: relative;
+}
+
+/* ===== Reduced Motion Support ===== */
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-line {
+        animation: none;
+        background: #e0e0e0;
+    }
+    
+    .scroll-to-bottom,
+    .toast {
+        transition: none;
+    }
 }
 
 /* ===== Utilities ===== */
@@ -661,9 +797,14 @@
         padding: 10px 12px;
     }
     
+    .chat-container {
+        height: 100dvh;
+        height: -webkit-fill-available; /* iOS Safari fallback */
+    }
+    
     .chat-messages {
         padding: 12px;
-        padding-bottom: 110px; /* Increased for mobile to prevent cut-off */
+        padding-bottom: 100px; /* Increased for mobile to prevent cut-off */
     }
     
     .message-assistant {
@@ -676,6 +817,7 @@
     
     .input-container {
         padding: 10px 12px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
     }
 }
 
