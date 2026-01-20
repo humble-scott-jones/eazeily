@@ -48,7 +48,7 @@ from services.onboarding_service import OnboardingService
 from services.conversation_router import ConversationRouter
 from services.profile_validator import get_profile_completeness
 from services.task_registry import get_task_config
-from models import VoiceProfile, db
+from models import VoiceProfile, ContentHistory, db
 import os
 import logging
 import uuid
@@ -359,6 +359,18 @@ def _generate_content_response(task_type: str, params: dict, profile: VoiceProfi
         Response dict with generated content
     """
     try:
+        # Check generation limits
+        if not current_user.can_generate():
+            remaining = current_user.generations_remaining()
+            return _build_response(
+                f"⚠️ **Monthly limit reached!**\n\n"
+                f"Free accounts get 10 generations per month. "
+                f"Upgrade to Pro for unlimited content creation.\n\n"
+                f"Your limit resets on the 1st of next month.",
+                action='limit_reached',
+                suggestions=['View pricing', 'View my profile']
+            )
+        
         topic = params.get('topic', '')
         
         # Check if this task type requires a platform using task registry
@@ -382,7 +394,31 @@ def _generate_content_response(task_type: str, params: dict, profile: VoiceProfi
             **extra_context
         )
         
+        # Save to history (for paid tiers)
+        if current_user.get_tier_limits().get('history_days', 0) > 0:
+            try:
+                ContentHistory.create_from_generation(
+                    user_id=current_user.id,
+                    profile_id=profile.id if profile else None,
+                    task_type=task_type,
+                    content=content,
+                    platform=platform,
+                    topic=topic,
+                    parameters={k: v for k, v in params.items() if k not in ['topic', 'platform']}
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save content to history: {e}")
+        
+        # Increment generation counter
+        current_user.increment_generation()
+        
+        # Format content
         formatted = _format_generated_content(task_type, content)
+        
+        # Add usage info for free tier
+        remaining = current_user.generations_remaining()
+        if remaining >= 0 and remaining <= 3:
+            formatted += f"\n\n_({remaining} generations remaining this month)_"
         
         return _build_response(
             formatted,
