@@ -71,7 +71,17 @@ def upgrade():
 
 def downgrade():
     """
-    We don't drop tables or columns in downgrade to avoid data loss.
-    Tables and columns can be safely ignored by older code versions.
+    Downgrade is intentionally a no-op to prevent data loss.
+    
+    This migration adds new tables and columns but does not remove any existing data.
+    Rolling back this migration would require dropping the content_history table and 
+    removing subscription columns from the users table, which would result in data loss.
+    
+    If a true rollback is needed:
+    1. Back up content_history and user subscription data
+    2. Manually drop the content_history table
+    3. Manually remove subscription_tier, generation_count_month, and generation_reset_date columns
+    
+    Note: This means the migration is not fully reversible through standard alembic downgrade.
     """
     pass

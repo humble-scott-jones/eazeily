@@ -407,7 +407,7 @@ def _generate_content_response(task_type: str, params: dict, profile: VoiceProfi
                     parameters={k: v for k, v in params.items() if k not in ['topic', 'platform']}
                 )
             except Exception as e:
-                logger.warning(f"Failed to save content to history: {e}")
+                logger.warning(f"Failed to save content to history for user {current_user.id}, task_type={task_type}: {e}")
         
         # Increment generation counter
         current_user.increment_generation()

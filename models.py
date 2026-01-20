@@ -58,6 +58,12 @@ class User(UserMixin, db.Model):
             return True
         
         # Reset counter if new month
+        self._reset_generation_counter_if_needed()
+        
+        return self.generation_count_month < limits['generations']
+    
+    def _reset_generation_counter_if_needed(self):
+        """Reset generation counter if we're in a new month."""
         now = datetime.utcnow()
         if self.generation_reset_date is None or \
            self.generation_reset_date.month != now.month or \
@@ -65,8 +71,6 @@ class User(UserMixin, db.Model):
             self.generation_count_month = 0
             self.generation_reset_date = now
             db.session.commit()
-        
-        return self.generation_count_month < limits['generations']
     
     def increment_generation(self):
         """Increment the monthly generation counter."""

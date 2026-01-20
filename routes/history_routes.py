@@ -184,5 +184,8 @@ def get_usage():
         'generations_remaining': current_user.generations_remaining(),
         'profiles_limit': tier_limits['profiles'],
         'history_days': tier_limits['history_days'],
-        'reset_date': current_user.generation_reset_date.isoformat() if current_user.generation_reset_date else None
+        'reset_date': current_user.generation_reset_date.isoformat() if (
+            current_user.generation_reset_date and 
+            hasattr(current_user.generation_reset_date, 'isoformat')
+        ) else None
     })
