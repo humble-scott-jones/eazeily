@@ -977,11 +977,16 @@ def _fallback_text_merge(field: str, current: str, new: str) -> str:
         elif len(current) > len(new) * 1.5:
             return current
         else:
-            current_first = current.split('.')[0].strip()
-            new_first = new.split('.')[0].strip()
+            # Try to extract first sentence/clause from each for combining
+            # Split on common sentence separators (period, semicolon, or newline)
+            import re
+            current_first = re.split(r'[.;!\n]', current)[0].strip()
+            new_first = re.split(r'[.;!\n]', new)[0].strip()
             
             if current_first.lower() != new_first.lower():
-                combined = f"{current_first}. {new_first}."
+                # Combine with appropriate separator
+                separator = '. ' if not current_first.endswith(('.', '!', '?')) else ' '
+                combined = f"{current_first}{separator}{new_first}."
                 if len(combined) <= 300:
                     return combined
     
@@ -1011,7 +1016,8 @@ def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
         merged = []
         for item in current_list + new_list:
             item_str = str(item).strip()
-            if item_str.lower() not in seen:
+            # Filter out empty strings
+            if item_str and item_str.lower() not in seen:
                 merged.append(item_str)
                 seen.add(item_str.lower())
         
