@@ -972,6 +972,7 @@ def _fallback_text_merge(field: str, current: str, new: str) -> str:
         
         if combined:
             return ', '.join(combined[:4])
+        # If no valid descriptors found, fall through to default length-based logic below
     
     # For audience/offer fields, prefer more detailed but preserve both if similar length
     if field in ['target_audience', 'key_offer']:
@@ -990,6 +991,7 @@ def _fallback_text_merge(field: str, current: str, new: str) -> str:
                 combined = f"{current_first}{separator}{new_first}."
                 if len(combined) <= 300:
                     return combined
+                # Combined text too long, fall through to length-based choice below
     
     # Default: prefer whichever is longer
     return current if len(current) >= len(new) else new
@@ -1017,7 +1019,7 @@ def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
         merged = []
         for item in current_list + new_list:
             item_str = str(item).strip()
-            # Filter out empty strings
+            # Skip empty strings and perform case-insensitive deduplication
             if item_str and item_str.lower() not in seen:
                 merged.append(item_str)
                 seen.add(item_str.lower())

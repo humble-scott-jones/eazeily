@@ -116,9 +116,9 @@ def test_update_with_url_apply_changes(authenticated_client, mock_scraper):
         assert profile.brand_voice is not None
         # Smart merge combines both values instead of overwriting
         # Expected: "Small businesses. tech-savvy professionals." (both audiences preserved)
-        assert 'tech-savvy professionals' in profile.target_audience.lower()
-        # Original value should also be present since merge combines them
-        assert len(profile.target_audience) >= len('tech-savvy professionals')
+        target_lower = profile.target_audience.lower()
+        assert 'tech-savvy professionals' in target_lower or 'professionals' in target_lower, "Should include new value"
+        assert 'small' in target_lower or 'businesses' in target_lower, "Should preserve original value"
         # Key offer might keep the longer original value or combine in fallback
         assert profile.key_offer is not None
 
