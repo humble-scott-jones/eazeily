@@ -98,6 +98,7 @@ class ConversationRouter:
         '/profile': 'profile',           # View/edit profile
         '/update': 'profile_update',     # Update specific field
         '/import': 'import_profile',     # Import from URL
+        '/complete': 'guided_completion',  # Guided profile completion
         # All 8 field commands for AI-assisted completion
         '/name': 'field_assistance',     # Business name field
         '/industry': 'field_assistance', # Industry field
@@ -237,6 +238,11 @@ class ConversationRouter:
                 'field': "Which field would you like to update?",
                 'value': "What value would you like to set?"
             }
+        },
+        'guided_completion': {
+            'required': [],
+            'optional': [],
+            'prompts': {}
         },
     }
     

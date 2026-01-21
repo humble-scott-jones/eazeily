@@ -664,7 +664,7 @@ def _apply_profile_update(profile: VoiceProfile, field_name: str, new_value: str
 
 
 def _show_profile_summary(profile: VoiceProfile) -> dict:
-    """Show current profile with update options.
+    """Show current profile with update options in an interactive dashboard.
     
     Args:
         profile: VoiceProfile instance to display
@@ -672,30 +672,248 @@ def _show_profile_summary(profile: VoiceProfile) -> dict:
     Returns:
         Response dict with profile summary
     """
-    writing_samples = profile.get_writing_samples()
-    sample_count = len(writing_samples) if writing_samples else 0
+    # Calculate profile completeness
+    is_complete, missing_fields, completeness = get_profile_completeness(profile)
+    progress_bar = _format_progress_bar(completeness)
     
-    summary = f"""Here's your brand profile:\n\n"""
-    summary += f"**Business:** {profile.business_name or 'Not set'}\n"
-    summary += f"**Industry:** {profile.industry or 'Not set'}\n"
-    summary += f"**Target Audience:** {profile.target_audience or 'Not set'}\n"
-    summary += f"**Brand Voice:** {profile.brand_voice or 'Not set'}\n"
-    summary += f"**Key Offer:** {profile.key_offer or 'Not set'}\n"
-    summary += f"**Writing Samples:** {sample_count} sample(s)\n\n"
-    summary += "Want to update something? Just tell me which part, like:"
-    summary += '- "I want to update my brand voice"\n'
-    summary += '- "Change my target audience"\n'
-    summary += '- Or just type `/update`'
+    # Get all profile fields with status
+    fields = [
+        ('business_name', 'Business Name', profile.business_name),
+        ('industry', 'Industry', profile.industry),
+        ('brand_voice', 'Brand Voice', profile.brand_voice or profile.tone),
+        ('target_audience', 'Target Audience', profile.target_audience),
+        ('key_offer', 'Key Offer', profile.key_offer),
+        ('writing_samples', 'Writing Samples', profile.get_writing_samples() if hasattr(profile, 'get_writing_samples') else []),
+    ]
+    
+    summary = f"**Your Brand Profile**\n\n{progress_bar}\n\n"
+    
+    # List fields with status icons
+    for idx, (field_name, display_name, value) in enumerate(fields, 1):
+        if field_name == 'writing_samples':
+            sample_count = len(value) if value else 0
+            status = "✅" if sample_count > 0 else "❌"
+            value_display = f"{sample_count} sample(s)"
+        else:
+            status = "✅" if value else "❌"
+            value_display = value if value else "Not set"
+            # Truncate long values
+            if value_display and len(value_display) > 50:
+                value_display = value_display[:50] + "..."
+        
+        summary += f"{status} **{idx}. {display_name}:** {value_display}\n"
+    
+    summary += f"\n**To edit a field:**\n"
+    summary += f"• Reply with a number (1-6) to edit that field\n"
+    summary += f"• Use slash commands like `/voice` or `/audience`\n"
+    summary += f"• Or just say what you want to update\n"
+    
+    if not is_complete:
+        summary += f"\n💡 Complete your profile to unlock better content generation!"
     
     return _build_response(
         summary,
         action='profile_view',
+        pending_task={
+            'task_type': 'profile_dashboard',
+            'flow': 'profile_dashboard'
+        },
         suggestions=[
-            'Update brand voice',
-            'Update target audience', 
-            'Update key offer',
-            'Create content'
+            'Update field by number',
+            'Create content',
+            'Complete my profile' if not is_complete else 'View completeness'
         ]
+    )
+
+
+def _handle_profile_dashboard_selection(message: str, profile: VoiceProfile) -> dict:
+    """Handle field selection from the profile dashboard.
+    
+    Args:
+        message: User's input (should be a number 1-6)
+        profile: VoiceProfile instance
+        
+    Returns:
+        Response dict routing to field update
+    """
+    # Map of field numbers to field names
+    field_map = {
+        '1': 'business_name',
+        '2': 'industry',
+        '3': 'brand_voice',
+        '4': 'target_audience',
+        '5': 'key_offer',
+        '6': 'writing_samples',
+    }
+    
+    message_stripped = message.strip()
+    
+    # Check if user selected a number
+    if message_stripped in field_map:
+        field = field_map[message_stripped]
+        # Route to field assistance which will provide AI suggestions
+        return _handle_field_assistance(field, profile)
+    
+    # Not a valid selection, show error
+    return _build_response(
+        "Please reply with a number (1-6) to edit that field, or use a slash command like `/voice`.",
+        action='continue',
+        pending_task={
+            'task_type': 'profile_dashboard',
+            'flow': 'profile_dashboard'
+        }
+    )
+
+
+def _start_guided_completion(profile: VoiceProfile) -> dict:
+    """Start guided profile completion flow.
+    
+    Identifies missing critical fields and starts asking for them one at a time.
+    
+    Args:
+        profile: VoiceProfile instance
+        
+    Returns:
+        Response dict starting the guided flow
+    """
+    # Get missing fields
+    is_complete, missing_fields, completeness = get_profile_completeness(profile)
+    
+    if is_complete:
+        return _build_response(
+            "🎉 **Your profile is already complete!**\n\n"
+            f"You've filled in all the required fields. Great work!\n\n"
+            f"📊 Profile: [██████████] 100%\n\n"
+            f"Ready to create some amazing content?",
+            action='profile_complete',
+            suggestions=['Create content', 'View my profile']
+        )
+    
+    # Start with the first missing field
+    return _continue_guided_completion(missing_fields, 0, profile, completeness)
+
+
+def _continue_guided_completion(missing_fields: list, current_index: int, profile: VoiceProfile, completeness: int) -> dict:
+    """Continue the guided completion flow.
+    
+    Args:
+        missing_fields: List of missing field names
+        current_index: Index of current field being asked
+        profile: VoiceProfile instance
+        completeness: Current completeness percentage
+        
+    Returns:
+        Response dict with next question
+    """
+    if current_index >= len(missing_fields):
+        # All done!
+        return _build_response(
+            "🎊 **Congratulations! Your profile is complete!** 🎊\n\n"
+            f"You've completed all the required fields. Now I can create much better content for you!\n\n"
+            f"📊 Profile: [██████████] 100%\n\n"
+            f"What would you like to create?",
+            action='profile_complete',
+            suggestions=['Create a post', 'Write an email', 'View my profile']
+        )
+    
+    field_name = missing_fields[current_index]
+    remaining = len(missing_fields) - current_index
+    progress_bar = _format_progress_bar(completeness)
+    
+    # Map field names to friendly prompts
+    field_prompts = {
+        'business_name': "What's the name of your business?",
+        'industry': "What industry are you in?",
+        'brand_voice': "How would you describe your brand's personality?",
+        'target_audience': "Who are your ideal customers? Tell me about them.",
+        'key_offer': "What's your main value proposition? What makes you unique?",
+        'writing_samples': "Share an example of your writing (a social post, email, or website copy).",
+    }
+    
+    field_display = field_name.replace('_', ' ').title()
+    prompt = field_prompts.get(field_name, f"Tell me about your {field_display}")
+    
+    return _build_response(
+        f"**Let's complete your profile!** ({remaining} field{'s' if remaining > 1 else ''} remaining)\n\n"
+        f"{progress_bar}\n\n"
+        f"**{field_display}**\n{prompt}\n\n"
+        f"_Reply 'skip' to move to the next field_",
+        action='continue',
+        pending_task={
+            'task_type': 'guided_completion',
+            'flow': 'guided_completion',
+            'missing_fields': missing_fields,
+            'current_index': current_index,
+            'current_field': field_name
+        }
+    )
+
+
+def _handle_guided_completion_response(message: str, pending_task: dict, profile: VoiceProfile, db) -> dict:
+    """Handle user response during guided completion flow.
+    
+    Args:
+        message: User's response
+        pending_task: Current task state with missing_fields and current_index
+        profile: VoiceProfile instance
+        db: Database session
+        
+    Returns:
+        Response dict with next step
+    """
+    missing_fields = pending_task.get('missing_fields', [])
+    current_index = pending_task.get('current_index', 0)
+    current_field = pending_task.get('current_field')
+    
+    message_lower = message.lower().strip()
+    
+    # Check for skip
+    if message_lower == 'skip':
+        # Move to next field
+        _, _, completeness = get_profile_completeness(profile)
+        return _continue_guided_completion(missing_fields, current_index + 1, profile, completeness)
+    
+    # Apply the value to the current field
+    if current_field:
+        field_mapping = {
+            'business_name': 'business_name',
+            'industry': 'industry',
+            'brand_voice': 'brand_voice',
+            'target_audience': 'target_audience',
+            'key_offer': 'key_offer',
+        }
+        
+        # Special handling for writing_samples
+        if current_field == 'writing_samples':
+            current_samples = profile.get_writing_samples() or []
+            current_samples.append(message.strip())
+            profile.set_writing_samples(current_samples)
+        else:
+            profile_field = field_mapping.get(current_field)
+            if profile_field and hasattr(profile, profile_field):
+                setattr(profile, profile_field, message.strip())
+        
+        try:
+            db.session.commit()
+            logger.info(f"Updated {current_field} during guided completion")
+            
+            # Calculate new completeness
+            _, _, completeness = get_profile_completeness(profile)
+            
+            # Move to next field
+            return _continue_guided_completion(missing_fields, current_index + 1, profile, completeness)
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Error saving field during guided completion: {e}", exc_info=True)
+            return _build_response(
+                "I had trouble saving that. Please try again.",
+                action='error'
+            )
+    
+    # Fallback - shouldn't reach here
+    return _build_response(
+        "Something went wrong. Let's start over with `/complete`",
+        action='error'
     )
 
 
@@ -1869,6 +2087,10 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
         # Show profile summary
         return _show_profile_summary(profile)
     
+    # Handle guided profile completion
+    if intent_result['task_type'] == 'guided_completion':
+        return _start_guided_completion(profile)
+    
     # Handle writing samples collection
     if intent_result['task_type'] == 'update_samples':
         extracted = intent_result.get('extracted_params', {})
@@ -2154,6 +2376,14 @@ def chat():
             if flow in ['profile_update', 'url_update_confirmation', 'import_merge']:
                 # Continue profile update flow (includes import merge)
                 result = _handle_profile_update(message, pending_task, profile, db)
+                return jsonify(result), 200
+            elif flow == 'profile_dashboard':
+                # Handle field selection from profile dashboard
+                result = _handle_profile_dashboard_selection(message, profile)
+                return jsonify(result), 200
+            elif flow == 'guided_completion':
+                # Handle guided profile completion
+                result = _handle_guided_completion_response(message, pending_task, profile, db)
                 return jsonify(result), 200
             elif flow == 'field_update':
                 # Continue field update flow (for new FIELD_COMMANDS)
