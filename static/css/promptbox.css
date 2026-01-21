@@ -21,6 +21,7 @@
   --promptbox-radius: 12px;
   --promptbox-radius-pill: 20px;
   --promptbox-transition: 0.2s ease;
+  --promptbox-spacing-sm: 8px;  /* Small spacing for buttons and components */
 }
 
 /* Dark mode support */
@@ -227,8 +228,8 @@
 .promptbox-copy-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--promptbox-spacing-sm);
+  margin-top: var(--promptbox-spacing-sm);
 }
 
 .promptbox-copy-btn {
@@ -918,7 +919,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: var(--promptbox-spacing-sm);
 }
 
 .promptbox-variation-btn {

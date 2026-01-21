@@ -324,7 +324,9 @@ class PromptBox {
     this.lastAction = null; // Track last action for contextual suggestions
     this.selectedAutocompleteIndex = -1; // Track selected autocomplete item
     this.lastGeneratedContent = null; // Track last generated content for copy
-    this.lastGeneratedMetadata = null; // Track metadata (platform, task_type, etc.)
+    // Track metadata for last generated content
+    // Expected properties: { platform: string, task_type: string, timestamp: number }
+    this.lastGeneratedMetadata = null; 
     this.collectionState = null; // Track multi-step collection flows (e.g., writing samples)
     this.pendingImport = null; // Track pending import data for confirmation
     this.pendingImportUrl = null; // Track URL of pending import
@@ -1379,8 +1381,12 @@ class PromptBox {
       });
     }
     
-    // Also log to console in development
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // Also log to console in development (check for dev environment flag or localhost)
+    const isDevelopment = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1' ||
+                         window.location.hostname === '' ||
+                         process?.env?.NODE_ENV === 'development';
+    if (isDevelopment) {
       console.log('Copy event tracked:', { format });
     }
   }
@@ -1407,13 +1413,14 @@ class PromptBox {
   }
 
   generateHashtags(content) {
-    // Simple hashtag generation based on common words
-    const words = content.toLowerCase().split(/\s+/);
-    const hashtags = [];
+    // TODO: Implement proper hashtag generation using content analysis or AI
+    // Currently returns placeholder hashtags - future enhancement should:
+    // 1. Extract keywords from content
+    // 2. Use AI to suggest relevant hashtags
+    // 3. Consider platform-specific hashtag best practices
     
-    // Common social media hashtags (would be better to use AI or topic extraction)
+    // Simple placeholder implementation for now
     const commonHashtags = ['#socialmedia', '#business', '#marketing', '#growth'];
-    
     return commonHashtags.slice(0, 3);
   }
 

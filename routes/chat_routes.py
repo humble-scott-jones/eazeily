@@ -60,6 +60,14 @@ voice_engine = VoiceEngine()
 onboarding_service = OnboardingService()
 conversation_router = ConversationRouter()
 
+# Commands that should not show guidance and instead call their handlers directly
+# Profile commands: handled by profile update flow
+# Utility commands: handled by dedicated handlers (export, preview)
+COMMANDS_WITHOUT_GUIDANCE = [
+    '/update', '/profile', '/voice', '/audience', '/samples',  # Profile commands
+    '/export', '/preview'  # Utility commands
+]
+
 
 def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str], int]:
     """Check if profile has minimum required fields for content generation.
@@ -2240,9 +2248,8 @@ def chat():
             command = intent_result.get('command')
             if command:
                 guidance = get_command_guidance(command)
-                # For non-profile commands and utility commands, show guidance and return
-                # For profile, export, and preview commands, guidance will be shown by their handlers
-                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples', '/export', '/preview']:
+                # For commands in COMMANDS_WITHOUT_GUIDANCE, let their handlers provide guidance
+                if guidance and command not in COMMANDS_WITHOUT_GUIDANCE:
                     return jsonify(_build_response(guidance, action='continue')), 200
         
         # Handle profile-related intents (including new commands)
