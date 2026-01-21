@@ -310,6 +310,71 @@ def _get_content_suggestions() -> list:
     ]
 
 
+def _generate_quick_actions(task_type: str, params: dict) -> List[str]:
+    """Generate contextual quick action buttons after content generation.
+    
+    Args:
+        task_type: Type of content that was generated
+        params: Parameters used for generation (includes platform, mood, etc.)
+    
+    Returns:
+        List of quick action strings (max 6)
+    """
+    actions = []
+    
+    # Always show these core actions
+    actions.append('📋 Copy')
+    actions.append('🔄 Regenerate')
+    
+    # Platform alternatives (exclude current platform)
+    current_platform = params.get('platform', 'instagram').lower()
+    platform_alternatives = {
+        'instagram': ['📱 Make it for LinkedIn', '🐦 Make it for Twitter'],
+        'facebook': ['📱 Make it for Instagram', '🔗 Make it for LinkedIn'],
+        'linkedin': ['📱 Make it for Instagram', '🐦 Make it for Twitter'],
+        'twitter': ['📱 Make it for Instagram', '🔗 Make it for LinkedIn'],
+        'tiktok': ['📱 Make it for Instagram', '🐦 Make it for Twitter'],
+    }
+    
+    # Add one platform alternative
+    if current_platform in platform_alternatives:
+        actions.append(platform_alternatives[current_platform][0])
+    
+    # Tone adjustments (context-aware)
+    current_mood = params.get('mood', '').lower()
+    if current_mood != 'casual':
+        actions.append('😊 More casual')
+    if current_mood != 'urgent':
+        actions.append('📢 More urgent')
+    
+    # Add "shorter" if we haven't hit the limit yet
+    if len(actions) < 6:
+        actions.append('✂️ Shorter')
+    
+    # Limit to maximum 6 actions
+    return actions[:6]
+
+
+def _apply_smart_defaults(task_type: str, collected: dict) -> None:
+    """Apply smart defaults for optional fields before asking follow-up questions.
+    
+    Defaults:
+    - platform: Default to "instagram" for post/caption/ad if not specified
+    - video_length: Default to "30s" for script if not specified
+    
+    Args:
+        task_type: Type of content being generated
+        collected: Dictionary of collected parameters (modified in place)
+    """
+    # Default platform to Instagram for social content types
+    if task_type in ['post', 'caption', 'ad'] and not collected.get('platform'):
+        collected['platform'] = 'instagram'
+    
+    # Default video length to 30s for scripts
+    if task_type == 'script' and not collected.get('video_length'):
+        collected['video_length'] = '30s'
+
+
 def _continue_content_task(pending_task: dict, message: str, profile: VoiceProfile) -> dict:
     """Continue collecting fields for content generation.
     
@@ -332,7 +397,10 @@ def _continue_content_task(pending_task: dict, message: str, profile: VoiceProfi
         field_name = missing_before[0]
         collected[field_name] = _normalize_field_value(field_name, message)
     
-    # Check if still missing fields
+    # Apply smart defaults before checking for missing fields
+    _apply_smart_defaults(task_type, collected)
+    
+    # Check if still missing fields after applying defaults
     missing_after = conversation_router.get_missing_fields(task_type, collected)
     
     if missing_after:
@@ -422,12 +490,15 @@ def _generate_content_response(task_type: str, params: dict, profile: VoiceProfi
         if remaining >= 0 and remaining <= 3:
             formatted += f"\n\n_({remaining} generations remaining this month)_"
         
+        # Generate contextual quick actions
+        quick_actions = _generate_quick_actions(task_type, params)
+        
         return _build_response(
             formatted,
             action='generated',
             content=content,
             pending_task=None,
-            suggestions=['Create another', 'Try /post', 'Try /email']
+            suggestions=quick_actions
         )
     except Exception as e:
         logger.error(f"Content generation failed: {e}", exc_info=True)
@@ -1688,6 +1759,227 @@ def _handle_update_field(field: str, value: str, profile: VoiceProfile, db) -> d
         )
 
 
+def _handle_quick_templates(profile: VoiceProfile) -> dict:
+    """Handle /quick command - show industry-specific templates.
+    
+    Args:
+        profile: User's voice profile
+        
+    Returns:
+        Response dict with template list and pending task
+    """
+    from services.template_service import format_template_list
+    
+    # Get user's industry from profile
+    industry = getattr(profile, 'industry', None)
+    
+    # Format template list
+    template_list = format_template_list(industry)
+    
+    industry_text = f" for {industry}" if industry else ""
+    
+    response_text = (
+        f"🚀 **Quick Start Templates{industry_text}**\n\n"
+        f"{template_list}"
+    )
+    
+    return _build_response(
+        response_text,
+        action='continue',
+        pending_task={
+            'task_type': 'quick_templates',
+            'flow': 'template_selection',
+            'industry': industry
+        }
+    )
+
+
+def _start_batch_session(profile: VoiceProfile) -> dict:
+    """Handle /session command - start batch generation mode.
+    
+    Args:
+        profile: User's voice profile
+        
+    Returns:
+        Response dict with session instructions
+    """
+    response_text = (
+        "🎯 **Batch Session Started!**\n\n"
+        "I'll remember your settings for quick content generation.\n\n"
+        "**Default platform:** Instagram\n\n"
+        "**Commands:**\n"
+        "• Just type a topic to generate instantly\n"
+        "• `use [platform]` to switch platforms (e.g., \"use LinkedIn\")\n"
+        "• `done` to end session and see summary\n\n"
+        "_What's your first topic?_"
+    )
+    
+    return _build_response(
+        response_text,
+        action='continue',
+        pending_task={
+            'task_type': 'batch_session',
+            'flow': 'session_active',
+            'platform': 'instagram',
+            'generation_count': 0
+        }
+    )
+
+
+def _handle_template_selection(message: str, pending_task: dict, profile: VoiceProfile) -> dict:
+    """Handle user's template selection or custom request.
+    
+    Args:
+        message: User's selection (number 1-5) or custom description
+        pending_task: Current task state with industry info
+        profile: User's voice profile
+        
+    Returns:
+        Response dict with generated content or error
+    """
+    from services.template_service import get_template_by_index
+    
+    industry = pending_task.get('industry')
+    message_stripped = message.strip()
+    
+    # Check if user selected a template number
+    if message_stripped.isdigit():
+        template_index = int(message_stripped)
+        template = get_template_by_index(industry, template_index)
+        
+        if template:
+            # Generate content using template
+            params = {
+                'topic': template['topic'],
+                'mood': template['mood'],
+                'platform': 'instagram'  # Default platform
+            }
+            return _generate_content_response('post', params, profile)
+        else:
+            return _build_response(
+                f"Please choose a number between 1 and 5, or describe what you need.",
+                action='continue',
+                pending_task=pending_task
+            )
+    else:
+        # User described custom need - parse and generate
+        intent = conversation_router.parse_intent(message, profile)
+        
+        if intent.get('task_type') and intent['task_type'] not in ['unknown', 'quick_templates']:
+            # Valid task type detected - continue with content generation
+            task_type = intent['task_type']
+            collected = intent.get('extracted_params', {})
+            
+            # Apply smart defaults
+            _apply_smart_defaults(task_type, collected)
+            
+            # Check if we have all required fields
+            missing = conversation_router.get_missing_fields(task_type, collected)
+            
+            if not missing:
+                return _generate_content_response(task_type, collected, profile)
+            else:
+                # Continue collecting fields
+                next_prompt = conversation_router.get_next_prompt(task_type, missing)
+                return _build_response(
+                    next_prompt,
+                    action='continue',
+                    pending_task={
+                        'task_type': task_type,
+                        'collected': collected,
+                        'flow': 'content'
+                    }
+                )
+        else:
+            # Couldn't parse - ask for clarification
+            return _build_response(
+                "I'm not sure what you'd like to create. Could you describe it more specifically, or choose a template number (1-5)?",
+                action='continue',
+                pending_task=pending_task
+            )
+
+
+def _handle_session_action(message: str, pending_task: dict, profile: VoiceProfile) -> dict:
+    """Handle actions within an active batch session.
+    
+    Args:
+        message: User's action (topic, platform switch, or "done")
+        pending_task: Current session state
+        profile: User's voice profile
+        
+    Returns:
+        Response dict with generated content or session summary
+    """
+    message_lower = message.lower().strip()
+    current_platform = pending_task.get('platform', 'instagram')
+    generation_count = pending_task.get('generation_count', 0)
+    
+    # Check for session end
+    if message_lower in ['done', 'end', 'stop', 'quit', 'exit']:
+        summary = (
+            f"📊 **Session Complete!**\n\n"
+            f"Generated **{generation_count}** pieces of content.\n\n"
+            f"Great work! Want to start another session?"
+        )
+        return _build_response(
+            summary,
+            action='continue',
+            suggestions=['Start new session', 'Create content', 'View history']
+        )
+    
+    # Check for platform switch (e.g., "use LinkedIn")
+    platform_switch_pattern = r'^use\s+(\w+)$'
+    match = re.match(platform_switch_pattern, message_lower)
+    if match:
+        new_platform_input = match.group(1)
+        
+        # Map common aliases to full platform names
+        platform_map = {
+            'ig': 'instagram',
+            'insta': 'instagram',
+            'fb': 'facebook',
+            'linkedin': 'linkedin',
+            'twitter': 'twitter',
+            'x': 'twitter',
+            'tiktok': 'tiktok'
+        }
+        
+        new_platform = platform_map.get(new_platform_input, new_platform_input)
+        
+        # Update session platform
+        pending_task['platform'] = new_platform
+        
+        return _build_response(
+            f"✅ Switched to **{new_platform.title()}**\n\nWhat's your next topic?",
+            action='continue',
+            pending_task=pending_task
+        )
+    
+    # Otherwise, treat as topic for content generation
+    params = {
+        'topic': message,
+        'platform': current_platform
+    }
+    
+    # Generate content
+    result = _generate_content_response('post', params, profile)
+    
+    # Increment generation count if successful
+    if result.get('action') == 'generated':
+        pending_task['generation_count'] = generation_count + 1
+        
+        # Add session continuation message
+        original_response = result.get('response', '')
+        session_continue = f"\n\n_Session active • {pending_task['generation_count']} generated • Type next topic or 'done'_"
+        result['response'] = original_response + session_continue
+        
+        # Update pending task to continue session
+        result['pending_task'] = pending_task
+        result['action'] = 'continue'
+    
+    return result
+
+
 def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfile, db) -> dict:
     """Handle profile field updates.
     
@@ -2058,6 +2350,14 @@ def chat():
                         "I lost track of which field we were updating. Please try again.",
                         action='error'
                     )), 500
+            elif flow == 'template_selection':
+                # Continue quick template flow
+                result = _handle_template_selection(message, pending_task, profile)
+                return jsonify(result), 200
+            elif flow == 'session_active':
+                # Continue batch session flow
+                result = _handle_session_action(message, pending_task, profile)
+                return jsonify(result), 200
             elif flow == 'content':
                 # Continue content generation flow
                 result = _continue_content_task(pending_task, message, profile)
@@ -2154,6 +2454,18 @@ def chat():
                     "I'm not sure which field you want to update. Try using a command like /keywords or /goals.",
                     action='error'
                 )), 400
+        
+        # Handle /quick command - show industry templates
+        if intent_result['task_type'] == 'quick_templates':
+            logger.info(f"[{request_id}] Handling quick templates request")
+            result = _handle_quick_templates(profile)
+            return jsonify(result), 200
+        
+        # Handle /session command - start batch generation mode
+        if intent_result['task_type'] == 'batch_session':
+            logger.info(f"[{request_id}] Starting batch session")
+            result = _start_batch_session(profile)
+            return jsonify(result), 200
         
         # Handle NEW direct field update (from FIELD_COMMANDS with value)
         if intent_result['task_type'] == 'update_field':

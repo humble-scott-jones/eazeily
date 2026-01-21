@@ -19,6 +19,18 @@ SUPPORTED_PLATFORMS = {
     'tiktok': ['tiktok', 'tik tok'],
 }
 
+# Mood/Tone keywords for content generation
+MOOD_KEYWORDS = {
+    'excited': ['excited', 'exciting', 'thrilled', 'enthusiastic'],
+    'professional': ['professional', 'formal', 'business', 'polished'],
+    'casual': ['casual', 'relaxed', 'friendly', 'laid back', 'laid-back'],
+    'urgent': ['urgent', 'hurry', 'limited time', 'act now', 'don\'t miss'],
+    'celebratory': ['celebratory', 'celebrating', 'congrats', 'achievement', 'success'],
+    'informative': ['informative', 'educational', 'learn', 'tip', 'advice', 'how to'],
+    'funny': ['funny', 'humorous', 'witty', 'playful', 'fun'],
+    'inspiring': ['inspiring', 'motivational', 'uplifting', 'encouraging'],
+}
+
 # Field name aliases for profile updates
 FIELD_ALIASES = {
     'business_name': ['business', 'company', 'name', 'business name', 'company name'],
@@ -98,6 +110,8 @@ class ConversationRouter:
         '/profile': 'profile',           # View/edit profile
         '/update': 'profile_update',     # Update specific field
         '/import': 'import_profile',     # Import from URL
+        '/quick': 'quick_templates',     # Show industry templates
+        '/session': 'batch_session',     # Start batch generation mode
         # All 8 field commands for AI-assisted completion
         '/name': 'field_assistance',     # Business name field
         '/industry': 'field_assistance', # Industry field
@@ -238,6 +252,20 @@ class ConversationRouter:
                 'value': "What value would you like to set?"
             }
         },
+        'quick_templates': {
+            'required': ['template_selection'],
+            'optional': [],
+            'prompts': {
+                'template_selection': "Choose a template number (1-5) or describe what you need:"
+            }
+        },
+        'batch_session': {
+            'required': ['session_action'],
+            'optional': ['platform'],
+            'prompts': {
+                'session_action': "Type a topic to generate, 'use [platform]' to switch platforms, or 'done' to end:"
+            }
+        },
     }
     
     # Task type keywords for fallback classification (ordered by specificity)
@@ -333,6 +361,12 @@ class ConversationRouter:
         """
         Fallback keyword-based classification when Gemini is unavailable.
         
+        Detects natural language patterns like:
+        - "Write me a post about..."
+        - "I need an email for..."
+        - "Create a caption for..."
+        - "Draft a script about..."
+        
         Args:
             user_input: User's natural language message
         
@@ -346,8 +380,29 @@ class ConversationRouter:
         if profile_intent:
             return profile_intent
         
-        # Use class constant for task patterns
+        # Check for natural language patterns with task types
+        natural_patterns = [
+            (r'\b(?:write|create|make|draft|generate)\s+(?:me\s+)?(?:a|an)\s+post\b', 'post'),
+            (r'\b(?:write|create|make|draft|generate)\s+(?:me\s+)?(?:a|an)\s+caption\b', 'caption'),
+            (r'\b(?:write|create|make|draft|generate)\s+(?:me\s+)?(?:a|an)\s+script\b', 'script'),
+            (r'\b(?:write|create|make|draft|generate)\s+(?:me\s+)?(?:a|an)\s+email\b', 'email'),
+            (r'\b(?:write|create|make|draft|generate)\s+(?:me\s+)?(?:a|an)\s+ad\b', 'ad'),
+            (r'\b(?:write|create|make|draft|generate)\s+(?:me\s+)?(?:a|an)\s+blog\b', 'blog'),
+            (r'\bi need (?:a|an)\s+post\b', 'post'),
+            (r'\bi need (?:a|an)\s+caption\b', 'caption'),
+            (r'\bi need (?:a|an)\s+email\b', 'email'),
+            (r'\bi need (?:a|an)\s+script\b', 'script'),
+            (r'\bi need (?:a|an)\s+ad\b', 'ad'),
+        ]
+        
         task_type = None
+        for pattern, ttype in natural_patterns:
+            if re.search(pattern, message_lower):
+                task_type = ttype
+                break
+        
+        # If no natural pattern match, use existing keyword patterns
+        if not task_type:
         for keywords, ttype in self.TASK_PATTERNS:
             if any(keyword in message_lower for keyword in keywords):
                 task_type = ttype
@@ -553,7 +608,12 @@ Rules:
         """
         Extract known parameters from user's message.
         
-        This does simple pattern matching for common parameters.
+        This does simple pattern matching for common parameters including:
+        - Platform (instagram, facebook, linkedin, twitter, tiktok)
+        - Mood/Tone (excited, professional, casual, urgent, etc.)
+        - Video length (15s, 30s, 60s, 90s)
+        - CTA (call-to-action from "with cta [text]" pattern)
+        - Topic (remaining content after extracting other params)
         
         Args:
             text: User's message text
@@ -570,6 +630,20 @@ Rules:
             if any(re.search(r'\b' + re.escape(kw) + r'\b', text_lower) for kw in keywords):
                 params['platform'] = platform
                 break
+        
+        # Extract mood/tone using word boundaries
+        for mood, keywords in MOOD_KEYWORDS.items():
+            if any(re.search(r'\b' + re.escape(kw) + r'\b', text_lower) for kw in keywords):
+                params['mood'] = mood
+                break
+        
+        # Extract CTA from "with cta [text]" pattern
+        cta_pattern = r'with cta\s+["\']?([^"\']+)["\']?'
+        cta_match = re.search(cta_pattern, text, re.IGNORECASE)
+        if cta_match:
+            params['cta'] = cta_match.group(1).strip()
+            # Remove the CTA part from text for topic extraction
+            text = re.sub(cta_pattern, '', text, flags=re.IGNORECASE)
         
         # Extract video length (for scripts)
         if task_type == 'script':
@@ -590,6 +664,11 @@ Rules:
         topic_text = text
         for words in SUPPORTED_PLATFORMS.values():
             for word in words:
+                topic_text = re.sub(r'\b' + re.escape(word) + r'\b', '', topic_text, flags=re.IGNORECASE)
+        
+        # Remove mood keywords from topic
+        for keywords in MOOD_KEYWORDS.values():
+            for word in keywords:
                 topic_text = re.sub(r'\b' + re.escape(word) + r'\b', '', topic_text, flags=re.IGNORECASE)
         
         # Remove task-type related words
