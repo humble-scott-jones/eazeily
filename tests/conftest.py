@@ -99,6 +99,35 @@ def authenticated_client(client, tmp_path, monkeypatch):
     return client
 
 
+@pytest.fixture
+def profile(authenticated_client):
+    """Fixture that returns the profile for the authenticated user."""
+    from models import User, VoiceProfile, db
+    test_app = authenticated_client.application
+    with test_app.app_context():
+        user = User.query.filter_by(email='test@example.com').first()
+        return VoiceProfile.query.filter_by(user_id=user.id).first()
+
+
+@pytest.fixture
+def complete_profile(authenticated_client):
+    """Fixture that returns a complete profile."""
+    from models import User, VoiceProfile, db
+    test_app = authenticated_client.application
+    with test_app.app_context():
+        user = User.query.filter_by(email='test@example.com').first()
+        profile = VoiceProfile.query.filter_by(user_id=user.id).first()
+        # Ensure all required fields are filled
+        profile.business_name = 'Complete Business'
+        profile.industry = 'Technology'
+        profile.brand_voice = 'Professional'
+        profile.target_audience = 'Small businesses'
+        profile.key_offer = 'Quality solutions'
+        profile.set_writing_samples(['Sample 1', 'Sample 2'])
+        db.session.commit()
+        return profile
+
+
 def get_user_row(db_path, email):
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row

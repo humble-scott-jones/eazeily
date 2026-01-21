@@ -2418,7 +2418,12 @@ def chat():
                 return jsonify(result), 200
         
         # Route based on profile completeness
-        if not profile_ready:
+        # BUT: Allow explicit profile commands even if profile is incomplete
+        message_lower = message.lower().strip()
+        explicit_profile_commands = ['/profile', '/complete', '/voice', '/audience', '/offer', '/name', '/industry', '/samples', '/keywords', '/goals']
+        is_explicit_profile_command = any(message_lower.startswith(cmd) for cmd in explicit_profile_commands)
+        
+        if not profile_ready and not is_explicit_profile_command:
             # Route to onboarding flow
             logger.info(f"[{request_id}] User {current_user.id} needs onboarding - missing: {missing_fields}")
             
@@ -2487,7 +2492,7 @@ def chat():
                     return jsonify(_build_response(guidance, action='continue')), 200
         
         # Handle profile-related intents (including new commands)
-        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:
+        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url', 'guided_completion']:
             logger.info(f"[{request_id}] Handling profile update request")
             result = _handle_profile_update(message, None, profile, db)
             return jsonify(result), 200
