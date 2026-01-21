@@ -48,6 +48,7 @@ from services.onboarding_service import OnboardingService
 from services.conversation_router import ConversationRouter
 from services.profile_validator import get_profile_completeness
 from services.task_registry import get_task_config
+from services.template_service import get_recommended_templates, get_template_by_id
 from models import VoiceProfile, ContentHistory, db
 import os
 import logging
@@ -1963,6 +1964,127 @@ def _parse_intent(message: str, history: list) -> tuple[str, dict]:
     return 'post', initial_collected
 
 
+def _handle_templates_command(message: str, profile: VoiceProfile, pending_task: dict = None) -> dict:
+    """Handle the /templates command and template selection flow.
+    
+    Args:
+        message: User's message (either "/templates" or a selection like "3")
+        profile: User's voice profile
+        pending_task: Optional pending task for template selection
+        
+    Returns:
+        Response dict with templates list or generation result
+    """
+    try:
+        # Check if user is selecting a template by number
+        if pending_task and pending_task.get('flow') == 'template_selection':
+            # User is selecting a template
+            message_lower = message.lower().strip()
+            
+            # Try to extract template number or handle "use template X" format
+            template_num = None
+            if message_lower.startswith('use template '):
+                try:
+                    template_num = int(message_lower.replace('use template ', '').strip())
+                except ValueError:
+                    pass
+            elif message_lower.isdigit():
+                template_num = int(message_lower)
+            
+            if not template_num:
+                return _build_response(
+                    "Please enter a template number (e.g., '3' or 'use template 3').",
+                    action='continue',
+                    pending_task=pending_task
+                )
+            
+            # Get the templates list from pending task
+            template_ids = pending_task.get('template_ids', [])
+            
+            if template_num < 1 or template_num > len(template_ids):
+                return _build_response(
+                    f"Please choose a number between 1 and {len(template_ids)}.",
+                    action='continue',
+                    pending_task=pending_task
+                )
+            
+            # Get the selected template
+            template_id = template_ids[template_num - 1]
+            template = get_template_by_id(template_id)
+            
+            if not template:
+                return _build_response(
+                    "Sorry, I couldn't find that template. Please try again.",
+                    action='error'
+                )
+            
+            # Use the template to generate content
+            logger.info(f"User {current_user.id} selected template: {template.name}")
+            
+            # Generate content using template's default params
+            return _generate_content_response(
+                template.task_type,
+                template.default_params,
+                profile
+            )
+        
+        # Show templates list
+        # Get recommended templates based on user's industry
+        templates = get_recommended_templates(
+            industry=profile.industry.lower() if profile and profile.industry else None
+        )
+        
+        if not templates:
+            return _build_response(
+                "I don't have any templates available right now. Try using `/post` or `/email` to create content.",
+                action='continue',
+                suggestions=['Try /post', 'Try /email', 'Try /script']
+            )
+        
+        # Build templates list message
+        response_lines = [
+            "📋 **Content Templates**",
+            "",
+            f"Here are {len(templates)} templates for your industry:",
+            ""
+        ]
+        
+        # Store template IDs for selection
+        template_ids = []
+        
+        for idx, template in enumerate(templates[:10], 1):  # Limit to 10 templates
+            template_ids.append(template.id)
+            response_lines.append(f"**{idx}. {template.name}** ({template.task_type})")
+            response_lines.append(f"   {template.description}")
+            # Show truncated preview
+            preview = template.example_output[:100] + "..." if len(template.example_output) > 100 else template.example_output
+            response_lines.append(f"   _Preview:_ {preview}")
+            response_lines.append("")
+        
+        response_lines.append("---")
+        response_lines.append("💡 **To use a template:** Reply with the number (e.g., '3') or 'use template 3'")
+        
+        response_message = "\n".join(response_lines)
+        
+        return _build_response(
+            response_message,
+            action='continue',
+            pending_task={
+                'task_type': 'templates',
+                'flow': 'template_selection',
+                'template_ids': template_ids
+            },
+            suggestions=['1', '2', '3']
+        )
+        
+    except Exception as e:
+        logger.error(f"Error handling templates command: {e}", exc_info=True)
+        return _build_response(
+            "Sorry, I had trouble loading the templates. Please try again.",
+            action='error'
+        )
+
+
 @chat_bp.route('/api/chat', methods=['POST'])
 @login_required
 def chat():
@@ -2043,7 +2165,11 @@ def chat():
             
             logger.info(f"[{request_id}] Continuing {flow} flow for task: {task_type}")
             
-            if flow in ['profile_update', 'url_update_confirmation', 'import_merge']:
+            if flow == 'template_selection':
+                # Continue template selection flow
+                result = _handle_templates_command(message, profile, pending_task)
+                return jsonify(result), 200
+            elif flow in ['profile_update', 'url_update_confirmation', 'import_merge']:
                 # Continue profile update flow (includes import merge)
                 result = _handle_profile_update(message, pending_task, profile, db)
                 return jsonify(result), 200
@@ -2140,6 +2266,12 @@ def chat():
         if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:
             logger.info(f"[{request_id}] Handling profile update request")
             result = _handle_profile_update(message, None, profile, db)
+            return jsonify(result), 200
+        
+        # Handle templates command
+        if intent_result['task_type'] == 'templates':
+            logger.info(f"[{request_id}] Handling templates command")
+            result = _handle_templates_command(message, profile, None)
             return jsonify(result), 200
         
         # Handle NEW field assistance flow (from FIELD_COMMANDS)
