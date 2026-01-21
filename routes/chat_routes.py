@@ -49,6 +49,7 @@ from services.conversation_router import ConversationRouter
 from services.profile_validator import get_profile_completeness
 from services.task_registry import get_task_config
 from models import VoiceProfile, ContentHistory, db
+from typing import List
 import os
 import logging
 import uuid
@@ -2431,10 +2432,23 @@ def chat():
             command = intent_result.get('command')
             if command:
                 guidance = get_command_guidance(command)
-                # For non-profile commands, show guidance and return
+                # For non-profile commands, show guidance and return with pending task
                 # For profile commands, guidance will be shown by the profile handler
                 if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
-                    return jsonify(_build_response(guidance, action='continue')), 200
+                    # Set up pending task for content commands so next message continues the flow
+                    task_type = intent_result.get('task_type')
+                    if task_type and task_type not in ['quick_templates', 'batch_session']:
+                        return jsonify(_build_response(
+                            guidance,
+                            action='continue',
+                            pending_task={
+                                'task_type': task_type,
+                                'collected': intent_result.get('extracted_params', {}),
+                                'flow': 'content'
+                            }
+                        )), 200
+                    else:
+                        return jsonify(_build_response(guidance, action='continue')), 200
         
         # Handle profile-related intents (including new commands)
         if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:

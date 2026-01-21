@@ -403,10 +403,10 @@ class ConversationRouter:
         
         # If no natural pattern match, use existing keyword patterns
         if not task_type:
-        for keywords, ttype in self.TASK_PATTERNS:
-            if any(keyword in message_lower for keyword in keywords):
-                task_type = ttype
-                break
+            for keywords, ttype in self.TASK_PATTERNS:
+                if any(keyword in message_lower for keyword in keywords):
+                    task_type = ttype
+                    break
         
         if not task_type:
             return None
