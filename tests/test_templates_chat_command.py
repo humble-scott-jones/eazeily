@@ -41,9 +41,10 @@ class TestTemplatesChatCommand:
         response = client.post('/api/chat', json={
             'message': '/templates'
         })
-        assert response.status_code == 401
+        # Flask-Login redirects to login page when not authenticated
+        assert response.status_code in [302, 401]
     
-    def test_templates_command_lists_templates(self, client, monkeypatch):
+    def test_templates_command_lists_templates(self, client):
         """Test that /templates command lists available templates."""
         signup_and_login(client)
         create_complete_profile(client)
@@ -93,11 +94,11 @@ class TestTemplatesChatCommand:
     
     def test_template_selection_by_number(self, client, monkeypatch):
         """Test selecting a template by number."""
-        # Mock the generation to avoid API calls
+        # Set up API key for generation
         monkeypatch.setenv('GENAI_API_KEY', 'test-key')
         
-        with patch('services.voice_engine.VoiceEngine.generate') as mock_generate:
-            mock_generate.return_value = {
+        with patch('routes.chat_routes.voice_engine') as mock_engine:
+            mock_engine.generate_expert_content.return_value = {
                 'content': 'Test generated content',
                 'source': 'gemini'
             }
@@ -130,8 +131,8 @@ class TestTemplatesChatCommand:
         """Test selecting a template with 'use template X' format."""
         monkeypatch.setenv('GENAI_API_KEY', 'test-key')
         
-        with patch('services.voice_engine.VoiceEngine.generate') as mock_generate:
-            mock_generate.return_value = {
+        with patch('routes.chat_routes.voice_engine') as mock_engine:
+            mock_engine.generate_expert_content.return_value = {
                 'content': 'Test generated content',
                 'source': 'gemini'
             }

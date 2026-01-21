@@ -2229,8 +2229,8 @@ def chat():
             if command:
                 guidance = get_command_guidance(command)
                 # For non-profile commands, show guidance and return
-                # For profile commands, guidance will be shown by the profile handler
-                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
+                # For profile commands and templates, guidance will be shown by the handler
+                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples', '/templates']:
                     return jsonify(_build_response(guidance, action='continue')), 200
         
         # Handle templates command BEFORE API key check
