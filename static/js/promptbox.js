@@ -107,10 +107,16 @@ class ScrollManager {
         this.scrollButton = document.createElement('button');
         this.scrollButton.className = 'scroll-to-bottom';
         this.scrollButton.innerHTML = '↓ New messages';
+        this.scrollButton.setAttribute('aria-label', 'Scroll to bottom of conversation');
         this.scrollButton.onclick = () => this.scrollToBottom(true);
         
-        // Insert after messages container
-        this.container.parentElement.appendChild(this.scrollButton);
+        // Insert after messages container, if parent exists
+        const parent = this.container.parentElement;
+        if (parent) {
+            parent.appendChild(this.scrollButton);
+        } else {
+            console.warn('ScrollManager: messages container has no parentElement; scroll button not appended.');
+        }
         
         // Listen for scroll events
         this.container.addEventListener('scroll', () => this.handleScroll(), { passive: true });
@@ -181,11 +187,12 @@ class TypewriterEffect {
         this.skipButton = document.createElement('button');
         this.skipButton.className = 'typewriter-skip';
         this.skipButton.innerHTML = 'Skip ⏭️';
+        this.skipButton.setAttribute('aria-label', 'Skip typewriter animation');
         this.skipButton.onclick = (e) => {
             e.preventDefault();
             this.skip();
         };
-        this.element.parentElement.appendChild(this.skipButton);
+        this.element.appendChild(this.skipButton);
         
         // Start typing
         this.type();
@@ -218,6 +225,10 @@ class TypewriterEffect {
     }
     
     complete() {
+        if (this.timeoutId) {
+            clearTimeout(this.timeoutId);
+            this.timeoutId = null;
+        }
         if (this.skipButton) {
             this.skipButton.remove();
             this.skipButton = null;
@@ -226,8 +237,17 @@ class TypewriterEffect {
     }
     
     formatMarkdown(text) {
-        // Basic markdown formatting
-        return text
+        // Escape HTML first to prevent XSS
+        const escapeHtml = (str) => {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        };
+        
+        const escaped = escapeHtml(text);
+        
+        // Basic markdown formatting (safe after HTML escaping)
+        return escaped
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
             .replace(/_(.+?)_/g, '<em>$1</em>')
@@ -267,8 +287,14 @@ function showToast(message, type = 'info') {
     toast.className = `toast toast-${type}`;
     toast.innerHTML = `
         <span class="toast-icon">${getToastIcon(type)}</span>
-        <span class="toast-message">${message}</span>
+        <span class="toast-message"></span>
     `;
+    
+    // Use textContent to prevent XSS
+    const messageElement = toast.querySelector('.toast-message');
+    if (messageElement) {
+        messageElement.textContent = message;
+    }
     
     document.body.appendChild(toast);
     
@@ -378,6 +404,9 @@ class PromptBox {
    * Show thinking indicator with skeleton loader
    */
   showThinkingIndicator() {
+    // Remove existing indicator if present
+    this.hideThinkingIndicator();
+    
     const skeleton = document.createElement('div');
     skeleton.className = 'promptbox-message promptbox-message-assistant thinking';
     skeleton.id = 'thinking-indicator';

@@ -1,7 +1,6 @@
 """
 Test mobile chat UX improvements - CSS and JS features
 """
-import pytest
 
 
 def test_chat_css_has_mobile_styles():

@@ -230,7 +230,6 @@
 /* ===== Chat Container ===== */
 .chat-container {
     flex: 1;
-    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     display: flex;
@@ -743,7 +742,7 @@
     font-style: italic;
 }
 
-.message.thinking {
+.promptbox-message.thinking {
     opacity: 0.9;
 }
 
@@ -768,8 +767,8 @@
     background: rgba(0, 0, 0, 0.15);
 }
 
-/* Message content needs relative positioning for skip button */
-.message-content {
+/* Message bubble needs relative positioning for skip button */
+.promptbox-bubble {
     position: relative;
 }
 
