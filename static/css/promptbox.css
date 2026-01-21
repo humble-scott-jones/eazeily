@@ -224,11 +224,17 @@
 }
 
 /* ===== Copy Button ===== */
+.promptbox-copy-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .promptbox-copy-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
   padding: 6px 12px;
   background: var(--eazeily-surface);
   border: 1px solid var(--eazeily-primary);
@@ -240,10 +246,20 @@
   transition: all var(--promptbox-transition);
 }
 
+.promptbox-copy-btn-secondary {
+  border-color: var(--eazeily-text-secondary);
+  color: var(--eazeily-text-secondary);
+}
+
 .promptbox-copy-btn:hover {
   background: var(--eazeily-primary);
   color: white;
   transform: scale(1.02);
+}
+
+.promptbox-copy-btn-secondary:hover {
+  background: var(--eazeily-text-secondary);
+  color: white;
 }
 
 .promptbox-copy-btn:active {
@@ -867,3 +883,75 @@
 @keyframes spinner {
   to { transform: rotate(360deg); }
 }
+
+/* ===== Toast Notifications ===== */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.promptbox-toast {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* ===== Variation Buttons ===== */
+.promptbox-variation-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.promptbox-variation-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--eazeily-surface-alt);
+  border: 1px solid var(--eazeily-border);
+  color: var(--eazeily-text);
+  border-radius: var(--promptbox-radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--promptbox-transition);
+}
+
+.promptbox-variation-btn:hover {
+  background: var(--eazeily-primary-light);
+  color: white;
+  border-color: var(--eazeily-primary-light);
+  transform: scale(1.02);
+}
+
+.promptbox-variation-btn:active {
+  transform: scale(0.98);
+}
+
+.promptbox-variation-btn .variation-icon {
+  font-size: 14px;
+}
+
+.promptbox-variation-btn .variation-text {
+  font-size: 12px;
+}
+

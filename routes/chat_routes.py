@@ -1890,6 +1890,115 @@ def _get_field_prompt(field: str, task_type: str) -> str:
     return prompts.get(field, f"Please provide the {field} for your {task_type}")
 
 
+def _handle_export(message: str, profile: VoiceProfile) -> dict:
+    """Handle export command to download generated content.
+    
+    Args:
+        message: User's message containing export command
+        profile: User's voice profile
+        
+    Returns:
+        Response dictionary with export options
+    """
+    from datetime import datetime, timedelta
+    import json
+    
+    message_lower = message.lower().strip()
+    
+    # Check for batch export options (future feature for paid tier)
+    if 'all' in message_lower:
+        return _build_response(
+            "💾 **Export All Starred Content**\n\nThis feature is available for Pro users. "
+            "Upgrade your account to export all starred content in one file.\n\n"
+            "Meanwhile, you can export your last generated content with `/export`.",
+            action='continue'
+        )
+    
+    if 'week' in message_lower:
+        return _build_response(
+            "💾 **Export Last 7 Days**\n\nThis feature is available for Pro users. "
+            "Upgrade your account to export content from the last week.\n\n"
+            "Meanwhile, you can export your last generated content with `/export`.",
+            action='continue'
+        )
+    
+    # For basic export, we need the last generated content
+    # In a real implementation, we'd fetch this from session or database
+    # For now, we'll provide instructions for the user
+    
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    
+    # Create export metadata
+    export_data = {
+        'date': current_date,
+        'business_name': profile.business_name if profile else 'Unknown',
+        'platform': 'N/A',  # Would be populated from last generation
+        'content_note': 'Export your last generated content by clicking Copy, then save to a file.'
+    }
+    
+    response_text = f"""💾 **Export Content**
+
+**Export Options:**
+- Copy the generated content above and save it to a file
+- Use the Copy button to get the content to clipboard
+- Format: Plain text (.txt) or Markdown (.md)
+
+**Metadata:**
+- Date: {export_data['date']}
+- Business: {export_data['business_name']}
+
+_Pro tip: Save exports with descriptive filenames like `instagram-post-{current_date}.txt`_
+
+**Coming Soon:**
+- `/export all` - Export all starred content
+- `/export week` - Export last 7 days
+- Automatic download feature"""
+    
+    return _build_response(
+        response_text,
+        action='continue',
+        suggestions=['Create new content', 'Try /post', 'Try /caption']
+    )
+
+
+def _handle_preview(profile: VoiceProfile) -> dict:
+    """Handle preview command to show content mockup.
+    
+    Args:
+        profile: User's voice profile
+        
+    Returns:
+        Response dictionary with preview
+    """
+    # For now, provide information about the preview feature
+    response_text = """👁️ **Content Preview**
+
+**How to Preview:**
+1. Generate your content (post, caption, email, etc.)
+2. Use the Copy button to copy it
+3. Preview in your platform's composer or use a preview tool
+
+**Platform-Specific Preview Tools:**
+- Instagram: Use Stories drafts or preview in Creator Studio
+- LinkedIn: Post composer has built-in preview
+- Facebook: Business Suite preview feature
+- Twitter/X: Character counter in composer
+
+**Coming Soon:**
+- Live platform previews directly in Eazeily
+- Character count and hashtag validation
+- Visual mockups for different platforms
+- Preview how content looks on mobile vs desktop
+
+_Try generating content with `/post`, `/caption`, or `/email` to see it in action!_"""
+    
+    return _build_response(
+        response_text,
+        action='continue',
+        suggestions=['Create a post', 'Try /post', 'Try /caption']
+    )
+
+
 def _build_response(message: str, action: str, **kwargs) -> dict:
     """Build a standardized response payload.
     
@@ -2168,6 +2277,18 @@ def chat():
                     "I need both a field name and a value to update. Try using /keywords Fresh, Local.",
                     action='error'
                 )), 400
+        
+        # Handle export command
+        if intent_result['task_type'] == 'export':
+            logger.info(f"[{request_id}] Handling export request")
+            result = _handle_export(message, profile)
+            return jsonify(result), 200
+        
+        # Handle preview command
+        if intent_result['task_type'] == 'preview':
+            logger.info(f"[{request_id}] Handling preview request")
+            result = _handle_preview(profile)
+            return jsonify(result), 200
         
         if intent_result['intent'] == 'unknown':
             return jsonify(_build_response(

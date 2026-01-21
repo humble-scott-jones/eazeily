@@ -61,6 +61,8 @@ COMMAND_GUIDANCE = {
     '/samples': "✍️ **Paste a writing sample from your brand:**\n\nExample: `/samples Check out our new summer collection! 🌞`",
     '/update': "✏️ **What field do you want to update?**\n\nExample: `/update voice warm and friendly`",
     '/rules': "📋 **What voice rules should I follow?**\n\nExample: `/rules always use emojis and keep it casual`",
+    '/export': "💾 **Export options:**\n\n• `/export` - Export last generated content\n• `/export all` - Export all starred content (Pro)\n• `/export week` - Export last 7 days (Pro)",
+    '/preview': "👁️ **Preview your content:**\n\nExample: `/preview` - See how it looks on the target platform",
 }
 
 
@@ -98,6 +100,8 @@ class ConversationRouter:
         '/profile': 'profile',           # View/edit profile
         '/update': 'profile_update',     # Update specific field
         '/import': 'import_profile',     # Import from URL
+        '/export': 'export',             # Export generated content
+        '/preview': 'preview',           # Preview content on platform
         # All 8 field commands for AI-assisted completion
         '/name': 'field_assistance',     # Business name field
         '/industry': 'field_assistance', # Industry field

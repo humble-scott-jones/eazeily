@@ -15,6 +15,10 @@ const SLASH_COMMANDS = [
   { command: '/ad', description: 'Create ad copy', icon: '📢', category: 'content', placeholder: 'product or service', example: '/ad our new fitness app', requiresInput: true },
   { command: '/blog', description: 'Write a blog post', icon: '📰', category: 'content', placeholder: 'topic', example: '/blog 5 tips for productivity', requiresInput: true },
   
+  // Export and utility commands
+  { command: '/export', description: 'Export generated content to file', icon: '💾', category: 'utility', placeholder: 'optional: all or week', example: '/export', requiresInput: false },
+  { command: '/preview', description: 'Preview content on platform', icon: '👁️', category: 'utility', placeholder: null, example: '/preview', requiresInput: false },
+  
   // Profile management commands
   { command: '/profile', description: 'View and manage your brand profile', icon: '👤', category: 'profile', placeholder: null, example: '/profile', requiresInput: false },
   { command: '/update', description: 'Update a profile field', icon: '✏️', category: 'profile', placeholder: 'field and value', example: '/update voice warm and friendly', requiresInput: true },
@@ -320,6 +324,7 @@ class PromptBox {
     this.lastAction = null; // Track last action for contextual suggestions
     this.selectedAutocompleteIndex = -1; // Track selected autocomplete item
     this.lastGeneratedContent = null; // Track last generated content for copy
+    this.lastGeneratedMetadata = null; // Track metadata (platform, task_type, etc.)
     this.collectionState = null; // Track multi-step collection flows (e.g., writing samples)
     this.pendingImport = null; // Track pending import data for confirmation
     this.pendingImportUrl = null; // Track URL of pending import
@@ -891,6 +896,7 @@ class PromptBox {
     // Store generated content for copy
     if (isGenerated && data.content) {
       this.lastGeneratedContent = data.content;
+      this.lastGeneratedMetadata = data.metadata || {};
       this.lastAction = 'generated';
       // Update suggestions to show refinement options
       this.suggestions = this.getSuggestions(null, 'generated');
@@ -957,8 +963,12 @@ class PromptBox {
       await this.typewriterEffect(bubbleDiv, content, 25);
       bubbleDiv.classList.remove('typing');
       
-      // Add copy button for generated content
+      // Add copy buttons for generated content
       if (isGenerated) {
+        const copyContainer = document.createElement('div');
+        copyContainer.className = 'promptbox-copy-container';
+        
+        // Main copy button
         const copyBtn = document.createElement('button');
         copyBtn.className = 'promptbox-copy-btn';
         copyBtn.setAttribute('aria-label', 'Copy content');
@@ -966,8 +976,29 @@ class PromptBox {
           <span class="copy-icon">📋</span>
           <span class="copy-text">Copy</span>
         `;
-        copyBtn.onclick = () => this.copyContent(content, copyBtn);
-        messageDiv.appendChild(copyBtn);
+        copyBtn.onclick = () => this.copyContent(content, copyBtn, 'plain');
+        copyContainer.appendChild(copyBtn);
+        
+        // Additional format options (if hashtags are available)
+        if (this.hasHashtags(content)) {
+          const copyHashBtn = document.createElement('button');
+          copyHashBtn.className = 'promptbox-copy-btn promptbox-copy-btn-secondary';
+          copyHashBtn.setAttribute('aria-label', 'Copy with hashtags');
+          copyHashBtn.innerHTML = `
+            <span class="copy-icon">#️⃣</span>
+            <span class="copy-text">Copy with Hashtags</span>
+          `;
+          copyHashBtn.onclick = () => this.copyContentWithHashtags(content, copyHashBtn);
+          copyContainer.appendChild(copyHashBtn);
+        }
+        
+        messageDiv.appendChild(copyContainer);
+        
+        // Add regeneration variation buttons
+        const variationButtons = this.createVariationButtons();
+        if (variationButtons) {
+          messageDiv.appendChild(variationButtons);
+        }
       }
       
       // Add buttons if provided
@@ -1251,11 +1282,14 @@ class PromptBox {
     }
   }
 
-  copyContent(content, button) {
+  copyContent(content, button, format = 'plain') {
     // Use Clipboard API
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(content).then(() => {
         this.showCopyFeedback(button);
+        this.showToast('Copied to clipboard!', 'success');
+        this.triggerHapticFeedback();
+        this.trackCopyEvent(format);
       }).catch(err => {
         console.error('Failed to copy:', err);
         // Fallback for older browsers
@@ -1277,8 +1311,12 @@ class PromptBox {
     try {
       document.execCommand('copy');
       this.showCopyFeedback(button);
+      this.showToast('Copied to clipboard!', 'success');
+      this.triggerHapticFeedback();
+      this.trackCopyEvent('plain');
     } catch (err) {
       console.error('Fallback copy failed:', err);
+      this.showToast('Failed to copy. Please try again.', 'error');
     }
     document.body.removeChild(textarea);
   }
@@ -1295,6 +1333,127 @@ class PromptBox {
       button.innerHTML = originalHTML;
       button.classList.remove('copied');
     }, 2000);
+  }
+
+  showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `promptbox-toast promptbox-toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      z-index: 10000;
+      animation: slideIn 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+      toast.style.animation = 'slideOut 0.3s ease-out';
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 300);
+    }, 3000);
+  }
+
+  triggerHapticFeedback() {
+    // Trigger haptic feedback on mobile devices
+    if (navigator.vibrate) {
+      navigator.vibrate(50); // Short vibration
+    }
+  }
+
+  trackCopyEvent(format) {
+    // Track copy event for analytics
+    if (typeof window.plausible !== 'undefined') {
+      window.plausible('Copy Content', {
+        props: { format: format }
+      });
+    }
+    
+    // Also log to console in development
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('Copy event tracked:', { format });
+    }
+  }
+
+  hasHashtags(content) {
+    // Check if content has hashtags
+    return content.includes('#');
+  }
+
+  copyContentWithHashtags(content, button) {
+    // Extract hashtags and add them at the end if not already there
+    const hashtagRegex = /#\w+/g;
+    const hashtags = content.match(hashtagRegex) || [];
+    
+    // If hashtags already in content, just copy
+    if (hashtags.length > 0) {
+      this.copyContent(content, button, 'with_hashtags');
+    } else {
+      // Generate relevant hashtags (simple approach - could be enhanced)
+      const suggestedHashtags = this.generateHashtags(content);
+      const contentWithHashtags = content + '\n\n' + suggestedHashtags.join(' ');
+      this.copyContent(contentWithHashtags, button, 'with_hashtags');
+    }
+  }
+
+  generateHashtags(content) {
+    // Simple hashtag generation based on common words
+    const words = content.toLowerCase().split(/\s+/);
+    const hashtags = [];
+    
+    // Common social media hashtags (would be better to use AI or topic extraction)
+    const commonHashtags = ['#socialmedia', '#business', '#marketing', '#growth'];
+    
+    return commonHashtags.slice(0, 3);
+  }
+
+  createVariationButtons() {
+    // Create quick regeneration variation buttons
+    const container = document.createElement('div');
+    container.className = 'promptbox-variation-container';
+    
+    const variations = [
+      { label: 'Shorter', icon: '📉', prompt: 'make it shorter' },
+      { label: 'Longer', icon: '📈', prompt: 'make it longer' },
+      { label: 'More formal', icon: '👔', prompt: 'make it more formal' },
+      { label: 'More casual', icon: '😊', prompt: 'make it more casual' },
+      { label: 'Different angle', icon: '🔄', prompt: 'try a different angle' }
+    ];
+    
+    variations.forEach(variation => {
+      const btn = document.createElement('button');
+      btn.className = 'promptbox-variation-btn';
+      btn.innerHTML = `
+        <span class="variation-icon">${variation.icon}</span>
+        <span class="variation-text">${variation.label}</span>
+      `;
+      btn.onclick = () => this.requestVariation(variation.prompt);
+      container.appendChild(btn);
+    });
+    
+    return container;
+  }
+
+  async requestVariation(variationPrompt) {
+    // Request a variation of the last generated content
+    if (!this.lastGeneratedContent) {
+      this.showToast('No content to regenerate', 'error');
+      return;
+    }
+    
+    // Send variation request
+    const message = `Regenerate the last content but ${variationPrompt}`;
+    await this.sendMessage(message);
   }
 
   setLoading(isLoading) {
