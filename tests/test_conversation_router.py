@@ -331,9 +331,23 @@ class TestConversationRouter:
         assert result['follow_up_question'] is not None
     
     def test_all_task_types_have_configs(self, router):
-        """Test that all task types in COMMAND_MAP have field configs."""
+        """Test that all task types in COMMAND_MAP have field configs.
+        
+        Some task types don't need field configs:
+        - profile/profile_update: Handled by profile update flow
+        - field_assistance: Handled by field assistance flow
+        - import_profile: Handled by import flow
+        - export/preview: Utility commands with no field collection
+        """
+        # Task types that don't require field collection configs
+        special_task_types = {
+            'profile', 'profile_update', 'field_assistance', 
+            'import_profile', 'export', 'preview'
+        }
+        
         for task_type in router.COMMAND_MAP.values():
-            assert task_type in router.TASK_FIELDS, f"Missing config for {task_type}"
+            if task_type not in special_task_types:
+                assert task_type in router.TASK_FIELDS, f"Missing config for {task_type}"
     
     def test_all_required_fields_have_prompts(self, router):
         """Test that all required fields have prompt strings."""
