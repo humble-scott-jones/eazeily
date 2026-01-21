@@ -2240,9 +2240,9 @@ def chat():
             command = intent_result.get('command')
             if command:
                 guidance = get_command_guidance(command)
-                # For non-profile commands, show guidance and return
-                # For profile commands, guidance will be shown by the profile handler
-                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
+                # For non-profile commands and utility commands, show guidance and return
+                # For profile, export, and preview commands, guidance will be shown by their handlers
+                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples', '/export', '/preview']:
                     return jsonify(_build_response(guidance, action='continue')), 200
         
         # Handle profile-related intents (including new commands)
