@@ -62,6 +62,44 @@ onboarding_service = OnboardingService()
 conversation_router = ConversationRouter()
 
 
+# Constants for profile command routing
+EXPLICIT_PROFILE_COMMANDS = ['/profile', '/complete', '/voice', '/audience', '/offer', '/name', '/industry', '/samples', '/keywords', '/goals']
+
+
+def _get_effective_brand_voice(profile: VoiceProfile) -> str:
+    """Get the effective brand voice, falling back to tone if brand_voice is not set.
+    
+    This handles the legacy case where some profiles use 'tone' instead of 'brand_voice'.
+    
+    Args:
+        profile: VoiceProfile instance
+        
+    Returns:
+        Brand voice string, or empty string if neither is set
+    """
+    return profile.brand_voice or profile.tone or ''
+
+
+def _build_profile_dict(profile: VoiceProfile) -> dict:
+    """Build a dictionary representation of the profile for AI suggestions.
+    
+    Args:
+        profile: VoiceProfile instance
+        
+    Returns:
+        Dictionary with profile fields
+    """
+    return {
+        'business_name': profile.business_name,
+        'company': profile.business_name,
+        'industry': profile.industry,
+        'brand_voice': _get_effective_brand_voice(profile),
+        'target_audience': profile.target_audience,
+        'key_offer': profile.key_offer,
+        'writing_samples': profile.get_writing_samples() if hasattr(profile, 'get_writing_samples') else []
+    }
+
+
 def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str], int]:
     """Check if profile has minimum required fields for content generation.
     
@@ -680,7 +718,7 @@ def _show_profile_summary(profile: VoiceProfile) -> dict:
     fields = [
         ('business_name', 'Business Name', profile.business_name),
         ('industry', 'Industry', profile.industry),
-        ('brand_voice', 'Brand Voice', profile.brand_voice or profile.tone),
+        ('brand_voice', 'Brand Voice', _get_effective_brand_voice(profile)),
         ('target_audience', 'Target Audience', profile.target_audience),
         ('key_offer', 'Key Offer', profile.key_offer),
         ('writing_samples', 'Writing Samples', profile.get_writing_samples() if hasattr(profile, 'get_writing_samples') else []),
@@ -1802,15 +1840,7 @@ def _handle_field_assistance(field: str, profile: VoiceProfile) -> dict:
         
         if field in ai_supported_fields:
             # Generate AI suggestions using profile context
-            profile_dict = {
-                'business_name': profile.business_name,
-                'company': profile.business_name,
-                'industry': profile.industry,
-                'brand_voice': profile.brand_voice or profile.tone,
-                'target_audience': profile.target_audience,
-                'key_offer': profile.key_offer,
-                'writing_samples': profile.get_writing_samples() if hasattr(profile, 'get_writing_samples') else []
-            }
+            profile_dict = _build_profile_dict(profile)
             
             suggestions_result = generate_profile_suggestions(field, profile_dict)
             
@@ -2420,8 +2450,7 @@ def chat():
         # Route based on profile completeness
         # BUT: Allow explicit profile commands even if profile is incomplete
         message_lower = message.lower().strip()
-        explicit_profile_commands = ['/profile', '/complete', '/voice', '/audience', '/offer', '/name', '/industry', '/samples', '/keywords', '/goals']
-        is_explicit_profile_command = any(message_lower.startswith(cmd) for cmd in explicit_profile_commands)
+        is_explicit_profile_command = any(message_lower.startswith(cmd) for cmd in EXPLICIT_PROFILE_COMMANDS)
         
         if not profile_ready and not is_explicit_profile_command:
             # Route to onboarding flow
