@@ -2217,7 +2217,30 @@ def chat():
             result = _handle_onboarding_chat(message, history, profile, pending_task)
             return jsonify(result), 200
         
-        # Profile complete - check API key configuration
+        # Profile complete - Parse new intent using ConversationRouter
+        intent_result = conversation_router.parse_intent(message, profile)
+        logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
+        
+        # Check if this command needs guidance (bare command without arguments)
+        # Show guidance but don't stop processing - continue to the actual handler
+        if intent_result.get('needs_guidance'):
+            from services.conversation_router import get_command_guidance
+            command = intent_result.get('command')
+            if command:
+                guidance = get_command_guidance(command)
+                # For non-profile commands, show guidance and return
+                # For profile commands, guidance will be shown by the profile handler
+                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
+                    return jsonify(_build_response(guidance, action='continue')), 200
+        
+        # Handle templates command BEFORE API key check
+        # (templates can be listed without AI, only generation needs API)
+        if intent_result['task_type'] == 'templates':
+            logger.info(f"[{request_id}] Handling templates command")
+            result = _handle_templates_command(message, profile, None)
+            return jsonify(result), 200
+        
+        # Check API key configuration for content generation
         api_key = os.getenv("GENAI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
             logger.warning(f"[{request_id}] Missing API key")
@@ -2246,32 +2269,10 @@ def chat():
                 suggestions=_get_content_suggestions()
             )), 200
         
-        # Parse new intent using ConversationRouter
-        intent_result = conversation_router.parse_intent(message, profile)
-        logger.info(f"[{request_id}] Parsed intent: {intent_result['intent']}, task_type={intent_result.get('task_type')}")
-        
-        # Check if this command needs guidance (bare command without arguments)
-        # Show guidance but don't stop processing - continue to the actual handler
-        if intent_result.get('needs_guidance'):
-            from services.conversation_router import get_command_guidance
-            command = intent_result.get('command')
-            if command:
-                guidance = get_command_guidance(command)
-                # For non-profile commands, show guidance and return
-                # For profile commands, guidance will be shown by the profile handler
-                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
-                    return jsonify(_build_response(guidance, action='continue')), 200
-        
         # Handle profile-related intents (including new commands)
         if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:
             logger.info(f"[{request_id}] Handling profile update request")
             result = _handle_profile_update(message, None, profile, db)
-            return jsonify(result), 200
-        
-        # Handle templates command
-        if intent_result['task_type'] == 'templates':
-            logger.info(f"[{request_id}] Handling templates command")
-            result = _handle_templates_command(message, profile, None)
             return jsonify(result), 200
         
         # Handle NEW field assistance flow (from FIELD_COMMANDS)
