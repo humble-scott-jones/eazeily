@@ -2486,10 +2486,23 @@ def chat():
             command = intent_result.get('command')
             if command:
                 guidance = get_command_guidance(command)
-                # For non-profile commands, show guidance and return
+                # For non-profile commands, show guidance with pending_task for content tasks
                 # For profile commands, guidance will be shown by the profile handler
                 if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
-                    return jsonify(_build_response(guidance, action='continue')), 200
+                    task_type = intent_result.get('task_type')
+                    # For content generation tasks, create a pending_task
+                    if task_type in ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel', 'custom']:
+                        return jsonify(_build_response(
+                            guidance,
+                            action='continue',
+                            pending_task={
+                                'task_type': task_type,
+                                'collected': intent_result.get('extracted_params', {}),
+                                'flow': 'content'
+                            }
+                        )), 200
+                    else:
+                        return jsonify(_build_response(guidance, action='continue')), 200
         
         # Handle profile-related intents (including new commands)
         if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url', 'guided_completion']:
