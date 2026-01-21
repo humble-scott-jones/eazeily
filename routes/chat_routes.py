@@ -48,6 +48,7 @@ from services.onboarding_service import OnboardingService
 from services.conversation_router import ConversationRouter
 from services.profile_validator import get_profile_completeness
 from services.task_registry import get_task_config
+from services.profile_expert import generate_profile_suggestions
 from models import VoiceProfile, ContentHistory, db
 import os
 import logging
@@ -1517,6 +1518,38 @@ def _apply_import_merge_suggestions(comparisons: list, profile: VoiceProfile, db
         )
 
 
+def _parse_selection(message: str, suggestions: list) -> str:
+    """Parse user input to detect selection from numbered suggestions.
+    
+    Handles:
+    - Numeric selection: "1", "2", "3"
+    - Request for custom input: "write my own", "custom", "different"
+    - Otherwise returns None (treat as custom value)
+    
+    Args:
+        message: User's input message
+        suggestions: List of suggestion strings
+        
+    Returns:
+        Selected suggestion text, or None if custom input
+    """
+    message_lower = message.lower().strip()
+    
+    # Check for numeric selection
+    if message_lower.isdigit():
+        selection = int(message_lower)
+        if 1 <= selection <= len(suggestions):
+            return suggestions[selection - 1]
+    
+    # Check for "write my own" or similar
+    custom_keywords = ['write my own', 'custom', 'different', 'write own', 'my own']
+    if any(keyword in message_lower for keyword in custom_keywords):
+        return None  # Signal that user wants to provide custom input
+    
+    # Not a selection - treat as custom value
+    return None
+
+
 def _handle_field_assistance(field: str, profile: VoiceProfile) -> dict:
     """Handle AI-assisted field completion with suggestions.
     
@@ -1546,8 +1579,50 @@ def _handle_field_assistance(field: str, profile: VoiceProfile) -> dict:
         
         field_display = field_display_names.get(field, field.replace('_', ' ').title())
         
-        # For now, provide guidance to enter the value directly
-        # In the future, this could use AI to generate suggestions
+        # Only provide AI suggestions for fields that have AI prompts
+        ai_supported_fields = ['brand_voice', 'target_audience', 'key_offer']
+        
+        if field in ai_supported_fields:
+            # Generate AI suggestions using profile context
+            profile_dict = {
+                'business_name': profile.business_name,
+                'company': profile.business_name,
+                'industry': profile.industry,
+                'brand_voice': profile.brand_voice or profile.tone,
+                'target_audience': profile.target_audience,
+                'key_offer': profile.key_offer,
+                'writing_samples': profile.get_writing_samples() if hasattr(profile, 'get_writing_samples') else []
+            }
+            
+            suggestions_result = generate_profile_suggestions(field, profile_dict)
+            
+            if suggestions_result.get('success') and suggestions_result.get('suggestions'):
+                suggestions = suggestions_result['suggestions']
+                
+                # Format suggestions as numbered options
+                suggestion_text = "\n\n".join([f"**{i+1}.** {s}" for i, s in enumerate(suggestions)])
+                
+                response_text = (
+                    f"Let me suggest some options for your **{field_display}** based on your business:\n\n"
+                    f"{suggestion_text}\n\n"
+                    f"**Reply with:**\n"
+                    f"• A number (1, 2, or 3) to select an option\n"
+                    f"• \"Write my own\" to provide your own\n"
+                    f"• Or just type your custom value"
+                )
+                
+                return _build_response(
+                    response_text,
+                    action='continue',
+                    pending_task={
+                        'flow': 'field_update',
+                        'task_type': 'field_assistance',
+                        'field': field,
+                        'suggestions': suggestions  # Store for selection
+                    }
+                )
+        
+        # Fallback for fields without AI support or if AI fails
         prompts_by_field = {
             'business_name': "What's the name of your business?",
             'industry': "What industry are you in? (e.g., Restaurant, Fitness, Software, Healthcare)",
@@ -1617,9 +1692,14 @@ def _handle_update_field(field: str, value: str, profile: VoiceProfile, db) -> d
                 db.session.commit()
                 logger.info(f"Added writing sample via field command")
                 
+                # Calculate profile completeness for progress bar
+                _, _, completeness = get_profile_completeness(profile)
+                progress_bar = _format_progress_bar(completeness)
+                
                 return _build_response(
                     f"✅ **Writing Sample added!**\n\n"
                     f"I've saved your sample ({len(current_samples)} total).\n\n"
+                    f"{progress_bar}\n\n"
                     f"This will help me match your style when creating content. Ready to create something?",
                     action='profile_updated',
                     suggestions=['Create content', 'Add another sample', 'View my profile']
@@ -1649,10 +1729,17 @@ def _handle_update_field(field: str, value: str, profile: VoiceProfile, db) -> d
                 suggestions=['Update brand voice', 'Update target audience', 'View my profile']
             )
         
-        # Validate the value
+        # Validate the value with field-specific messages
         if not value or len(value.strip()) < 2:
+            field_specific_errors = {
+                'business_name': "Business names should be at least 2 characters. What's your business called?",
+                'brand_voice': "Try describing your voice with 2-3 words, like 'warm and friendly'",
+                'target_audience': "Tell me more about your audience. Who are they? What do they need?",
+                'key_offer': "What makes you special? Describe your main value in a sentence or two.",
+            }
+            error_message = field_specific_errors.get(field, "Please provide a more detailed value.")
             return _build_response(
-                "Please provide a more detailed value.",
+                error_message,
                 action='error'
             )
         
@@ -1665,9 +1752,14 @@ def _handle_update_field(field: str, value: str, profile: VoiceProfile, db) -> d
             
             field_display = field.replace('_', ' ').title()
             
+            # Calculate profile completeness for progress bar
+            _, _, completeness = get_profile_completeness(profile)
+            progress_bar = _format_progress_bar(completeness)
+            
             return _build_response(
                 f"✅ **{field_display} updated!**\n\n"
                 f"I've saved: {value[:100]}{'...' if len(value) > 100 else ''}\n\n"
+                f"{progress_bar}\n\n"
                 f"This will help me create better content for you. Ready to create something?",
                 action='profile_updated',
                 suggestions=['Create content', 'Update another field', 'View my profile']
@@ -1890,6 +1982,22 @@ def _get_field_prompt(field: str, task_type: str) -> str:
     return prompts.get(field, f"Please provide the {field} for your {task_type}")
 
 
+def _format_progress_bar(completeness: int) -> str:
+    """Format a progress bar showing profile completeness.
+    
+    Args:
+        completeness: Completeness percentage (0-100)
+        
+    Returns:
+        Formatted progress bar string
+    """
+    # Create visual progress bar with 10 blocks
+    filled = int(completeness / 10)
+    empty = 10 - filled
+    bar = "█" * filled + "░" * empty
+    return f"📊 Profile: [{bar}] {completeness}%"
+
+
 def _build_response(message: str, action: str, **kwargs) -> dict:
     """Build a standardized response payload.
     
@@ -2050,7 +2158,19 @@ def chat():
             elif flow == 'field_update':
                 # Continue field update flow (for new FIELD_COMMANDS)
                 field = pending_task.get('field')
+                suggestions = pending_task.get('suggestions')
+                
                 if field:
+                    # Check if there are suggestions and handle selection
+                    if suggestions:
+                        # Parse user input for selection
+                        selection_result = _parse_selection(message, suggestions)
+                        if selection_result:
+                            # User made a selection, apply it
+                            result = _handle_update_field(field, selection_result, profile, db)
+                            return jsonify(result), 200
+                    
+                    # No selection or custom input - treat as direct value
                     result = _handle_update_field(field, message, profile, db)
                     return jsonify(result), 200
                 else:

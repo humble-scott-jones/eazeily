@@ -332,3 +332,18 @@ def generate_profile_suggestions(field: str, profile: dict) -> dict:
             'error': str(e),
             'suggestions': []
         }
+
+
+def suggest_brand_voices(profile: dict) -> dict:
+    """Convenience function to generate brand voice suggestions."""
+    return generate_profile_suggestions('brand_voice', profile)
+
+
+def suggest_target_audiences(profile: dict) -> dict:
+    """Convenience function to generate target audience suggestions."""
+    return generate_profile_suggestions('target_audience', profile)
+
+
+def suggest_key_offers(profile: dict) -> dict:
+    """Convenience function to generate key offer suggestions."""
+    return generate_profile_suggestions('key_offer', profile)
