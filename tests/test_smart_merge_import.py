@@ -3,6 +3,58 @@ import json
 from unittest.mock import patch, MagicMock
 
 
+def test_text_similarity():
+    """Test the _text_similarity function."""
+    from routes.chat_routes import _text_similarity
+    
+    # Test identical text
+    assert _text_similarity("hello world", "hello world") == 1.0
+    
+    # Test completely different text
+    assert _text_similarity("hello world", "foo bar") == 0.0
+    
+    # Test partial overlap
+    similarity = _text_similarity("warm and friendly", "warm and professional")
+    assert 0.4 < similarity < 0.8  # Should have some overlap
+    
+    # Test case insensitivity
+    assert _text_similarity("HELLO WORLD", "hello world") == 1.0
+    
+    # Test empty strings
+    assert _text_similarity("", "hello") == 0.0
+    assert _text_similarity("hello", "") == 0.0
+
+
+def test_fallback_text_merge_brand_voice():
+    """Test _fallback_text_merge for brand_voice field."""
+    from routes.chat_routes import _fallback_text_merge
+    
+    # Test combining descriptors
+    current = "warm and friendly"
+    new = "professional and innovative"
+    result = _fallback_text_merge('brand_voice', current, new)
+    
+    # MUST use AND logic - both values should be preserved
+    assert 'warm' in result.lower()
+    assert 'friendly' in result.lower()
+    assert 'professional' in result.lower()
+    assert 'innovative' in result.lower()
+
+
+def test_fallback_text_merge_target_audience():
+    """Test _fallback_text_merge for target_audience field."""
+    from routes.chat_routes import _fallback_text_merge
+    
+    # Test combining sentences
+    current = "Busy working parents"
+    new = "Tech-savvy millennials"
+    result = _fallback_text_merge('target_audience', current, new)
+    
+    # Should contain both (either combined or prefer longer)
+    # At minimum, should preserve information from both
+    assert len(result) >= max(len(current), len(new))
+
+
 def test_format_field_value():
     """Test the _format_field_value helper function."""
     from routes.chat_routes import _format_field_value

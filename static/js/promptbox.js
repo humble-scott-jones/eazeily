@@ -58,14 +58,14 @@ const FIELD_EMOJI = {
 
 // Mapping from profile field names (used by server) to slash commands
 const FIELD_TO_COMMAND = {
-  'Business Name': '/profile',
-  'Industry': '/profile',
+  'Business Name': '/name',
+  'Industry': '/industry',
   'Brand Voice': '/voice',
   'Target Audience': '/audience',
   'Key Offer': '/offer',
   'Writing Samples': '/samples',
-  'Brand Keywords': '/profile',
-  'Goals': '/profile'
+  'Brand Keywords': '/keywords',
+  'Goals': '/goals'
 };
 
 const WHY_IT_MATTERS = {
@@ -88,6 +88,211 @@ const CONTENT_IMPACT = {
 const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
 const TYPEWRITER_SPEED_MS = 25; // Milliseconds per character for typewriter effect
 const TYPEWRITER_SHORT_MESSAGE_THRESHOLD = 50; // Messages shorter than this skip typewriter effect
+
+
+/**
+ * ScrollManager - Handles scroll position and scroll-to-bottom button
+ */
+class ScrollManager {
+  constructor(containerSelector) {
+    this.container = document.querySelector(containerSelector);
+    this.scrollButton = null;
+    this.isAtBottom = true;
+    this.lastScrollTop = 0;
+    
+    this.init();
+  }
+  
+  init() {
+    if (!this.container) return;
+    
+    // Create scroll-to-bottom button
+    this.scrollButton = document.createElement('button');
+    this.scrollButton.className = 'scroll-to-bottom';
+    this.scrollButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>';
+    this.scrollButton.setAttribute('aria-label', 'Scroll to bottom of conversation');
+    this.scrollButton.addEventListener('click', () => this.scrollToBottom(true));
+    
+    // Append to parent element (not the scrollable container itself)
+    if (this.container.parentElement) {
+      this.container.parentElement.appendChild(this.scrollButton);
+    }
+    
+    // Listen to scroll events
+    this.container.addEventListener('scroll', () => this.handleScroll());
+  }
+  
+  handleScroll() {
+    const scrollTop = this.container.scrollTop;
+    const scrollHeight = this.container.scrollHeight;
+    const clientHeight = this.container.clientHeight;
+    
+    // Check if user is at bottom (within 100px)
+    this.isAtBottom = (scrollHeight - scrollTop - clientHeight) < 100;
+    
+    // Show/hide scroll button
+    if (this.isAtBottom) {
+      this.scrollButton.classList.remove('visible');
+    } else if (scrollTop < this.lastScrollTop || scrollTop > 100) {
+      // Show button if scrolled up or past 100px
+      this.scrollButton.classList.add('visible');
+    }
+    
+    this.lastScrollTop = scrollTop;
+  }
+  
+  scrollToBottom(smooth = true) {
+    if (!this.container) return;
+    
+    this.container.scrollTo({
+      top: this.container.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+  }
+  
+  shouldAutoScroll() {
+    return this.isAtBottom;
+  }
+}
+
+
+/**
+ * TypewriterEffect - Enhanced typewriter with skip button and chunk rendering
+ */
+class TypewriterEffect {
+  constructor(element, text, options = {}) {
+    this.element = element;
+    this.text = text;
+    this.speed = options.speed || 25;
+    this.skipCallback = options.onSkip || null;
+    this.completeCallback = options.onComplete || null;
+    this.isSkipped = false;
+    this.skipButton = null;
+    this.timeoutId = null;
+  }
+  
+  async start() {
+    // Check for reduced motion preference
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      this.skip();
+      return;
+    }
+    
+    // Add skip button
+    this.addSkipButton();
+    
+    // Chunk-based typing (3 chars per tick for performance)
+    const chunkSize = 3;
+    let currentIndex = 0;
+    
+    const typeChunk = () => {
+      if (this.isSkipped) return;
+      
+      const nextChunk = this.text.slice(currentIndex, currentIndex + chunkSize);
+      if (nextChunk) {
+        this.element.textContent += nextChunk;
+        currentIndex += chunkSize;
+        
+        // Continue typing
+        this.timeoutId = setTimeout(typeChunk, this.speed);
+      } else {
+        // Typing complete
+        this.complete();
+      }
+    };
+    
+    typeChunk();
+  }
+  
+  addSkipButton() {
+    this.skipButton = document.createElement('button');
+    this.skipButton.className = 'typewriter-skip';
+    this.skipButton.textContent = 'Skip';
+    this.skipButton.setAttribute('aria-label', 'Skip typewriter animation');
+    this.skipButton.addEventListener('click', () => this.skip());
+    
+    // Add to message element (assuming element is inside a message container)
+    const messageContainer = this.element.closest('.promptbox-message') || this.element.parentElement;
+    if (messageContainer) {
+      messageContainer.style.position = 'relative';
+      messageContainer.appendChild(this.skipButton);
+    }
+  }
+  
+  skip() {
+    this.isSkipped = true;
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+    this.element.textContent = this.text;
+    this.complete();
+  }
+  
+  complete() {
+    if (this.skipButton && this.skipButton.parentElement) {
+      this.skipButton.remove();
+    }
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+    if (this.completeCallback) {
+      this.completeCallback();
+    }
+  }
+}
+
+
+/**
+ * hapticFeedback - Trigger haptic feedback on supported devices
+ */
+function hapticFeedback(type = 'light') {
+  // Check if Vibration API is available
+  if (!navigator.vibrate) return;
+  
+  const patterns = {
+    light: 10,
+    medium: 20,
+    success: [10, 50, 10],
+    error: [20, 100, 20],
+    warning: [10, 50, 10, 50, 10]
+  };
+  
+  const pattern = patterns[type] || patterns.light;
+  navigator.vibrate(pattern);
+}
+
+
+/**
+ * showToast - Display toast notification
+ * Uses textContent instead of innerHTML to prevent XSS
+ * @param {string} message - Message to display (must be a string)
+ * @param {string} type - Type of toast (info, success, error, warning)
+ */
+function showToast(message, type = 'info') {
+  // Validate that message is a string
+  if (typeof message !== 'string') {
+    console.error('showToast: message must be a string');
+    return;
+  }
+  
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message; // XSS safe - use textContent instead of innerHTML
+  
+  document.body.appendChild(toast);
+  
+  // Trigger haptic feedback
+  hapticFeedback(type === 'error' ? 'error' : type === 'success' ? 'success' : 'light');
+  
+  // Auto-dismiss after 3 seconds
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
 
 
 class PromptBox {
@@ -123,6 +328,8 @@ class PromptBox {
     this.editingField = null; // Track currently editing field
     this.pendingProfileSuggestions = null; // Track pending profile suggestions for selection
     this.hasUsedSlashCommand = localStorage.getItem('eazeily_used_slash') === 'true'; // Track if user has used slash commands
+    this.scrollManager = null; // Track scroll manager
+    this.thinkingIndicator = null; // Track thinking indicator element
 
     // Get suggestions based on context
     this.suggestions = this.getSuggestions();
@@ -131,6 +338,11 @@ class PromptBox {
     this.render();
     this.attachEventListeners();
     this.startSuggestionRotation();
+    
+    // Initialize scroll manager after render (only for non-embedded mode)
+    if (!this.embedded) {
+      this.scrollManager = new ScrollManager('.promptbox-messages');
+    }
   }
 
   getDefaultPlaceholder() {
@@ -909,6 +1121,52 @@ class PromptBox {
       });
     }
   }
+  
+  /**
+   * Show skeleton loader thinking indicator
+   */
+  showThinkingIndicator() {
+    // Check if thinking indicator already exists
+    if (this.thinkingIndicator && this.thinkingIndicator.parentElement) {
+      return; // Already showing
+    }
+    
+    const conversation = document.getElementById(`${this.container.id}-conversation`);
+    if (!conversation) return;
+    
+    // Create thinking indicator with skeleton loader (using DOM methods for safety)
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.className = 'promptbox-message thinking';
+    
+    const loaderDiv = document.createElement('div');
+    loaderDiv.className = 'skeleton-loader';
+    
+    // Add three skeleton lines
+    for (let i = 0; i < 3; i++) {
+      const line = document.createElement('div');
+      line.className = 'skeleton-line';
+      loaderDiv.appendChild(line);
+    }
+    
+    thinkingDiv.appendChild(loaderDiv);
+    conversation.appendChild(thinkingDiv);
+    this.thinkingIndicator = thinkingDiv;
+    
+    // Auto-scroll
+    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
+      this.scrollManager.scrollToBottom();
+    }
+  }
+  
+  /**
+   * Hide skeleton loader thinking indicator
+   */
+  hideThinkingIndicator() {
+    if (this.thinkingIndicator && this.thinkingIndicator.parentElement) {
+      this.thinkingIndicator.remove();
+      this.thinkingIndicator = null;
+    }
+  }
 
   /**
    * Typewriter effect for AI responses
@@ -1229,7 +1487,7 @@ ${normalizedMissing.some(m => m.key === 'writing_samples') ?
 Want to complete your profile now, or jump straight to creating content?`;
     
     const buttons = firstMissing ? [
-      { label: `Add ${firstMissing.name}`, action: 'prompt', value: firstMissing.command },
+      { label: `Add ${firstMissing.name}`, action: 'command', value: firstMissing.command },
       { label: 'Start creating →', action: 'focus' }
     ] : [
       { label: 'Start creating →', action: 'focus' }

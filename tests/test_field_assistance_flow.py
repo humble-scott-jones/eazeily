@@ -75,55 +75,90 @@ class TestNewFieldCommands:
             assert result['value'] == expected_value, \
                 f"Value should be '{expected_value}', got '{result.get('value')}'"
     
-    def test_existing_commands_unchanged(self, router):
-        """Test that existing commands still work as before and are NOT field commands."""
-        # /voice should still return update_voice (NOT field_assistance)
+    def test_existing_commands_now_use_field_assistance(self, router):
+        """Test that existing commands now use field_assistance flow when sent bare."""
+        # /voice should now return field_assistance when sent bare
         result = router._parse_slash_command('/voice')
         assert result is not None
-        assert result['task_type'] == 'update_voice', \
-            f"/voice should return update_voice, got {result['task_type']}"
+        assert result['task_type'] == 'field_assistance', \
+            f"/voice should return field_assistance, got {result['task_type']}"
+        assert result['field'] == 'brand_voice'
         
-        # /audience should still return update_audience
+        # /audience should now return field_assistance when sent bare
         result = router._parse_slash_command('/audience')
         assert result is not None
-        assert result['task_type'] == 'update_audience', \
-            f"/audience should return update_audience, got {result['task_type']}"
+        assert result['task_type'] == 'field_assistance', \
+            f"/audience should return field_assistance, got {result['task_type']}"
+        assert result['field'] == 'target_audience'
         
-        # /samples should still return update_samples
+        # /samples should now return field_assistance when sent bare
         result = router._parse_slash_command('/samples')
         assert result is not None
-        assert result['task_type'] == 'update_samples', \
-            f"/samples should return update_samples, got {result['task_type']}"
+        assert result['task_type'] == 'field_assistance', \
+            f"/samples should return field_assistance, got {result['task_type']}"
+        assert result['field'] == 'writing_samples'
+        
+        # /offer should now return field_assistance when sent bare
+        result = router._parse_slash_command('/offer')
+        assert result is not None
+        assert result['task_type'] == 'field_assistance', \
+            f"/offer should return field_assistance, got {result['task_type']}"
+        assert result['field'] == 'key_offer'
     
     def test_existing_commands_with_values(self, router):
-        """Test that existing commands with values still use their original handlers."""
-        # /voice with value should still use update_voice flow
+        """Test that existing commands with values use update_field."""
+        # /voice with value should use update_field
         result = router._parse_slash_command('/voice warm and friendly')
         assert result is not None
-        assert result['task_type'] == 'update_voice'
-        assert 'warm and friendly' in result['extracted_params'].get('topic', '')
+        assert result['task_type'] == 'update_field'
+        assert result['field'] == 'brand_voice'
+        assert result['value'] == 'warm and friendly'
         
-        # /audience with value should still use update_audience flow
+        # /audience with value should use update_field
         result = router._parse_slash_command('/audience tech startups')
         assert result is not None
-        assert result['task_type'] == 'update_audience'
+        assert result['task_type'] == 'update_field'
+        assert result['field'] == 'target_audience'
+        assert result['value'] == 'tech startups'
+        
+        # /samples with value should use update_field
+        result = router._parse_slash_command('/samples Check out our new collection!')
+        assert result is not None
+        assert result['task_type'] == 'update_field'
+        assert result['field'] == 'writing_samples'
+        assert result['value'] == 'Check out our new collection!'
+        
+        # /offer with value should use update_field
+        result = router._parse_slash_command('/offer Free 30-day trial')
+        assert result is not None
+        assert result['task_type'] == 'update_field'
+        assert result['field'] == 'key_offer'
+        assert result['value'] == 'Free 30-day trial'
     
     def test_field_commands_constant_defined(self):
         """Test that FIELD_COMMANDS constant is properly defined."""
         assert FIELD_COMMANDS is not None
         assert isinstance(FIELD_COMMANDS, dict)
         
-        # Verify NEW commands are present
+        # Verify ALL 8 field commands are present
         assert '/name' in FIELD_COMMANDS
         assert '/industry' in FIELD_COMMANDS
+        assert '/voice' in FIELD_COMMANDS
+        assert '/audience' in FIELD_COMMANDS
+        assert '/offer' in FIELD_COMMANDS
+        assert '/samples' in FIELD_COMMANDS
         assert '/keywords' in FIELD_COMMANDS
         assert '/goals' in FIELD_COMMANDS
-        assert '/offer' in FIELD_COMMANDS
         
-        # Verify EXISTING commands are NOT in FIELD_COMMANDS
-        assert '/voice' not in FIELD_COMMANDS, "/voice should NOT be in FIELD_COMMANDS"
-        assert '/audience' not in FIELD_COMMANDS, "/audience should NOT be in FIELD_COMMANDS"
-        assert '/samples' not in FIELD_COMMANDS, "/samples should NOT be in FIELD_COMMANDS"
+        # Verify field mappings
+        assert FIELD_COMMANDS['/name'] == 'business_name'
+        assert FIELD_COMMANDS['/industry'] == 'industry'
+        assert FIELD_COMMANDS['/voice'] == 'brand_voice'
+        assert FIELD_COMMANDS['/audience'] == 'target_audience'
+        assert FIELD_COMMANDS['/offer'] == 'key_offer'
+        assert FIELD_COMMANDS['/samples'] == 'writing_samples'
+        assert FIELD_COMMANDS['/keywords'] == 'brand_keywords'
+        assert FIELD_COMMANDS['/goals'] == 'goals'
     
     def test_parse_intent_with_new_field_commands(self, router, mock_profile):
         """Test parse_intent with NEW field commands."""
@@ -139,15 +174,22 @@ class TestNewFieldCommands:
         assert result['value'] == 'Fresh, Local'
     
     def test_parse_intent_with_existing_commands(self, router, mock_profile):
-        """Test parse_intent with EXISTING commands - verify unchanged behavior."""
-        # /voice should still work as before
+        """Test parse_intent with EXISTING commands - verify new behavior."""
+        # /voice should now use field_assistance when bare
         result = router.parse_intent('/voice', mock_profile)
-        assert result['task_type'] == 'update_voice'
-        assert result['follow_up_needed'] is True
+        assert result['task_type'] == 'field_assistance'
+        assert result['field'] == 'brand_voice'
         
-        # /audience should still work as before
+        # /audience should now use field_assistance when bare
         result = router.parse_intent('/audience', mock_profile)
-        assert result['task_type'] == 'update_audience'
+        assert result['task_type'] == 'field_assistance'
+        assert result['field'] == 'target_audience'
+        
+        # /voice with value should use update_field
+        result = router.parse_intent('/voice warm and friendly', mock_profile)
+        assert result['task_type'] == 'update_field'
+        assert result['field'] == 'brand_voice'
+        assert result['value'] == 'warm and friendly'
         assert result['follow_up_needed'] is True
 
 

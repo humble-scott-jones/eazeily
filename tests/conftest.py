@@ -10,6 +10,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+# Exclude e2e tests unless RUN_UI_SMOKE=1
+collect_ignore_glob = []
+if os.getenv('RUN_UI_SMOKE') != '1':
+    collect_ignore_glob.append('e2e/*.py')
+
 # Use reduced PBKDF2 iterations during tests unless the caller explicitly
 # overrides the setting. This keeps the suite from spending most of its time
 # hashing passwords created by signup/login flows.
