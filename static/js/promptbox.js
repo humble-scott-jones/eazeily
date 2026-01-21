@@ -168,6 +168,7 @@ class TypewriterEffect {
         this.index = 0;
         this.cancelled = false;
         this.skipButton = null;
+        this.timeoutId = null;
         
         // Check for reduced motion preference
         this.prefersReducedMotion = window.matchMedia(
