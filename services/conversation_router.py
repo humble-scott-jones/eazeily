@@ -632,9 +632,20 @@ Rules:
                 break
         
         # Extract mood/tone using word boundaries
+        # For multi-word phrases, we need to check them without word boundary on the phrase itself
         for mood, keywords in MOOD_KEYWORDS.items():
-            if any(re.search(r'\b' + re.escape(kw) + r'\b', text_lower) for kw in keywords):
-                params['mood'] = mood
+            for kw in keywords:
+                # For multi-word keywords, use simple 'in' check (case-insensitive)
+                # For single-word keywords, use word boundaries
+                if ' ' in kw:
+                    if kw in text_lower:
+                        params['mood'] = mood
+                        break
+                else:
+                    if re.search(r'\b' + re.escape(kw) + r'\b', text_lower):
+                        params['mood'] = mood
+                        break
+            if 'mood' in params:
                 break
         
         # Extract CTA from "with cta [text]" pattern

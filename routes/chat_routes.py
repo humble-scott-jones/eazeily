@@ -61,6 +61,18 @@ voice_engine = VoiceEngine()
 onboarding_service = OnboardingService()
 conversation_router = ConversationRouter()
 
+# Task types that are handled by profile update flow
+PROFILE_TASK_TYPES = [
+    'profile', 'profile_update', 'update_voice', 'update_audience', 
+    'update_samples', 'import_profile', 'update_from_url'
+]
+
+# Commands that should not return pending tasks (handled specially)
+PROFILE_COMMANDS = ['/update', '/profile', '/voice', '/audience', '/samples']
+
+# Task types that don't use standard content collection flow
+NON_CONTENT_TASK_TYPES = ['quick_templates', 'batch_session']
+
 
 def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str], int]:
     """Check if profile has minimum required fields for content generation.
@@ -1928,11 +1940,11 @@ def _handle_session_action(message: str, pending_task: dict, profile: VoiceProfi
             suggestions=['Start new session', 'Create content', 'View history']
         )
     
-    # Check for platform switch (e.g., "use LinkedIn")
-    platform_switch_pattern = r'^use\s+(\w+)$'
+    # Check for platform switch (e.g., "use LinkedIn", "use tik tok")
+    platform_switch_pattern = r'^use\s+(.+)$'
     match = re.match(platform_switch_pattern, message_lower)
     if match:
-        new_platform_input = match.group(1)
+        new_platform_input = match.group(1).strip()
         
         # Map common aliases to full platform names
         platform_map = {
@@ -1942,7 +1954,8 @@ def _handle_session_action(message: str, pending_task: dict, profile: VoiceProfi
             'linkedin': 'linkedin',
             'twitter': 'twitter',
             'x': 'twitter',
-            'tiktok': 'tiktok'
+            'tiktok': 'tiktok',
+            'tik tok': 'tiktok'  # Handle space variant
         }
         
         new_platform = platform_map.get(new_platform_input, new_platform_input)
@@ -2434,10 +2447,10 @@ def chat():
                 guidance = get_command_guidance(command)
                 # For non-profile commands, show guidance and return with pending task
                 # For profile commands, guidance will be shown by the profile handler
-                if guidance and command not in ['/update', '/profile', '/voice', '/audience', '/samples']:
+                if guidance and command not in PROFILE_COMMANDS:
                     # Set up pending task for content commands so next message continues the flow
                     task_type = intent_result.get('task_type')
-                    if task_type and task_type not in ['quick_templates', 'batch_session']:
+                    if task_type and task_type not in NON_CONTENT_TASK_TYPES:
                         return jsonify(_build_response(
                             guidance,
                             action='continue',
@@ -2451,7 +2464,7 @@ def chat():
                         return jsonify(_build_response(guidance, action='continue')), 200
         
         # Handle profile-related intents (including new commands)
-        if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:
+        if intent_result['task_type'] in PROFILE_TASK_TYPES:
             logger.info(f"[{request_id}] Handling profile update request")
             result = _handle_profile_update(message, None, profile, db)
             return jsonify(result), 200

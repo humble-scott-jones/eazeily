@@ -68,6 +68,20 @@ class TestEnhancedConversationRouter:
         params = router._extract_params_from_text('inspiring message for Monday motivation', 'post')
         assert params.get('mood') == 'inspiring'
     
+    def test_extract_mood_multi_word_phrases(self, router):
+        """Test extracting moods from multi-word phrases."""
+        # Test "limited time" (urgent)
+        params = router._extract_params_from_text('limited time offer on products', 'post')
+        assert params.get('mood') == 'urgent'
+        
+        # Test "laid back" (casual)
+        params = router._extract_params_from_text('laid back weekend vibes', 'post')
+        assert params.get('mood') == 'casual'
+        
+        # Test "how to" (informative)
+        params = router._extract_params_from_text('how to improve your fitness', 'post')
+        assert params.get('mood') == 'informative'
+    
     # Test CTA extraction
     def test_extract_cta_with_quotes(self, router):
         """Test extracting CTA with quotes."""
