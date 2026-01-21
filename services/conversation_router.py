@@ -424,12 +424,19 @@ class ConversationRouter:
         
         # Check if this is a bare command that needs guidance
         # Derive list from COMMAND_GUIDANCE keys to maintain consistency
-        needs_guidance = command in COMMAND_GUIDANCE and not remainder.strip()
+        # Exception: /profiles and /switch don't need guidance even when bare - they execute
+        needs_guidance = (command in COMMAND_GUIDANCE and 
+                         not remainder.strip() and 
+                         command not in ['/profiles', '/switch'])
         
         task_type = self.COMMAND_MAP[command]
         
-        # Extract parameters from remainder
-        extracted = self._extract_params_from_text(remainder, task_type) if remainder else {}
+        # Special parameter extraction for /switch command
+        if command == '/switch' and remainder:
+            extracted = {'profile_name': remainder.strip()}
+        else:
+            # Extract parameters from remainder
+            extracted = self._extract_params_from_text(remainder, task_type) if remainder else {}
         
         result = {
             'task_type': task_type,
