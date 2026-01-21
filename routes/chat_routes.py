@@ -971,6 +971,12 @@ def _format_field_value(value) -> str:
     return str(value)
 
 
+# Constants for merge suggestion limits
+MAX_BRAND_KEYWORDS = 10
+MAX_GOALS = 5
+MAX_VOICE_DESCRIPTORS = 5
+
+
 def _text_similarity(text1: str, text2: str) -> float:
     """Calculate simple text similarity ratio using word overlap.
     
@@ -1031,7 +1037,7 @@ def _fallback_text_merge(field: str, current: str, new: str) -> str:
                 combined_words.append(word)
                 seen.add(word.lower())
         
-        return ', '.join(combined_words[:5])  # Limit to 5 descriptors
+        return ', '.join(combined_words[:MAX_VOICE_DESCRIPTORS])
     
     if field in ['target_audience', 'key_offer']:
         # For target audience and key offer, combine first sentences if similar length
@@ -1085,7 +1091,7 @@ def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
             if item_lower not in seen:
                 combined.append(item)
                 seen.add(item_lower)
-        return combined[:10] if field == 'brand_keywords' else combined[:5]
+        return combined[:MAX_BRAND_KEYWORDS] if field == 'brand_keywords' else combined[:MAX_GOALS]
     
     # For text fields, try to merge intelligently
     if isinstance(current, str) and isinstance(new, str):

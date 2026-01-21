@@ -1134,17 +1134,21 @@ class PromptBox {
     const conversation = document.getElementById(`${this.container.id}-conversation`);
     if (!conversation) return;
     
-    // Create thinking indicator with skeleton loader
+    // Create thinking indicator with skeleton loader (using DOM methods for safety)
     const thinkingDiv = document.createElement('div');
     thinkingDiv.className = 'promptbox-message thinking';
-    thinkingDiv.innerHTML = `
-      <div class="skeleton-loader">
-        <div class="skeleton-line"></div>
-        <div class="skeleton-line"></div>
-        <div class="skeleton-line"></div>
-      </div>
-    `;
     
+    const loaderDiv = document.createElement('div');
+    loaderDiv.className = 'skeleton-loader';
+    
+    // Add three skeleton lines
+    for (let i = 0; i < 3; i++) {
+      const line = document.createElement('div');
+      line.className = 'skeleton-line';
+      loaderDiv.appendChild(line);
+    }
+    
+    thinkingDiv.appendChild(loaderDiv);
     conversation.appendChild(thinkingDiv);
     this.thinkingIndicator = thinkingDiv;
     
