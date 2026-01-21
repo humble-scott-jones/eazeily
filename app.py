@@ -117,6 +117,7 @@ def create_app():
     from routes.scraper_routes import scraper_bp
     from routes.chat_routes import chat_bp
     from routes.history_routes import history_bp
+    from routes.template_routes import template_bp
     app.register_blueprint(wizard_bp)
     app.register_blueprint(auth_bp)
     # Register chat_bp before generate_bp so /api/chat routes to the real implementation
@@ -127,6 +128,7 @@ def create_app():
     app.register_blueprint(profile_bp)
     app.register_blueprint(scraper_bp)
     app.register_blueprint(history_bp)
+    app.register_blueprint(template_bp)
 
     # Root route and health endpoint so the staging domain has content and Railway healthchecks succeed
     @app.route('/')
