@@ -679,11 +679,143 @@
     }
 }
 
+/* ===== Scroll to Bottom Button ===== */
+.scroll-to-bottom {
+    position: fixed;
+    bottom: 120px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-lg);
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.scroll-to-bottom.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.scroll-to-bottom:hover {
+    transform: scale(1.1);
+}
+
+.scroll-to-bottom svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* ===== Skeleton Loader (Thinking Indicator) ===== */
+.promptbox-message.thinking {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px;
+    min-height: 60px;
+}
+
+.skeleton-loader {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.skeleton-line {
+    height: 12px;
+    background: linear-gradient(
+        90deg,
+        var(--border) 0%,
+        var(--border-subtle) 50%,
+        var(--border) 100%
+    );
+    background-size: 200% 100%;
+    border-radius: 6px;
+    animation: shimmer 1.5s infinite;
+}
+
+.skeleton-line:nth-child(1) {
+    width: 90%;
+}
+
+.skeleton-line:nth-child(2) {
+    width: 80%;
+}
+
+.skeleton-line:nth-child(3) {
+    width: 70%;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* ===== Typewriter Skip Button ===== */
+.typewriter-skip {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.typewriter-skip:hover {
+    background: var(--accent);
+    color: white;
+}
+
+/* ===== Toast Enhancements ===== */
+.toast-warning {
+    background: var(--warning, #f59e0b);
+    color: white;
+}
+
+.toast-info {
+    background: var(--accent);
+    color: white;
+}
+
+/* ===== Safe Area Insets (iOS notched devices) ===== */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .chat-page {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    .scroll-to-bottom {
+        bottom: calc(120px + env(safe-area-inset-bottom));
+    }
+}
+
 /* ===== Accessibility ===== */
 @media (prefers-reduced-motion: reduce) {
     .chat-message,
     .nav-menu,
-    .nav-overlay {
+    .nav-overlay,
+    .skeleton-line,
+    .scroll-to-bottom {
         animation: none;
         transition: none;
     }
