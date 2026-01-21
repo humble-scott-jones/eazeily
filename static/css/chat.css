@@ -789,7 +789,7 @@
 
 /* ===== Toast Enhancements ===== */
 .toast-warning {
-    background: var(--warning, #f59e0b);
+    background: #d97706; /* Darker orange for better contrast */
     color: white;
 }
 

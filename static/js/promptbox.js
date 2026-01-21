@@ -268,8 +268,16 @@ function hapticFeedback(type = 'light') {
 /**
  * showToast - Display toast notification
  * Uses textContent instead of innerHTML to prevent XSS
+ * @param {string} message - Message to display (must be a string)
+ * @param {string} type - Type of toast (info, success, error, warning)
  */
 function showToast(message, type = 'info') {
+  // Validate that message is a string
+  if (typeof message !== 'string') {
+    console.error('showToast: message must be a string');
+    return;
+  }
+  
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.textContent = message; // XSS safe - use textContent instead of innerHTML
