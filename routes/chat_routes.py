@@ -1963,6 +1963,134 @@ def _parse_intent(message: str, history: list) -> tuple[str, dict]:
     return 'post', initial_collected
 
 
+def _handle_list_profiles(user) -> dict:
+    """Handle /profiles command to list all user profiles.
+    
+    Args:
+        user: Current user object
+        
+    Returns:
+        Response dict with profile list
+    """
+    try:
+        profiles = VoiceProfile.query.filter_by(user_id=user.id).all()
+        
+        if not profiles:
+            return _build_response(
+                "You don't have any profiles yet. Let's create one!",
+                action='continue',
+                suggestions=['Start onboarding']
+            )
+        
+        # Get current active profile from session
+        from flask import session
+        active_profile_id = session.get('active_profile_id')
+        
+        # Build profile list message
+        profile_lines = ["👥 **Your Brand Profiles:**\n"]
+        for profile in profiles:
+            marker = "→" if profile.id == active_profile_id else ("⭐" if profile.is_default else "•")
+            name = profile.profile_name or profile.business_name or f"Profile {profile.id}"
+            profile_lines.append(f"{marker} {name}")
+        
+        profile_lines.append("\n**Switch to a profile:**")
+        profile_lines.append("Use `/switch [name]` to change your active profile")
+        
+        # Show create option if under limit
+        if user.can_create_profile():
+            tier_limits = user.get_tier_limits()
+            max_profiles = tier_limits['profiles']
+            if max_profiles == -1:
+                profile_lines.append("\n**Create new profile:** Use the profile editor")
+            else:
+                profile_lines.append(f"\n**Create new profile:** You can create {max_profiles - len(profiles)} more")
+        else:
+            tier_limits = user.get_tier_limits()
+            profile_lines.append(f"\n_Profile limit reached ({tier_limits['profiles']} max for {user.subscription_tier} tier)_")
+        
+        return _build_response(
+            "\n".join(profile_lines),
+            action='continue',
+            suggestions=[f'/switch {p.profile_name or p.business_name}' for p in profiles[:3]]
+        )
+        
+    except Exception as e:
+        logger.error(f"Error listing profiles: {e}", exc_info=True)
+        return _build_response(
+            "Sorry, I couldn't list your profiles. Please try again.",
+            action='error'
+        )
+
+
+def _handle_switch_profile(user, profile_name: str) -> dict:
+    """Handle /switch command to change active profile.
+    
+    Args:
+        user: Current user object
+        profile_name: Name of profile to switch to
+        
+    Returns:
+        Response dict with switch confirmation
+    """
+    try:
+        if not profile_name:
+            return _build_response(
+                "Please specify which profile to switch to.\n\nExample: `/switch Main Brand`",
+                action='continue',
+                suggestions=['/profiles']
+            )
+        
+        # Find matching profile by name (case-insensitive partial match)
+        profile_name_lower = profile_name.lower()
+        profiles = VoiceProfile.query.filter_by(user_id=user.id).all()
+        
+        matching_profile = None
+        for profile in profiles:
+            pname = profile.profile_name or profile.business_name or ""
+            if profile_name_lower in pname.lower() or pname.lower() in profile_name_lower:
+                matching_profile = profile
+                break
+        
+        if not matching_profile:
+            # Try exact ID match
+            try:
+                profile_id = int(profile_name)
+                matching_profile = VoiceProfile.query.filter_by(
+                    id=profile_id,
+                    user_id=user.id
+                ).first()
+            except ValueError:
+                pass
+        
+        if not matching_profile:
+            available_names = [p.profile_name or p.business_name for p in profiles]
+            return _build_response(
+                f"I couldn't find a profile named '{profile_name}'.\n\n"
+                f"**Your profiles:**\n" + "\n".join(f"• {name}" for name in available_names),
+                action='continue',
+                suggestions=['/profiles']
+            )
+        
+        # Set active profile in session
+        from flask import session
+        session['active_profile_id'] = matching_profile.id
+        
+        name = matching_profile.profile_name or matching_profile.business_name
+        return _build_response(
+            f"✓ Switched to profile: **{name}**\n\n"
+            f"All content generation will now use this profile.",
+            action='continue',
+            suggestions=['Create a post', '/post', '/profiles']
+        )
+        
+    except Exception as e:
+        logger.error(f"Error switching profile: {e}", exc_info=True)
+        return _build_response(
+            "Sorry, I couldn't switch profiles. Please try again.",
+            action='error'
+        )
+
+
 @chat_bp.route('/api/chat', methods=['POST'])
 @login_required
 def chat():
@@ -2016,8 +2144,27 @@ def chat():
             f"message='{message[:50]}...', has_pending={pending_task is not None}"
         )
         
-        # Get user's voice profile
-        profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+        # Get user's voice profile (use active profile from session if set)
+        from flask import session
+        active_profile_id = session.get('active_profile_id')
+        
+        if active_profile_id:
+            profile = VoiceProfile.query.filter_by(
+                id=active_profile_id,
+                user_id=current_user.id
+            ).first()
+            if not profile:
+                # Active profile doesn't exist, clear session and fall back
+                session.pop('active_profile_id', None)
+                profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+        else:
+            # No active profile in session, get default or first
+            profile = VoiceProfile.query.filter_by(
+                user_id=current_user.id,
+                is_default=True
+            ).first()
+            if not profile:
+                profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
         
         # Check if profile is ready for content generation
         profile_ready, missing_fields, completeness = _check_profile_ready(profile)
@@ -2140,6 +2287,18 @@ def chat():
         if intent_result['task_type'] in ['profile', 'profile_update', 'update_voice', 'update_audience', 'update_samples', 'import_profile', 'update_from_url']:
             logger.info(f"[{request_id}] Handling profile update request")
             result = _handle_profile_update(message, None, profile, db)
+            return jsonify(result), 200
+        
+        # Handle multi-profile commands
+        if intent_result['task_type'] == 'list_profiles':
+            logger.info(f"[{request_id}] Handling list profiles request")
+            result = _handle_list_profiles(current_user)
+            return jsonify(result), 200
+        
+        if intent_result['task_type'] == 'switch_profile':
+            logger.info(f"[{request_id}] Handling switch profile request")
+            profile_name = intent_result.get('extracted_params', {}).get('profile_name') or message.replace('/switch', '').strip()
+            result = _handle_switch_profile(current_user, profile_name)
             return jsonify(result), 200
         
         # Handle NEW field assistance flow (from FIELD_COMMANDS)

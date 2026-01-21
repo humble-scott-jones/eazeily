@@ -20,8 +20,8 @@ class User(UserMixin, db.Model):
     generation_count_month = db.Column(db.Integer, default=0)
     generation_reset_date = db.Column(db.DateTime)
     
-    # Relationship
-    voice_profile = db.relationship('VoiceProfile', backref='user', uselist=False)
+    # Relationship - support multiple profiles
+    voice_profiles = db.relationship('VoiceProfile', backref='user', lazy='dynamic')
     
     # Tier configuration (can be moved to config later)
     TIER_LIMITS = {
@@ -87,6 +87,34 @@ class User(UserMixin, db.Model):
     def get_tier_limits(self) -> dict:
         """Return the limits for the user's current tier."""
         return self.TIER_LIMITS.get(self.subscription_tier, self.TIER_LIMITS['free'])
+    
+    def can_create_profile(self) -> bool:
+        """Check if user can create another profile based on tier limits.
+        
+        Returns:
+            bool: True if user can create another profile, False otherwise
+        """
+        limits = self.TIER_LIMITS.get(self.subscription_tier, self.TIER_LIMITS['free'])
+        max_profiles = limits['profiles']
+        
+        # -1 means unlimited
+        if max_profiles == -1:
+            return True
+        
+        # Count existing profiles
+        current_count = VoiceProfile.query.filter_by(user_id=self.id).count()
+        return current_count < max_profiles
+    
+    @property
+    def voice_profile(self):
+        """Backward compatibility property for single profile access.
+        
+        Returns the default profile, or first profile if no default is set.
+        """
+        default_profile = VoiceProfile.query.filter_by(user_id=self.id, is_default=True).first()
+        if default_profile:
+            return default_profile
+        return VoiceProfile.query.filter_by(user_id=self.id).first()
 
 
 class VoiceProfile(db.Model):
@@ -94,6 +122,11 @@ class VoiceProfile(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Multi-profile support fields
+    is_default = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    profile_name = db.Column(db.String(100))
+    
     industry = db.Column(db.String(255))
     business_name = db.Column(db.String(255))
     defaults = db.Column(db.Text) # Storing JSON as Text

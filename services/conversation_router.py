@@ -61,6 +61,8 @@ COMMAND_GUIDANCE = {
     '/samples': "✍️ **Paste a writing sample from your brand:**\n\nExample: `/samples Check out our new summer collection! 🌞`",
     '/update': "✏️ **What field do you want to update?**\n\nExample: `/update voice warm and friendly`",
     '/rules': "📋 **What voice rules should I follow?**\n\nExample: `/rules always use emojis and keep it casual`",
+    '/profiles': "👥 **Your Brand Profiles**\n\nView all your profiles and switch between them.",
+    '/switch': "🔄 **Switch Profile**\n\nExample: `/switch Client: Acme Co` or `/switch Main Brand`",
 }
 
 
@@ -98,6 +100,8 @@ class ConversationRouter:
         '/profile': 'profile',           # View/edit profile
         '/update': 'profile_update',     # Update specific field
         '/import': 'import_profile',     # Import from URL
+        '/profiles': 'list_profiles',    # List all profiles (multi-profile)
+        '/switch': 'switch_profile',     # Switch active profile (multi-profile)
         # All 8 field commands for AI-assisted completion
         '/name': 'field_assistance',     # Business name field
         '/industry': 'field_assistance', # Industry field
