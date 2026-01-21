@@ -38,16 +38,20 @@ class TestProfileUpdateCommands:
         assert result['task_type'] == 'profile_update'
     
     def test_parse_slash_voice_command(self, router):
-        """Test parsing /voice command."""
+        """Test parsing /voice command - now uses field_assistance flow."""
         result = router._parse_slash_command('/voice')
         assert result is not None
-        assert result['task_type'] == 'update_voice'
+        # NEW: /voice now triggers field_assistance with AI suggestions
+        assert result['task_type'] == 'field_assistance'
+        assert result.get('field') == 'brand_voice'
     
     def test_parse_slash_audience_command(self, router):
-        """Test parsing /audience command."""
+        """Test parsing /audience command - now uses field_assistance flow."""
         result = router._parse_slash_command('/audience')
         assert result is not None
-        assert result['task_type'] == 'update_audience'
+        # NEW: /audience now triggers field_assistance with AI suggestions
+        assert result['task_type'] == 'field_assistance'
+        assert result.get('field') == 'target_audience'
     
     def test_normalize_field_name_business_name(self, router):
         """Test normalizing business name aliases."""
@@ -227,9 +231,10 @@ class TestProfileUpdateCommands:
         assert result['task_type'] == 'profile_update'
         assert result['follow_up_needed'] is True
         
+        # NEW: /voice now triggers field_assistance flow (with AI suggestions)
         result = router.parse_intent('/voice', mock_profile)
-        assert result['task_type'] == 'update_voice'
-        assert result['follow_up_needed'] is True
+        assert result['task_type'] == 'field_assistance'
+        assert result.get('field') == 'brand_voice'
     
     def test_parse_intent_natural_language_profile(self, router, mock_profile):
         """Test parse_intent with natural language profile requests."""
@@ -241,7 +246,7 @@ class TestProfileUpdateCommands:
         
         # Test update intent
         result = router.parse_intent('change my brand voice', mock_profile)
-        # Should detect as profile update
+        # Should detect as profile update (natural language still uses old flow)
         if result['task_type'] in ['update_voice', 'profile_update']:
             assert result['task_type'] in ['update_voice', 'profile_update']
 
