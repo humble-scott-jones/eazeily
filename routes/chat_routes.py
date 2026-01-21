@@ -971,6 +971,88 @@ def _format_field_value(value) -> str:
     return str(value)
 
 
+def _text_similarity(text1: str, text2: str) -> float:
+    """Calculate simple text similarity ratio using word overlap.
+    
+    Args:
+        text1: First text string
+        text2: Second text string
+        
+    Returns:
+        Float between 0.0 and 1.0 representing Jaccard similarity
+    """
+    if not text1 or not text2:
+        return 0.0
+    
+    # Convert to lowercase and split into words
+    words1 = set(text1.lower().split())
+    words2 = set(text2.lower().split())
+    
+    # Calculate Jaccard similarity (intersection / union)
+    if not words1 or not words2:
+        return 0.0
+    
+    intersection = len(words1 & words2)
+    union = len(words1 | words2)
+    
+    return intersection / union if union > 0 else 0.0
+
+
+def _fallback_text_merge(field: str, current: str, new: str) -> str:
+    """Fallback merge when AI is unavailable.
+    
+    Args:
+        field: Field name being merged
+        current: Current value
+        new: New value
+        
+    Returns:
+        Merged text value
+    """
+    # Check similarity
+    similarity = _text_similarity(current, new)
+    
+    # If very similar (>80% overlap), keep longer one
+    if similarity > 0.8:
+        return new if len(new) > len(current) else current
+    
+    # Special handling by field type
+    if field == 'brand_voice':
+        # For brand voice, combine descriptors with comma
+        # Remove common words like "and", "but", "or"
+        current_words = [w.strip() for w in current.replace(',', ' ').split() if w.lower() not in ['and', 'but', 'or', 'with']]
+        new_words = [w.strip() for w in new.replace(',', ' ').split() if w.lower() not in ['and', 'but', 'or', 'with']]
+        
+        # Combine unique words
+        combined_words = []
+        seen = set()
+        for word in current_words + new_words:
+            if word.lower() not in seen:
+                combined_words.append(word)
+                seen.add(word.lower())
+        
+        return ', '.join(combined_words[:5])  # Limit to 5 descriptors
+    
+    if field in ['target_audience', 'key_offer']:
+        # For target audience and key offer, combine first sentences if similar length
+        current_sentences = current.split('.')
+        new_sentences = new.split('.')
+        
+        if len(current_sentences) > 0 and len(new_sentences) > 0:
+            current_first = current_sentences[0].strip()
+            new_first = new_sentences[0].strip()
+            
+            # If both are similar length, combine them
+            if abs(len(current_first) - len(new_first)) < 50:
+                return f"{current_first}. {new_first}."
+        
+        # Otherwise prefer longer value
+        return new if len(new) > len(current) else current
+    
+    # Default: prefer longer value
+    return new if len(new) > len(current) else current
+
+
 def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
     """Use AI or heuristics to suggest best merge of current and new values.
     
@@ -983,11 +1065,19 @@ def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
     Returns:
         Suggested merged value
     """
+    # Handle None values at the start
+    if not current and not new:
+        return None
+    if not current:
+        return new
+    if not new:
+        return current
+    
     # For list fields, merge and dedupe
     if field in ['brand_keywords', 'goals']:
         current_list = current if isinstance(current, list) else ([current] if current else [])
         new_list = new if isinstance(new, list) else ([new] if new else [])
-        # Dedupe while preserving order
+        # Dedupe while preserving order (case-insensitive)
         combined = []
         seen = set()
         for item in current_list + new_list:
@@ -997,36 +1087,43 @@ def _generate_merge_suggestion(field: str, current, new, profile: VoiceProfile):
                 seen.add(item_lower)
         return combined[:10] if field == 'brand_keywords' else combined[:5]
     
-    # For text fields, prefer the longer/more detailed version
-    # Or try AI merge if available
-    try:
-        from services.ai_service import get_generative_model
-        model = get_generative_model()
+    # For text fields, try to merge intelligently
+    if isinstance(current, str) and isinstance(new, str):
+        # Check if values are very similar (>80% word overlap)
+        similarity = _text_similarity(current, new)
+        if similarity > 0.8:
+            # Keep longer one
+            return new if len(new) > len(current) else current
         
-        if model and isinstance(current, str) and isinstance(new, str):
-            prompt = f"""Combine these two descriptions into one that captures the best of both.
+        # Try AI-assisted merge if available
+        try:
+            from services.ai_service import get_generative_model
+            model = get_generative_model()
+            
+            if model:
+                prompt = f"""Combine these two descriptions into one that captures the best of both.
 
 Current: {current}
 New from website: {new}
 
 Return ONLY the combined description (under 200 characters), no explanation."""
-            
-            response = model.generate_content(prompt)
-            if response and response.text:
-                merged = response.text.strip()
-                # Clean any markdown formatting
-                if merged.startswith('```'):
-                    merged = merged.split('\n', 1)[1] if '\n' in merged else merged
-                if merged.endswith('```'):
-                    merged = merged.rsplit('\n', 1)[0] if '\n' in merged else merged
-                return merged.strip()
-    except Exception as e:
-        logger.warning(f"AI merge failed for {field}: {e}")
+                
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    merged = response.text.strip()
+                    # Clean any markdown formatting
+                    if merged.startswith('```'):
+                        merged = merged.split('\n', 1)[1] if '\n' in merged else merged
+                    if merged.endswith('```'):
+                        merged = merged.rsplit('\n', 1)[0] if '\n' in merged else merged
+                    return merged.strip()
+        except Exception as e:
+            logger.warning(f"AI merge failed for {field}: {e}")
+        
+        # Fall back to heuristic merge
+        return _fallback_text_merge(field, current, new)
     
     # Fallback: prefer new if longer/more detailed, otherwise current
-    if isinstance(new, str) and isinstance(current, str):
-        return new if len(new) > len(current) else current
-    
     return new if new else current
 
 

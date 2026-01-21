@@ -30,16 +30,18 @@ FIELD_ALIASES = {
 }
 
 # NEW field commands that use AI-assisted completion flow
-# NOTE: /voice, /audience, /samples are handled by existing update_voice, etc. handlers
-# These NEW commands support two modes:
+# All 8 profile field commands support two modes:
 # 1. Bare command (e.g., "/keywords") triggers field_assistance with AI suggestions
 # 2. Command with value (e.g., "/keywords Fresh, Local") triggers update_field for direct update
 FIELD_COMMANDS = {
     '/name': 'business_name',
     '/industry': 'industry',
+    '/voice': 'brand_voice',
+    '/audience': 'target_audience',
+    '/offer': 'key_offer',
+    '/samples': 'writing_samples',
     '/keywords': 'brand_keywords',
     '/goals': 'goals',
-    '/offer': 'key_offer',
 }
 
 # Command guidance messages for bare commands
@@ -95,10 +97,16 @@ class ConversationRouter:
         '/custom': 'custom',  # flexible custom content
         '/profile': 'profile',           # View/edit profile
         '/update': 'profile_update',     # Update specific field
-        '/voice': 'update_voice',        # Quick update brand voice
-        '/audience': 'update_audience',  # Quick update target audience
-        '/samples': 'update_samples',    # Add writing samples
         '/import': 'import_profile',     # Import from URL
+        # All 8 field commands for AI-assisted completion
+        '/name': 'field_assistance',     # Business name field
+        '/industry': 'field_assistance', # Industry field
+        '/voice': 'field_assistance',    # Brand voice field
+        '/audience': 'field_assistance', # Target audience field
+        '/offer': 'field_assistance',    # Key offer field
+        '/samples': 'field_assistance',  # Writing samples field
+        '/keywords': 'field_assistance', # Brand keywords field
+        '/goals': 'field_assistance',    # Goals field
     }
     
     # Required fields per task type (from task_registry.py patterns)
