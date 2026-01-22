@@ -1166,10 +1166,8 @@ class PromptBox {
     conversation.appendChild(thinkingDiv);
     this.thinkingIndicator = thinkingDiv;
     
-    // Auto-scroll
-    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
-      this.scrollManager.scrollToBottom();
-    }
+    // Auto-scroll to latest message if user is near bottom
+    this.conditionalAutoScroll();
   }
   
   /**

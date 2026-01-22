@@ -827,7 +827,7 @@
     }
     
     .scroll-to-bottom {
-        bottom: calc(120px + env(safe-area-inset-bottom));
+        bottom: calc(100px + env(safe-area-inset-bottom));
     }
 }
 
