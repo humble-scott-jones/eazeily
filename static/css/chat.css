@@ -232,6 +232,16 @@
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    /* Dynamic viewport height calculation */
+    height: calc(100dvh - 200px); /* Adjust based on header + input height */
+}
+
+/* Mobile-specific viewport adjustments */
+@media (max-width: 768px) {
+    .chat-container {
+        height: calc(100dvh - 180px);
+    }
 }
 
 .chat-messages {
@@ -682,23 +692,24 @@
 /* ===== Scroll to Bottom Button ===== */
 .scroll-to-bottom {
     position: fixed;
-    bottom: 120px;
-    right: 24px;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: var(--accent);
+    bottom: 100px; /* Above input area */
+    left: 50%;
+    transform: translateX(-50%);
+    background: #6366f1;
     color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
     border: none;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: var(--shadow-lg);
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    z-index: 100;
+    z-index: 50;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    font-size: 14px;
+    transition: opacity 0.2s ease;
     opacity: 0;
     pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .scroll-to-bottom.visible {
@@ -707,12 +718,21 @@
 }
 
 .scroll-to-bottom:hover {
-    transform: scale(1.1);
+    background: #4f46e5;
 }
 
 .scroll-to-bottom svg {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .scroll-to-bottom {
+        bottom: 90px;
+        padding: 6px 12px;
+        font-size: 13px;
+    }
 }
 
 /* ===== Skeleton Loader (Thinking Indicator) ===== */

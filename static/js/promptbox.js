@@ -106,11 +106,11 @@ class ScrollManager {
   init() {
     if (!this.container) return;
     
-    // Create scroll-to-bottom button
+    // Create scroll-to-bottom button with text
     this.scrollButton = document.createElement('button');
     this.scrollButton.className = 'scroll-to-bottom';
-    this.scrollButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>';
-    this.scrollButton.setAttribute('aria-label', 'Scroll to bottom of conversation');
+    this.scrollButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg><span>New messages</span>';
+    this.scrollButton.setAttribute('aria-label', 'Scroll to bottom to see new messages');
     this.scrollButton.addEventListener('click', () => this.scrollToBottom(true));
     
     // Append to parent element (not the scrollable container itself)
@@ -987,8 +987,13 @@ class PromptBox {
       conversation.appendChild(messageDiv);
     }
 
-    // Auto-scroll to latest message
-    this.scrollToBottom();
+    // Auto-scroll to latest message if user is near bottom
+    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
+      // Small delay to let content render
+      setTimeout(() => {
+        this.scrollToBottom();
+      }, 100);
+    }
   }
   
   renderMessageButtons(buttons, messageEl) {
@@ -1593,8 +1598,13 @@ What would you like to create?`;
     
     conversation.appendChild(messageDiv);
 
-    // Auto-scroll to latest message
-    this.scrollToBottom();
+    // Auto-scroll to latest message if user is near bottom
+    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
+      // Small delay to let content render
+      setTimeout(() => {
+        this.scrollToBottom();
+      }, 100);
+    }
   }
 
   /**
