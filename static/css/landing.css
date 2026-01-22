@@ -236,6 +236,41 @@ button:hover {
   .text-xl {
     font-size: 1.125rem;
   }
+  
+  /* Reduce section padding on mobile */
+  section {
+    padding-top: 3rem !important;
+    padding-bottom: 3rem !important;
+  }
+  
+  /* Reduce hero padding */
+  #hero {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+  }
+  
+  /* Compact grid gaps */
+  .grid {
+    gap: 1rem !important;
+  }
+  
+  /* Reduce card padding */
+  .rounded-xl, .rounded-2xl {
+    padding: 1rem !important;
+  }
+  
+  /* Reduce margins */
+  .mb-16, .mb-20 {
+    margin-bottom: 2rem !important;
+  }
+  
+  .mb-12 {
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .mb-8 {
+    margin-bottom: 1rem !important;
+  }
 }
 
 /* Demo example buttons responsive */
