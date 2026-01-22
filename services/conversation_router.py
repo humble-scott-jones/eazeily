@@ -19,6 +19,13 @@ SUPPORTED_PLATFORMS = {
     'tiktok': ['tiktok', 'tik tok'],
 }
 
+# Smart defaults for content generation
+DEFAULT_PLATFORM = 'instagram'
+DEFAULT_VIDEO_LENGTH = '30s'
+
+# CTA extraction pattern
+CTA_PATTERN = r'with cta[:\s]+([^.!?]+)'
+
 # Field name aliases for profile updates
 FIELD_ALIASES = {
     'business_name': ['business', 'company', 'name', 'business name', 'company name'],
@@ -641,7 +648,7 @@ Rules:
                     break
         
         # Extract CTA (call to action)
-        cta_match = re.search(r'with cta[:\s]+([^.!?]+)', text, re.IGNORECASE)
+        cta_match = re.search(CTA_PATTERN, text, re.IGNORECASE)
         if cta_match:
             params['cta'] = cta_match.group(1).strip()
         
@@ -674,7 +681,7 @@ Rules:
         
         # Remove CTA pattern from topic if it was found
         if 'cta' in params:
-            topic_text = re.sub(r'with cta[:\s]+[^.!?]+', '', topic_text, flags=re.IGNORECASE)
+            topic_text = re.sub(CTA_PATTERN, '', topic_text, flags=re.IGNORECASE)
         
         # Clean up extra whitespace
         topic_text = ' '.join(topic_text.split()).strip()
@@ -697,11 +704,11 @@ Rules:
         """
         # Default platform for social content
         if task_type in ['post', 'caption', 'ad'] and 'platform' not in params:
-            params['platform'] = 'instagram'
+            params['platform'] = DEFAULT_PLATFORM
         
         # Default video length for scripts
         if task_type == 'script' and 'video_length' not in params:
-            params['video_length'] = '30s'
+            params['video_length'] = DEFAULT_VIDEO_LENGTH
         
         return params
     

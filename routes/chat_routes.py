@@ -45,7 +45,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
 from services.onboarding_service import OnboardingService
-from services.conversation_router import ConversationRouter
+from services.conversation_router import ConversationRouter, DEFAULT_PLATFORM, DEFAULT_VIDEO_LENGTH
 from services.profile_validator import get_profile_completeness
 from services.task_registry import get_task_config
 from models import VoiceProfile, ContentHistory, db
@@ -322,11 +322,11 @@ def _apply_smart_defaults(task_type: str, collected: dict) -> dict:
     """
     # Default platform for social content
     if task_type in ['post', 'caption', 'ad'] and 'platform' not in collected:
-        collected['platform'] = 'instagram'
+        collected['platform'] = DEFAULT_PLATFORM
     
     # Default video length for scripts
     if task_type == 'script' and 'video_length' not in collected:
-        collected['video_length'] = '30s'
+        collected['video_length'] = DEFAULT_VIDEO_LENGTH
     
     return collected
 
