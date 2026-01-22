@@ -695,7 +695,7 @@
     bottom: 100px; /* Above input area */
     left: 50%;
     transform: translateX(-50%);
-    background: #6366f1;
+    background: var(--accent);
     color: white;
     padding: 8px 16px;
     border-radius: 20px;
@@ -718,7 +718,7 @@
 }
 
 .scroll-to-bottom:hover {
-    background: #4f46e5;
+    background: var(--accent-hover);
 }
 
 .scroll-to-bottom svg {
