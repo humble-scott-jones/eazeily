@@ -1,7 +1,7 @@
 import os
 import logging
 import sqlite3
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session
 from flask_login import LoginManager
 from sqlalchemy import inspect, text
 from whitenoise import WhiteNoise
@@ -131,7 +131,7 @@ def create_app():
     # Root route and health endpoint so the staging domain has content and Railway healthchecks succeed
     @app.route('/')
     def index():
-        return render_template('index.html')
+        return render_template('landing.html')
 
     # Health check endpoints for Railway and CI
     @app.route('/healthz')
@@ -146,6 +146,137 @@ def create_app():
     def dev_ping():
         """Development/CI health check endpoint."""
         return "pong", 200
+    
+    # Demo API endpoint for landing page
+    @app.route('/api/demo/generate', methods=['POST'])
+    def demo_generate():
+        """Generate sample content for landing page demo."""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'Invalid request'}), 400
+            
+            prompt = data.get('prompt', '').strip()
+            
+            # Validate input
+            if not prompt or len(prompt) > 500:
+                return jsonify({'error': 'Prompt must be between 1 and 500 characters'}), 400
+            
+            # Simple rate limiting: max 10 requests per session
+            if 'demo_count' not in session:
+                session['demo_count'] = 0
+            
+            session['demo_count'] += 1
+            if session['demo_count'] > 10:
+                return jsonify({'error': 'Demo limit reached. Sign up for unlimited content!'}), 429
+            
+            prompt_lower = prompt.lower()
+            
+            # Simple demo responses based on keywords
+            responses = {
+                'instagram': """🎉 Weekend Sale Alert!
+
+This Saturday & Sunday only: Take 20% off everything in-store and online! Time to treat yourself. 🛍️✨
+
+Tag a friend who needs this! 👇
+
+#WeekendSale #ShopLocal #SmallBusiness #SaleAlert #ShopSmall #SupportLocal""",
+                
+                'email': """Subject: Exciting News: We're Launching Something New! 🎉
+
+Hey there!
+
+We've been working on something special, and we can't wait to share it with you.
+
+Starting next week, we're introducing [Your New Service]—designed to make your life easier and more enjoyable.
+
+Here's what makes it great:
+• Benefit 1: Saves you time
+• Benefit 2: Better results
+• Benefit 3: Easy to use
+
+Want early access? Reply to this email and you'll be first in line!
+
+Thanks for being part of our community.
+
+[Your Name]
+[Your Business]""",
+                
+                'facebook': """🎯 Special Offer Inside!
+
+Tired of [common problem]? We've got you covered.
+
+For a limited time, get 25% off our most popular product. It's perfect for [target audience] who want [desired outcome].
+
+👉 Click the link in our bio to claim your discount before it's gone!
+
+Limited spots available. Don't miss out! 💪
+
+#Ad #LimitedOffer #SmallBusiness""",
+                
+                'sale': """🔥 FLASH SALE ALERT 🔥
+
+48 Hours Only! Get 30% off everything in our store.
+
+Whether you've been eyeing [Product A] or [Product B], now's your chance to save big.
+
+Sale ends Sunday at midnight. Shop now! 🛒
+
+#FlashSale #LimitedTime #SaveBig #ShopNow""",
+                
+                'new': """✨ Something New Has Arrived!
+
+We're thrilled to announce our latest addition: [Product/Service Name]
+
+Perfect for anyone who wants [benefit]. This has been months in the making, and we're so excited to finally share it with you.
+
+Available now—limited quantities! Get yours before they're gone.
+
+#NewArrival #Exciting #SmallBusiness #ShopLocal""",
+                
+                'product': """Introducing: The Game-Changer You've Been Waiting For
+
+Meet [Product Name]—the solution to [problem].
+
+✨ Feature 1: [Benefit]
+✨ Feature 2: [Benefit]  
+✨ Feature 3: [Benefit]
+
+Made with love for people who care about quality. Only $[Price] for a limited time.
+
+Ready to upgrade? Link in bio! 🔗
+
+#ProductLaunch #Quality #SmallBusiness"""
+            }
+            
+            # Find matching response
+            content = None
+            for keyword, response in responses.items():
+                if keyword in prompt_lower:
+                    content = response
+                    break
+            
+            # Default response if no match
+            if not content:
+                content = """✨ Here's Your Content!
+
+Based on your request, here's a custom piece of content crafted just for your business.
+
+This would include:
+• Your unique brand voice
+• Platform-specific formatting
+• Relevant hashtags
+• Call-to-action
+
+Sign up to create real content with your actual brand voice! 🚀
+
+#ContentCreation #SmallBusiness #Marketing"""
+            
+            return jsonify({'content': content, 'success': True})
+            
+        except Exception as e:
+            logger.error(f"Demo generation error: {e}")
+            return jsonify({'error': 'Something went wrong. Please try again.'}), 500
 
     # Database reset route (for development/staging use only)
     @app.route('/nuke-db')
