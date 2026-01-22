@@ -989,12 +989,7 @@ class PromptBox {
     }
 
     // Auto-scroll to latest message if user is near bottom
-    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
-      // Small delay to let content render
-      setTimeout(() => {
-        this.scrollToBottom();
-      }, AUTO_SCROLL_DELAY_MS);
-    }
+    this.conditionalAutoScroll();
   }
   
   renderMessageButtons(buttons, messageEl) {
@@ -1125,6 +1120,19 @@ class PromptBox {
         top: scrollContainer.scrollHeight,
         behavior: 'smooth'
       });
+    }
+  }
+  
+  /**
+   * Conditionally auto-scroll to bottom if user is near the end
+   * Prevents unwanted scrolling when user is reading older messages
+   */
+  conditionalAutoScroll() {
+    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
+      // Small delay to let content render
+      setTimeout(() => {
+        this.scrollToBottom();
+      }, AUTO_SCROLL_DELAY_MS);
     }
   }
   
@@ -1600,12 +1608,7 @@ What would you like to create?`;
     conversation.appendChild(messageDiv);
 
     // Auto-scroll to latest message if user is near bottom
-    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
-      // Small delay to let content render
-      setTimeout(() => {
-        this.scrollToBottom();
-      }, AUTO_SCROLL_DELAY_MS);
-    }
+    this.conditionalAutoScroll();
   }
 
   /**
