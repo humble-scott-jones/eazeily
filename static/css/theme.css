@@ -27,6 +27,14 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  
+  /* Layout dimensions */
+  --header-height: 64px; /* Approximate header height */
+  --input-height: 136px; /* Approximate input area height */
+  --chat-viewport-offset: 200px; /* Total offset for desktop (header + input) */
+  --chat-viewport-offset-mobile: 180px; /* Total offset for mobile */
+  --scroll-button-offset: 100px; /* Distance from bottom for scroll button (desktop) */
+  --scroll-button-offset-mobile: 90px; /* Distance from bottom for scroll button (mobile) */
 }
 
 /* Dark mode - matches user's OS/browser setting */

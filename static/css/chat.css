@@ -232,6 +232,18 @@
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    /* Dynamic viewport height calculation with fallback for older browsers */
+    height: calc(100vh - var(--chat-viewport-offset)); /* Fallback for browsers without dvh */
+    height: calc(100dvh - var(--chat-viewport-offset)); /* Dynamic viewport height with mobile browser compatibility */
+}
+
+/* Mobile-specific viewport adjustments */
+@media (max-width: 768px) {
+    .chat-container {
+        height: calc(100vh - var(--chat-viewport-offset-mobile)); /* Fallback */
+        height: calc(100dvh - var(--chat-viewport-offset-mobile)); /* Dynamic viewport height for mobile */
+    }
 }
 
 .chat-messages {
@@ -682,23 +694,24 @@
 /* ===== Scroll to Bottom Button ===== */
 .scroll-to-bottom {
     position: fixed;
-    bottom: 120px;
-    right: 24px;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
+    bottom: var(--scroll-button-offset); /* Above input area */
+    left: 50%;
+    transform: translateX(-50%);
     background: var(--accent);
     color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
     border: none;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: var(--shadow-lg);
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    z-index: 100;
+    z-index: 50;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    font-size: 14px;
+    transition: opacity 0.2s ease;
     opacity: 0;
     pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .scroll-to-bottom.visible {
@@ -707,12 +720,21 @@
 }
 
 .scroll-to-bottom:hover {
-    transform: scale(1.1);
+    background: var(--accent-hover);
 }
 
 .scroll-to-bottom svg {
-    width: 24px;
-    height: 24px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+    .scroll-to-bottom {
+        bottom: var(--scroll-button-offset-mobile);
+        padding: 6px 12px;
+        font-size: 13px;
+    }
 }
 
 /* ===== Skeleton Loader (Thinking Indicator) ===== */
@@ -805,7 +827,7 @@
     }
     
     .scroll-to-bottom {
-        bottom: calc(120px + env(safe-area-inset-bottom));
+        bottom: calc(var(--scroll-button-offset) + env(safe-area-inset-bottom));
     }
 }
 

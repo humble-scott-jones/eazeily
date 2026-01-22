@@ -88,6 +88,7 @@ const CONTENT_IMPACT = {
 const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
 const TYPEWRITER_SPEED_MS = 25; // Milliseconds per character for typewriter effect
 const TYPEWRITER_SHORT_MESSAGE_THRESHOLD = 50; // Messages shorter than this skip typewriter effect
+const AUTO_SCROLL_DELAY_MS = 100; // Delay before auto-scrolling to ensure smooth rendering
 
 
 /**
@@ -106,11 +107,11 @@ class ScrollManager {
   init() {
     if (!this.container) return;
     
-    // Create scroll-to-bottom button
+    // Create scroll-to-bottom button with text
     this.scrollButton = document.createElement('button');
     this.scrollButton.className = 'scroll-to-bottom';
-    this.scrollButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>';
-    this.scrollButton.setAttribute('aria-label', 'Scroll to bottom of conversation');
+    this.scrollButton.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg><span>New messages</span>';
+    this.scrollButton.setAttribute('aria-label', 'Scroll to bottom to see new messages');
     this.scrollButton.addEventListener('click', () => this.scrollToBottom(true));
     
     // Append to parent element (not the scrollable container itself)
@@ -987,8 +988,8 @@ class PromptBox {
       conversation.appendChild(messageDiv);
     }
 
-    // Auto-scroll to latest message
-    this.scrollToBottom();
+    // Auto-scroll to latest message if user is near bottom
+    this.conditionalAutoScroll();
   }
   
   renderMessageButtons(buttons, messageEl) {
@@ -1123,6 +1124,19 @@ class PromptBox {
   }
   
   /**
+   * Conditionally auto-scroll to bottom if user is near the end
+   * Prevents unwanted scrolling when user is reading older messages
+   */
+  conditionalAutoScroll() {
+    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
+      // Small delay to let content render
+      setTimeout(() => {
+        this.scrollToBottom();
+      }, AUTO_SCROLL_DELAY_MS);
+    }
+  }
+  
+  /**
    * Show skeleton loader thinking indicator
    */
   showThinkingIndicator() {
@@ -1152,10 +1166,8 @@ class PromptBox {
     conversation.appendChild(thinkingDiv);
     this.thinkingIndicator = thinkingDiv;
     
-    // Auto-scroll
-    if (this.scrollManager && this.scrollManager.shouldAutoScroll()) {
-      this.scrollManager.scrollToBottom();
-    }
+    // Auto-scroll to latest message if user is near bottom
+    this.conditionalAutoScroll();
   }
   
   /**
@@ -1593,8 +1605,8 @@ What would you like to create?`;
     
     conversation.appendChild(messageDiv);
 
-    // Auto-scroll to latest message
-    this.scrollToBottom();
+    // Auto-scroll to latest message if user is near bottom
+    this.conditionalAutoScroll();
   }
 
   /**
