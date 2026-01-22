@@ -41,7 +41,7 @@ Response:
 - Add retry logic for transient API failures
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from flask_login import login_required, current_user
 from services.voice_engine import VoiceEngine
 from services.onboarding_service import OnboardingService
@@ -118,11 +118,11 @@ def _has_minimal_profile_data(profile: VoiceProfile) -> bool:
     if not profile:
         return False
     
-    has_business = profile.business_name and profile.business_name.strip()
-    has_industry = profile.industry and profile.industry.strip()
+    has_business = bool(profile.business_name and profile.business_name.strip())
+    has_industry = bool(profile.industry and profile.industry.strip())
     
     # Minimal: at least business name OR industry
-    return has_business or has_industry
+    return bool(has_business or has_industry)
 
 
 def _handle_onboarding_chat(message: str, history: list, profile: VoiceProfile, pending_task: dict = None) -> dict:
@@ -2247,7 +2247,6 @@ def chat():
         )
         
         # Get user's voice profile (use active profile from session if set)
-        from flask import session
         active_profile_id = session.get('active_profile_id')
         
         if active_profile_id:
@@ -2279,7 +2278,6 @@ def chat():
             # Handle skip flow choice
             if flow == 'skip_prompt':
                 # User chose an action from the skip prompt
-                from flask import session
                 original_request = session.get('pending_content_request') or pending_task.get('original_request')
                 
                 if message.lower() in ['generate_anyway', 'skip', 'create now', '⚡ skip - create now']:
@@ -2372,7 +2370,6 @@ def chat():
                 logger.info(f"[{request_id}] User wants content but profile incomplete - offering skip")
                 
                 # Store original request in session for skip flow
-                from flask import session
                 session['pending_content_request'] = message
                 
                 # Build response with skip option

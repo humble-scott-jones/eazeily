@@ -890,7 +890,7 @@ class PromptBox {
       // Convert server actions to button format
       const buttons = data.actions.map(action => ({
         label: action.text,
-        action: action.action === 'generate_anyway' ? 'command' : 'command',
+        action: 'command',  // All buttons execute as commands
         value: action.action === 'generate_anyway' ? 'generate_anyway' : 'complete_profile',
         style: action.style
       }));
