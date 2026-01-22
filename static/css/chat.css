@@ -234,13 +234,13 @@
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     /* Dynamic viewport height calculation */
-    height: calc(100dvh - 200px); /* Adjust based on header + input height */
+    height: calc(100dvh - var(--chat-viewport-offset));
 }
 
 /* Mobile-specific viewport adjustments */
 @media (max-width: 768px) {
     .chat-container {
-        height: calc(100dvh - 180px);
+        height: calc(100dvh - var(--chat-viewport-offset-mobile));
     }
 }
 

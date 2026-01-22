@@ -88,6 +88,7 @@ const CONTENT_IMPACT = {
 const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
 const TYPEWRITER_SPEED_MS = 25; // Milliseconds per character for typewriter effect
 const TYPEWRITER_SHORT_MESSAGE_THRESHOLD = 50; // Messages shorter than this skip typewriter effect
+const AUTO_SCROLL_DELAY_MS = 100; // Delay before auto-scrolling to let content render
 
 
 /**
@@ -992,7 +993,7 @@ class PromptBox {
       // Small delay to let content render
       setTimeout(() => {
         this.scrollToBottom();
-      }, 100);
+      }, AUTO_SCROLL_DELAY_MS);
     }
   }
   
@@ -1603,7 +1604,7 @@ What would you like to create?`;
       // Small delay to let content render
       setTimeout(() => {
         this.scrollToBottom();
-      }, 100);
+      }, AUTO_SCROLL_DELAY_MS);
     }
   }
 
