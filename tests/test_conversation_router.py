@@ -194,12 +194,14 @@ class TestConversationRouter:
         assert result['extracted_params'].get('platform') == 'instagram'
     
     def test_parse_intent_slash_command_incomplete(self, router, mock_profile):
-        """Test parse_intent with incomplete slash command."""
+        """Test parse_intent with incomplete slash command now applies smart defaults."""
         result = router.parse_intent('/post about new product', mock_profile)
         assert result['intent'] == 'generate'
         assert result['task_type'] == 'post'
-        assert result['follow_up_needed'] is True
-        assert 'platform' in result['missing_fields']
+        # With smart defaults, platform is now auto-filled with 'instagram'
+        assert result['follow_up_needed'] is False
+        assert result['extracted_params']['platform'] == 'instagram'
+        assert result['extracted_params']['topic'] == 'new product'
     
     @patch('services.conversation_router.ConversationRouter._check_gemini')
     def test_parse_intent_gemini_unavailable(self, mock_check, router, mock_profile):
@@ -313,7 +315,7 @@ class TestConversationRouter:
     
     @patch('services.generation.gemini_adapter.call_gemini')
     def test_parse_intent_gemini_partial(self, mock_call, router, mock_profile):
-        """Test parse_intent with Gemini returning partial data."""
+        """Test parse_intent with Gemini returning partial data now applies smart defaults."""
         router.gemini_available = True
         
         mock_call.return_value = {
@@ -326,9 +328,10 @@ class TestConversationRouter:
         result = router.parse_intent('I need an ad for our new product', mock_profile)
         assert result['intent'] == 'generate'
         assert result['task_type'] == 'ad'
-        assert result['follow_up_needed'] is True
-        assert 'platform' in result['missing_fields']
-        assert result['follow_up_question'] is not None
+        # With smart defaults, platform is now auto-filled with 'instagram'
+        assert result['follow_up_needed'] is False
+        assert result['extracted_params']['platform'] == 'instagram'
+        assert result['follow_up_question'] is None  # No follow-up needed with defaults
     
     def test_all_task_types_have_configs(self, router):
         """Test that all task types in COMMAND_MAP have field configs.
@@ -391,3 +394,177 @@ class TestConversationRouter:
         topic = params.get('topic', '')
         # Should have content but not the filler words
         assert 'new product' in topic.lower() or 'our new product customers' in topic.lower()
+    
+    # ===== NEW TESTS FOR ENHANCED PARAMETER EXTRACTION =====
+    
+    def test_extract_mood_excited(self, router):
+        """Test extracting 'excited' mood from text."""
+        params = router._extract_params_from_text('excited Instagram post about our sale', 'post')
+        assert params.get('mood') == 'excited'
+        assert params.get('platform') == 'instagram'
+        assert 'sale' in params.get('topic', '').lower()
+    
+    def test_extract_mood_professional(self, router):
+        """Test extracting 'professional' mood from text."""
+        params = router._extract_params_from_text('professional LinkedIn post about leadership', 'post')
+        assert params.get('mood') == 'professional'
+        assert params.get('platform') == 'linkedin'
+    
+    def test_extract_mood_casual(self, router):
+        """Test extracting 'casual' mood from text."""
+        params = router._extract_params_from_text('casual Facebook post', 'post')
+        assert params.get('mood') == 'casual'
+        assert params.get('platform') == 'facebook'
+    
+    def test_extract_mood_urgent(self, router):
+        """Test extracting 'urgent' mood from text."""
+        params = router._extract_params_from_text('urgent post about limited time offer', 'post')
+        assert params.get('mood') == 'urgent'
+    
+    def test_extract_mood_celebratory(self, router):
+        """Test extracting 'celebratory' mood from text."""
+        params = router._extract_params_from_text('celebratory post about our anniversary', 'post')
+        assert params.get('mood') == 'celebratory'
+    
+    def test_extract_mood_informative(self, router):
+        """Test extracting 'informative' mood from text."""
+        params = router._extract_params_from_text('informative post with tips', 'post')
+        assert params.get('mood') == 'informative'
+    
+    def test_extract_mood_funny(self, router):
+        """Test extracting 'funny' mood from text."""
+        params = router._extract_params_from_text('funny post about office life', 'post')
+        assert params.get('mood') == 'funny'
+    
+    def test_extract_mood_inspiring(self, router):
+        """Test extracting 'inspiring' mood from text."""
+        params = router._extract_params_from_text('inspiring motivational post', 'post')
+        assert params.get('mood') == 'inspiring'
+    
+    def test_extract_cta(self, router):
+        """Test extracting CTA (call to action) from text."""
+        params = router._extract_params_from_text('professional LinkedIn post about leadership with cta: Learn More', 'post')
+        assert params.get('cta') == 'Learn More'
+        assert params.get('mood') == 'professional'
+        assert params.get('platform') == 'linkedin'
+        # Topic should not contain the CTA pattern
+        topic = params.get('topic', '')
+        assert 'with cta' not in topic.lower()
+    
+    def test_extract_cta_with_space(self, router):
+        """Test extracting CTA with space separator."""
+        params = router._extract_params_from_text('post about sale with cta Shop Now', 'post')
+        assert params.get('cta') == 'Shop Now'
+    
+    def test_smart_defaults_post_platform(self, router):
+        """Test smart defaults apply instagram platform for posts."""
+        params = router._apply_defaults_to_params('post', {'topic': 'sale'})
+        assert params['platform'] == 'instagram'
+    
+    def test_smart_defaults_caption_platform(self, router):
+        """Test smart defaults apply instagram platform for captions."""
+        params = router._apply_defaults_to_params('caption', {'topic': 'beach'})
+        assert params['platform'] == 'instagram'
+    
+    def test_smart_defaults_ad_platform(self, router):
+        """Test smart defaults apply instagram platform for ads."""
+        params = router._apply_defaults_to_params('ad', {'topic': 'product'})
+        assert params['platform'] == 'instagram'
+    
+    def test_smart_defaults_script_video_length(self, router):
+        """Test smart defaults apply 30s video length for scripts."""
+        params = router._apply_defaults_to_params('script', {'topic': 'tutorial'})
+        assert params['video_length'] == '30s'
+    
+    def test_smart_defaults_preserves_existing(self, router):
+        """Test smart defaults don't override existing values."""
+        params = router._apply_defaults_to_params('post', {'topic': 'sale', 'platform': 'facebook'})
+        assert params['platform'] == 'facebook'  # Should keep facebook, not change to instagram
+    
+    def test_natural_language_post_detection(self, router):
+        """Test natural language pattern 'create a post' is detected."""
+        result = router._classify_with_keywords('create a post about our new cupcake flavor')
+        assert result is not None
+        assert result['task_type'] == 'post'
+        assert 'cupcake flavor' in result['extracted_params'].get('topic', '').lower()
+    
+    def test_natural_language_email_detection(self, router):
+        """Test natural language pattern 'I need an email' is detected."""
+        result = router._classify_with_keywords('I need an email for newsletter')
+        assert result is not None
+        assert result['task_type'] == 'email'
+    
+    def test_natural_language_caption_detection(self, router):
+        """Test natural language pattern 'write a caption' is detected."""
+        result = router._classify_with_keywords('write a caption for beach photo')
+        assert result is not None
+        assert result['task_type'] == 'caption'
+    
+    def test_natural_language_script_detection(self, router):
+        """Test natural language pattern 'create a script' is detected."""
+        result = router._classify_with_keywords('create a script for tutorial video')
+        assert result is not None
+        assert result['task_type'] == 'script'
+    
+    def test_natural_language_ad_detection(self, router):
+        """Test natural language pattern 'make an ad' is detected."""
+        result = router._classify_with_keywords('make an ad for our new service')
+        assert result is not None
+        assert result['task_type'] == 'ad'
+    
+    def test_end_to_end_single_turn_excited_instagram(self, router, mock_profile):
+        """Test end-to-end: 'excited Instagram post about our weekend sale' generates in one turn."""
+        result = router.parse_intent('excited Instagram post about our weekend sale', mock_profile)
+        assert result['intent'] == 'generate'
+        assert result['task_type'] == 'post'
+        assert result['follow_up_needed'] is False
+        assert result['extracted_params']['mood'] == 'excited'
+        assert result['extracted_params']['platform'] == 'instagram'
+        assert 'weekend sale' in result['extracted_params']['topic'].lower()
+    
+    def test_end_to_end_single_turn_casual_facebook(self, router, mock_profile):
+        """Test end-to-end: 'casual Facebook post about weekend plans' generates in one turn with smart defaults."""
+        result = router.parse_intent('casual Facebook post about weekend plans', mock_profile)
+        assert result['intent'] == 'generate'
+        assert result['task_type'] == 'post'
+        assert result['follow_up_needed'] is False
+        assert result['extracted_params']['mood'] == 'casual'
+        assert result['extracted_params']['platform'] == 'facebook'
+        assert 'weekend plans' in result['extracted_params']['topic'].lower()
+    
+    def test_end_to_end_single_turn_slash_post_with_defaults(self, router, mock_profile):
+        """Test end-to-end: '/post our new product' generates in one turn with smart defaults."""
+        result = router.parse_intent('/post our new product', mock_profile)
+        assert result['intent'] == 'generate'
+        assert result['task_type'] == 'post'
+        assert result['follow_up_needed'] is False
+        assert result['extracted_params']['platform'] == 'instagram'  # Smart default
+        assert 'new product' in result['extracted_params']['topic'].lower()
+    
+    def test_end_to_end_single_turn_30s_script(self, router, mock_profile):
+        """Test end-to-end: '30s script about fitness tips' generates in one turn."""
+        result = router.parse_intent('30s script about fitness tips', mock_profile)
+        assert result['intent'] == 'generate'
+        assert result['task_type'] == 'script'
+        assert result['follow_up_needed'] is False
+        assert result['extracted_params']['video_length'] == '30s'
+        assert 'fitness tips' in result['extracted_params']['topic'].lower()
+    
+    def test_end_to_end_single_turn_script_with_defaults(self, router, mock_profile):
+        """Test end-to-end: 'script about tutorial' generates in one turn with smart defaults."""
+        result = router.parse_intent('script about tutorial', mock_profile)
+        assert result['intent'] == 'generate'
+        assert result['task_type'] == 'script'
+        assert result['follow_up_needed'] is False
+        assert result['extracted_params']['video_length'] == '30s'  # Smart default
+    
+    def test_end_to_end_single_turn_professional_linkedin_with_cta(self, router, mock_profile):
+        """Test end-to-end: 'professional LinkedIn post about leadership with cta Learn More' generates in one turn."""
+        result = router.parse_intent('professional LinkedIn post about leadership with cta: Learn More', mock_profile)
+        assert result['intent'] == 'generate'
+        assert result['task_type'] == 'post'
+        assert result['follow_up_needed'] is False
+        assert result['extracted_params']['mood'] == 'professional'
+        assert result['extracted_params']['platform'] == 'linkedin'
+        assert result['extracted_params']['cta'] == 'Learn More'
+        assert 'leadership' in result['extracted_params']['topic'].lower()

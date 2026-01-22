@@ -19,6 +19,13 @@ SUPPORTED_PLATFORMS = {
     'tiktok': ['tiktok', 'tik tok'],
 }
 
+# Smart defaults for content generation
+DEFAULT_PLATFORM = 'instagram'
+DEFAULT_VIDEO_LENGTH = '30s'
+
+# CTA extraction pattern
+CTA_PATTERN = r'with cta[:\s]+([^.!?]+)'
+
 # Field name aliases for profile updates
 FIELD_ALIASES = {
     'business_name': ['business', 'company', 'name', 'business name', 'company name'],
@@ -350,10 +357,30 @@ class ConversationRouter:
         if profile_intent:
             return profile_intent
         
-        # Use class constant for task patterns
+        # Natural language patterns for more conversational detection
+        patterns = [
+            (r'\b(?:write|create|make|draft|generate)\s+(?:me\s+)?(?:a|an)\s+post\b', 'post'),
+            (r'\bi need (?:a|an)\s+email\b', 'email'),
+            (r'\b(?:create|write|make)\s+(?:a|an)\s+caption\b', 'caption'),
+            (r'\b(?:draft|write|create)\s+(?:a|an)\s+script\b', 'script'),
+            (r'\b(?:write|create|make)\s+(?:a|an)\s+ad\b', 'ad'),
+        ]
+        
         task_type = None
+        for pattern, ttype in patterns:
+            if re.search(pattern, message_lower):
+                task_type = ttype
+                # Extract additional params from the full text
+                extracted_params = self._extract_params_from_text(user_input, task_type)
+                return {
+                    'task_type': task_type,
+                    'extracted_params': extracted_params
+                }
+        
+        # Use class constant for task patterns (fallback to keyword matching)
         for keywords, ttype in self.TASK_PATTERNS:
-            if any(keyword in message_lower for keyword in keywords):
+            # Use word boundaries to avoid partial matches (e.g., 'ad' in 'leadership')
+            if any(re.search(r'\b' + re.escape(keyword) + r'\b', message_lower) for keyword in keywords):
                 task_type = ttype
                 break
         
@@ -576,6 +603,28 @@ Rules:
         params = {}
         text_lower = text.lower()
         
+        # Extract mood/tone keywords
+        mood_keywords = {
+            'excited': ['excited', 'exciting', 'thrilled', 'enthusiastic'],
+            'professional': ['professional', 'formal', 'business'],
+            'casual': ['casual', 'relaxed', 'friendly', 'laid back', 'laid-back'],
+            'urgent': ['urgent', 'important', 'asap', 'time sensitive', 'limited time'],
+            'celebratory': ['celebratory', 'celebrating', 'celebration', 'congrats'],
+            'informative': ['informative', 'educational', 'helpful'],
+            'funny': ['funny', 'humorous', 'fun', 'playful'],
+            'inspiring': ['inspiring', 'motivational', 'uplifting'],
+        }
+        
+        matched_mood_keyword = None
+        for mood, keywords in mood_keywords.items():
+            for keyword in keywords:
+                if keyword in text_lower:
+                    params['mood'] = mood
+                    matched_mood_keyword = keyword
+                    break
+            if 'mood' in params:
+                break
+        
         # Extract platform using shared constant with word boundaries
         for platform, keywords in SUPPORTED_PLATFORMS.items():
             if any(re.search(r'\b' + re.escape(kw) + r'\b', text_lower) for kw in keywords):
@@ -583,6 +632,7 @@ Rules:
                 break
         
         # Extract video length (for scripts)
+        video_length_pattern_found = None
         if task_type == 'script':
             # Use regex with word boundaries to avoid partial matches (e.g., '115s' matching '15s')
             length_regex_patterns = [
@@ -594,7 +644,13 @@ Rules:
             for pattern, normalized in length_regex_patterns:
                 if re.search(pattern, text_lower):
                     params['video_length'] = normalized
+                    video_length_pattern_found = pattern
                     break
+        
+        # Extract CTA (call to action)
+        cta_match = re.search(CTA_PATTERN, text, re.IGNORECASE)
+        if cta_match:
+            params['cta'] = cta_match.group(1).strip()
         
         # Extract topic (what remains after removing command words)
         # Remove platform names and command-related words
@@ -602,6 +658,14 @@ Rules:
         for words in SUPPORTED_PLATFORMS.values():
             for word in words:
                 topic_text = re.sub(r'\b' + re.escape(word) + r'\b', '', topic_text, flags=re.IGNORECASE)
+        
+        # Remove only the matched mood keyword from topic (not all mood keywords)
+        if matched_mood_keyword:
+            topic_text = re.sub(r'\b' + re.escape(matched_mood_keyword) + r'\b', '', topic_text, flags=re.IGNORECASE)
+        
+        # Remove video length pattern from topic if found
+        if video_length_pattern_found:
+            topic_text = re.sub(video_length_pattern_found, '', topic_text, flags=re.IGNORECASE)
         
         # Remove task-type related words
         task_words = ['post', 'caption', 'script', 'email', 'review', 'ad', 'blog', 'reel', 
@@ -615,6 +679,10 @@ Rules:
         for word in filler_words:
             topic_text = re.sub(r'\b' + re.escape(word) + r'\b', '', topic_text, flags=re.IGNORECASE)
         
+        # Remove CTA pattern from topic if it was found
+        if 'cta' in params:
+            topic_text = re.sub(CTA_PATTERN, '', topic_text, flags=re.IGNORECASE)
+        
         # Clean up extra whitespace
         topic_text = ' '.join(topic_text.split()).strip()
         
@@ -624,10 +692,33 @@ Rules:
         
         return params
     
+    def _apply_defaults_to_params(self, task_type: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply smart defaults for missing optional fields.
+        
+        Args:
+            task_type: Type of content being generated
+            params: Currently extracted parameters
+            
+        Returns:
+            Updated params dict with defaults applied
+        """
+        # Default platform for social content
+        if task_type in ['post', 'caption', 'ad'] and 'platform' not in params:
+            params['platform'] = DEFAULT_PLATFORM
+        
+        # Default video length for scripts
+        if task_type == 'script' and 'video_length' not in params:
+            params['video_length'] = DEFAULT_VIDEO_LENGTH
+        
+        return params
+    
     def _build_response(self, classification: Dict[str, Any], profile: Any) -> Dict[str, Any]:
         """Build the full response structure with missing fields analysis."""
         task_type = classification['task_type']
         extracted_params = classification.get('extracted_params', {})
+        
+        # Apply smart defaults before checking missing fields
+        extracted_params = self._apply_defaults_to_params(task_type, extracted_params)
         
         # Get missing fields
         missing_fields = self.get_missing_fields(task_type, extracted_params)

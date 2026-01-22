@@ -553,25 +553,15 @@ def test_chat_end_to_end_email_creation(authenticated_client):
 
 
 def test_chat_end_to_end_script_creation(authenticated_client):
-    """Test complete end-to-end journey for video script creation."""
-    # Step 1: Start with /script command
+    """Test complete end-to-end journey for video script creation now generates in one turn with smart defaults."""
+    # With smart defaults, /script with a topic generates immediately (30s default)
     response = authenticated_client.post('/api/chat', json={
         'message': '/script for product demo'
     })
     
     assert response.status_code == 200
     data = response.get_json()
-    assert data['action'] == 'continue'
-    assert data['pending_task']['task_type'] == 'script'
-    
-    # Step 2: Provide video length
-    response = authenticated_client.post('/api/chat', json={
-        'message': '60 seconds',
-        'pending_task': data['pending_task']
-    })
-    
-    assert response.status_code == 200
-    data = response.get_json()
+    # Smart defaults apply 30s video length automatically
     assert data['action'] == 'generated'
     assert data['content'] is not None
     assert '🎬' in data['response']
