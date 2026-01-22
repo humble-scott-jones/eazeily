@@ -1,7 +1,7 @@
 import os
 import logging
 import sqlite3
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session
 from flask_login import LoginManager
 from sqlalchemy import inspect, text
 from whitenoise import WhiteNoise
@@ -163,7 +163,6 @@ def create_app():
                 return jsonify({'error': 'Prompt must be between 1 and 500 characters'}), 400
             
             # Simple rate limiting: max 10 requests per session
-            from flask import session
             if 'demo_count' not in session:
                 session['demo_count'] = 0
             
