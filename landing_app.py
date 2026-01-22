@@ -2,7 +2,7 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import uuid
-from flask import Flask, request, jsonify, render_template, g
+from flask import Flask, request, jsonify, render_template, g, url_for
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
 from datetime import datetime
@@ -44,10 +44,56 @@ def ensure_db():
     # In production, migrate properly. For now, init if needed.
     pass # Disabling auto-init on every request for Postgres performance
 
+@app.context_processor
+def utility_processor():
+    """Provide URL helpers for template."""
+    def auth_signup():
+        return url_for('auth_signup')
+    def auth_login():
+        return url_for('auth_login')
+    def generate_dashboard():
+        return url_for('generate_dashboard')
+    
+    # Mock url_for for auth and generate namespaces
+    class URLFor:
+        def __call__(self, endpoint):
+            if endpoint == 'auth.signup':
+                return url_for('auth_signup')
+            elif endpoint == 'auth.login':
+                return url_for('auth_login')
+            elif endpoint == 'generate.dashboard':
+                return url_for('generate_dashboard')
+            return '#'
+    
+    return dict(url_for=URLFor())
+
+# Dummy routes for URL generation
+@app.route("/signup")
+def auth_signup():
+    """Placeholder signup route."""
+    return "Signup page - this is a demo landing page"
+
+@app.route("/login")
+def auth_login():
+    """Placeholder login route."""
+    return "Login page - this is a demo landing page"
+
+@app.route("/dashboard")
+def generate_dashboard():
+    """Placeholder dashboard route."""
+    return "Dashboard - this is a demo landing page"
+
 @app.get("/")
 def landing():
     """Landing page with email collection."""
-    return render_template("landing.html")
+    # For standalone landing page, we don't have user auth
+    # So provide a simple object that always returns False
+    class AnonymousUser:
+        @property
+        def is_authenticated(self):
+            return False
+    
+    return render_template("landing.html", current_user=AnonymousUser())
 
 @app.post("/api/waitlist")
 def api_waitlist():
