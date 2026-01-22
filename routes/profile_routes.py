@@ -484,3 +484,328 @@ def suggest_profile_field():
     result = generate_profile_suggestions(field, profile_dict)
     
     return jsonify(result)
+
+
+# =============================================================================
+# Multi-Profile Management Endpoints
+# =============================================================================
+
+@profile_bp.route('/api/profiles', methods=['GET'])
+@login_required
+def list_profiles():
+    """List all profiles for the current user.
+    
+    Returns:
+        JSON array of profile objects with basic info
+    """
+    request_id = str(uuid.uuid4())
+    
+    try:
+        profiles = VoiceProfile.query.filter_by(user_id=current_user.id).all()
+        
+        profile_list = []
+        for profile in profiles:
+            profile_list.append({
+                'id': profile.id,
+                'profile_name': profile.profile_name,
+                'business_name': profile.business_name,
+                'industry': profile.industry,
+                'is_default': profile.is_default,
+            })
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'profiles': profile_list,
+            'count': len(profile_list),
+            'tier_limit': current_user.get_tier_limits()['profiles'],
+            'can_create_more': current_user.can_create_profile()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error listing profiles: {e}", exc_info=True)
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': 'Failed to list profiles'
+        }), 500
+
+
+@profile_bp.route('/api/profiles', methods=['POST'])
+@login_required
+def create_profile():
+    """Create a new profile for the current user.
+    
+    Enforces tier limits on number of profiles.
+    
+    Request body:
+        {
+            "profile_name": "Client: Acme Co",
+            "business_name": "Acme Corporation",
+            "industry": "Technology",
+            ... other profile fields
+        }
+    
+    Returns:
+        JSON with new profile info or error
+    """
+    request_id = str(uuid.uuid4())
+    
+    try:
+        # Check if user can create more profiles
+        if not current_user.can_create_profile():
+            tier_limit = current_user.get_tier_limits()['profiles']
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': f'Profile limit reached for {current_user.subscription_tier} tier. Maximum: {tier_limit}'
+            }), 403
+        
+        data = request.get_json()
+        
+        # Create new profile
+        profile = VoiceProfile(user_id=current_user.id)
+        
+        # Set profile_name (required for multi-profile)
+        profile.profile_name = data.get('profile_name', data.get('business_name', 'New Profile'))
+        
+        # Set is_default if this is the first profile
+        profile_count = VoiceProfile.query.filter_by(user_id=current_user.id).count()
+        profile.is_default = (profile_count == 0)
+        
+        # Set other fields from request
+        if 'business_name' in data:
+            profile.business_name = data['business_name']
+        if 'industry' in data:
+            profile.industry = data['industry']
+        if 'target_audience' in data:
+            profile.target_audience = data['target_audience']
+        if 'brand_voice' in data:
+            profile.brand_voice = data['brand_voice']
+        if 'key_offer' in data:
+            profile.key_offer = data['key_offer']
+        if 'voice_rules' in data:
+            profile.voice_rules = data['voice_rules']
+        if 'writing_samples' in data:
+            profile.set_writing_samples(_coerce_str_list(data['writing_samples']))
+        if 'brand_keywords' in data:
+            profile.set_brand_keywords(_coerce_str_list(data['brand_keywords']))
+        if 'goals' in data:
+            profile.set_goals(_coerce_str_list(data['goals']))
+        
+        db.session.add(profile)
+        db.session.commit()
+        
+        logger.info(f"Created new profile {profile.id} for user {current_user.id}")
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'profile': {
+                'id': profile.id,
+                'profile_name': profile.profile_name,
+                'business_name': profile.business_name,
+                'industry': profile.industry,
+                'is_default': profile.is_default,
+            }
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error creating profile: {e}", exc_info=True)
+        db.session.rollback()
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': 'Failed to create profile'
+        }), 500
+
+
+@profile_bp.route('/api/profiles/<int:profile_id>/default', methods=['PUT'])
+@login_required
+def set_default_profile(profile_id):
+    """Set a profile as the default profile.
+    
+    Args:
+        profile_id: ID of the profile to set as default
+    
+    Returns:
+        JSON with success status
+    """
+    request_id = str(uuid.uuid4())
+    
+    try:
+        # Get the profile and verify ownership
+        profile = VoiceProfile.query.filter_by(id=profile_id, user_id=current_user.id).first()
+        
+        if not profile:
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Profile not found'
+            }), 404
+        
+        # Unset all other defaults for this user
+        VoiceProfile.query.filter_by(user_id=current_user.id).update({'is_default': False})
+        
+        # Set this profile as default
+        profile.is_default = True
+        db.session.commit()
+        
+        logger.info(f"Set profile {profile_id} as default for user {current_user.id}")
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'message': 'Default profile updated'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error setting default profile: {e}", exc_info=True)
+        db.session.rollback()
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': 'Failed to set default profile'
+        }), 500
+
+
+@profile_bp.route('/api/profiles/<int:profile_id>', methods=['DELETE'])
+@login_required
+def delete_profile(profile_id):
+    """Delete a profile.
+    
+    Prevents deletion of the last profile.
+    
+    Args:
+        profile_id: ID of the profile to delete
+    
+    Returns:
+        JSON with success status
+    """
+    request_id = str(uuid.uuid4())
+    
+    try:
+        # Get the profile and verify ownership
+        profile = VoiceProfile.query.filter_by(id=profile_id, user_id=current_user.id).first()
+        
+        if not profile:
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Profile not found'
+            }), 404
+        
+        # Check if this is the last profile
+        profile_count = VoiceProfile.query.filter_by(user_id=current_user.id).count()
+        if profile_count <= 1:
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'Cannot delete your last profile'
+            }), 400
+        
+        # If deleting the default profile, set another as default
+        if profile.is_default:
+            # Find another profile to set as default
+            other_profile = VoiceProfile.query.filter(
+                VoiceProfile.user_id == current_user.id,
+                VoiceProfile.id != profile_id
+            ).first()
+            if other_profile:
+                other_profile.is_default = True
+        
+        db.session.delete(profile)
+        db.session.commit()
+        
+        logger.info(f"Deleted profile {profile_id} for user {current_user.id}")
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'message': 'Profile deleted successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting profile: {e}", exc_info=True)
+        db.session.rollback()
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': 'Failed to delete profile'
+        }), 500
+
+
+@profile_bp.route('/api/profiles/current', methods=['GET'])
+@login_required
+def get_current_profile():
+    """Get the current active profile.
+    
+    Returns the profile from session if set, otherwise the default profile.
+    
+    Returns:
+        JSON with current profile info
+    """
+    request_id = str(uuid.uuid4())
+    
+    try:
+        from flask import session
+        
+        # Check if there's an active profile in session
+        active_profile_id = session.get('active_profile_id')
+        
+        if active_profile_id:
+            profile = VoiceProfile.query.filter_by(
+                id=active_profile_id,
+                user_id=current_user.id
+            ).first()
+            if profile:
+                return jsonify({
+                    'ok': True,
+                    'request_id': request_id,
+                    'profile': {
+                        'id': profile.id,
+                        'profile_name': profile.profile_name,
+                        'business_name': profile.business_name,
+                        'industry': profile.industry,
+                        'is_default': profile.is_default,
+                    },
+                    'source': 'session'
+                })
+        
+        # Fall back to default profile
+        profile = VoiceProfile.query.filter_by(
+            user_id=current_user.id,
+            is_default=True
+        ).first()
+        
+        if not profile:
+            # If no default, get first profile
+            profile = VoiceProfile.query.filter_by(user_id=current_user.id).first()
+        
+        if not profile:
+            return jsonify({
+                'ok': False,
+                'request_id': request_id,
+                'error': 'No profile found'
+            }), 404
+        
+        return jsonify({
+            'ok': True,
+            'request_id': request_id,
+            'profile': {
+                'id': profile.id,
+                'profile_name': profile.profile_name,
+                'business_name': profile.business_name,
+                'industry': profile.industry,
+                'is_default': profile.is_default,
+            },
+            'source': 'default'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting current profile: {e}", exc_info=True)
+        return jsonify({
+            'ok': False,
+            'request_id': request_id,
+            'error': 'Failed to get current profile'
+        }), 500
