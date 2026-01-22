@@ -885,6 +885,27 @@ class PromptBox {
 
     const data = await response.json();
     
+    // Handle profile_prompt_with_skip action with buttons
+    if (data.action === 'profile_prompt_with_skip' && data.actions) {
+      // Convert server actions to button format
+      const buttons = data.actions.map(action => ({
+        label: action.text,
+        action: 'command',  // All buttons execute as commands
+        value: action.action === 'generate_anyway' ? 'generate_anyway' : 'complete_profile',
+        style: action.style
+      }));
+      
+      // Add assistant message with buttons
+      await this.addMessage('assistant', data.response, false, false, buttons);
+      
+      // Store pending task
+      if (data.pending_task) {
+        this.pendingTask = data.pending_task;
+      }
+      
+      return; // Early return after handling skip prompt
+    }
+    
     // Add assistant message
     const isGenerated = data.action === 'generated' || (data.content && data.content.length > 100);
     await this.addMessage('assistant', data.response, false, isGenerated);
@@ -1000,7 +1021,16 @@ class PromptBox {
     
     buttons.forEach(btn => {
       const button = document.createElement('button');
-      button.className = 'promptbox-action-btn px-3 py-1.5 text-sm bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors';
+      
+      // Apply different styles based on button style attribute
+      if (btn.style === 'primary') {
+        button.className = 'promptbox-action-btn px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm';
+      } else if (btn.style === 'secondary') {
+        button.className = 'promptbox-action-btn px-4 py-2 text-sm font-medium bg-white text-indigo-700 rounded-lg border border-indigo-200 hover:bg-indigo-50 transition-colors';
+      } else {
+        button.className = 'promptbox-action-btn px-3 py-1.5 text-sm bg-indigo-50 text-indigo-700 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors';
+      }
+      
       button.textContent = btn.label;
       
       // Store button data for click handler

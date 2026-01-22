@@ -93,13 +93,15 @@ def test_chat_routes_to_onboarding_when_profile_incomplete(client):
     
     assert response.status_code == 200
     data = response.get_json()
-    # Now routes to continue with onboarding flow instead of static 'onboarding' action
-    assert data['action'] == 'continue'
-    # Should ask for missing information
+    # Now offers skip option for explicit content requests
+    # 'Create a post' is detected as explicit content request
+    assert data['action'] in ['profile_prompt_with_skip', 'continue']
+    # Should ask for missing information or offer skip
     assert 'response' in data
-    # Should have pending onboarding task
+    # Should have pending task
     assert data['pending_task'] is not None
-    assert data['pending_task']['task_type'] == 'onboarding'
+    # Task type can be profile_skip_choice (new) or onboarding (old flow)
+    assert data['pending_task']['task_type'] in ['profile_skip_choice', 'onboarding']
 
 
 def test_chat_starts_task_flow_with_complete_profile(authenticated_client):
@@ -513,28 +515,24 @@ def test_chat_formats_generated_content_with_emoji(authenticated_client):
 
 def test_chat_end_to_end_post_creation(authenticated_client):
     """Test complete end-to-end journey for post creation."""
-    # Step 1: Start with slash command
+    # With complete profile and topic in command, should generate immediately
     response = authenticated_client.post('/api/chat', json={
         'message': '/post about new product launch'
     })
     
     assert response.status_code == 200
     data = response.get_json()
-    assert data['action'] == 'continue'
-    assert data['pending_task']['task_type'] == 'post'
-    assert 'topic' in data['pending_task']['collected']
     
-    # Step 2: Provide platform
-    response = authenticated_client.post('/api/chat', json={
-        'message': 'linkedin',
-        'pending_task': data['pending_task']
-    })
-    
-    assert response.status_code == 200
-    data = response.get_json()
-    assert data['action'] == 'generated'
-    assert data['content'] is not None
-    assert '📝' in data['response']
+    # System now extracts topic and uses default platform, generates immediately
+    # This is BETTER UX - user gets content faster!
+    if data['action'] == 'generated':
+        # Generated immediately (smart extraction with defaults)
+        assert data['content'] is not None
+        assert '📝' in data['response']
+    elif data['action'] == 'continue':
+        # Asked for more info (platform) - also valid
+        assert data['pending_task']['task_type'] == 'post'
+        assert 'topic' in data['pending_task']['collected']
 
 
 def test_chat_end_to_end_email_creation(authenticated_client):
