@@ -74,6 +74,57 @@ def _check_profile_ready(profile: VoiceProfile) -> tuple[bool, list[str], int]:
     return is_complete, missing_fields, completeness
 
 
+def _is_explicit_content_request(message: str) -> bool:
+    """Detect if user explicitly requests content generation.
+    
+    Args:
+        message: User's input message
+        
+    Returns:
+        True if message is an explicit content request
+    """
+    message_lower = message.lower().strip()
+    
+    # Check for slash commands (explicit content requests)
+    if message_lower.startswith('/'):
+        content_commands = ['/post', '/caption', '/script', '/email', '/review', 
+                          '/ad', '/blog', '/reel', '/custom']
+        for cmd in content_commands:
+            if message_lower.startswith(cmd):
+                return True
+    
+    # Check for content creation keywords
+    content_keywords = [
+        'write', 'create', 'generate', 'post', 'email', 
+        'draft', 'make', 'instagram', 'linkedin', 'facebook',
+        'caption', 'script', 'video', 'reel', 'ad', 'blog'
+    ]
+    
+    return any(keyword in message_lower for keyword in content_keywords)
+
+
+def _has_minimal_profile_data(profile: VoiceProfile) -> bool:
+    """Check if profile has minimal data for basic content generation.
+    
+    Even with incomplete profile, if we have business name and industry,
+    we can generate basic content.
+    
+    Args:
+        profile: VoiceProfile instance to check
+        
+    Returns:
+        True if profile has enough basic data
+    """
+    if not profile:
+        return False
+    
+    has_business = profile.business_name and profile.business_name.strip()
+    has_industry = profile.industry and profile.industry.strip()
+    
+    # Minimal: at least business name OR industry
+    return has_business or has_industry
+
+
 def _handle_onboarding_chat(message: str, history: list, profile: VoiceProfile, pending_task: dict = None) -> dict:
     """Handle onboarding conversation flow.
     
@@ -1942,8 +1993,8 @@ def _build_response(message: str, action: str, **kwargs) -> dict:
     
     Args:
         message: Main response text to display to user
-        action: Action type (continue|generated|onboarding|onboarding_complete|error)
-        **kwargs: Additional response fields (pending_task, content, suggestions, redirect)
+        action: Action type (continue|generated|onboarding|onboarding_complete|error|profile_prompt_with_skip)
+        **kwargs: Additional response fields (pending_task, content, suggestions, redirect, actions)
         
     Returns:
         Response dictionary
@@ -1959,6 +2010,10 @@ def _build_response(message: str, action: str, **kwargs) -> dict:
     # Add redirect if provided
     if 'redirect' in kwargs:
         response['redirect'] = kwargs['redirect']
+    
+    # Add actions if provided (for skip flow)
+    if 'actions' in kwargs:
+        response['actions'] = kwargs['actions']
     
     return response
 
@@ -2221,6 +2276,51 @@ def chat():
             task_type = pending_task.get('task_type')
             flow = pending_task.get('flow')
             
+            # Handle skip flow choice
+            if flow == 'skip_prompt':
+                # User chose an action from the skip prompt
+                from flask import session
+                original_request = session.get('pending_content_request') or pending_task.get('original_request')
+                
+                if message.lower() in ['generate_anyway', 'skip', 'create now', '⚡ skip - create now']:
+                    # User wants to skip profile completion
+                    logger.info(f"[{request_id}] User skipped profile - generating with minimal data")
+                    
+                    # Parse the original request to generate content
+                    intent_result = conversation_router.parse_intent(original_request, profile)
+                    
+                    if intent_result.get('follow_up_needed'):
+                        # Still need more info for the content itself
+                        return jsonify(_build_response(
+                            intent_result['follow_up_question'],
+                            action='continue',
+                            pending_task={
+                                'task_type': intent_result['task_type'],
+                                'collected': intent_result['extracted_params'],
+                                'flow': 'content'
+                            }
+                        )), 200
+                    
+                    # Generate with minimal profile data
+                    result = _generate_content_response(
+                        intent_result['task_type'],
+                        intent_result['extracted_params'],
+                        profile
+                    )
+                    
+                    # Clear the stored request
+                    session.pop('pending_content_request', None)
+                    return jsonify(result), 200
+                    
+                elif message.lower() in ['complete_profile', 'complete profile', '✨ complete profile (2 min)']:
+                    # User chose to complete profile
+                    logger.info(f"[{request_id}] User chose to complete profile")
+                    session.pop('pending_content_request', None)
+                    
+                    # Start onboarding flow
+                    result = _handle_onboarding_chat(original_request or "Let's complete my profile", history, profile, None)
+                    return jsonify(result), 200
+            
             # Auto-detect flow if not specified based on task_type
             if not flow:
                 if task_type == 'onboarding':
@@ -2263,7 +2363,51 @@ def chat():
         
         # Route based on profile completeness
         if not profile_ready:
-            # Route to onboarding flow
+            # Check if user explicitly wants content NOW (e.g., slash command or clear request)
+            is_explicit_request = _is_explicit_content_request(message)
+            has_minimal = _has_minimal_profile_data(profile)
+            
+            # If user explicitly requests content and we have minimal data, offer skip option
+            if is_explicit_request and has_minimal:
+                logger.info(f"[{request_id}] User wants content but profile incomplete - offering skip")
+                
+                # Store original request in session for skip flow
+                from flask import session
+                session['pending_content_request'] = message
+                
+                # Build response with skip option
+                from services.profile_validator import format_missing_fields_message
+                missing_str = format_missing_fields_message(missing_fields[:3])  # Show top 3
+                
+                skip_response = (
+                    f"I can help with that! Quick question first:\n\n"
+                    f"**Your profile is missing:** {missing_str}\n\n"
+                    f"These details help me write in your unique voice. What would you like to do?"
+                )
+                
+                return jsonify(_build_response(
+                    skip_response,
+                    action='profile_prompt_with_skip',
+                    pending_task={
+                        'task_type': 'profile_skip_choice',
+                        'original_request': message,
+                        'flow': 'skip_prompt'
+                    },
+                    actions=[
+                        {
+                            'text': '⚡ Skip - Create Now',
+                            'action': 'generate_anyway',
+                            'style': 'primary'
+                        },
+                        {
+                            'text': '✨ Complete Profile (2 min)',
+                            'action': 'complete_profile',
+                            'style': 'secondary'
+                        }
+                    ]
+                )), 200
+            
+            # Regular onboarding flow
             logger.info(f"[{request_id}] User {current_user.id} needs onboarding - missing: {missing_fields}")
             
             # Get or create profile if needed
