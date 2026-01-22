@@ -231,8 +231,10 @@
 .chat-container {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+    position: relative;
     /* Dynamic viewport height calculation with fallback for older browsers */
     height: calc(100vh - var(--chat-viewport-offset)); /* Fallback for browsers without dvh */
     height: calc(100dvh - var(--chat-viewport-offset)); /* Dynamic viewport height with mobile browser compatibility */
@@ -250,7 +252,8 @@
     max-width: 800px;
     margin: 0 auto;
     padding: 16px;
-    padding-bottom: 160px; /* Space for sticky input + buttons + extra breathing room */
+    padding-bottom: 200px; /* Increased space for sticky input + buttons + breathing room */
+    min-height: 100%;
 }
 
 /* ===== Message Bubbles ===== */
@@ -375,6 +378,7 @@
     display: flex;
     gap: 8px;
     margin-top: 16px;
+    margin-bottom: 24px; /* Extra spacing to prevent overlap with sticky input */
     flex-wrap: wrap;
 }
 
@@ -419,6 +423,13 @@
     
     .action-label {
         display: inline;
+    }
+}
+
+/* Mobile: extra margin for action bars */
+@media (max-width: 640px) {
+    .action-bar {
+        margin-bottom: 32px;
     }
 }
 
@@ -694,46 +705,73 @@
 /* ===== Scroll to Bottom Button ===== */
 .scroll-to-bottom {
     position: fixed;
-    bottom: var(--scroll-button-offset); /* Above input area */
+    bottom: 90px; /* Above input area - adjust based on input height */
     left: 50%;
     transform: translateX(-50%);
     background: var(--accent);
     color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
+    padding: 10px 18px;
+    border-radius: 24px;
     border: none;
     cursor: pointer;
-    z-index: 50;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 60;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     font-size: 14px;
-    transition: opacity 0.2s ease;
+    font-weight: 500;
+    transition: all 0.3s ease;
     opacity: 0;
     pointer-events: none;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
 }
 
 .scroll-to-bottom.visible {
     opacity: 1;
     pointer-events: auto;
+    animation: bounceIn 0.4s ease-out;
+}
+
+@keyframes bounceIn {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+    60% {
+        opacity: 1;
+        transform: translate(-50%, -5px);
+    }
+    100% {
+        transform: translate(-50%, 0);
+    }
 }
 
 .scroll-to-bottom:hover {
     background: var(--accent-hover);
+    transform: translate(-50%, -2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+}
+
+.scroll-to-bottom:active {
+    transform: translate(-50%, 0);
 }
 
 .scroll-to-bottom svg {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
 }
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
     .scroll-to-bottom {
-        bottom: var(--scroll-button-offset-mobile);
-        padding: 6px 12px;
+        bottom: 80px; /* Adjust for mobile input height */
+        padding: 8px 14px;
         font-size: 13px;
+    }
+    
+    .scroll-to-bottom svg {
+        width: 16px;
+        height: 16px;
     }
 }
 

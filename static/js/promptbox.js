@@ -2267,7 +2267,7 @@ async function showImportFlow(promptBox, url) {
       
       if (data.suggestions) {
         // Build complete preview with ALL extracted fields
-        let message = `Found some great information! Here's what I extracted from your website:\n\n📋 **Extracted Profile Data:**\n\n`;
+        let message = `I analyzed your website and here's what I found:\n\n📋 **Extracted Profile Data:**\n\n`;
         
         const foundFields = [];
         const missingFields = [];
@@ -2331,21 +2331,31 @@ async function showImportFlow(promptBox, url) {
           foundFields.push('Writing Samples');
         }
         
-        // Show partial scrape warning if missing required fields
+        // Show what was successfully extracted
+        if (foundFields.length > 0) {
+          message += `\n\n✅ **Successfully extracted:** ${foundFields.join(', ')}`;
+        }
+        
+        // Show partial scrape info with helpful suggestions if missing required fields
         if (missingFields.length > 0) {
           message += `\n\n⚠️ **Couldn't extract:** ${missingFields.join(', ')}\n`;
-          message += `\nWant to save what I found and fill in the rest? Or try another URL?`;
+          message += `\n💡 **Tip:** These fields might not be visible on your homepage. You can:`;
+          message += `\n• Save what I found and manually add the rest later`;
+          message += `\n• Try a different page (like your "About" page)`;
+          message += `\n• Just tell me the missing information directly`;
+          message += `\n\nWant to save what I found?`;
           
           const buttons = [
-            { label: '✅ Save what I found', action: 'command', value: '/import-confirm' },
-            { label: '✏️ Edit before saving', action: 'command', value: '/import-edit' },
+            { label: '✅ Save & fill rest later', action: 'command', value: '/import-confirm' },
+            { label: '✏️ Edit now', action: 'command', value: '/import-edit' },
+            { label: '🔄 Try different URL', action: 'message', value: '/import ' },
             { label: '❌ Cancel', action: 'command', value: '/import-cancel' }
           ];
           
           promptBox.addMessage('assistant', message, false, false, buttons);
         } else {
           // Complete scrape
-          message += `\n\nDoes this look accurate?`;
+          message += `\n\n✨ **Great! I found everything!**\n\nDoes this look accurate?`;
           
           const buttons = [
             { label: '✅ Save all', action: 'command', value: '/import-confirm' },
@@ -2360,7 +2370,8 @@ async function showImportFlow(promptBox, url) {
         promptBox.pendingImport = data.suggestions;
         promptBox.pendingImportUrl = url.trim();
       } else {
-        promptBox.addMessage('assistant', `Couldn't extract data from that URL. Try a different page, or just tell me about your business!`);
+        // No data extracted at all
+        promptBox.addMessage('assistant', `I couldn't extract business information from that URL. This might happen if:\n\n• The page has mostly images/videos\n• It's behind a login wall\n• The content is dynamically loaded\n\nYou can:\n• Try a different page (like "About" or "Services")\n• Tell me about your business instead\n• Use the profile form to enter details manually\n\nWhat would you like to do?`);
       }
     } catch (error) {
       promptBox.addMessage('assistant', `Error analyzing URL: ${error.message}. Try again or describe your business instead.`);
