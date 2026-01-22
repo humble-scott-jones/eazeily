@@ -235,14 +235,14 @@
     scroll-behavior: smooth;
     /* Dynamic viewport height calculation with fallback for older browsers */
     height: calc(100vh - var(--chat-viewport-offset)); /* Fallback for browsers without dvh */
-    height: calc(100dvh - var(--chat-viewport-offset)); /* Dynamic viewport height for mobile */
+    height: calc(100dvh - var(--chat-viewport-offset)); /* Dynamic viewport height with mobile browser compatibility */
 }
 
 /* Mobile-specific viewport adjustments */
 @media (max-width: 768px) {
     .chat-container {
         height: calc(100vh - var(--chat-viewport-offset-mobile)); /* Fallback */
-        height: calc(100dvh - var(--chat-viewport-offset-mobile)); /* Dynamic viewport height */
+        height: calc(100dvh - var(--chat-viewport-offset-mobile)); /* Dynamic viewport height for mobile */
     }
 }
 
@@ -694,7 +694,7 @@
 /* ===== Scroll to Bottom Button ===== */
 .scroll-to-bottom {
     position: fixed;
-    bottom: 100px; /* Above input area */
+    bottom: var(--scroll-button-offset); /* Above input area */
     left: 50%;
     transform: translateX(-50%);
     background: var(--accent);
@@ -731,7 +731,7 @@
 /* Mobile adjustments */
 @media (max-width: 768px) {
     .scroll-to-bottom {
-        bottom: 90px;
+        bottom: var(--scroll-button-offset-mobile);
         padding: 6px 12px;
         font-size: 13px;
     }
@@ -827,7 +827,7 @@
     }
     
     .scroll-to-bottom {
-        bottom: calc(100px + env(safe-area-inset-bottom));
+        bottom: calc(var(--scroll-button-offset) + env(safe-area-inset-bottom));
     }
 }
 

@@ -33,6 +33,8 @@
   --input-height: 136px; /* Approximate input area height */
   --chat-viewport-offset: 200px; /* Total offset for desktop (header + input) */
   --chat-viewport-offset-mobile: 180px; /* Total offset for mobile */
+  --scroll-button-offset: 100px; /* Distance from bottom for scroll button (desktop) */
+  --scroll-button-offset-mobile: 90px; /* Distance from bottom for scroll button (mobile) */
 }
 
 /* Dark mode - matches user's OS/browser setting */
