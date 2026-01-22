@@ -310,6 +310,27 @@ def _get_content_suggestions() -> list:
     ]
 
 
+def _apply_smart_defaults(task_type: str, collected: dict) -> dict:
+    """Apply smart defaults for missing optional fields.
+    
+    Args:
+        task_type: Type of content being generated
+        collected: Currently collected parameters
+        
+    Returns:
+        Updated collected dict with defaults applied
+    """
+    # Default platform for social content
+    if task_type in ['post', 'caption', 'ad'] and 'platform' not in collected:
+        collected['platform'] = 'instagram'
+    
+    # Default video length for scripts
+    if task_type == 'script' and 'video_length' not in collected:
+        collected['video_length'] = '30s'
+    
+    return collected
+
+
 def _continue_content_task(pending_task: dict, message: str, profile: VoiceProfile) -> dict:
     """Continue collecting fields for content generation.
     
@@ -331,6 +352,9 @@ def _continue_content_task(pending_task: dict, message: str, profile: VoiceProfi
         # Store the response for the first missing field
         field_name = missing_before[0]
         collected[field_name] = _normalize_field_value(field_name, message)
+    
+    # Apply smart defaults BEFORE checking missing fields again
+    collected = _apply_smart_defaults(task_type, collected)
     
     # Check if still missing fields
     missing_after = conversation_router.get_missing_fields(task_type, collected)
