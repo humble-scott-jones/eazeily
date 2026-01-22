@@ -399,6 +399,15 @@ IMPORTANT CONTEXT:
 - URL: {url}
 - Domain suggests business name might be: {domain_name}
 
+EXTRACTION GUIDELINES:
+- Be FLEXIBLE with field matching - accept variations and synonyms
+- If you can't find an exact match, make a reasonable inference from available data
+- Extract as many fields as possible - partial data is better than no data
+- For business_name: Check title, logo, meta tags, headers, or domain name as fallback
+- For industry: Be creative with matching - map similar concepts to the closest category
+- For target_audience: Even generic descriptions are better than null (e.g., "businesses" or "consumers")
+- For key_offer: Look beyond CTAs - check headlines, taglines, or main value propositions
+
 Look for business information in:
 1. Page title and meta tags (marked as "Page Title:", "OG Title:", etc.)
 2. Headlines and hero sections (marked as "Headline:")
@@ -407,15 +416,17 @@ Look for business information in:
 
 Return ONLY a JSON object with these exact keys:
 
-- business_name: The company/business name. Look in title, logo, or meta tags FIRST. If you cannot confidently identify the business name, return null. (string, or null if not found)
-- industry: The business industry category - pick ONE that best matches from this list: {industries_list} (string, or "Other / Custom" if unclear)
-- key_customers: A brief description of the target audience/customers in 1-2 sentences. If not explicit, infer from content. (string, or null)
-- key_offer: The main value proposition, hook, or unique offer. Look for CTAs marked as "CTA:" like "Get Started", "Free Trial", etc. Extract the complete offer text, NOT truncated. (string, or null)
-- brand_keywords: A list of 3-5 key brand descriptors or values that represent this business (e.g., ["sustainable", "premium", "innovative"]) (array of strings)
-- niche_keywords: A list of 3-5 niche-specific terms or specializations for this business (e.g., ["organic coffee", "artisan roasted", "fair trade"]) (array of strings)
-- voice_tone_and_style: Analyze the writing style (formal, playful, authoritative, etc.) and provide 2-3 sentences describing the brand voice guidelines (string).
-- content_goals: Infer 3-5 high-level content goals based on the site's calls to action (e.g., "Educate customers on X", "Drive sales for Y", "Build community") (array of strings).
-- sample_posts: Generate 3 solid, high-quality sample social media posts (caption only) that perfectly fit this brand's voice and industry. (array of strings).
+- business_name: The company/business name. Look in title, logo, meta tags, or use {domain_name} as fallback. Try to extract SOMETHING rather than null. (string, or null only if truly impossible)
+- industry: The business industry category - pick ONE that best matches from this list: {industries_list}. If nothing matches exactly, choose the closest category or "Other / Custom". (string, required - always provide a value)
+- key_customers: A brief description of the target audience/customers in 1-2 sentences. If not explicit, infer from content, product descriptions, or make a reasonable assumption based on industry. (string, or null only if truly impossible)
+- key_offer: The main value proposition, hook, or unique offer. Look for CTAs, headlines, taglines, or main value propositions. Extract complete text, not truncated. Be creative - most websites have SOMETHING that describes what they offer. (string, or null only if truly impossible)
+- brand_keywords: A list of 3-5 key brand descriptors or values (e.g., ["sustainable", "premium", "innovative"]). Extract from content or infer from tone. (array of strings, can be empty array if nothing found)
+- niche_keywords: A list of 3-5 niche-specific terms (e.g., ["organic coffee", "artisan roasted", "fair trade"]). Extract from content. (array of strings, can be empty array if nothing found)
+- voice_tone_and_style: Analyze the writing style (formal, playful, authoritative, etc.) and provide 2-3 sentences describing the brand voice. Even if limited content, provide your best assessment. (string, or null only if no text content available)
+- content_goals: Infer 3-5 high-level content goals based on the site (e.g., "Educate customers", "Drive sales", "Build community"). Make reasonable assumptions based on website type. (array of strings, can be empty array if nothing found)
+- sample_posts: Generate 3 solid, high-quality sample social media posts that fit this brand's voice and industry. Even with limited info, create appropriate samples. (array of strings, required - always provide at least 2-3 samples)
+
+**IMPORTANT**: Extract as much as possible. Partial data is valuable. Only return null when truly impossible to extract or infer.
 
 Website content:
 {text_sample}
@@ -448,9 +459,15 @@ Return only valid JSON, no markdown formatting, no explanations."""
         logger.info(f"Parsed key_offer: {extracted_data.get('key_offer')}")
         
         # Validate and clean the extracted data
+        # Use domain name as fallback for business_name if AI couldn't extract it
+        business_name = extracted_data.get("business_name")
+        if not business_name and domain_name:
+            business_name = domain_name
+            logger.info(f"Using domain name as fallback business name: {domain_name}")
+        
         result = {
-            "business_name": extracted_data.get("business_name") or None,
-            "industry": extracted_data.get("industry") or None,
+            "business_name": business_name or None,
+            "industry": extracted_data.get("industry") or "Other / Custom",  # Always provide industry
             "key_customers": extracted_data.get("key_customers") or None,
             "key_offer": extracted_data.get("key_offer") or None,
             "brand_keywords": extracted_data.get("brand_keywords") or [],

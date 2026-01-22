@@ -71,6 +71,14 @@
             <!-- Messages render here via PromptBox in embedded mode -->
             <div id="dashboard-promptbox" class="promptbox-full-height"></div>
         </div>
+        
+        <!-- Scroll to bottom button -->
+        <button id="scroll-to-bottom" class="scroll-to-bottom" aria-label="Scroll to bottom">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+            <span>New message</span>
+        </button>
     </main>
 
     <!-- Sticky Input Area -->
@@ -120,6 +128,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Show slash hint for first-time users
     showInitialSlashHint();
+    
+    // Initialize scroll behavior
+    initScrollBehavior();
 });
 
 /**
@@ -543,6 +554,100 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+/**
+ * Initialize scroll behavior for chat
+ * - Auto-scroll to bottom when new content appears
+ * - Show/hide scroll-to-bottom button based on scroll position
+ * - Handle mobile keyboard properly
+ */
+function initScrollBehavior() {
+    const chatContainer = document.getElementById('chat-container');
+    const scrollBtn = document.getElementById('scroll-to-bottom');
+    const chatInput = document.getElementById('chat-input');
+    
+    if (!chatContainer || !scrollBtn) {
+        console.warn('Chat container or scroll button not found');
+        return;
+    }
+    
+    /**
+     * Scroll to bottom of chat
+     * @param {boolean} smooth - Whether to use smooth animation
+     */
+    function scrollToBottom(smooth = true) {
+        chatContainer.scrollTo({
+            top: chatContainer.scrollHeight,
+            behavior: smooth ? 'smooth' : 'auto'
+        });
+    }
+    
+    /**
+     * Update scroll button visibility based on scroll position
+     */
+    function updateScrollButton() {
+        const isNearBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 100;
+        
+        if (isNearBottom) {
+            scrollBtn.classList.remove('visible');
+        } else {
+            scrollBtn.classList.add('visible');
+        }
+    }
+    
+    // Initial scroll to bottom on page load
+    setTimeout(() => scrollToBottom(false), 100);
+    
+    // Listen for scroll events to show/hide button
+    chatContainer.addEventListener('scroll', updateScrollButton);
+    
+    // Scroll to bottom button click handler
+    scrollBtn.addEventListener('click', () => {
+        scrollToBottom(true);
+    });
+    
+    // Auto-scroll when new content is added
+    const observer = new MutationObserver((mutations) => {
+        // Check if user is near bottom before auto-scrolling
+        const isNearBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight < 150;
+        
+        // Only auto-scroll if user is already near bottom (not scrolled up to read old messages)
+        if (isNearBottom) {
+            // Small delay to ensure DOM has updated
+            setTimeout(() => scrollToBottom(true), 50);
+        } else {
+            // Show scroll button if new content appears while scrolled up
+            updateScrollButton();
+        }
+    });
+    
+    // Observe the chat messages container for changes
+    const chatMessages = document.getElementById('chat-messages');
+    if (chatMessages) {
+        observer.observe(chatMessages, { 
+            childList: true, 
+            subtree: true 
+        });
+    }
+    
+    // Ensure input stays visible when keyboard appears on mobile
+    if (chatInput) {
+        chatInput.addEventListener('focus', () => {
+            // Wait for keyboard animation on mobile
+            setTimeout(() => {
+                // Scroll container to ensure input is visible
+                chatInput.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'nearest',
+                    inline: 'nearest'
+                });
+            }, 300);
+        });
+    }
+    
+    // Update button visibility on initial load
+    updateScrollButton();
 }
 </script>
 
