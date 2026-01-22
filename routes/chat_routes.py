@@ -1823,6 +1823,29 @@ def _handle_profile_update(message: str, pending_task: dict, profile: VoiceProfi
                 action='continue'
             )
     
+    # Handle NEW field assistance flow (when bare field command is used)
+    if intent_result['task_type'] == 'field_assistance':
+        field = intent_result.get('field')
+        if field:
+            return _handle_field_assistance(field, profile)
+        else:
+            return _build_response(
+                "I'm not sure which field you want to update. Try using a command like /voice or /audience.",
+                action='error'
+            )
+    
+    # Handle NEW direct field update (when field command with value is used)
+    if intent_result['task_type'] == 'update_field':
+        field = intent_result.get('field')
+        value = intent_result.get('value')
+        if field and value:
+            return _handle_update_field(field, value, profile, db)
+        else:
+            return _build_response(
+                "I need both a field name and a value to update.",
+                action='error'
+            )
+    
     if intent_result['task_type'] in ['profile_update', 'update_voice', 'update_audience']:
         extracted = intent_result.get('extracted_params', {})
         field_name = extracted.get('field_name')

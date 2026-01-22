@@ -37,7 +37,8 @@ class TestProfileSlashCommands:
     def test_samples_command_in_map(self, router):
         """Test /samples command is in COMMAND_MAP."""
         assert '/samples' in router.COMMAND_MAP
-        assert router.COMMAND_MAP['/samples'] == 'update_samples'
+        # NOTE: /samples now uses field_assistance flow when sent bare
+        assert router.COMMAND_MAP['/samples'] == 'field_assistance'
     
     def test_import_command_in_map(self, router):
         """Test /import command is in COMMAND_MAP."""
@@ -48,8 +49,9 @@ class TestProfileSlashCommands:
         """Test parsing /samples command."""
         result = router._parse_slash_command('/samples')
         assert result is not None
-        assert result['task_type'] == 'update_samples'
-        assert 'extracted_params' in result
+        # NOTE: Bare /samples now returns field_assistance
+        assert result['task_type'] == 'field_assistance'
+        assert result['field'] == 'writing_samples'
     
     def test_parse_import_command_with_url(self, router):
         """Test parsing /import command with URL."""
@@ -83,8 +85,10 @@ class TestProfileSlashCommands:
     def test_parse_intent_samples(self, router, mock_profile):
         """Test parsing intent for /samples command."""
         result = router.parse_intent('/samples', mock_profile)
-        assert result['task_type'] == 'update_samples'
+        # NOTE: Bare /samples now returns field_assistance
+        assert result['task_type'] == 'field_assistance'
         assert result['intent'] == 'generate'
+        assert result['field'] == 'writing_samples'
     
     def test_parse_intent_import(self, router, mock_profile):
         """Test parsing intent for /import command."""
