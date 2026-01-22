@@ -115,6 +115,9 @@ demoInput?.addEventListener('keypress', (e) => {
   }
 });
 
+// Track demo usage
+let demoUsageCount = 0;
+
 async function sendDemoMessage() {
   const message = demoInput.value.trim();
   
@@ -133,6 +136,17 @@ async function sendDemoMessage() {
   demoInput.disabled = true;
   demoSendBtn.disabled = true;
   demoSendBtn.classList.add('loading');
+  
+  // Increment usage count
+  demoUsageCount++;
+  
+  // Track demo usage on first use
+  if (typeof gtag !== 'undefined' && demoUsageCount === 1) {
+    gtag('event', 'demo_used', {
+      'event_category': 'engagement',
+      'value': 1
+    });
+  }
   
   try {
     // Call demo API
@@ -154,7 +168,29 @@ async function sendDemoMessage() {
     removeLoadingMessage();
     
     // Add AI response
-    addMessage(data.content, 'ai');
+    if (data.error) {
+      addMessage(data.error, 'ai');
+    } else {
+      addMessage(data.content, 'ai');
+    }
+    
+    // Show signup prompt after 2 demo messages
+    if (demoUsageCount === 2) {
+      setTimeout(() => {
+        const signupPrompt = document.createElement('div');
+        signupPrompt.className = 'flex justify-center mt-4';
+        signupPrompt.innerHTML = `
+          <a href="/auth/signup" class="bg-white text-purple-900 px-6 py-2 rounded-lg hover:shadow-lg transition font-semibold text-sm">
+            Love it? Sign up to create real content (Free) →
+          </a>
+        `;
+        const container = demoMessages.parentElement;
+        if (container && !document.querySelector('.signup-prompt-added')) {
+          signupPrompt.classList.add('signup-prompt-added');
+          container.insertBefore(signupPrompt, demoMessages.nextSibling);
+        }
+      }, 1000);
+    }
     
   } catch (error) {
     console.error('Demo error:', error);
@@ -252,38 +288,6 @@ document.querySelectorAll('a[href*="signup"], a[href*="dashboard"]').forEach(lin
     }
   });
 });
-
-// Track demo usage
-let demoUsageCount = 0;
-const originalSendDemoMessage = sendDemoMessage;
-
-async function sendDemoMessage() {
-  demoUsageCount++;
-  
-  // Track demo usage
-  if (typeof gtag !== 'undefined' && demoUsageCount === 1) {
-    gtag('event', 'demo_used', {
-      'event_category': 'engagement',
-      'value': 1
-    });
-  }
-  
-  await originalSendDemoMessage();
-  
-  // Show signup prompt after 2 demo messages
-  if (demoUsageCount === 2) {
-    setTimeout(() => {
-      const signupPrompt = document.createElement('div');
-      signupPrompt.className = 'flex justify-center mt-4';
-      signupPrompt.innerHTML = `
-        <a href="/auth/signup" class="bg-white text-purple-900 px-6 py-2 rounded-lg hover:shadow-lg transition font-semibold text-sm">
-          Love it? Sign up to create real content (Free) →
-        </a>
-      `;
-      demoMessages.parentElement.insertBefore(signupPrompt, demoMessages.nextSibling);
-    }, 1000);
-  }
-}
 
 // Lazy load images (if any are added later)
 if ('IntersectionObserver' in window) {

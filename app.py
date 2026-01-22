@@ -151,20 +151,39 @@ def create_app():
     @app.route('/api/demo/generate', methods=['POST'])
     def demo_generate():
         """Generate sample content for landing page demo."""
-        data = request.get_json()
-        prompt = data.get('prompt', '').lower()
-        
-        # Simple demo responses based on keywords
-        responses = {
-            'instagram': """🎉 Weekend Sale Alert!
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'Invalid request'}), 400
+            
+            prompt = data.get('prompt', '').strip()
+            
+            # Validate input
+            if not prompt or len(prompt) > 500:
+                return jsonify({'error': 'Prompt must be between 1 and 500 characters'}), 400
+            
+            # Simple rate limiting: max 10 requests per session
+            from flask import session
+            if 'demo_count' not in session:
+                session['demo_count'] = 0
+            
+            session['demo_count'] += 1
+            if session['demo_count'] > 10:
+                return jsonify({'error': 'Demo limit reached. Sign up for unlimited content!'}), 429
+            
+            prompt_lower = prompt.lower()
+            
+            # Simple demo responses based on keywords
+            responses = {
+                'instagram': """🎉 Weekend Sale Alert!
 
 This Saturday & Sunday only: Take 20% off everything in-store and online! Time to treat yourself. 🛍️✨
 
 Tag a friend who needs this! 👇
 
 #WeekendSale #ShopLocal #SmallBusiness #SaleAlert #ShopSmall #SupportLocal""",
-            
-            'email': """Subject: Exciting News: We're Launching Something New! 🎉
+                
+                'email': """Subject: Exciting News: We're Launching Something New! 🎉
 
 Hey there!
 
@@ -183,8 +202,8 @@ Thanks for being part of our community.
 
 [Your Name]
 [Your Business]""",
-            
-            'facebook': """🎯 Special Offer Inside!
+                
+                'facebook': """🎯 Special Offer Inside!
 
 Tired of [common problem]? We've got you covered.
 
@@ -195,8 +214,8 @@ For a limited time, get 25% off our most popular product. It's perfect for [targ
 Limited spots available. Don't miss out! 💪
 
 #Ad #LimitedOffer #SmallBusiness""",
-            
-            'sale': """🔥 FLASH SALE ALERT 🔥
+                
+                'sale': """🔥 FLASH SALE ALERT 🔥
 
 48 Hours Only! Get 30% off everything in our store.
 
@@ -205,8 +224,8 @@ Whether you've been eyeing [Product A] or [Product B], now's your chance to save
 Sale ends Sunday at midnight. Shop now! 🛒
 
 #FlashSale #LimitedTime #SaveBig #ShopNow""",
-            
-            'new': """✨ Something New Has Arrived!
+                
+                'new': """✨ Something New Has Arrived!
 
 We're thrilled to announce our latest addition: [Product/Service Name]
 
@@ -215,8 +234,8 @@ Perfect for anyone who wants [benefit]. This has been months in the making, and 
 Available now—limited quantities! Get yours before they're gone.
 
 #NewArrival #Exciting #SmallBusiness #ShopLocal""",
-            
-            'product': """Introducing: The Game-Changer You've Been Waiting For
+                
+                'product': """Introducing: The Game-Changer You've Been Waiting For
 
 Meet [Product Name]—the solution to [problem].
 
@@ -229,18 +248,18 @@ Made with love for people who care about quality. Only $[Price] for a limited ti
 Ready to upgrade? Link in bio! 🔗
 
 #ProductLaunch #Quality #SmallBusiness"""
-        }
-        
-        # Find matching response
-        content = None
-        for keyword, response in responses.items():
-            if keyword in prompt:
-                content = response
-                break
-        
-        # Default response if no match
-        if not content:
-            content = """✨ Here's Your Content!
+            }
+            
+            # Find matching response
+            content = None
+            for keyword, response in responses.items():
+                if keyword in prompt_lower:
+                    content = response
+                    break
+            
+            # Default response if no match
+            if not content:
+                content = """✨ Here's Your Content!
 
 Based on your request, here's a custom piece of content crafted just for your business.
 
@@ -253,8 +272,12 @@ This would include:
 Sign up to create real content with your actual brand voice! 🚀
 
 #ContentCreation #SmallBusiness #Marketing"""
-        
-        return jsonify({'content': content, 'success': True})
+            
+            return jsonify({'content': content, 'success': True})
+            
+        except Exception as e:
+            logger.error(f"Demo generation error: {e}")
+            return jsonify({'error': 'Something went wrong. Please try again.'}), 500
 
     # Database reset route (for development/staging use only)
     @app.route('/nuke-db')
