@@ -100,7 +100,6 @@ class ScrollManager {
     this.container = document.querySelector(containerSelector);
     this.scrollButton = null;
     this.isAtBottom = true;
-    this.lastScrollTop = 0;
     
     this.init();
   }
@@ -736,12 +735,15 @@ class PromptBox {
   /**
    * Format error message for display to user
    * Extracts specific error messages when available, especially for configuration issues
+   * Note: The 'AI service not configured' check is intentional for UX - it matches the
+   * backend error message to provide actionable feedback to users.
    * @param {Error} error - The error object
    * @returns {string} - User-friendly error message
    */
   formatErrorMessage(error) {
     let errorMessage = 'Sorry, something went wrong. Please try again.';
     if (error.message && error.message.includes('AI service not configured')) {
+      // This matches the backend error from services/profile_expert.py and routes/onboarding_routes.py
       errorMessage = '⚠️ AI service is not configured. Please contact support or check your configuration.';
     } else if (error.message && !error.message.startsWith('API error:')) {
       // Use the specific error message if it's not a generic API error
@@ -914,6 +916,7 @@ class PromptBox {
         }
       } catch (e) {
         // If JSON parsing fails, use generic message
+        console.warn('Failed to parse error response JSON:', e);
       }
       throw new Error(errorMessage);
     }
