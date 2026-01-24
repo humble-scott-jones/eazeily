@@ -89,6 +89,7 @@ const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
 const TYPEWRITER_SPEED_MS = 25; // Milliseconds per character for typewriter effect
 const TYPEWRITER_SHORT_MESSAGE_THRESHOLD = 50; // Messages shorter than this skip typewriter effect
 const AUTO_SCROLL_DELAY_MS = 100; // Delay before auto-scrolling to ensure smooth rendering
+const SEND_MESSAGE_SCROLL_DELAY_MS = 100; // Delay after sending message to ensure DOM updates before scrolling
 
 
 /**
@@ -732,6 +733,23 @@ class PromptBox {
     }
   }
 
+  /**
+   * Format error message for display to user
+   * Extracts specific error messages when available, especially for configuration issues
+   * @param {Error} error - The error object
+   * @returns {string} - User-friendly error message
+   */
+  formatErrorMessage(error) {
+    let errorMessage = 'Sorry, something went wrong. Please try again.';
+    if (error.message && error.message.includes('AI service not configured')) {
+      errorMessage = '⚠️ AI service is not configured. Please contact support or check your configuration.';
+    } else if (error.message && !error.message.startsWith('API error:')) {
+      // Use the specific error message if it's not a generic API error
+      errorMessage = error.message;
+    }
+    return errorMessage;
+  }
+
   async handleSend() {
     const textarea = document.getElementById(`${this.container.id}-textarea`);
     const message = textarea.value.trim();
@@ -748,7 +766,7 @@ class PromptBox {
     this.updateSendButton(textarea, sendBtn);
 
     // Force scroll to bottom after sending message
-    setTimeout(() => this.scrollToBottom(), 100);
+    setTimeout(() => this.scrollToBottom(), SEND_MESSAGE_SCROLL_DELAY_MS);
 
     // Show loading
     this.setLoading(true);
@@ -798,14 +816,7 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      // Display specific error message if available, especially for configuration issues
-      let errorMessage = 'Sorry, something went wrong. Please try again.';
-      if (error.message && error.message.includes('AI service not configured')) {
-        errorMessage = '⚠️ AI service is not configured. Please contact support or check your configuration.';
-      } else if (error.message && !error.message.startsWith('API error:')) {
-        // Use the specific error message if it's not a generic API error
-        errorMessage = error.message;
-      }
+      const errorMessage = this.formatErrorMessage(error);
       await this.addMessage('assistant', errorMessage, true);
     } finally {
       this.setLoading(false);
@@ -823,7 +834,7 @@ class PromptBox {
     this.addMessage('user', message);
 
     // Force scroll to bottom after sending message
-    setTimeout(() => this.scrollToBottom(), 100);
+    setTimeout(() => this.scrollToBottom(), SEND_MESSAGE_SCROLL_DELAY_MS);
 
     // Show loading
     this.setLoading(true);
@@ -868,14 +879,7 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      // Display specific error message if available, especially for configuration issues
-      let errorMessage = 'Sorry, something went wrong. Please try again.';
-      if (error.message && error.message.includes('AI service not configured')) {
-        errorMessage = '⚠️ AI service is not configured. Please contact support or check your configuration.';
-      } else if (error.message && !error.message.startsWith('API error:')) {
-        // Use the specific error message if it's not a generic API error
-        errorMessage = error.message;
-      }
+      const errorMessage = this.formatErrorMessage(error);
       await this.addMessage('assistant', errorMessage, true);
     } finally {
       this.setLoading(false);
