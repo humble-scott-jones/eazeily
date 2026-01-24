@@ -131,15 +131,12 @@ class ScrollManager {
     // Check if user is at bottom (within 100px)
     this.isAtBottom = (scrollHeight - scrollTop - clientHeight) < 100;
     
-    // Show/hide scroll button
+    // Show/hide scroll button - simply show whenever not at bottom
     if (this.isAtBottom) {
       this.scrollButton.classList.remove('visible');
-    } else if (scrollTop < this.lastScrollTop || scrollTop > 100) {
-      // Show button if scrolled up or past 100px
+    } else {
       this.scrollButton.classList.add('visible');
     }
-    
-    this.lastScrollTop = scrollTop;
   }
   
   scrollToBottom(smooth = true) {
@@ -750,6 +747,9 @@ class PromptBox {
     const sendBtn = document.getElementById(`${this.container.id}-send`);
     this.updateSendButton(textarea, sendBtn);
 
+    // Force scroll to bottom after sending message
+    setTimeout(() => this.scrollToBottom(), 100);
+
     // Show loading
     this.setLoading(true);
 
@@ -798,7 +798,15 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+      // Display specific error message if available, especially for configuration issues
+      let errorMessage = 'Sorry, something went wrong. Please try again.';
+      if (error.message && error.message.includes('AI service not configured')) {
+        errorMessage = '⚠️ AI service is not configured. Please contact support or check your configuration.';
+      } else if (error.message && !error.message.startsWith('API error:')) {
+        // Use the specific error message if it's not a generic API error
+        errorMessage = error.message;
+      }
+      await this.addMessage('assistant', errorMessage, true);
     } finally {
       this.setLoading(false);
     }
@@ -813,6 +821,9 @@ class PromptBox {
 
     // Add user message to conversation
     this.addMessage('user', message);
+
+    // Force scroll to bottom after sending message
+    setTimeout(() => this.scrollToBottom(), 100);
 
     // Show loading
     this.setLoading(true);
@@ -857,7 +868,15 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+      // Display specific error message if available, especially for configuration issues
+      let errorMessage = 'Sorry, something went wrong. Please try again.';
+      if (error.message && error.message.includes('AI service not configured')) {
+        errorMessage = '⚠️ AI service is not configured. Please contact support or check your configuration.';
+      } else if (error.message && !error.message.startsWith('API error:')) {
+        // Use the specific error message if it's not a generic API error
+        errorMessage = error.message;
+      }
+      await this.addMessage('assistant', errorMessage, true);
     } finally {
       this.setLoading(false);
     }
@@ -880,7 +899,19 @@ class PromptBox {
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      // Try to parse JSON error response for specific error message
+      let errorMessage = `API error: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.response) {
+          errorMessage = errorData.response;
+        }
+      } catch (e) {
+        // If JSON parsing fails, use generic message
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
