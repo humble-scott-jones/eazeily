@@ -89,6 +89,7 @@ const AI_SUGGESTION_TIMEOUT_MS = 15000; // 15 seconds for AI suggestion calls
 const TYPEWRITER_SPEED_MS = 25; // Milliseconds per character for typewriter effect
 const TYPEWRITER_SHORT_MESSAGE_THRESHOLD = 50; // Messages shorter than this skip typewriter effect
 const AUTO_SCROLL_DELAY_MS = 100; // Delay before auto-scrolling to ensure smooth rendering
+const SEND_MESSAGE_SCROLL_DELAY_MS = 100; // Delay after sending message to ensure DOM updates before scrolling
 
 
 /**
@@ -99,7 +100,6 @@ class ScrollManager {
     this.container = document.querySelector(containerSelector);
     this.scrollButton = null;
     this.isAtBottom = true;
-    this.lastScrollTop = 0;
     
     this.init();
   }
@@ -131,15 +131,12 @@ class ScrollManager {
     // Check if user is at bottom (within 100px)
     this.isAtBottom = (scrollHeight - scrollTop - clientHeight) < 100;
     
-    // Show/hide scroll button
+    // Show/hide scroll button - simply show whenever not at bottom
     if (this.isAtBottom) {
       this.scrollButton.classList.remove('visible');
-    } else if (scrollTop < this.lastScrollTop || scrollTop > 100) {
-      // Show button if scrolled up or past 100px
+    } else {
       this.scrollButton.classList.add('visible');
     }
-    
-    this.lastScrollTop = scrollTop;
   }
   
   scrollToBottom(smooth = true) {
@@ -735,6 +732,26 @@ class PromptBox {
     }
   }
 
+  /**
+   * Format error message for display to user
+   * Extracts specific error messages when available, especially for configuration issues
+   * Note: The 'AI service not configured' check is intentional for UX - it matches the
+   * backend error message to provide actionable feedback to users.
+   * @param {Error} error - The error object
+   * @returns {string} - User-friendly error message
+   */
+  formatErrorMessage(error) {
+    let errorMessage = 'Sorry, something went wrong. Please try again.';
+    if (error.message && error.message.includes('AI service not configured')) {
+      // This matches the backend error from services/profile_expert.py and routes/onboarding_routes.py
+      errorMessage = '⚠️ AI service is not configured. Please contact support or check your configuration.';
+    } else if (error.message && !error.message.startsWith('API error:')) {
+      // Use the specific error message if it's not a generic API error
+      errorMessage = error.message;
+    }
+    return errorMessage;
+  }
+
   async handleSend() {
     const textarea = document.getElementById(`${this.container.id}-textarea`);
     const message = textarea.value.trim();
@@ -749,6 +766,9 @@ class PromptBox {
     this.autoResizeTextarea(textarea);
     const sendBtn = document.getElementById(`${this.container.id}-send`);
     this.updateSendButton(textarea, sendBtn);
+
+    // Force scroll to bottom after sending message
+    setTimeout(() => this.scrollToBottom(), SEND_MESSAGE_SCROLL_DELAY_MS);
 
     // Show loading
     this.setLoading(true);
@@ -798,7 +818,8 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+      const errorMessage = this.formatErrorMessage(error);
+      await this.addMessage('assistant', errorMessage, true);
     } finally {
       this.setLoading(false);
     }
@@ -813,6 +834,9 @@ class PromptBox {
 
     // Add user message to conversation
     this.addMessage('user', message);
+
+    // Force scroll to bottom after sending message
+    setTimeout(() => this.scrollToBottom(), SEND_MESSAGE_SCROLL_DELAY_MS);
 
     // Show loading
     this.setLoading(true);
@@ -857,7 +881,8 @@ class PromptBox {
       }
     } catch (error) {
       console.error('PromptBox error:', error);
-      await this.addMessage('assistant', 'Sorry, something went wrong. Please try again.', true);
+      const errorMessage = this.formatErrorMessage(error);
+      await this.addMessage('assistant', errorMessage, true);
     } finally {
       this.setLoading(false);
     }
@@ -880,7 +905,20 @@ class PromptBox {
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      // Try to parse JSON error response for specific error message
+      let errorMessage = `API error: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (errorData.response) {
+          errorMessage = errorData.response;
+        }
+      } catch (e) {
+        // If JSON parsing fails, use generic message
+        console.warn('Failed to parse error response JSON:', e);
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
