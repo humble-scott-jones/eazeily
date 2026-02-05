@@ -20,8 +20,16 @@ def _is_debug_mode():
     Helper to determine if we're in a non-production environment.
     Returns True if debug mode should be enabled (staging/development/test).
     Returns False for production.
+    
+    Checks are evaluated in order of precedence:
+    1. Flask app DEBUG config (highest priority)
+    2. FLASK_ENV environment variable (development/test/staging)
+    3. ALLOW_DEV_DEBUG flag (explicit override)
+    
+    All checks must explicitly indicate non-production to enable debug mode.
+    Defaults to False (production mode) if none are set.
     """
-    # Check Flask app debug config
+    # Check Flask app debug config (highest priority)
     if current_app.config.get('DEBUG', False):
         return True
     

@@ -125,7 +125,11 @@ def test_profile_load_error_includes_debug_in_staging(authenticated_client, monk
 
 
 def test_profile_load_success_has_no_debug_field(authenticated_client):
-    """Test that successful responses don't have a debug field."""
+    """Test that successful responses don't have a debug field.
+    
+    Note: authenticated_client fixture creates a test user with a profile,
+    so this test will successfully load that profile.
+    """
     # Make a successful request
     response = authenticated_client.get('/api/profile')
     
