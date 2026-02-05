@@ -1,8 +1,9 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, current_app
 from flask_login import login_required, current_user
 from models import db, VoiceProfile
 import logging
 import uuid
+import os
 from services.profile_expert import generate_profile_suggestions, process_raw_audience_input
 from services.profile_validator import get_profile_completeness
 
@@ -12,6 +13,37 @@ logger = logging.getLogger(__name__)
 # Constants for target audience AI processing
 AUDIENCE_AI_LENGTH_THRESHOLD = 100
 AUDIENCE_AI_KEYWORDS = ['website', 'look at', 'look on', 'analyze', 'come up with', 'check my', 'http://', 'https://']
+
+
+def _is_debug_mode():
+    """
+    Helper to determine if we're in a non-production environment.
+    Returns True if debug mode should be enabled (staging/development/test).
+    Returns False for production.
+    
+    Checks are evaluated in order of precedence:
+    1. Flask app DEBUG config (highest priority)
+    2. FLASK_ENV environment variable (development/test/staging)
+    3. ALLOW_DEV_DEBUG flag (explicit override)
+    
+    All checks must explicitly indicate non-production to enable debug mode.
+    Defaults to False (production mode) if none are set.
+    """
+    # Check Flask app debug config (highest priority)
+    if current_app.config.get('DEBUG', False):
+        return True
+    
+    # Check FLASK_ENV environment variable
+    flask_env = os.getenv('FLASK_ENV', '').lower()
+    if flask_env in ('development', 'test', 'staging'):
+        return True
+    
+    # Check for explicit debug flag
+    if os.getenv('ALLOW_DEV_DEBUG', '').strip() == '1':
+        return True
+    
+    # Default to False (production mode)
+    return False
 
 
 @profile_bp.route('/profile')
@@ -160,14 +192,25 @@ def api_profile():
             
         except Exception as e:
             logger.error(f"Error loading profile for user {current_user.id}: {e}", exc_info=True)
-            return jsonify({
+            
+            # Build base error response
+            error_response = {
                 'ok': False,
                 'request_id': request_id,
                 'error': {
                     'code': 'profile_load_error',
                     'message': 'Failed to load profile'
                 }
-            }), 500
+            }
+            
+            # Add debug details in non-production environments
+            if _is_debug_mode():
+                error_response['debug'] = {
+                    'exception_type': type(e).__name__,
+                    'exception_message': str(e)
+                }
+            
+            return jsonify(error_response), 500
     
     elif request.method == 'POST':
         try:

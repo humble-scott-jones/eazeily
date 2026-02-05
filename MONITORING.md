@@ -227,6 +227,69 @@ logger.log('ERROR', 'Payment failed', user_id='user-123', error='card_declined')
 }
 ```
 
+### Enhanced Error Reporting
+
+The application includes environment-aware error reporting to provide detailed diagnostic information in non-production environments while maintaining security in production.
+
+#### Configuration
+
+Error reporting behavior is controlled by environment variables:
+
+- **Development/Staging**: `FLASK_ENV=development` or `FLASK_ENV=staging` or `ALLOW_DEV_DEBUG=1`
+- **Production**: `FLASK_ENV=production` or no flags set
+
+#### Error Response Structure
+
+All error responses include:
+- `ok`: false (indicates error)
+- `request_id`: UUID for tracing
+- `error`: Object with `code` and `message`
+
+In non-production environments, errors also include:
+- `debug`: Object with `exception_type` and `exception_message`
+
+#### Example Error Responses
+
+**Production Environment** (secure, minimal details):
+```json
+{
+  "ok": false,
+  "request_id": "a1b2c3d4-5e6f-7g8h-9i0j-k1l2m3n4o5p6",
+  "error": {
+    "code": "profile_load_error",
+    "message": "Failed to load profile"
+  }
+}
+```
+
+**Development/Staging Environment** (detailed diagnostic info):
+```json
+{
+  "ok": false,
+  "request_id": "a1b2c3d4-5e6f-7g8h-9i0j-k1l2m3n4o5p6",
+  "error": {
+    "code": "profile_load_error",
+    "message": "Failed to load profile"
+  },
+  "debug": {
+    "exception_type": "DatabaseConnectionError",
+    "exception_message": "Connection to database timed out after 30 seconds"
+  }
+}
+```
+
+#### Benefits
+
+- **Faster debugging** in development and staging with full exception details
+- **Secure production** with no sensitive error details exposed to clients
+- **Consistent structure** for error handling across environments
+- **Request tracing** via request_id for correlation with logs
+
+#### Endpoints with Enhanced Error Reporting
+
+- `GET /api/profile` - Profile retrieval with environment-aware error details
+```
+
 ## Distributed Tracing
 
 ### OpenTelemetry Integration
