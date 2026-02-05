@@ -40,3 +40,4 @@ IMPORT_FLOW_IMPLEMENTATION.md
 
 # Manual verification scripts
 manual_verification_*.py
+manual_test_profile_error_reporting.py
