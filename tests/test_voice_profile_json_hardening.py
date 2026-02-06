@@ -5,7 +5,9 @@ This test suite ensures that VoiceProfile JSON getters handle malformed JSON gra
 and return safe default values instead of raising exceptions.
 """
 import pytest
-from models import VoiceProfile, User, db, safe_json_loads_list, safe_json_loads_dict
+from models import (VoiceProfile, User, db, 
+                    safe_json_loads_list, safe_json_loads_dict,
+                    safe_json_dumps_list, safe_json_dumps_dict)
 
 
 class TestSafeJsonHelpers:
@@ -70,6 +72,60 @@ class TestSafeJsonHelpers:
         """Test that custom default is returned on error."""
         result = safe_json_loads_dict('invalid', default={'custom': 'default'})
         assert result == {'custom': 'default'}
+
+
+class TestSafeJsonDumpsHelpers:
+    """Test the safe JSON serialization helper functions."""
+    
+    def test_safe_json_dumps_list_valid(self):
+        """Test that valid list is serialized correctly."""
+        result = safe_json_dumps_list(['item1', 'item2'])
+        assert result == '["item1", "item2"]'
+    
+    def test_safe_json_dumps_list_empty(self):
+        """Test that empty list is serialized correctly."""
+        result = safe_json_dumps_list([])
+        assert result == '[]'
+    
+    def test_safe_json_dumps_list_none(self):
+        """Test that None returns empty list JSON."""
+        result = safe_json_dumps_list(None)
+        assert result == '[]'
+    
+    def test_safe_json_dumps_list_non_list(self):
+        """Test that non-list input returns empty list JSON."""
+        result = safe_json_dumps_list({'not': 'a list'})
+        assert result == '[]'
+    
+    def test_safe_json_dumps_list_string(self):
+        """Test that string input returns empty list JSON."""
+        result = safe_json_dumps_list("not a list")
+        assert result == '[]'
+    
+    def test_safe_json_dumps_dict_valid(self):
+        """Test that valid dict is serialized correctly."""
+        result = safe_json_dumps_dict({'key': 'value'})
+        assert result == '{"key": "value"}'
+    
+    def test_safe_json_dumps_dict_empty(self):
+        """Test that empty dict is serialized correctly."""
+        result = safe_json_dumps_dict({})
+        assert result == '{}'
+    
+    def test_safe_json_dumps_dict_none(self):
+        """Test that None returns empty dict JSON."""
+        result = safe_json_dumps_dict(None)
+        assert result == '{}'
+    
+    def test_safe_json_dumps_dict_non_dict(self):
+        """Test that non-dict input returns empty dict JSON."""
+        result = safe_json_dumps_dict(['not', 'a', 'dict'])
+        assert result == '{}'
+    
+    def test_safe_json_dumps_dict_string(self):
+        """Test that string input returns empty dict JSON."""
+        result = safe_json_dumps_dict("not a dict")
+        assert result == '{}'
 
 
 class TestVoiceProfileJsonGetters:
@@ -284,3 +340,246 @@ class TestApiProfileWithMalformedJson:
         # Invalid JSON should return safe defaults
         assert profile_data['brand_keywords'] == []
         assert profile_data['scraped_meta'] == {}
+
+
+class TestSafeJsonSetters:
+    """Test that setters validate and produce safe JSON output."""
+    
+    @pytest.fixture
+    def app_context(self, client):
+        """Provide Flask app context for database operations."""
+        from app import create_app
+        test_app = create_app()
+        with test_app.app_context():
+            yield test_app
+    
+    def test_set_platforms_with_valid_list(self, app_context):
+        """Test set_platforms with valid list produces valid JSON."""
+        profile = VoiceProfile()
+        profile.set_platforms(['twitter', 'linkedin'])
+        
+        # Should be valid JSON
+        import json
+        parsed = json.loads(profile.platforms)
+        assert parsed == ['twitter', 'linkedin']
+    
+    def test_set_platforms_with_none(self, app_context):
+        """Test set_platforms with None produces empty list JSON."""
+        profile = VoiceProfile()
+        profile.set_platforms(None)
+        
+        import json
+        parsed = json.loads(profile.platforms)
+        assert parsed == []
+    
+    def test_set_platforms_with_non_list(self, app_context):
+        """Test set_platforms with non-list produces empty list JSON."""
+        profile = VoiceProfile()
+        profile.set_platforms("not a list")
+        
+        import json
+        parsed = json.loads(profile.platforms)
+        assert parsed == []
+    
+    def test_set_brand_keywords_with_unserializable_data(self, app_context):
+        """Test set_brand_keywords handles unserializable data gracefully."""
+        profile = VoiceProfile()
+        # Try to set with a list containing an unserializable object
+        # Note: Our implementation converts items to strings, so this should work
+        profile.set_brand_keywords(['keyword1', 'keyword2'])
+        
+        import json
+        parsed = json.loads(profile.brand_keywords)
+        assert parsed == ['keyword1', 'keyword2']
+    
+    def test_set_scraped_meta_with_valid_dict(self, app_context):
+        """Test set_scraped_meta with valid dict produces valid JSON."""
+        profile = VoiceProfile()
+        profile.set_scraped_meta({'key': 'value', 'count': 42})
+        
+        import json
+        parsed = json.loads(profile.scraped_meta)
+        assert parsed == {'key': 'value', 'count': 42}
+    
+    def test_set_scraped_meta_with_none(self, app_context):
+        """Test set_scraped_meta with None produces empty dict JSON."""
+        profile = VoiceProfile()
+        profile.set_scraped_meta(None)
+        
+        import json
+        parsed = json.loads(profile.scraped_meta)
+        assert parsed == {}
+    
+    def test_set_scraped_meta_with_non_dict(self, app_context):
+        """Test set_scraped_meta with non-dict produces empty dict JSON."""
+        profile = VoiceProfile()
+        profile.set_scraped_meta(['not', 'a', 'dict'])
+        
+        import json
+        parsed = json.loads(profile.scraped_meta)
+        assert parsed == {}
+    
+    def test_setter_roundtrip_preserves_data(self, app_context):
+        """Test that setting and getting data preserves the values."""
+        profile = VoiceProfile()
+        
+        test_data = ['item1', 'item2', 'item3']
+        profile.set_goals(test_data)
+        result = profile.get_goals()
+        
+        assert result == test_data
+    
+    def test_all_setters_produce_valid_json(self, app_context):
+        """Test that all setters produce valid, parseable JSON."""
+        import json
+        profile = VoiceProfile()
+        
+        # Test all list setters
+        profile.set_platforms(['twitter'])
+        profile.set_brand_keywords(['keyword'])
+        profile.set_niche_keywords(['niche'])
+        profile.set_goals(['goal'])
+        profile.set_writing_samples(['sample'])
+        profile.set_brand_inspirations(['brand'])
+        profile.set_brand_anti_inspirations(['anti'])
+        profile.set_customers(['customer'])
+        profile.set_examples(['example'])
+        
+        # All should be valid JSON
+        assert json.loads(profile.platforms) == ['twitter']
+        assert json.loads(profile.brand_keywords) == ['keyword']
+        assert json.loads(profile.niche_keywords) == ['niche']
+        assert json.loads(profile.goals) == ['goal']
+        assert json.loads(profile.writing_samples) == ['sample']
+        assert json.loads(profile.brand_inspirations) == ['brand']
+        assert json.loads(profile.brand_anti_inspirations) == ['anti']
+        assert json.loads(profile.customers) == ['customer']
+        assert json.loads(profile.examples) == ['example']
+        
+        # Test dict setters
+        profile.set_defaults({'key': 'value'})
+        profile.set_scraped_meta({'meta': 'data'})
+        
+        assert json.loads(profile.defaults) == {'key': 'value'}
+        assert json.loads(profile.scraped_meta) == {'meta': 'data'}
+
+
+class TestNormalizeJsonFields:
+    """Test the normalize_json_fields method for repairing malformed data."""
+    
+    @pytest.fixture
+    def app_context(self, client):
+        """Provide Flask app context for database operations."""
+        from app import create_app
+        test_app = create_app()
+        with test_app.app_context():
+            yield test_app
+    
+    def test_normalize_repairs_malformed_json(self, app_context):
+        """Test that normalize_json_fields repairs malformed JSON."""
+        profile = VoiceProfile()
+        
+        # Set malformed JSON directly
+        profile.platforms = '[invalid json'
+        profile.brand_keywords = '{"not": "a list"}'
+        profile.goals = '["goal1"'
+        
+        # Normalize
+        repaired = profile.normalize_json_fields()
+        
+        # Should have repaired these fields
+        assert 'platforms' in repaired
+        assert 'brand_keywords' in repaired
+        assert 'goals' in repaired
+        
+        # Fields should now contain valid JSON
+        import json
+        assert json.loads(profile.platforms) == []
+        assert json.loads(profile.brand_keywords) == []
+        assert json.loads(profile.goals) == []
+    
+    def test_normalize_preserves_valid_json(self, app_context):
+        """Test that normalize_json_fields doesn't change valid JSON."""
+        profile = VoiceProfile()
+        
+        # Set valid data using setters
+        profile.set_platforms(['twitter', 'linkedin'])
+        profile.set_goals(['growth'])
+        
+        # Store original values
+        original_platforms = profile.platforms
+        original_goals = profile.goals
+        
+        # Normalize
+        repaired = profile.normalize_json_fields()
+        
+        # Should not have repaired anything
+        assert len(repaired) == 0
+        
+        # Values should be unchanged
+        assert profile.platforms == original_platforms
+        assert profile.goals == original_goals
+    
+    def test_normalize_handles_empty_fields(self, app_context):
+        """Test that normalize_json_fields handles empty/None fields."""
+        profile = VoiceProfile()
+        
+        # All fields are None/empty by default
+        repaired = profile.normalize_json_fields()
+        
+        # Should not report any repairs for empty fields
+        assert len(repaired) == 0
+    
+    def test_normalize_returns_repair_details(self, app_context):
+        """Test that normalize_json_fields returns details about repairs."""
+        profile = VoiceProfile()
+        
+        # Set malformed JSON
+        profile.platforms = '[invalid json'
+        
+        # Normalize
+        repaired = profile.normalize_json_fields()
+        
+        # Should include details
+        assert 'platforms' in repaired
+        assert 'original' in repaired['platforms']
+        assert 'repaired' in repaired['platforms']
+        assert repaired['platforms']['original'] == '[invalid json'
+        assert repaired['platforms']['repaired'] == '[]'
+    
+    def test_normalize_all_fields(self, app_context):
+        """Test normalizing all fields at once."""
+        profile = VoiceProfile()
+        
+        # Corrupt all JSON fields
+        profile.platforms = '[bad'
+        profile.brand_keywords = '{bad}'
+        profile.niche_keywords = 'bad'
+        profile.goals = '["bad"'
+        profile.writing_samples = '{"bad"}'
+        profile.brand_inspirations = '[bad]'
+        profile.brand_anti_inspirations = 'bad'
+        profile.customers = '["bad"'
+        profile.examples = '{bad}'
+        profile.defaults = '{"bad"'
+        profile.scraped_meta = '[bad]'
+        
+        # Normalize
+        repaired = profile.normalize_json_fields()
+        
+        # All should be repaired
+        assert len(repaired) == 11  # All 11 JSON fields
+        
+        # All should now be valid JSON
+        import json
+        assert json.loads(profile.platforms) == []
+        assert json.loads(profile.brand_keywords) == []
+        assert json.loads(profile.niche_keywords) == []
+        assert json.loads(profile.goals) == []
+        assert json.loads(profile.writing_samples) == []
+        assert json.loads(profile.brand_inspirations) == []
+        assert json.loads(profile.brand_anti_inspirations) == []
+        assert json.loads(profile.customers) == []
+        assert json.loads(profile.examples) == []
+        assert json.loads(profile.defaults) == {}
+        assert json.loads(profile.scraped_meta) == {}

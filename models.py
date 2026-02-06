@@ -69,6 +69,64 @@ def safe_json_loads_dict(json_str, default=None):
         logger.warning(f"Failed to parse JSON as dict: {e}, returning default")
         return default
 
+
+def safe_json_dumps_list(data):
+    """
+    Safely serialize list to JSON string, ensuring valid JSON output.
+    
+    Args:
+        data: Data to serialize (should be a list)
+        
+    Returns:
+        Valid JSON string representation of the list, or '[]' if input is invalid
+    """
+    # Normalize to list
+    if data is None:
+        return json.dumps([])
+    
+    if not isinstance(data, list):
+        logger.warning(f"Expected list for JSON serialization but got {type(data).__name__}, storing empty list")
+        return json.dumps([])
+    
+    try:
+        # Attempt to serialize
+        result = json.dumps(data)
+        # Validate it can be parsed back
+        json.loads(result)
+        return result
+    except (TypeError, ValueError, json.JSONDecodeError) as e:
+        logger.error(f"Failed to serialize data to JSON: {e}, storing empty list")
+        return json.dumps([])
+
+
+def safe_json_dumps_dict(data):
+    """
+    Safely serialize dict to JSON string, ensuring valid JSON output.
+    
+    Args:
+        data: Data to serialize (should be a dict)
+        
+    Returns:
+        Valid JSON string representation of the dict, or '{}' if input is invalid
+    """
+    # Normalize to dict
+    if data is None:
+        return json.dumps({})
+    
+    if not isinstance(data, dict):
+        logger.warning(f"Expected dict for JSON serialization but got {type(data).__name__}, storing empty dict")
+        return json.dumps({})
+    
+    try:
+        # Attempt to serialize
+        result = json.dumps(data)
+        # Validate it can be parsed back
+        json.loads(result)
+        return result
+    except (TypeError, ValueError, json.JSONDecodeError) as e:
+        logger.error(f"Failed to serialize data to JSON: {e}, storing empty dict")
+        return json.dumps({})
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -220,20 +278,20 @@ class VoiceProfile(db.Model):
     scrape_status = db.Column(db.String(50), default='none')  # Status: none, pending, finished, failed
     
     def set_defaults(self, defaults_dict):
-        self.defaults = json.dumps(defaults_dict)
+        self.defaults = safe_json_dumps_dict(defaults_dict)
 
     def get_defaults(self):
         return safe_json_loads_dict(self.defaults)
 
     def set_examples(self, examples_list):
-        self.examples = json.dumps(examples_list)
+        self.examples = safe_json_dumps_list(examples_list)
 
     def get_examples(self):
         return safe_json_loads_list(self.examples)
     
     def set_writing_samples(self, samples_list):
         """Set writing samples from a list."""
-        self.writing_samples = json.dumps(samples_list)
+        self.writing_samples = safe_json_dumps_list(samples_list)
     
     def get_writing_samples(self):
         """Get writing samples as a list."""
@@ -241,7 +299,7 @@ class VoiceProfile(db.Model):
     
     def set_platforms(self, platforms_list):
         """Set platforms from a list."""
-        self.platforms = json.dumps(platforms_list)
+        self.platforms = safe_json_dumps_list(platforms_list)
     
     def get_platforms(self):
         """Get platforms as a list."""
@@ -249,7 +307,7 @@ class VoiceProfile(db.Model):
     
     def set_brand_keywords(self, keywords_list):
         """Set brand keywords from a list."""
-        self.brand_keywords = json.dumps(keywords_list)
+        self.brand_keywords = safe_json_dumps_list(keywords_list)
     
     def get_brand_keywords(self):
         """Get brand keywords as a list."""
@@ -257,7 +315,7 @@ class VoiceProfile(db.Model):
     
     def set_niche_keywords(self, keywords_list):
         """Set niche keywords from a list."""
-        self.niche_keywords = json.dumps(keywords_list)
+        self.niche_keywords = safe_json_dumps_list(keywords_list)
     
     def get_niche_keywords(self):
         """Get niche keywords as a list."""
@@ -265,7 +323,7 @@ class VoiceProfile(db.Model):
     
     def set_goals(self, goals_list):
         """Set goals from a list."""
-        self.goals = json.dumps(goals_list)
+        self.goals = safe_json_dumps_list(goals_list)
     
     def get_goals(self):
         """Get goals as a list."""
@@ -273,7 +331,7 @@ class VoiceProfile(db.Model):
     
     def set_brand_inspirations(self, inspirations_list):
         """Set brand inspirations from a list."""
-        self.brand_inspirations = json.dumps(inspirations_list)
+        self.brand_inspirations = safe_json_dumps_list(inspirations_list)
     
     def get_brand_inspirations(self):
         """Get brand inspirations as a list."""
@@ -281,7 +339,7 @@ class VoiceProfile(db.Model):
     
     def set_brand_anti_inspirations(self, anti_inspirations_list):
         """Set brand anti-inspirations from a list."""
-        self.brand_anti_inspirations = json.dumps(anti_inspirations_list)
+        self.brand_anti_inspirations = safe_json_dumps_list(anti_inspirations_list)
     
     def get_brand_anti_inspirations(self):
         """Get brand anti-inspirations as a list."""
@@ -289,7 +347,7 @@ class VoiceProfile(db.Model):
     
     def set_customers(self, customers_list):
         """Set customers from a list."""
-        self.customers = json.dumps(customers_list)
+        self.customers = safe_json_dumps_list(customers_list)
     
     def get_customers(self):
         """Get customers as a list."""
@@ -297,7 +355,7 @@ class VoiceProfile(db.Model):
     
     def set_scraped_meta(self, meta_dict):
         """Set scraped metadata from a dict."""
-        self.scraped_meta = json.dumps(meta_dict)
+        self.scraped_meta = safe_json_dumps_dict(meta_dict)
     
     def get_scraped_meta(self):
         """Get scraped metadata as a dict."""
@@ -317,6 +375,68 @@ class VoiceProfile(db.Model):
         """
         defaults = self.get_defaults()
         return defaults.get('style_guide') if defaults else None
+    
+    def normalize_json_fields(self):
+        """
+        Normalize all JSON fields to ensure they contain valid JSON.
+        
+        This method repairs any malformed JSON by:
+        1. Reading the field with safe parsing (returns default on error)
+        2. Re-saving with safe serialization (ensures valid JSON)
+        
+        Should be called during database migrations or maintenance to fix
+        corrupted data. Returns a dict with the fields that were repaired.
+        """
+        repaired = {}
+        
+        # List of (field_name, getter, setter) tuples
+        json_fields = [
+            ('platforms', self.get_platforms, self.set_platforms),
+            ('brand_keywords', self.get_brand_keywords, self.set_brand_keywords),
+            ('niche_keywords', self.get_niche_keywords, self.set_niche_keywords),
+            ('goals', self.get_goals, self.set_goals),
+            ('writing_samples', self.get_writing_samples, self.set_writing_samples),
+            ('brand_inspirations', self.get_brand_inspirations, self.set_brand_inspirations),
+            ('brand_anti_inspirations', self.get_brand_anti_inspirations, self.set_brand_anti_inspirations),
+            ('customers', self.get_customers, self.set_customers),
+            ('examples', self.get_examples, self.set_examples),
+        ]
+        
+        dict_fields = [
+            ('defaults', self.get_defaults, self.set_defaults),
+            ('scraped_meta', self.get_scraped_meta, self.set_scraped_meta),
+        ]
+        
+        # Process list fields
+        for field_name, getter, setter in json_fields:
+            original_value = getattr(self, field_name)
+            if original_value:
+                # Get the value (which uses safe parsing)
+                parsed_value = getter()
+                # Re-serialize it (which ensures valid JSON)
+                setter(parsed_value)
+                # Check if it changed
+                new_value = getattr(self, field_name)
+                if original_value != new_value:
+                    repaired[field_name] = {
+                        'original': original_value[:100] if len(original_value) > 100 else original_value,
+                        'repaired': new_value[:100] if len(new_value) > 100 else new_value
+                    }
+        
+        # Process dict fields
+        for field_name, getter, setter in dict_fields:
+            original_value = getattr(self, field_name)
+            if original_value:
+                parsed_value = getter()
+                setter(parsed_value)
+                new_value = getattr(self, field_name)
+                if original_value != new_value:
+                    repaired[field_name] = {
+                        'original': original_value[:100] if len(original_value) > 100 else original_value,
+                        'repaired': new_value[:100] if len(new_value) > 100 else new_value
+                    }
+        
+        return repaired
 
 
 class ContentHistory(db.Model):
