@@ -3,9 +3,71 @@ from flask_login import UserMixin
 from flask_bcrypt import Bcrypt
 from datetime import datetime
 import json
+import logging
 
 db = SQLAlchemy()
 bcrypt = Bcrypt()
+
+# Configure logger for safe JSON parsing
+logger = logging.getLogger(__name__)
+
+
+def safe_json_loads_list(json_str, default=None):
+    """
+    Safely parse JSON string to a list, returning default on error.
+    
+    Args:
+        json_str: JSON string to parse
+        default: Default value to return on error (defaults to empty list)
+        
+    Returns:
+        Parsed list or default value (empty list if not specified)
+    """
+    if default is None:
+        default = []
+    
+    if not json_str:
+        return default
+    
+    try:
+        result = json.loads(json_str)
+        # Ensure result is a list
+        if not isinstance(result, list):
+            logger.warning(f"Expected list but got {type(result).__name__}, returning default")
+            return default
+        return result
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        logger.warning(f"Failed to parse JSON as list: {e}, returning default")
+        return default
+
+
+def safe_json_loads_dict(json_str, default=None):
+    """
+    Safely parse JSON string to a dict, returning default on error.
+    
+    Args:
+        json_str: JSON string to parse
+        default: Default value to return on error (defaults to empty dict)
+        
+    Returns:
+        Parsed dict or default value (empty dict if not specified)
+    """
+    if default is None:
+        default = {}
+    
+    if not json_str:
+        return default
+    
+    try:
+        result = json.loads(json_str)
+        # Ensure result is a dict
+        if not isinstance(result, dict):
+            logger.warning(f"Expected dict but got {type(result).__name__}, returning default")
+            return default
+        return result
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        logger.warning(f"Failed to parse JSON as dict: {e}, returning default")
+        return default
 
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
@@ -161,13 +223,13 @@ class VoiceProfile(db.Model):
         self.defaults = json.dumps(defaults_dict)
 
     def get_defaults(self):
-        return json.loads(self.defaults) if self.defaults else {}
+        return safe_json_loads_dict(self.defaults)
 
     def set_examples(self, examples_list):
         self.examples = json.dumps(examples_list)
 
     def get_examples(self):
-        return json.loads(self.examples) if self.examples else []
+        return safe_json_loads_list(self.examples)
     
     def set_writing_samples(self, samples_list):
         """Set writing samples from a list."""
@@ -175,7 +237,7 @@ class VoiceProfile(db.Model):
     
     def get_writing_samples(self):
         """Get writing samples as a list."""
-        return json.loads(self.writing_samples) if self.writing_samples else []
+        return safe_json_loads_list(self.writing_samples)
     
     def set_platforms(self, platforms_list):
         """Set platforms from a list."""
@@ -183,7 +245,7 @@ class VoiceProfile(db.Model):
     
     def get_platforms(self):
         """Get platforms as a list."""
-        return json.loads(self.platforms) if self.platforms else []
+        return safe_json_loads_list(self.platforms)
     
     def set_brand_keywords(self, keywords_list):
         """Set brand keywords from a list."""
@@ -191,7 +253,7 @@ class VoiceProfile(db.Model):
     
     def get_brand_keywords(self):
         """Get brand keywords as a list."""
-        return json.loads(self.brand_keywords) if self.brand_keywords else []
+        return safe_json_loads_list(self.brand_keywords)
     
     def set_niche_keywords(self, keywords_list):
         """Set niche keywords from a list."""
@@ -199,7 +261,7 @@ class VoiceProfile(db.Model):
     
     def get_niche_keywords(self):
         """Get niche keywords as a list."""
-        return json.loads(self.niche_keywords) if self.niche_keywords else []
+        return safe_json_loads_list(self.niche_keywords)
     
     def set_goals(self, goals_list):
         """Set goals from a list."""
@@ -207,7 +269,7 @@ class VoiceProfile(db.Model):
     
     def get_goals(self):
         """Get goals as a list."""
-        return json.loads(self.goals) if self.goals else []
+        return safe_json_loads_list(self.goals)
     
     def set_brand_inspirations(self, inspirations_list):
         """Set brand inspirations from a list."""
@@ -215,7 +277,7 @@ class VoiceProfile(db.Model):
     
     def get_brand_inspirations(self):
         """Get brand inspirations as a list."""
-        return json.loads(self.brand_inspirations) if self.brand_inspirations else []
+        return safe_json_loads_list(self.brand_inspirations)
     
     def set_brand_anti_inspirations(self, anti_inspirations_list):
         """Set brand anti-inspirations from a list."""
@@ -223,7 +285,7 @@ class VoiceProfile(db.Model):
     
     def get_brand_anti_inspirations(self):
         """Get brand anti-inspirations as a list."""
-        return json.loads(self.brand_anti_inspirations) if self.brand_anti_inspirations else []
+        return safe_json_loads_list(self.brand_anti_inspirations)
     
     def set_customers(self, customers_list):
         """Set customers from a list."""
@@ -231,7 +293,7 @@ class VoiceProfile(db.Model):
     
     def get_customers(self):
         """Get customers as a list."""
-        return json.loads(self.customers) if self.customers else []
+        return safe_json_loads_list(self.customers)
     
     def set_scraped_meta(self, meta_dict):
         """Set scraped metadata from a dict."""
@@ -239,7 +301,7 @@ class VoiceProfile(db.Model):
     
     def get_scraped_meta(self):
         """Get scraped metadata as a dict."""
-        return json.loads(self.scraped_meta) if self.scraped_meta else {}
+        return safe_json_loads_dict(self.scraped_meta)
     
     @property
     def style_guide(self):
