@@ -187,6 +187,21 @@ class TestVoiceProfileJsonGetters:
         profile.examples = '["example1", "example2"'
         result = profile.get_examples()
         assert result == []
+    
+    def test_style_guide_property_with_malformed_defaults(self, app_context):
+        """Test style_guide property returns None when defaults is malformed."""
+        profile = VoiceProfile()
+        profile.defaults = '{"style_guide": "test"'  # Malformed JSON
+        result = profile.style_guide
+        # Should return None since get_defaults() returns {} for malformed JSON
+        assert result is None
+    
+    def test_style_guide_property_with_valid_defaults(self, app_context):
+        """Test style_guide property works with valid defaults."""
+        profile = VoiceProfile()
+        profile.defaults = '{"style_guide": "Be concise and clear"}'
+        result = profile.style_guide
+        assert result == "Be concise and clear"
 
 
 class TestApiProfileWithMalformedJson:
@@ -238,6 +253,8 @@ class TestApiProfileWithMalformedJson:
         assert profile_data['brand_anti_inspirations'] == []
         assert profile_data['customers'] == []
         assert profile_data['scraped_meta'] == {}
+        # Note: defaults and examples are not directly exposed in /api/profile response,
+        # but they are tested through unit tests in TestVoiceProfileJsonGetters
     
     def test_api_profile_get_with_partial_malformed_json(self, authenticated_client):
         """Test that /api/profile GET handles mix of valid and malformed JSON."""
