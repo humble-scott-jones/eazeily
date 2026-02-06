@@ -11,6 +11,9 @@ bcrypt = Bcrypt()
 # Configure logger for safe JSON parsing
 logger = logging.getLogger(__name__)
 
+# Maximum length for logging truncated values
+MAX_LOG_LENGTH = 100
+
 
 def safe_json_loads_list(json_str, default=None):
     """
@@ -419,8 +422,8 @@ class VoiceProfile(db.Model):
                 new_value = getattr(self, field_name)
                 if original_value != new_value:
                     repaired[field_name] = {
-                        'original': original_value[:100] if len(original_value) > 100 else original_value,
-                        'repaired': new_value[:100] if len(new_value) > 100 else new_value
+                        'original': original_value[:MAX_LOG_LENGTH] if len(original_value) > MAX_LOG_LENGTH else original_value,
+                        'repaired': new_value[:MAX_LOG_LENGTH] if len(new_value) > MAX_LOG_LENGTH else new_value
                     }
         
         # Process dict fields
@@ -432,8 +435,8 @@ class VoiceProfile(db.Model):
                 new_value = getattr(self, field_name)
                 if original_value != new_value:
                     repaired[field_name] = {
-                        'original': original_value[:100] if len(original_value) > 100 else original_value,
-                        'repaired': new_value[:100] if len(new_value) > 100 else new_value
+                        'original': original_value[:MAX_LOG_LENGTH] if len(original_value) > MAX_LOG_LENGTH else original_value,
+                        'repaired': new_value[:MAX_LOG_LENGTH] if len(new_value) > MAX_LOG_LENGTH else new_value
                     }
         
         return repaired

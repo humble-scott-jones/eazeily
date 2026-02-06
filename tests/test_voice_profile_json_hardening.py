@@ -4,6 +4,7 @@ Tests for VoiceProfile JSON getter hardening.
 This test suite ensures that VoiceProfile JSON getters handle malformed JSON gracefully
 and return safe default values instead of raising exceptions.
 """
+import json
 import pytest
 from models import (VoiceProfile, User, db, 
                     safe_json_loads_list, safe_json_loads_dict,
@@ -359,7 +360,6 @@ class TestSafeJsonSetters:
         profile.set_platforms(['twitter', 'linkedin'])
         
         # Should be valid JSON
-        import json
         parsed = json.loads(profile.platforms)
         assert parsed == ['twitter', 'linkedin']
     
@@ -368,7 +368,6 @@ class TestSafeJsonSetters:
         profile = VoiceProfile()
         profile.set_platforms(None)
         
-        import json
         parsed = json.loads(profile.platforms)
         assert parsed == []
     
@@ -377,18 +376,14 @@ class TestSafeJsonSetters:
         profile = VoiceProfile()
         profile.set_platforms("not a list")
         
-        import json
         parsed = json.loads(profile.platforms)
         assert parsed == []
     
-    def test_set_brand_keywords_with_unserializable_data(self, app_context):
-        """Test set_brand_keywords handles unserializable data gracefully."""
+    def test_set_brand_keywords_with_valid_list(self, app_context):
+        """Test set_brand_keywords stores valid list data correctly."""
         profile = VoiceProfile()
-        # Try to set with a list containing an unserializable object
-        # Note: Our implementation converts items to strings, so this should work
         profile.set_brand_keywords(['keyword1', 'keyword2'])
         
-        import json
         parsed = json.loads(profile.brand_keywords)
         assert parsed == ['keyword1', 'keyword2']
     
@@ -397,7 +392,6 @@ class TestSafeJsonSetters:
         profile = VoiceProfile()
         profile.set_scraped_meta({'key': 'value', 'count': 42})
         
-        import json
         parsed = json.loads(profile.scraped_meta)
         assert parsed == {'key': 'value', 'count': 42}
     
@@ -406,7 +400,6 @@ class TestSafeJsonSetters:
         profile = VoiceProfile()
         profile.set_scraped_meta(None)
         
-        import json
         parsed = json.loads(profile.scraped_meta)
         assert parsed == {}
     
@@ -415,7 +408,6 @@ class TestSafeJsonSetters:
         profile = VoiceProfile()
         profile.set_scraped_meta(['not', 'a', 'dict'])
         
-        import json
         parsed = json.loads(profile.scraped_meta)
         assert parsed == {}
     
@@ -431,7 +423,6 @@ class TestSafeJsonSetters:
     
     def test_all_setters_produce_valid_json(self, app_context):
         """Test that all setters produce valid, parseable JSON."""
-        import json
         profile = VoiceProfile()
         
         # Test all list setters
@@ -493,7 +484,6 @@ class TestNormalizeJsonFields:
         assert 'goals' in repaired
         
         # Fields should now contain valid JSON
-        import json
         assert json.loads(profile.platforms) == []
         assert json.loads(profile.brand_keywords) == []
         assert json.loads(profile.goals) == []
@@ -571,7 +561,6 @@ class TestNormalizeJsonFields:
         assert len(repaired) == 11  # All 11 JSON fields
         
         # All should now be valid JSON
-        import json
         assert json.loads(profile.platforms) == []
         assert json.loads(profile.brand_keywords) == []
         assert json.loads(profile.niche_keywords) == []
